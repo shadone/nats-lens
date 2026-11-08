@@ -10,6 +10,8 @@ The Findings page lists the findings of the time range, filtered by severity, st
 
 ## Behavior and rules
 
+- **Finding prompt.** Desktop finding details and the phone on-call card offer a labeled **Copy as prompt** action for firing, resolved, and muted findings. The prompt includes the loaded finding and check IDs, its typed entity, selected UTC window, and a bounded observed summary. It leaves acknowledgement and mute state untouched. Context, untrusted evidence, and clipboard fallback follow [agent investigations](agent-investigations.md).
+
 - **Replay finding context.** Desktop details offer "Replay this window" around the latest recorded transition, first sighting or resolution in the selected range, with explicit fixed times. This is surrounding observation context, not a claimed episode duration. Missing timing has an explanation instead of a link; the newest 100 transitions can omit older episodes. [Replay](replay.md) gives the context, historical-range, retention and missing-evidence rules.
 
 - **Acknowledgements.** The [phone card and acknowledgement dialog](mobile.md) record who works on a finding. Acknowledging keeps the finding visible and counted; a mute hides it.

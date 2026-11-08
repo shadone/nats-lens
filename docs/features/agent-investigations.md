@@ -10,7 +10,9 @@ A user can activate **Copy as prompt** on a page or chart and paste the complete
 
 ## Behavior and rules
 
-- **Portable context.** The page action records a version, deployment origin, system, account, explicit UTC interval, known resource identity, URL-backed filters including Findings and Events defaults, and source path. A chart action records its label and every available API series identity, including both traffic directions and both asset metrics. Unknown metric identities have explicit reasons. Stream mini-charts retain the API-provided history end and observed collection reference. The chart's selected point survives moving focus to its action. A focused shared chart copies the prompt with C. Compact copy actions remain independently clickable beside charts and above stretched navigation links.
+- **Portable context.** The page action records a version, deployment origin, system, account, explicit UTC interval, known resource identity, URL-backed filters including Findings and Events defaults, and source path. A chart action records its label and every available API series identity, including both traffic directions and both asset metrics. Unknown metric identities have explicit reasons. Stream mini-charts retain the API-provided history end and observed collection reference. The chart's selected point survives moving focus to its action. A focused shared chart copies the prompt with C. Floating chart actions appear on hover or keyboard focus, and stay visible on touch devices. They reserve no plot width and remain independently clickable above stretched navigation links. The Busiest consumers action floats in the Consumer cell, retaining the Range chart’s point and series context.
+- **Finding prompts.** Desktop finding details and the phone on-call card expose a labeled **Copy as prompt** action. It includes the loaded finding ID, check, typed resource, selected UTC window, and a bounded summary labeled as untrusted UI evidence. The loaded ID takes precedence over a route alias, and evidence references are not duplicated. Resolved and muted findings retain the action. Copying does not acknowledge or mute a finding.
+- **Readout placement.** Shared chart readings use a viewport-bounded overlay independent of plot width and table or card clipping. Readings follow scroll and resize, wrap long text, and dismiss on mouse leave, Escape, blur, or unmount. Displayed values retain their existing bucket and missing-sample meaning.
 - **Scope precedence.** A selected chart or route resource owns its compound account/stream identity ahead of retained page filters. URL imports infer only selectors used by that page: Consumers uses the selected stream account; Events uses consumer, then stream, then server. Explicit account flags override imported request scope where the RPC has an account field; explicit request-file fields win last. Repeated preparation does not depend on filter-map order.
 - **Clock.** Offline default and relative ranges use the newest completed collection, with capture/export times reported separately. A zero-duration collection adds one microsecond only to a derived exclusive query end; the observed clock and explicit fixed endpoints stay exact. No completed reference clock produces `no_reference_clock`, never today's time. A live page freezes its interval using the UI's existing server-adjusted clock. A URL imported by the terminal resolves live time from the selected system's server clock. Fixed intervals retain their UTC bounds.
 - **Deliberate copy.** One activation copies a ready-to-paste prompt and confirms success. The prompt includes the unchanged portable JSON context and a bounded read-only discovery and query workflow. A clipboard failure opens the complete selectable prompt with a retry action. The UI never sends context or evidence to an agent service automatically.
@@ -98,6 +100,22 @@ A user can activate **Copy as prompt** on a page or chart and paste the complete
 - **Then** a dialog contains the complete selectable prompt and a retry action
 - **And** closing the dialog restores focus to the control that opened it.
 - **And** a late result from an older copy cannot replace the latest prompt or reopen a dismissed fallback.
+
+### Copy a consumer row without reducing its chart
+
+- **Surfaces:** `ui`
+- **Given** Overview shows a busiest-consumer row
+- **When** I inspect a Range point and move to the row’s **Copy as prompt** action
+- **Then** the action appears in the Consumer cell without changing the Range width
+- **And** the prompt retains the consumer identity, delivery metric, window, and selected point.
+
+### Copy a loaded finding on desktop or phone
+
+- **Surfaces:** `ui`
+- **Given** a firing, resolved, or muted finding is loaded
+- **When** I activate its labeled **Copy as prompt** action
+- **Then** the prompt includes one authoritative finding reference, its check and typed entity, and the selected UTC window
+- **And** observed summary text stays untrusted evidence, without asserting a cause or exact onset.
 
 ## Not supported / out of scope
 
