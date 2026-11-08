@@ -27,3 +27,7 @@ Accessible cross-page title links; complete metric detail pages; useful sortable
 ## Server page slice
 
 CPU, memory, connection counts and both traffic-rate directions now have shared metric routes, pre-bucket summaries, twelve-name comparison pages, fixed-range findings/events, selected server histories and interval navigation. Storage and detections reuse specialist destinations. The inventory read remains separate and unbounded by this page-size policy. Remaining whole-task work includes resource metric pages, complete metric-family title coverage, traffic volumes where supported, global contributor ranking and broader historical/process identity evidence. Do not close the umbrella task on this slice.
+
+## Resource page slice
+
+Stream messages/logical bytes/observed replica bytes/ingestion and consumer pending/ack-pending/redelivered/delivery now have native observation pages. One twelve-resource summary page precedes a maximum twelve-series history batch; returned continuation bounds are authoritative. Explicit historical resources do not depend on current inventory. Shared detail chart titles, selected intervals, copied context and fixed resource evidence retain identities. No global metric ranking, exact traffic volume or individual KV/object measurement is claimed. Remaining inventory includes aggregate server/asset/account counts and meta-change destinations, broader cross-resource ranking and traffic volume support.

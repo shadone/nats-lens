@@ -10,7 +10,7 @@ Select time on a storage chart, then choose whether to change the page range or 
 
 ## Behavior and rules
 
-- Supported server metric titles and selected intervals lead to [metric investigations](metric-investigations.md), preserving system, range and reported server scope. Storage and detections reuse specialist pages.
+- Supported server and resource metric titles and selected intervals lead to [metric investigations](metric-investigations.md), preserving system, range and reported server scope. Storage and detections reuse specialist pages.
 
 
 - Drag horizontally in either direction to highlight time. A shared dialog shows editable UTC endpoints and the captured system/account scope. The selection uses the chart frame at gesture start; refreshing the chart does not move the endpoints or close the dialog.
