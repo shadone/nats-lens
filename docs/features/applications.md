@@ -10,6 +10,8 @@ The Applications page groups the client connections of a system by the applicati
 
 ## Behavior and rules
 
+- **First visit.** The page reads data for the current scope while its view loads. The shell stays available, with loading and reload recovery described in [navigation](navigation.md).
+
 - **Replay context.** “Replay this window” opens fixed A and B from the selected range, using at most its last 24 hours and ending no later than now. The page explains that Replay covers all accounts and compares observed libraries alongside system-wide reconnects, findings and server upgrades. Library changes do not prove an application deployment. Replay collection evidence links back with an exact application-name filter and account scope; summary cards still cover the account scope. When the application is absent or outside the first 500 listed, the page explains that it is not listed. See [replay.md](replay.md) for comparison coverage and limits.
 
 - **One collection.** The page reads the newest collection at or before the end of the range. The 24-hour counts cover the 24 hours before that collection, and the traffic the 24 whole hours before the collection's hour. The line under the title reads, for example, "Client connections grouped by the application in their name. 187 connections, 10 applications, in the collection of 14:29:56 UTC." A past range works as a live one. A range without a collection says "No collection in this range."

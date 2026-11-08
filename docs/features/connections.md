@@ -10,6 +10,8 @@ The Connections page lists the client connections of the newest collection in th
 
 ## Behavior and rules
 
+- **First visit.** The page reads data for the current scope while its view loads. The shell stays available, with loading and reload recovery described in [navigation](navigation.md).
+
 - **One row per connection.** A connection is identified by its server and connection ID. The list shows the connections of the newest collection in the range, 100 per page.
 - **Columns.** Name (a link to that client's events), finding status and links, server and connection ID, client library and version, account and user, address, time connected, time idle, round trip time, pending bytes, messages in and out, stalls and subscriptions. Pending bytes and stalls above zero are marked.
 - **Finding status and direct links.** Each row links applicable client findings in the selected range, including resolved and muted findings, with the state returned by the findings API. `client-001` (RTT) and `client-008` (library) match the service before the first `@`; `client-002` to `client-005` match the full connection name. `client-007` applies to an empty service name. Credential-keyed authentication findings (`client-006`) are not inferred from a connection name. A service finding covers its pods; it does not claim that every pod violates the check. Proposed, not yet confirmed.

@@ -10,7 +10,7 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 ## Behavior and rules
 
-- **Page loading and recovery.** Pages load their code when needed. While a page loads, the sidebar and header remain available, and a polite status announces “Loading page…”. If the page code fails, the page shows an alert and a **Reload page** link. The link reloads the full current address, including its range, system, account, and fragment. Navigating to another page clears the error for that destination.
+- **Page loading and recovery.** Accounts, Applications, Connections, Data history, Micro services, Placement, Replay and Topology load their views when needed. Their scoped primary data reads start while the view code loads; other pages are available with the shell. While a view loads, the sidebar and header remain available, and a polite status announces “Loading page…”. If the view code fails, the page shows an alert and a **Reload page** link. The link reloads the full current address, including its range, system, account, and fragment. Navigating to another page clears the error for that destination.
 
 - **Bucket links.** KV and object-store links open dedicated bucket routes across resource surfaces. Legacy storage-stream links redirect to the bucket page with their query context; an explicitly labeled secondary action retains access to low-level stream diagnostics. See [KV and object stores](kv-and-object-stores.md).
 
@@ -50,9 +50,9 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 - **Finding links from alerts.** `/findings/by-labels` reads URL-encoded `system`, `code`, and `entity_key`, then replaces the route with `/findings/<id>?system=<id>`. A missing finding opens Findings filtered to its check, with an explanation that it may have resolved and been swept. Both destinations retain the global time range, system, and account, dropping label-routing and unknown parameters. Other API failures remain errors. The same canonical finding URL shows the [phone card](mobile.md) at 760 px and below.
 ## Scenarios
 
-### Continue navigating while a page loads
+### Continue navigating while a view loads
 
-- **Given** the code for the destination page has not arrived
+- **Given** the destination is one of the views that load on demand, and its code has not arrived
 - **When** I open that page
 - **Then** the sidebar and header remain available, and “Loading page…” is announced
 - **And** the destination appears when its code arrives
