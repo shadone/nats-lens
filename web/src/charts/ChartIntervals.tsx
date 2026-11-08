@@ -52,7 +52,7 @@ interface Gesture {key:string;scope:string;target:HTMLDivElement;pointerId:numbe
 export function useChartIntervalInteraction({label,start,end,source,enabled}:{label:string;start:number;end:number;source?:InvestigationSelection;enabled?:boolean}){
  const host=useContext(IntervalHost),chartId=useId();const frame={start,end};const eligible=!!host&&validChartFrame(frame)&&(enabled??supportsStorageChange(source));
  const key=JSON.stringify([host?.scope,label,source?.metric,source?.entity?.key,source?.series?.map(x=>[x.metric,x.entity?.key])]);
- const gesture=useRef<Gesture|undefined>(undefined);const keyboard=useRef<number|undefined>(undefined);const blockClick=useRef(0);const [draft,setDraft]=useState<{key:string;range:ChartInterval}>();
+ const gesture=useRef<Gesture|undefined>(undefined);const keyboard=useRef<{anchor:number;cursor:number;frame:ChartInterval;step:number}|undefined>(undefined);const blockClick=useRef(0);const [draft,setDraft]=useState<{key:string;range:ChartInterval;frame:ChartInterval}>();
  const release=(g:Gesture)=>{try{if(g.target.hasPointerCapture?.(g.pointerId))g.target.releasePointerCapture(g.pointerId)}catch{/* Pointer already ended. */}};
  const cancel=()=>{const g=gesture.current;gesture.current=undefined;keyboard.current=undefined;setDraft(undefined);if(g){if(g.moved)blockClick.current=performance.now()+500;release(g)}};
  useLayoutEffect(()=>{cancel()},[key]);
@@ -63,8 +63,8 @@ export function useChartIntervalInteraction({label,start,end,source,enabled}:{la
  const selected=draft?.key===key?draft.range:host?.selection?.chartId===chartId?host.selection.highlight:undefined;
  return {highlight:selected,active:!!selected||!!host?.selection,
   picker:()=>{const range=chartInterval(start,end,frame);if(range)show(range)},
-  down:(e:PointerEvent<HTMLDivElement>)=>{if(e.isPrimary===false||e.button!==0||e.ctrlKey||e.metaKey)return;blockClick.current=0;const box=e.currentTarget.getBoundingClientRect();if(box.width<=0)return;gesture.current={key,scope:host!.scope,target:e.currentTarget,pointerId:e.pointerId,x:e.clientX,y:e.clientY,left:box.left,width:box.width,frame,moved:false};keyboard.current=undefined;setDraft(undefined)},
-  move:(e:PointerEvent<HTMLDivElement>)=>{const g=gesture.current;if(!g||g.pointerId!==e.pointerId||g.key!==key)return;const dx=e.clientX-g.x,dy=e.clientY-g.y;if(!g.moved&&Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>=4&&e.pointerType==="touch"){cancel();return}if(Math.abs(dx)<4&&!g.moved)return;if(!g.moved){g.moved=true;g.target.focus({preventScroll:true});try{g.target.setPointerCapture?.(g.pointerId)}catch{/* Inspection still works without capture. */}}e.preventDefault();const range=chartInterval(time(g.x,g),time(e.clientX,g),g.frame);setDraft(range?{key,range}:undefined)},
+  down:(e:PointerEvent<HTMLDivElement>)=>{blockClick.current=0;if(e.isPrimary===false||e.button!==0||e.ctrlKey||e.metaKey)return;blockClick.current=0;const box=e.currentTarget.getBoundingClientRect();if(box.width<=0)return;gesture.current={key,scope:host!.scope,target:e.currentTarget,pointerId:e.pointerId,x:e.clientX,y:e.clientY,left:box.left,width:box.width,frame,moved:false};keyboard.current=undefined;setDraft(undefined)},
+  move:(e:PointerEvent<HTMLDivElement>)=>{const g=gesture.current;if(!g||g.pointerId!==e.pointerId||g.key!==key)return;const dx=e.clientX-g.x,dy=e.clientY-g.y;if(!g.moved&&Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>=4&&e.pointerType==="touch"){cancel();return}if(Math.abs(dx)<4&&!g.moved)return;if(!g.moved){g.moved=true;g.target.focus({preventScroll:true});try{g.target.setPointerCapture?.(g.pointerId)}catch{/* Inspection still works without capture. */}}e.preventDefault();const range=chartInterval(time(g.x,g),time(e.clientX,g),g.frame);setDraft(range?{key,range,frame:g.frame}:undefined)},
   up:(e:PointerEvent<HTMLDivElement>)=>{const g=gesture.current;if(!g||g.pointerId!==e.pointerId)return;gesture.current=undefined;release(g);if(g.key!==key||g.scope!==host!.scope)return;if(Math.abs(e.clientX-g.x)<4&&!g.moved)return;blockClick.current=performance.now()+500;const range=chartInterval(time(g.x,g),time(e.clientX,g),g.frame);if(range)show(range,g.frame)},
   cancel:()=>{if(gesture.current)cancel()},
   click:(e:MouseEvent<HTMLDivElement>)=>{if(blockClick.current>performance.now()){blockClick.current=0;e.preventDefault();e.stopPropagation()}},
@@ -72,8 +72,8 @@ export function useChartIntervalInteraction({label,start,end,source,enabled}:{la
    if(e.target!==e.currentTarget)return false;
    if(e.key==="Escape"){cancel();return false}
    const direction=e.key==="ArrowRight"||e.key==="ArrowUp"?1:e.key==="ArrowLeft"||e.key==="ArrowDown"?-1:0;
-   if(e.shiftKey&&direction){keyboard.current??=current;const range=chartInterval(keyboard.current,current+direction*step,frame);setDraft(range?{key,range}:undefined);return false}
-   if(e.key==="Enter"){e.preventDefault();const range=selected??chartInterval(Math.max(start,Math.min(current,end-step)),Math.min(end,Math.max(current+step,start+step)),frame);if(range)show(range);return true}
+   if(e.shiftKey&&direction){const k=keyboard.current??={anchor:current,cursor:current,frame,step};k.cursor=Math.max(k.frame.start,Math.min(k.frame.end,k.cursor+direction*k.step));const range=chartInterval(k.anchor,k.cursor,k.frame);setDraft(range?{key,range,frame:k.frame}:undefined);return false}
+   if(e.key==="Enter"){e.preventDefault();const range=selected??chartInterval(Math.max(start,Math.min(current,end-step)),Math.min(end,Math.max(current+step,start+step)),frame);if(range)show(range,draft?.key===key?draft.frame:frame);return true}
    if(direction||e.key==="Home"||e.key==="End"){keyboard.current=undefined;setDraft(undefined)}
    return false;
   }
