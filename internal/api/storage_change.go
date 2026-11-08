@@ -24,9 +24,10 @@ const MaxStorageChangePageBytes = 512 << 10
 // StorageChangeFacts contains endpoint-pinned facts before ranking and paging.
 // Providers leave missing measurements unset and qualify observed absence.
 type StorageChangeFacts struct {
-	A, B    *v1.StorageChangeEndpoint
-	Rows    []*v1.StorageChangeRow
-	Reasons []string
+	LocalOnly bool
+	A, B      *v1.StorageChangeEndpoint
+	Rows      []*v1.StorageChangeRow
+	Reasons   []string
 }
 
 type storageCursor struct {
@@ -182,6 +183,10 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 		q.Set("epochB", strconv.FormatInt(f.B.Epoch, 10))
 	}
 	res.InvestigationUrl = "/capacity/storage-change?" + q.Encode()
+	if f.LocalOnly {
+		res.InvestigationUrl = ""
+		res.Reasons = append(res.Reasons, "offline_ui_unavailable")
+	}
 	if proto.Size(res) > MaxStorageChangePageBytes {
 		return nil, fmt.Errorf("%w: storage page exceeds byte budget; reduce page_size", ErrResourceExhausted)
 	}
