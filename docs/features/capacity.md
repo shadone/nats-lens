@@ -12,6 +12,8 @@ Shared storage charts offer portable [agent investigation context](agent-investi
 
 ## Behavior and rules
 
+- **Chart descriptions.** Expanded histories and compact resource-column histories use [shared chart help](chart-help.md), with logical resource and observed replica measurements kept distinct.
+
 - **Missing growth history.** One page note explains the six-hour requirement and links to Data history. Server cards say “growth unavailable”; unset table rates remain unknown. The note distinguishes short retained history from missing boundary observations or entity measurements. A shorter range asks for at least six hours. The age of retained history never supplies a countdown. Storage charts remain available independently of growth eligibility and share collection-history overlays. Forecast confidence margins are not shown.
 
 - **The newest collection of the range.** The page reads the newest collection at or before the end of the range, and names it in the line under the header with the number of resources and stores and since when growth is read ("growth from 2026-10-20 12:00 UTC"), or an explanation of the history needed when no card or row has a rate. Growth follows the bounded observation policy on the [Streams page](streams.md). The page discloses the lookback and collection bounds; an individual entity can have a shorter span. Without a collection the page says "No collection in this range." and nothing else.

@@ -10,6 +10,8 @@ Data history shows when a system’s stored history begins, coverage and gaps in
 
 ## Behavior and rules
 
+- **Chart descriptions.** The gap strip has [chart help](chart-help.md) distinguishing capture coverage from NATS availability.
+
 - **First visit.** The page reads data for the current scope while its view loads. The shell stays available, with loading and reload recovery described in [navigation](navigation.md).
 
 - **One system and range.** Data history sits under Cluster, after Accounts, at `/data-history`. It reads the chosen system and global range, without an account filter. Coverage and gaps describe the range; history start, retention, archive, and findings already true at the start describe the system. The summary names the collection stop when known and the oldest event when it differs from the oldest collection by more than one interval.

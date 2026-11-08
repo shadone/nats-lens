@@ -10,6 +10,8 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 
 ## Behavior and rules
 
+- **Chart descriptions.** Detail charts and Overview delivery histories use [shared chart help](chart-help.md), with the recorded metric definition and units.
+
 - **The leader's view where it matters.** Pending and waiting come from the leader only, because followers report zero for both. Ack pending, redelivered, the leader and the last delivery fall back to a follower's report when no leader reports. A dash means the value was not observed, for example pending on a consumer without a leader report; it never stands for zero.
 - **Durables by default.** "Include ephemeral and ordered" adds the consumers without a durable name, such as KV watchers.
 - **Filter by stream.** A stream selector limits the list to one stream's consumers. Its choices are the range's streams, read when the page opens. Unlike the list they are not refreshed every 30 seconds, nor when the window regains focus: they are read again when the page is opened more than five minutes after the last successful read, when the network comes back after that, when the system or range changes, or on a reload. If a read fails, the selector keeps the streams it last read; if none was ever read, it offers only "All streams" (and the chosen stream, if any) and tries again the next time the page opens. The consumers are still listed.
