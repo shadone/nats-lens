@@ -150,3 +150,25 @@ func TestTypedKeyOwnsResourceProjectionAndLinks(t *testing.T) {
 		})
 	}
 }
+
+func TestFindingEvidenceProvesOnCallProjection(t *testing.T) {
+	c, _ := ContextFromURL("https://lens.example.com/findings/consumer-001%3AAPP%2Forders%2Fworker?system=shop", "https://lens.example.com", fixtureNow())
+	req, _, err := Prepare("GetOnCall", c, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		FindingID string `json:"findingId"`
+	}
+	json.Unmarshal(req, &got)
+	if got.FindingID != "consumer-001:APP/orders/worker" {
+		t.Fatalf("finding route identity missing: %s", req)
+	}
+	_, limits, err := effectiveContext("GetOnCall", c, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(limits) != 0 {
+		t.Fatal(limits)
+	}
+}
