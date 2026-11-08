@@ -24,3 +24,8 @@ it("does not describe missing retained evidence as a healthy interval",()=>{
  render(<MemoryRouter><TimelineFindingRange from={from} end={end}/></MemoryRouter>);
  expect(screen.getByText(/Evidence may have expired or not been captured/)).toBeInTheDocument();
 });
+it("uses the selected resource account for a broader findings link",()=>{
+ vi.mocked(useFindings).mockReturnValue({data:{items:[],totalCount:0,nextPageToken:""},isPending:false,error:null} as unknown as ReturnType<typeof useFindings>);
+ render(<MemoryRouter><TimelineFindingRange from={from} end={end} entity={{kind:"consumer",key:"OTHER/orders/worker",name:"worker",account:"OTHER",stream:"orders",consumer:"worker",server:""}}/></MemoryRouter>);
+ const u=new URL(screen.getByRole('link',{name:'Open system-wide findings page'}).getAttribute('href')!,'http://example.com');expect(u.searchParams.get('account')).toBe('OTHER');
+});
