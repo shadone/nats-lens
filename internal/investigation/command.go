@@ -238,6 +238,10 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 			overrides[k], _ = json.Marshal(v)
 		}
 	}
+	// Explicit flags replace imported scope; request-file fields remain strongest.
+	if *account != "" {
+		setDefault("account", *account)
+	}
 	setDefault(pageSizeField(method), *pageSize)
 	setDefault("maxPoints", *maxPoints)
 	if *token != "" {
