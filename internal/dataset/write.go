@@ -173,7 +173,7 @@ func Acquire(ctx context.Context, st *store.Store, destination string, system Sy
 	}
 	// Opening rechecks hashes/provenance, exact schema checksums, engine and every
 	// stored column, using the same reader as offline consumers.
-	d, err := Open(work, stage)
+	d, err := openPrepared(work, stage, true)
 	if err != nil {
 		return Manifest{}, acquisitionError(work, err)
 	}
