@@ -54,3 +54,5 @@ button.timeline-mark { padding: 0; border: 0; color: inherit; font: inherit; cur
 .timeline-mark:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 button.timeline-mark::after { content: ""; position: absolute; inset: -4px; }
 .timeline-mark { cursor: help; }
+
+.timeline-details { display: grid; gap: var(--sp-3); overflow-wrap: anywhere; }
