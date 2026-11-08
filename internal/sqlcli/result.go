@@ -3,7 +3,7 @@ package sqlcli
 import (
 	"bytes"
 	"context"
-	"database/sql"
+	"database/sql/driver"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -126,19 +126,53 @@ func Execute(ctx context.Context, path, query string, o Options) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("duckdb", path+"?access_mode=read_only")
+	connector, err := duckdb.NewConnector(path+"?access_mode=read_only", nil)
 	if err != nil {
 		return nil, diagnostic("source_unavailable", "Cannot open database read-only (lock, version or file error)", "Select a validated consistent snapshot; do not copy a live database file alone or repair the source.")
 	}
-	defer db.Close()
-	rows, err := db.QueryContext(ctx, query)
+	defer connector.Close()
+	conn, err := connector.Connect(ctx)
+	if err != nil {
+		return nil, queryError(ctx)
+	}
+	defer conn.Close()
+	// Preparing through the pinned native API exposes nested logical aliases that
+	// database/sql's type-name strings omit. PrepareContext executes preceding
+	// statements exactly once, as the driver's QueryContext does; no SQL rewriting.
+	prepared, err := conn.(driver.ConnPrepareContext).PrepareContext(ctx, query)
+	if err != nil {
+		return nil, queryError(ctx)
+	}
+	defer prepared.Close()
+	stmt := prepared.(*duckdb.Stmt)
+	n, err := stmt.ColumnCount()
+	if err != nil {
+		return nil, queryError(ctx)
+	}
+	if o.Format == "json" {
+		for i := 0; i < n; i++ {
+			info, e := stmt.ColumnTypeInfo(i)
+			if e != nil {
+				return nil, queryError(ctx)
+			}
+			if hasJSONAlias(info) {
+				return nil, diagnostic("unsupported_type", "DuckDB JSON values cannot be returned losslessly by the pinned driver", "Explicitly cast JSON values, including nested members, to VARCHAR or BLOB in the trusted SQL.")
+			}
+		}
+	}
+	rows, err := stmt.QueryContext(ctx, nil)
 	if err != nil {
 		return nil, queryError(ctx)
 	}
 	defer rows.Close()
-	types, err := rows.ColumnTypes()
-	if err != nil {
-		return nil, queryError(ctx)
+	names := rows.Columns()
+	types := make([]column, len(names))
+	meta := rows.(driver.RowsColumnTypeDatabaseTypeName)
+	for i, name := range names {
+		if !utf8.ValidString(name) {
+			return nil, queryError(ctx)
+		}
+		types[i] = column{name, meta.ColumnTypeDatabaseTypeName(i)}
 	}
 	r := result{Version: 1, Columns: make([]column, len(types)), Rows: make([]json.RawMessage, 0)}
 	r.Source.Kind = "database"
@@ -149,7 +183,7 @@ func Execute(ctx context.Context, path, query string, o Options) ([]byte, error)
 	r.Limits.OutputBytes = o.MaxBytes
 	r.Limits.Timeout = o.Timeout.String()
 	for i, c := range types {
-		r.Columns[i] = column{c.Name(), c.DatabaseTypeName()}
+		r.Columns[i] = c
 	}
 	var table limitedBuffer
 	table.limit = o.MaxBytes
@@ -157,28 +191,28 @@ func Execute(ctx context.Context, path, query string, o Options) ([]byte, error)
 	if o.Format == "table" {
 		names := make([]string, len(types))
 		for i, c := range types {
-			names[i] = c.Name()
+			names[i] = c.Name
 		}
 		if _, err = fmt.Fprintln(tw, strings.Join(names, "\t")); err != nil {
 			return nil, outputLimit()
 		}
 	}
-	vals := make([]any, len(types))
-	ptrs := make([]any, len(types))
-	for i := range vals {
-		ptrs[i] = &vals[i]
-	}
+	vals := make([]driver.Value, len(types))
 	count, used := 0, 0
-	for rows.Next() {
+	for {
+		err = rows.Next(vals)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, queryError(ctx)
+		}
 		if ctx.Err() != nil {
 			return nil, queryError(ctx)
 		}
 		if count == o.MaxRows {
 			r.Truncated = true
 			break
-		}
-		if err = rows.Scan(ptrs...); err != nil {
-			return nil, queryError(ctx)
 		}
 		if o.Format == "json" {
 			normalized := make([]any, len(vals))
@@ -207,12 +241,6 @@ func Execute(ctx context.Context, path, query string, o Options) ([]byte, error)
 			}
 		}
 		count++
-	}
-	if err = rows.Err(); err != nil {
-		return nil, queryError(ctx)
-	}
-	if err = rows.Close(); err != nil {
-		return nil, queryError(ctx)
 	}
 	if ctx.Err() != nil {
 		return nil, queryError(ctx)
@@ -378,4 +406,34 @@ func Write(out io.Writer, b []byte) error {
 		return diagnostic("output_failed", "Output write failed; discard any received bytes", "Retry with -output and a new destination file.")
 	}
 	return nil
+}
+
+// The driver unmarshals JSON through float64, losing numeric precision and
+// duplicate object keys. Its nested type-name strings hide JSON as VARCHAR.
+// Reject aliases recursively rather than guessing from values or rewriting SQL.
+func hasJSONAlias(info duckdb.TypeInfo) bool {
+	if info.Alias() == "JSON" {
+		return true
+	}
+	switch d := info.Details().(type) {
+	case *duckdb.ListDetails:
+		return hasJSONAlias(d.Child)
+	case *duckdb.ArrayDetails:
+		return hasJSONAlias(d.Child)
+	case *duckdb.MapDetails:
+		return hasJSONAlias(d.Key) || hasJSONAlias(d.Value)
+	case *duckdb.StructDetails:
+		for _, e := range d.Entries {
+			if hasJSONAlias(e.Info()) {
+				return true
+			}
+		}
+	case *duckdb.UnionDetails:
+		for _, m := range d.Members {
+			if hasJSONAlias(m.Type) {
+				return true
+			}
+		}
+	}
+	return false
 }
