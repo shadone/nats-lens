@@ -16,6 +16,9 @@ import (
 )
 
 func Open(ctx context.Context, selection investigation.OfflineSelection) (*investigation.Session, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if (selection.DB == "") == (selection.Bundle == "") {
 		return nil, errors.New("choose exactly one offline source")
 	}
@@ -24,13 +27,15 @@ func Open(ctx context.Context, selection investigation.OfflineSelection) (*inves
 	var provenance any
 	var system dataset.System
 	var version string
+	var fingerprint string
 	var err error
 	if selection.Bundle != "" {
 		d, e := dataset.Open(ctx, selection.Bundle)
 		if e != nil {
-			return nil, sourceError(e)
+			return nil, sourceError(ctx, e)
 		}
 		db, bounds, system, version = d.DB, d.Manifest.Boundaries, d.Manifest.System, d.Manifest.ApplicationVersion
+		fingerprint = d.Manifest.Data.SHA256
 		provenance = map[string]any{"manifest": d.Manifest, "identity": "captured manifest", "limitations": limitations}
 	} else {
 		if selection.System == "" || selection.Interval <= 0 {
@@ -38,15 +43,20 @@ func Open(ctx context.Context, selection investigation.OfflineSelection) (*inves
 		}
 		db, err = dataset.OpenDatabase(ctx, selection.DB)
 		if err != nil {
-			return nil, sourceError(err)
+			return nil, sourceError(ctx, err)
+		}
+		fingerprint, err = dataset.FingerprintDatabase(ctx, selection.DB)
+		if err != nil {
+			db.Close()
+			return nil, sourceError(ctx, err)
 		}
 		bounds, err = dataset.InspectDatabase(ctx, db)
 		if err != nil {
 			db.Close()
-			return nil, sourceError(err)
+			return nil, sourceError(ctx, err)
 		}
 		system = dataset.System{ID: selection.System, CollectionIntervalNS: int64(selection.Interval)}
-		provenance = map[string]any{"identity": "operator-supplied system assertion; original configured identity is unavailable", "system": system, "boundaries": bounds, "captureStartedAt": nil, "exportedAt": nil, "limitations": limitations}
+		provenance = map[string]any{"fingerprint": fingerprint, "identity": "operator-supplied system assertion; original configured identity is unavailable", "system": system, "boundaries": bounds, "captureStartedAt": nil, "exportedAt": nil, "limitations": limitations}
 	}
 	fail := func(err error) (*investigation.Session, error) { db.Close(); return nil, err }
 	if bounds.DataReference == nil || bounds.DataReference.IsZero() {
@@ -55,9 +65,9 @@ func Open(ctx context.Context, selection investigation.OfflineSelection) (*inves
 	if bounds.LastCollectionStartedAt == nil || !bounds.DataReference.After(*bounds.LastCollectionStartedAt) {
 		return fail(&investigation.Diagnostic{Code: "no_reference_clock", Message: "dataset collection reference must follow its half-open sample boundary"})
 	}
-	p, err := storeprov.NewCaptured(ctx, db, time.Duration(system.CollectionIntervalNS), *bounds.DataReference)
+	p, err := storeprov.NewCaptured(ctx, db, time.Duration(system.CollectionIntervalNS), *bounds.DataReference, fingerprint)
 	if err != nil {
-		return fail(sourceError(err))
+		return fail(sourceError(ctx, err))
 	}
 	if system.RetentionNS != nil {
 		p.Retention = time.Duration(*system.RetentionNS)
@@ -75,7 +85,10 @@ var limitations = []string{
 	"No remote UI serves this dataset; reuse context with the same offline source and retrieve typed evidence IDs",
 }
 
-func sourceError(err error) error {
+func sourceError(ctx context.Context, err error) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
