@@ -25,7 +25,7 @@ it("shows pinned windows, signed known contributions and unknown evidence distin
  expect(lens.getStorageChange).toHaveBeenCalledWith(expect.objectContaining({a:stamp(from),b:stamp(to),account:"APP",system:"example-prod"}),expect.anything());
 });
 it("continues only the pinned comparison and exposes all-match counts",async()=>{
- const second=response();second.rows=[{id:"last",rowKind:"resource",account:"APP",stream:"last",storage:"file",delta:{logical:1n}}];second.nextPageToken="";
+ const second=response();second.rows=create(GetStorageChangeResponseSchema,{rows:[{id:"last",rowKind:"resource",account:"APP",stream:"last",storage:"file",delta:{logical:1n}}]}).rows;second.nextPageToken="";
  vi.mocked(lens.getStorageChange).mockImplementation(async req=>req.pageToken?second:response());renderApp(<StorageChange/>,route);
  await screen.findByText("Showing 1–2 of 3 rows");await waitFor(()=>expect(screen.getByTestId("location").textContent).toContain("epochB=9007199254740994"));
  fireEvent.click(screen.getByRole("button",{name:"Next contributors"}));expect(await screen.findByRole("link",{name:"last"})).toBeInTheDocument();

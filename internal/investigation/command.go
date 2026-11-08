@@ -556,7 +556,7 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			if method == "GetEvent" {
 				applied = put("id", v)
 			}
-		case "a", "b":
+		case "a", "b", "epochA", "epochB":
 			applied = put(k, v)
 		}
 		if !applied {

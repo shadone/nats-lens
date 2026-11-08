@@ -60,7 +60,7 @@ const MaxInputBytes = 64 << 10
 const MaxRange = 30 * 24 * time.Hour
 
 var metricPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$`)
-var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset")
+var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB")
 
 func validText(s string, n int) bool {
 	if !utf8.ValidString(s) || len(s) > n {
@@ -123,7 +123,9 @@ func supportedPath(p string) bool {
 		return false
 	}
 	switch parts[0] {
-	case "", "fleet", "capacity", "data-history", "replay", "topology", "placement", "connections", "accounts", "subjects", "micro-services", "applications":
+	case "capacity":
+		return len(parts) == 1 || len(parts) == 2 && parts[1] == "storage-change"
+	case "", "fleet", "data-history", "replay", "topology", "placement", "connections", "accounts", "subjects", "micro-services", "applications":
 		return len(parts) == 1
 	case "servers", "findings", "checks":
 		return len(parts) <= 2
