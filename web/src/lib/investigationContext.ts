@@ -33,9 +33,11 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  const series=refs?.map(ref=>({label:ref.label,metric:ref.metric,entity:portableEntity(ref.entity),...(ref.metric?{}:{unavailableReason:"Metric identity is unavailable from this chart data"})}));
  const primary=series?.find(ref=>ref.metric);
  let entity=portableEntity(s?.entity)??primary?.entity??routeEntity(pathname);
- if(!entity&&params.get("server"))entity={type:"ENTITY_TYPE_SERVER",key:params.get("server")!,server:params.get("server")!};
+ // Selected chart/route identities outrank retained selectors. Query-only
+ // contexts use the same consumer > stream > server precedence as Events.
+ if(!entity&&params.get("consumer")){const key=params.get("consumer")!,p=key.split("/");if(p.length===3)entity={type:"ENTITY_TYPE_CONSUMER",key,account:p[0],stream:p[1],consumer:p[2]}}
  if(!entity&&params.get("stream")){const key=params.get("stream")!,p=key.split("/");if(p.length===2)entity={type:"ENTITY_TYPE_STREAM",key,account:p[0],stream:p[1]}}
- if(params.get("consumer")){const key=params.get("consumer")!,p=key.split("/");if(p.length===3)entity={type:"ENTITY_TYPE_CONSUMER",key,account:p[0],stream:p[1],consumer:p[2]}}
+ if(!entity&&params.get("server"))entity={type:"ENTITY_TYPE_SERVER",key:params.get("server")!,server:params.get("server")!};
  const evidence:{kind:string;id:string}[]=[...(s?.evidence??[])];
  if(pathname.startsWith("/findings/")&&pathname!=="/findings/by-labels")evidence.push({kind:"finding",id:decodeURIComponent(pathname.slice("/findings/".length))});
  if(pathname==="/events"&&params.get("id"))evidence.push({kind:"event",id:params.get("id")!});
