@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -276,5 +277,33 @@ func TestReviewNullAndDuplicateRequiredValues(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+func TestReviewRejectsCaseFoldedFieldAliases(t *testing.T) {
+	path, m := acquireFixture(t)
+	baseline, _ := json.Marshal(m)
+	for _, tc := range []struct{ section, key string }{{"", "application_version"}, {"system", "id"}, {"boundaries", "check_runs"}, {"data", "path"}} {
+		t.Run(tc.section+"/"+tc.key, func(t *testing.T) {
+			var top map[string]json.RawMessage
+			json.Unmarshal(baseline, &top)
+			target := top
+			if tc.section != "" {
+				target = map[string]json.RawMessage{}
+				json.Unmarshal(top[tc.section], &target)
+			}
+			target[strings.ToUpper(tc.key)] = target[tc.key]
+			if tc.section != "" {
+				top[tc.section], _ = json.Marshal(target)
+			}
+			b, _ := json.Marshal(top)
+			if err := os.WriteFile(filepath.Join(path, ManifestFile), b, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if d, err := Open(context.Background(), path); err == nil {
+				d.Close()
+				t.Fatal("noncanonical case-folded field alias accepted")
+			}
+		})
 	}
 }
