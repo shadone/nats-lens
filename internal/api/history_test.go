@@ -375,3 +375,24 @@ func TestDataHistoryNewestOmittedCollectionGap(t *testing.T) {
 		t.Fatal("exactly 200 must not claim omissions")
 	}
 }
+
+// Connections lost together are one events row, which names the first
+// connection lost; the UI's "Connection sys was lost" relies on that.
+func TestDataHistoryEventsRowNamesFirstConnection(t *testing.T) {
+	f := hFacts()
+	f.Events = []*v1.Event{
+		hEvent("1", "collector.disconnected", hAt(10, 0), hAt(10, 0), `{"connection":"sys"}`),
+		hEvent("2", "collector.disconnected", hAt(10, 1), hAt(10, 1), `{"connection":"js"}`),
+		hEvent("3", "collector.reconnected", hAt(10, 2), hAt(10, 2), `{"connection":"sys"}`),
+		hEvent("4", "collector.reconnected", hAt(10, 3), hAt(10, 3), `{"connection":"js"}`),
+	}
+	var rows []*v1.HistoryGap
+	for _, g := range api.FinishDataHistory(f).GetGaps() {
+		if g.GetKind() == v1.HistoryGapKind_HISTORY_GAP_KIND_EVENTS_NOT_CAPTURED {
+			rows = append(rows, g)
+		}
+	}
+	if len(rows) != 1 || rows[0].GetConnection() != "sys" || !rows[0].GetEnd().AsTime().Equal(hAt(10, 3)) {
+		t.Errorf("events rows: %v", rows)
+	}
+}

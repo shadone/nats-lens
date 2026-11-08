@@ -14,7 +14,7 @@ import {
   gapDetail,
   gapEndText,
   gapLabel,
-  gapLengthText,
+  gapDurationText,
   gapName,
   gapTime,
   historyUseLabel,
@@ -109,7 +109,7 @@ function EpochLink({ side, epoch, at, rangeEnd }: { side: string; epoch?: string
 
 function GapRow({ g, rangeEnd, live }: { g: HistoryGap; rangeEnd: number; live: boolean }) {
   const detail = gapDetail(g);
-  const length = gapLengthText(g, rangeEnd, live);
+  const duration = gapDurationText(g, rangeEnd, live);
   const either = g.beforeEpoch !== undefined || g.afterEpoch !== undefined;
   return (
     <tr className={isHatched(g) ? "dh-hatched-row" : undefined}>
@@ -120,7 +120,7 @@ function GapRow({ g, rangeEnd, live }: { g: HistoryGap; rangeEnd: number; live: 
       </th>
       <td className="mono">{g.start === undefined ? <Dash /> : gapTime(g.start, rangeEnd)}</td>
       <td className={`mono${g.end === undefined ? " dh-open" : ""}`}>{gapEndText(g, rangeEnd, live)}</td>
-      <td className="mono">{length ?? <Dash />}</td>
+      <td className="mono">{duration ?? <Dash />}</td>
       <td className="dh-either">
         {either ? (
           <>
@@ -184,7 +184,7 @@ export function GapsCard({ d, live }: { d: DataHistory; live: boolean }) {
                 <th scope="col">Kind</th>
                 <th scope="col">From (UTC)</th>
                 <th scope="col">To (UTC)</th>
-                <th scope="col">Length</th>
+                <th scope="col">Duration</th>
                 <th scope="col">Collections either side</th>
                 <th scope="col">Event</th>
               </tr>
