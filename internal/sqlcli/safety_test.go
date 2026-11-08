@@ -25,6 +25,10 @@ func fixture(t *testing.T, name string) string {
 	if e = db.Close(); e != nil {
 		t.Fatal(e)
 	}
+	p, e = filepath.EvalSymlinks(p)
+	if e != nil {
+		t.Fatal(e)
+	}
 	return p
 }
 func TestReadOnlyNoMigration(t *testing.T) {

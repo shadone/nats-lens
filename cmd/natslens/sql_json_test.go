@@ -5,7 +5,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -115,5 +117,27 @@ func TestSQLJSONLimitsAndAtomicity(t *testing.T) {
 	}
 	if err := runSQLTo(context.Background(), []string{"-db", p, "-output", dest, "SELECT 2"}, &out); err == nil {
 		t.Fatal("overwrote existing output")
+	}
+}
+
+// Exercise the actual main error/exit path without starting the collector.
+func TestSQLProcessDiagnostics(t *testing.T) {
+	if os.Getenv("NATSLENS_SQL_CLI_HELPER") == "1" {
+		os.Args = append([]string{"natslens", "sql", "-db", os.Getenv("NATSLENS_SQL_CLI_DB")}, strings.Split(os.Getenv("NATSLENS_SQL_CLI_ARGS"), "\n")...)
+		main()
+		return
+	}
+	p := sqlFixture(t)
+	for _, args := range []string{"-format\njson\nSELECT private_synthetic_literal FROM sample", "-unknown\nSELECT 1", "-max-rows\n0\nSELECT 1"} {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestSQLProcessDiagnostics$")
+		cmd.Env = append(os.Environ(), "NATSLENS_SQL_CLI_HELPER=1", "NATSLENS_SQL_CLI_DB="+p, "NATSLENS_SQL_CLI_ARGS="+args)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		err := cmd.Run()
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) || exit.ExitCode() != 1 || stdout.Len() != 0 || !json.Valid(bytes.TrimSpace(stderr.Bytes())) || strings.Contains(stderr.String(), "private_synthetic_literal") {
+			t.Fatalf("exit=%v stdout=%q stderr=%q", err, &stdout, &stderr)
+		}
 	}
 }
