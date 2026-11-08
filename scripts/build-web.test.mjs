@@ -44,3 +44,9 @@ test('missing installed-dependency marker is an error, never a cache hit',async 
  const f=await fixture(t);await buildWeb(f);await rm(join(f.root,'web/node_modules/.package-lock.json'));
  await assert.rejects(buildWeb(f),/dependencies/);
 });
+
+test('the asset lock remains held while the binary embeds verified files',async t=>{
+ const f=await fixture(t);let embedded=0;
+ const afterReady=async()=>{embedded++;assert.ok((await readFile(join(f.root,'internal/webui/dist/index.html'),'utf8')).includes('app.js'));await assert.rejects(buildWeb(f),/Another web build/);};
+ await buildWeb({...f,afterReady});await buildWeb({...f,afterReady});assert.equal(embedded,2);
+});
