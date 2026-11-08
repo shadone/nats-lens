@@ -16,3 +16,8 @@
 
 .metric-table-region { container-type: inline-size; }
 .metric-expanded { width: calc(100cqw - 2 * var(--sp-3)); max-width: 100%; }
+
+.metric-fleet-series{min-width:0}
+.metric-counter-note{margin-block:var(--sp-2);font-size:var(--fs-sm)}
+.metric-counter-note small{display:block;color:var(--text-muted)}
+.metric-table details{max-width:24rem;white-space:normal}
