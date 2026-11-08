@@ -10,7 +10,7 @@ import { useWidth } from "../lib/useWidth";
 import { axisTicks, isDeployment, runsText, zoomWindow } from "../lib/timelineModel";
 import { RLink } from "./common";
 import { StatusTimeline, trackSpan } from "./StatusTimeline";
-import {TimelineMark, EventPreview, WindowPreview, timelineTime} from "./TimelineMark";
+import {TimelineMark, EventPreview, EventDetails, WindowPreview, timelineTime} from "./TimelineMark";
 import {LEVEL_LABEL} from "../lib/view";
 import { ZoomStrip } from "./ZoomStrip";
 
@@ -33,7 +33,7 @@ function Ticks({ events, frac, cls }: { events: LaneEvent[]; frac: (t: number) =
   return (
     <>
       {events.map((e) => (
-        <TimelineMark key={e.id} className={`sl-tick ${cls(e)}`} style={{left:pct(frac(e.time))}} label={`${e.source === "kubernetes" ? "Kubernetes" : "NATS"} event: ${e.label}`} preview={<EventPreview event={e}/>}/>
+        <TimelineMark key={e.id} className={`sl-tick ${cls(e)}`} style={{left:pct(frac(e.time))}} label={`${e.source === "kubernetes" ? "Kubernetes" : "NATS"} event: ${e.label}`} preview={<EventPreview event={e}/>} details={<EventDetails event={e}/>}/>
       ))}
     </>
   );
@@ -103,7 +103,7 @@ export function StoryLanes({ tl, end, live }: Props) {
       marks: (
         <>
           {runs.map((r) => (
-            <TimelineMark key={r.from} className={`sl-run ${r.level}`} style={{left:pct(frac(r.from)),width:pct(frac(r.to)-frac(r.from))}} label={`Finding state: ${LEVEL_LABEL[r.level]}`} preview={<><strong>{LEVEL_LABEL[r.level]} finding state</strong><div>{timelineTime(r.from)} – {timelineTime(r.to)}</div><div>Bucket boundaries, not exact onset or resolution.</div>{tl.rows.filter(row=>row.cells.some((lv,i)=>tl.start+i*tl.bucketMs<r.to&&tl.start+(i+1)*tl.bucketMs>r.from&&lv!=="ok"&&lv!=="nodata")).map(row=><div key={row.key}>{row.checkCode}: {row.checkName}</div>)}</>}/>
+            <TimelineMark key={r.from} className={`sl-run ${r.level}`} style={{left:pct(frac(r.from)),width:pct(frac(r.to)-frac(r.from))}} label={`Finding state: ${LEVEL_LABEL[r.level]}`} details={<p>Use “Each check” below the Timeline for individual historical buckets and check references.</p>} preview={<><strong>{LEVEL_LABEL[r.level]} finding state</strong><div>{timelineTime(r.from)} – {timelineTime(r.to)}</div><div>Bucket boundaries, not exact onset or resolution.</div>{tl.rows.filter(row=>row.cells.some((lv,i)=>tl.start+i*tl.bucketMs<r.to&&tl.start+(i+1)*tl.bucketMs>r.from&&lv!=="ok"&&lv!=="nodata")).map(row=><div key={row.key}>{row.checkCode}: {row.checkName}</div>)}</>}/>
           ))}
         </>
       ),

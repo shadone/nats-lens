@@ -9,7 +9,7 @@ import { placeLaneAnnotations } from "../lib/laneLayout";
 import { axisTicks, cellRuns, isDeployment, laneAnnotations, runsText } from "../lib/timelineModel";
 import { useWidth } from "../lib/useWidth";
 import { LEVEL_LABEL } from "../lib/view";
-import {TimelineMark, EventPreview, WindowPreview, timelineTime} from "./TimelineMark";
+import {TimelineMark, EventPreview, EventDetails, CheckDetails, WindowPreview, timelineTime} from "./TimelineMark";
 import { Glyph, Sev } from "./Severity";
 
 export const CELL_FILL: Record<Level, string> = {
@@ -40,7 +40,7 @@ export function Cells({ row, start, bucketMs }: { row: TimelineRow; start: numbe
   return (
     <svg className="cells" viewBox={`0 0 ${CW} 16`} preserveAspectRatio="none" role="group" aria-label={`${row.checkCode}: ${runs}`}>
       {row.cells.map((lv, i) => (
-        <TimelineMark svg key={i} label={`${row.checkCode}: ${LEVEL_LABEL[lv]}`} preview={<><strong>{row.checkCode}: {row.checkName}</strong><div>{timelineTime(start+i*bucketMs)} – {timelineTime(start+(i+1)*bucketMs)}</div><div>Historical bucket: {LEVEL_LABEL[lv]}</div><div>Current check state: {LEVEL_LABEL[row.now]}</div><div>Bucket boundaries, not exact onset or resolution.</div></>}><rect x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="16" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
+        <TimelineMark svg key={i} details={<CheckDetails code={row.checkCode}/>} label={`${row.checkCode}: ${LEVEL_LABEL[lv]}`} preview={<><strong>{row.checkCode}: {row.checkName}</strong><div>{timelineTime(start+i*bucketMs)} – {timelineTime(start+(i+1)*bucketMs)}</div><div>Historical bucket: {LEVEL_LABEL[lv]}</div><div>Current check state: {LEVEL_LABEL[row.now]}</div><div>Bucket boundaries, not exact onset or resolution.</div></>}><rect x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="16" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
         </rect></TimelineMark>
       ))}
     </svg>
@@ -65,7 +65,7 @@ function K8sLane({ tl, scroller, end }: { tl: Timeline; scroller: RefObject<HTML
         <TimelineMark key={w.start} className="brk" style={{left:`${frac(w.start)*100}%`,width:`${(frac(w.end)-frac(w.start))*100}%`}} label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>}/>
       ))}
       {tl.kubernetes.map((e) => (
-        <TimelineMark key={e.id} className={`tick${isDeployment(e) ? " deploy" : ""}`} style={{left:`${frac(e.time)*100}%`}} label={`Kubernetes event: ${e.label}`} preview={<EventPreview event={e}/>}/>
+        <TimelineMark key={e.id} className={`tick${isDeployment(e) ? " deploy" : ""}`} style={{left:`${frac(e.time)*100}%`}} label={`Kubernetes event: ${e.label}`} preview={<EventPreview event={e}/>} details={<EventDetails event={e}/>}/>
       ))}
       {placed.map((p) => (
         <span key={p.a} className="ann" style={{ left: `${p.l.toFixed(1)}px`, width: `${(p.r - p.l).toFixed(1)}px`, textAlign: p.align, [p.align === "right" ? "paddingRight" : "paddingLeft"]: 6 }}>
