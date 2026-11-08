@@ -17,7 +17,7 @@ import (
 // defaults) cannot establish UI equivalence. Budgets do not promise the same
 // page cardinality; other unencoded options are partial when active.
 var uiPredicates = map[string]string{
-	"GetLensInfo": "system", "ListSystems": "range", "ListMetrics": "", "ListCheckDefinitions": "system",
+	"GetLensInfo": "system", "ListSystems": "range", "ListCheckDefinitions": "system",
 	"GetOverview": "system range", "GetShellStatus": "system range",
 	"GetTimeSeries": "system range entity", "GetTimeSeriesBatch": "system range",
 	"ListFindings": "system range states severities include_muted check_code", "GetFinding": "system id", "GetOnCall": "system finding_id",
@@ -32,11 +32,11 @@ var uiPredicates = map[string]string{
 	"GetMicroServices": "system range account", "GetApplications": "system range account include_tooling",
 	"GetSlowConsumerInvestigation": "system range server account observation_server_id observation_epoch",
 }
-var uiUnencoded = map[string]string{
-	"ListSystems": "strip_buckets", "GetTimeSeries": "metric", "GetTimeSeriesBatch": "queries",
+var uiDefaultOnly = map[string]string{
+	"ListSystems":  "strip_buckets",
 	"ListFindings": "entity page_token", "ListEvents": "page_token include_facets histogram_buckets",
-	"GetStatusTimeline": "bucket entity include_ok", "ListConnections": "page_token", "ListStreams": "account page_token summary_only",
-	"ListConsumers": "page_token", "GetDataHistory": "server", "GetPlacement": "selected_asset selected_server", "MatchSubject": "subject",
+	"GetStatusTimeline": "entity include_ok", "ListConnections": "page_token", "ListStreams": "account page_token summary_only",
+	"ListConsumers": "page_token", "GetDataHistory": "server", "GetPlacement": "selected_asset selected_server",
 }
 
 func proveUILinkScope(method string, request protoreflect.Message, c *Context) []string {
@@ -65,7 +65,10 @@ func proveUILinkScope(method string, request protoreflect.Message, c *Context) [
 	for _, n := range strings.Fields(predicate) {
 		policies[n] = "predicate"
 	}
-	for _, n := range strings.Fields(uiUnencoded[method]) {
+	for _, n := range strings.Fields(uiDefaultOnly[method]) {
+		policies[n] = "default"
+	}
+	for _, n := range strings.Fields(map[string]string{"GetTimeSeries": "metric", "GetTimeSeriesBatch": "queries", "GetStatusTimeline": "bucket", "MatchSubject": "subject"}[method]) {
 		policies[n] = "unencoded"
 	}
 	for _, n := range strings.Fields("page_size limit max_points") {
@@ -85,6 +88,11 @@ func compareUIFields(method string, request, ui protoreflect.Message, policies m
 		case "budget":
 			continue
 		case "unencoded":
+			limits = append(limits, "UI request projection is unavailable for field "+f.JSONName())
+			continue
+		case "default":
+			// Reviewed UI defaults express no restriction. Active options have
+			// no encoded selector; unknown fields never enter this category.
 			if request.Has(f) {
 				limits = append(limits, "UI link cannot reproduce request option "+f.JSONName())
 			}

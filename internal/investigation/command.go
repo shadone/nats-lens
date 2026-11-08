@@ -280,7 +280,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if originalLink, err := originalContext.Link(p.Deployment); err == nil && originalLink != link {
 		links = append(links, EvidenceLink{Kind: "original_source", URL: originalLink})
 	}
-	linkScope := Availability{Status: "available", Reason: "UI link carries effective representable request scope; original handoff is labeled separately"}
+	linkScope := Availability{Status: "available", Reason: "UI predicate projection verified; page size, response shape and machine-only options remain explicit in request; original handoff is labeled separately"}
 	if len(linkLimitations) > 0 {
 		linkScope = Availability{Status: "partial", Reason: strings.Join(linkLimitations, "; ")}
 	}
