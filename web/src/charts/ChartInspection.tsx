@@ -1,8 +1,8 @@
-import { InvestigationButton, InvestigationHandoff } from "../components/InvestigationContext";
+import { InvestigationButton, useInvestigationCopy } from "../components/InvestigationContext";
 import type { InvestigationSelection } from "../lib/investigationContext";
 // One cursor pattern for compact and expanded charts. Values belong to
 // recorded buckets; the cursor never interpolates or carries a value across a gap.
-import { useContext, useId, useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { dayMonHm, hms } from "../lib/format";
 import { usePageHistory } from "../components/HistoryNote";
 import { isHatched } from "../api/history";
@@ -22,7 +22,6 @@ export function inspectionStep(series: InspectionSeries[], given?: number): numb
 export function ChartInspection({ label, start, end, stepMs, bucketNote, series, children, investigation }: {
   label: string; start: number; end: number; stepMs?: number; bucketNote?: string; series: InspectionSeries[]; children: ReactNode; investigation?: InvestigationSelection;
 }) {
-  const handoff = useContext(InvestigationHandoff);
   const lastSelection = useRef<number | undefined>(undefined);
   const selection = () => {
     const point = selected ?? lastSelection.current;
@@ -34,6 +33,7 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
   const step = inspectionStep(series, stepMs);
   const selected = cursor === undefined ? undefined : Math.min(end, Math.max(start, cursor));
   if (selected !== undefined) lastSelection.current = selected;
+  const copy = useInvestigationCopy(selection());
   const origin = stepMs ? 0 : (series.flatMap(s => s.points.map(p => p.time)).sort((a,b) => a-b)[0] ?? start);
   const bucket = selected === undefined ? undefined : Math.floor((selected - origin) / step) * step + origin;
   const gaps = history?.gaps?.filter(g => isHatched(g) && selected !== undefined && selected >= (g.start ?? start) && selected < (g.end ?? history.end)) ?? [];
@@ -50,12 +50,12 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
     const box = element.getBoundingClientRect();
     if (box.width > 0) setCursor(start + Math.max(0, Math.min(1, (clientX - box.left) / box.width)) * (end - start));
   };
-  return <div className="chart-inspection-wrap"><div className="chart-inspection" role="slider" tabIndex={0} aria-label={`Inspect ${label}`} aria-valuemin={start} aria-valuemax={end} aria-valuenow={selected ?? start} aria-valuetext={selected === undefined ? "Focus, then use arrow keys to inspect time and values" : text} aria-description={handoff ? "Use arrow keys to select time, then C to copy as prompt" : undefined} aria-describedby={selected === undefined ? undefined : id}
+  return <div className="chart-inspection-wrap"><div className="chart-inspection" role="slider" tabIndex={0} aria-label={`Inspect ${label}`} aria-valuemin={start} aria-valuemax={end} aria-valuenow={selected ?? start} aria-valuetext={selected === undefined ? "Focus, then use arrow keys to inspect time and values" : text} aria-description={copy ? "Use arrow keys to select time, then C to copy as prompt" : undefined} aria-describedby={selected === undefined ? undefined : id}
     onPointerMove={e => move(e.clientX, e.currentTarget)} onPointerDown={e => move(e.clientX, e.currentTarget)}
     onPointerLeave={e => { if (e.pointerType !== "touch") setCursor(undefined); }}
     onFocus={() => setCursor(current => current ?? start)} onBlur={() => setCursor(undefined)}
     onKeyDown={e => {
-      if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.metaKey && handoff) { e.preventDefault(); handoff(selection()); return; }
+      if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.metaKey && copy) { e.preventDefault(); copy(); return; }
       const current = selected ?? start;
       const next = e.key === "Home" ? start : e.key === "End" ? end : e.key === "ArrowRight" || e.key === "ArrowUp" ? current + step : e.key === "ArrowLeft" || e.key === "ArrowDown" ? current - step : undefined;
       if (e.key === "Escape") { e.preventDefault(); setCursor(undefined); }
@@ -66,5 +66,5 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
       <span className="chart-cursor" aria-hidden="true" style={{ left: `${(selected - start) / (end - start || 1) * 100}%` }} />
       <div id={id} role="tooltip" className="chart-readout"><b>{when}</b><span>{stepMs ? `Bucket to ${bucketEnd}` : "Recorded sample"}</span>{bucketNote && <span>{bucketNote}</span>}{missing && <span>Not collected</span>}{rows.map((r, i) => <span key={i}>{r}</span>)}</div>
     </>}
-  </div>{handoff && <InvestigationButton selection={selection()} />}</div>;
+  </div>{copy && <InvestigationButton selection={selection()} />}</div>;
 }
