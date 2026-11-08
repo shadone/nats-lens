@@ -174,7 +174,13 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 		data, _ := json.Marshal(storageCursor{Version: 1, A: f.A.Epoch, B: f.B.Epoch, Offset: end, Scope: scope, Evidence: evidence})
 		res.NextPageToken = base64.RawURLEncoding.EncodeToString(data)
 	}
-	q := url.Values{"system": {req.System}, "account": {req.Account}, "from": {req.GetA().AsTime().UTC().Format(time.RFC3339Nano)}, "to": {req.GetB().AsTime().UTC().Format(time.RFC3339Nano)}, "epochA": {strconv.FormatInt(f.A.Epoch, 10)}, "epochB": {strconv.FormatInt(f.B.Epoch, 10)}}
+	q := url.Values{"system": {req.System}, "account": {req.Account}, "from": {req.GetA().AsTime().UTC().Format(time.RFC3339Nano)}, "to": {req.GetB().AsTime().UTC().Format(time.RFC3339Nano)}}
+	if f.A.Epoch > 0 {
+		q.Set("epochA", strconv.FormatInt(f.A.Epoch, 10))
+	}
+	if f.B.Epoch > 0 {
+		q.Set("epochB", strconv.FormatInt(f.B.Epoch, 10))
+	}
 	res.InvestigationUrl = "/capacity/storage-change?" + q.Encode()
 	if proto.Size(res) > MaxStorageChangePageBytes {
 		return nil, fmt.Errorf("%w: storage page exceeds byte budget; reduce page_size", ErrResourceExhausted)

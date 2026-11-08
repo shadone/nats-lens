@@ -1,3 +1,5 @@
+import {fromJson} from "@bufbuild/protobuf";
+import {TimestampSchema} from "@bufbuild/protobuf/wkt";
 // Portable data only: no credential, clipboard or network access here.
 import type {Entity} from "../api/model";
 import {serverNow} from "./clock";
@@ -11,7 +13,7 @@ export interface InvestigationContext {
  filters:Record<string,string>;entity?:InvestigationEntity;metric?:string;point?:string;evidence?:{kind:string;id:string}[];
  provenance:{status:"unavailable";reason:string};annotation?:string;
 }
-const FILTERS="sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset".split(" ");
+const FILTERS="sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB".split(" ");
 function routeEntity(pathname:string):InvestigationEntity|undefined{
  let p:string[];try{p=pathname.split("/").slice(1).map(decodeURIComponent)}catch{return undefined}
  if(p[0]==="servers"&&p.length===2&&p[1]!=="slow-consumers")return {type:"ENTITY_TYPE_SERVER",key:p[1],server:p[1]};
@@ -30,6 +32,10 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  if(pathname==="/findings"){filters.state ||= "open";filters.muted ||= "1"}
  if(pathname==="/events")filters.show ||= "worth";
  const range=resolveRange(spec,serverNow());const start=s?.start??range.start,end=s?.end??range.end;
+ let portableRange={start:new Date(start).toISOString(),end:new Date(end).toISOString()};
+ if(pathname==="/capacity/storage-change"&&s?.start===undefined&&s?.end===undefined){
+  try{const from=params.get("from")!,to=params.get("to")!,a=fromJson(TimestampSchema,from),b=fromJson(TimestampSchema,to);if(a.seconds<b.seconds||a.seconds===b.seconds&&a.nanos<b.nanos)portableRange={start:from,end:to}}catch{/* Invalid links keep the existing resolved range and cannot invent pins. */}
+ }
  const refs=s?.series??(s&&(s.metric||s.label)?[{label:s.label??"Chart",metric:s.metric,entity:s.entity}]:undefined);
  const series=refs?.map(ref=>({label:ref.label,metric:ref.metric,entity:portableEntity(ref.entity),...(ref.metric?{}:{unavailableReason:"Metric identity is unavailable from this chart data"})}));
  const primary=series?.find(ref=>ref.metric);
@@ -42,5 +48,5 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  const evidence:{kind:string;id:string}[]=[...(s?.evidence??[])];
  if(pathname.startsWith("/findings/")&&pathname!=="/findings/by-labels"&&!evidence.some(e=>e.kind==="finding"))evidence.push({kind:"finding",id:decodeURIComponent(pathname.slice("/findings/".length))});
  if(pathname==="/events"&&params.get("id"))evidence.push({kind:"event",id:params.get("id")!});
- return {version:1,deployment:origin,system,account:entity?.account||params.get("account")||undefined,range:{start:new Date(start).toISOString(),end:new Date(end).toISOString()},sourcePath:pathname,filters,entity,chartLabel:s?.label,series,metric:s?.metric??primary?.metric,point:s?.point!==undefined&&s.point>=start&&s.point<end?new Date(s.point).toISOString():undefined,evidence:evidence.length?evidence.filter((e,i)=>evidence.findIndex(other=>other.kind===e.kind&&other.id===e.id)===i):undefined,annotation:s?.annotation,provenance:{status:"unavailable",reason:"API does not provide a cross-query collection pin. Follow Data history and response evidence IDs; this context records URL-backed filters only."}};
+ return {version:1,deployment:origin,system,account:entity?.account||params.get("account")||undefined,range:portableRange,sourcePath:pathname,filters,entity,chartLabel:s?.label,series,metric:s?.metric??primary?.metric,point:s?.point!==undefined&&s.point>=start&&s.point<end?new Date(s.point).toISOString():undefined,evidence:evidence.length?evidence.filter((e,i)=>evidence.findIndex(other=>other.kind===e.kind&&other.id===e.id)===i):undefined,annotation:s?.annotation,provenance:{status:"unavailable",reason:"API does not provide a cross-query collection pin. Follow Data history and response evidence IDs; this context records URL-backed filters only."}};
 }

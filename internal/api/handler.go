@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -607,6 +608,8 @@ func (h *Handler) GetStorageChange(ctx context.Context, req *connect.Request[v1.
 		if err != nil {
 			return nil, err
 		}
-		return FinishStorageChange(m, f)
+		scoped := proto.Clone(m).(*v1.GetStorageChangeRequest)
+		scoped.System = s.Ref.GetId()
+		return FinishStorageChange(scoped, f)
 	})
 }
