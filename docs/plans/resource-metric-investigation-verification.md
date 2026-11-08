@@ -16,7 +16,7 @@ Base: f7f202e89eb33f976805cabce329a0eaacc52d96. Board task bXMlS0kOLTauMBDTEL280
 
 From web/: `npm test -- --config vite.metric.config.ts --configLoader runner --maxWorkers=2`, `npm run typecheck`, `npx vite build --config vite.metric.config.ts --configLoader runner`. The temporary config only redirects cache outside borrowed dependencies.
 
-Final full web: 195 files, 1,870 tests passed,24 existing skips,75.39s (/private/tmp/nats-resource-final-full-web.log). Types and production build pass; existing500kB warning retained. Feature audit clean46 capabilities. No coverage percentage is claimed: no coverage provider was installed. No broad Go/check-engine suite rerun.
+Pre-review full web: 195 files, 1,870 tests passed,24 existing skips,75.39s (/private/tmp/nats-resource-final-full-web.log). Types and production build pass; existing500kB warning retained. Feature audit clean46 capabilities. No coverage percentage is claimed: no coverage provider was installed. No broad Go/check-engine suite rerun.
 
 API tests verify one bounded summary page, selected-key-only histories, list-bound range continuation despite advancing clock, exact >2^53 collection IDs, no inventory dependency for explicit historical selections, account/stream and ephemeral scope, invalid key/typed-field mismatches, per-query errors, missing clock and oversized-page rejection before enrichment. Current metadata and history reads have separate consistency boundaries; no universal pin or global metric rank is claimed.
 
@@ -34,3 +34,9 @@ T3 collaborative browser, task-owned generic fixed demos only (initial18688, fin
 ## Remaining board acceptance
 
 Full chart-family inventory including aggregate server/asset/account/meta destinations; traffic volumes where supported; global contributor ranking and richer historical identity attribution. Resource local cursor state is not shared in URLs. API observation sample counts do not establish capture completeness. Hashes/cross-query pins/new collection are unchanged.
+
+## Fresh R1 corrections
+
+Review596e47e9 found missing automatic live refresh and a consumer stream filter lost across metric tabs. Checkpoint7dec1d2a executes three runtime failures (live selected resource, live first list page, consumer stream link) with five controls passing. d1b29cd7 adds30-second live refresh only for selected resources/first pages; continuation contexts and fixed bounds remain unchanged. Consumer metric links retain the typed stream filter. UI explicitly explains pinned continuation and Refresh list.
+
+Focused real-query timer tests advance the source clock and verify new response bounds; first-page lists refresh; continuation and fixed queries do not.17 focused tests, types and production build pass. Removing each correction independently reproduces its runtime failures, restored17pass. Logs /private/tmp/nats-resource-r1-{red,green,restored,types,build}.log and /private/tmp/nats-resource-r1-removal/{refresh,filter}.log. No second full-web or native browser timing loop was run for this small review delta; the1,870 full-web and earlier browser receipts apply to the pre-review feature, not an invented new full-suite count. The corrected production build is verified, and all prior source files remain intact.
