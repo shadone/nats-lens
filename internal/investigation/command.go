@@ -393,7 +393,12 @@ func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, er
 		availability["retention"] = Availability{"partial", "Retained history is queryable; absent retention policy and deleted rows are unknown"}
 		availability["provenance"] = Availability{"available", "Dataset metadata and reference clock are reported in source; capture/export time is separate"}
 	}
-	return writeJSON(out, map[string]any{"version": 1, "source": sourceMetadata, "method": method, "request": json.RawMessage(req), "response": response, "bounds": map[string]any{"requestedSourcePath": originalContext.SourcePath, "requestedFrom": *from, "requestedTo": *to, "resolved": linkContext.Range, "referenceTime": connection.Now, "queryReference": now.Format(time.RFC3339Nano)}, "connection": info, "context": linkContext, "originalContext": &originalContext, "links": links, "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": availability})
+	requestedBounds := map[string]any{"context": originalContext.Range, "fromOverride": *from, "toOverride": *to, "requestRange": overrides["range"]}
+	if *page != "" {
+		u, _ := url.Parse(*page)
+		requestedBounds["urlRange"], requestedBounds["urlFrom"], requestedBounds["urlTo"] = u.Query().Get("range"), u.Query().Get("from"), u.Query().Get("to")
+	}
+	return writeJSON(out, map[string]any{"version": 1, "source": sourceMetadata, "method": method, "request": json.RawMessage(req), "response": response, "bounds": map[string]any{"requested": requestedBounds, "requestedSourcePath": originalContext.SourcePath, "requestedFrom": *from, "requestedTo": *to, "resolved": linkContext.Range, "referenceTime": connection.Now, "queryReference": now.Format(time.RFC3339Nano)}, "connection": info, "context": linkContext, "originalContext": &originalContext, "links": links, "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": availability})
 }
 
 // Page limits have two existing RPC spellings. Keep this transport mapping
