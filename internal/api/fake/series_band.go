@@ -45,6 +45,31 @@ func (sc *scenario) value(metric string, e *v1.EntityRef, c time.Time) (float64,
 		}
 	}
 	switch metric {
+	case "cluster.capacity_file_store_bytes":
+		var sum float64
+		for _, sv := range sc.servers {
+			v, ok := sc.value("server.js_storage_bytes", serverRef(sv.name), c)
+			if !ok {
+				return 0, false
+			}
+			sum += v
+		}
+		return sum, true
+	case "server.capacity_file_store_bytes":
+		return sc.value("server.js_storage_bytes", e, c)
+	case "stream.observed_replica_bytes":
+		sp, err := sc.findStream(e.GetAccount(), e.GetStream())
+		if err != nil {
+			return 0, false
+		}
+		var sum float64
+		// Use the same observed views as the detail API. Offline and missing
+		// peers have no view, so configured replicas never supply measurements.
+		views := (scen{sc: sc}).streamViews(sp, c)
+		for _, view := range views {
+			sum += float64(view.GetBytes())
+		}
+		return sum, len(views) > 0
 	case "cluster.streams", "cluster.kv_buckets", "cluster.object_stores":
 		n := 0.0
 		for _, sp := range sc.streams {
