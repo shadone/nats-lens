@@ -39,7 +39,7 @@
 .chart-link:hover{text-decoration:underline;color:var(--accent-text)}
 .chart-link:focus-visible{outline:none}
 .chart-link:focus-visible::after{outline:2px solid var(--accent);outline-offset:2px}
-.chart-linked .infotip,.chart-linked .spark,.chart-linked .tc-svg,.chart-linked .mb-note a{position:relative;z-index:2}
+.chart-linked .infotip,.chart-linked .spark,.chart-linked .tc-svg,.chart-linked .mb-note a,.chart-linked .investigation-copy{position:relative;z-index:2}
 .chart-linked .mb-note a{display:inline-block}
 
 .chart-inspection{position:relative;z-index:2;min-width:0;touch-action:pan-y;outline-offset:2px}
