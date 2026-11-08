@@ -16,3 +16,7 @@
 .contributor-headlines {display:flex;flex-wrap:wrap;gap:var(--sp-6);margin-block:var(--sp-3)}
 .contributor-headlines dd {margin:0;font-size:var(--fs-lg);font-weight:500}
 .cap-contributors>details {margin-block:var(--sp-3)}
+/* This section is outside the bounds table's query container. */
+.cap-contributors .cap-history-expanded {width:100%;min-width:0}
+
+.cap-contributors p,.cap-contributors dd,.cap-contributors h3 {overflow-wrap:anywhere}
