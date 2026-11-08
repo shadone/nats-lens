@@ -96,7 +96,7 @@ def check_format(root, log):
     return 1 if format_failed(result.returncode, result.stdout) else 0
 
 def template_outputs(text):
-    outputs = [line.strip().split(':', 1)[1].split('#', 1)[0].strip().strip('"\'') for line in text.splitlines() if re.match(r'^\s+out:', line)]
+    outputs = [line.strip().removeprefix('-').strip().split(':', 1)[1].split('#', 1)[0].strip().strip('"\'') for line in text.splitlines() if re.match(r'^\s+(?:-\s+)?out:', line)]
     if sorted(outputs) != ['internal/gen', 'internal/gen', 'web/src/gen']:
         raise ValueError('Proto verifier requires the reviewed relative output directories internal/gen and web/src/gen; inspect changed generation configuration first')
 
