@@ -191,3 +191,47 @@ func TestTrafficCounterComparisonsSumBeyondInt64AndRejectNegative(t *testing.T) 
 		})
 	}
 }
+
+// Timestamp selection must not hide the actual predecessor in epoch order.
+// The intervening report is outside the requested scan times, not absent.
+func TestTrafficCounterComparisonsPreserveOutOfRangeReportAdjacency(t *testing.T) {
+	for _, middle := range []time.Duration{70 * time.Second, -3 * time.Minute} {
+		t.Run(middle.String(), func(t *testing.T) {
+			st := emptyStore(t)
+			r := rows{t, st}
+			r.server("S0", "nats-0")
+			start := t0.Truncate(time.Hour)
+			for i, s := range []struct {
+				at time.Duration
+				n  int64
+			}{{0, 0}, {middle, 100}, {30 * time.Second, 110}} {
+				r.epoch(int64(i+1), start.Add(s.at), "S0")
+				r.add("server_stats", map[string]any{"epoch": int64(i + 1), "server_id": "S0", "in_msgs": s.n, "out_msgs": s.n, "in_bytes": s.n, "out_bytes": s.n})
+			}
+			p := &storeprov.Provider{St: st, Interval: 30 * time.Second}
+			for _, name := range []string{"in_msgs_rate", "out_msgs_rate", "in_bytes_rate", "out_bytes_rate"} {
+				for _, scope := range []string{"server.", "cluster."} {
+					e := serverRef("nats-0")
+					if scope == "cluster." {
+						e = &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM}
+					}
+					for _, observations := range []bool{false, true} {
+						out, err := p.GetTimeSeries(ctx, &v1.GetTimeSeriesRequest{Metric: scope + name, Entity: e, Range: &v1.TimeRange{Start: timestamppb.New(start), End: timestamppb.New(start.Add(time.Minute))}, IncludeObservations: observations})
+						if err != nil {
+							t.Fatal(err)
+						}
+						if len(out.Series.Points) != 0 {
+							t.Errorf("%s observations=%v skipped actual predecessor and fabricated rates: %v", scope+name, observations, out.Series.Points)
+						}
+						if observations {
+							c := out.Series.Observations.CounterComparisons
+							if c.ObservedIncrease != nil || c.ComparisonCount != 0 || c.ServerIdCount != 0 || c.FirstComparedAt != nil || c.LastComparedAt != nil || c.ExcludedReports != 2 {
+								t.Errorf("%s fabricated comparison across filtered report: %v", scope+name, c)
+							}
+						}
+					}
+				}
+			}
+		})
+	}
+}
