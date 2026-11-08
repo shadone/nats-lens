@@ -204,3 +204,23 @@ func TestStorageChangeRequiresDistinctFreshBookends(t *testing.T) {
 		})
 	}
 }
+func TestStorageChangePartialBookendPagination(t *testing.T) {
+	req, f := storageFacts()
+	req.PageSize = 1
+	f.A = &v1.StorageChangeEndpoint{Requested: req.A, Reasons: []string{"no_collection"}}
+	for _, r := range f.Rows {
+		r.Before = nil
+	}
+	first, err := api.FinishStorageChange(req, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.PageToken = first.NextPageToken
+	second, err := api.FinishStorageChange(req, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Rows[0].Id == first.Rows[0].Id {
+		t.Fatal("partial endpoint page repeated")
+	}
+}
