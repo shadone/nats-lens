@@ -43,7 +43,7 @@ export function useCapacityHistory(queries: TrendQuery[]) {
 export function CapacityHistoryChart({ q, title, compact = false }: { q: TrendSlice; title: string; compact?: boolean }) {
   const { spec } = useTimeRange();
   const { start, end } = useResolvedRange(spec);
-  if (!compact) return <OneLine f={{ spec, start, end }} q={q} title={title} label={title} />;
+  if (!compact) return <OneLine f={{ spec, start, end }} q={q} title={title} label={title} contiguousBuckets />;
   return (
     <div className="cap-history-compact">
       {q.error && !q.data ? (
@@ -52,6 +52,7 @@ export function CapacityHistoryChart({ q, title, compact = false }: { q: TrendSl
         <Sparkline
           points={q.data?.points ?? []}
           stepMs={q.data?.stepMs}
+          contiguousBuckets
           fmt={fmtBytes}
           bucketNote="Mean logical bytes in bucket; missing observations are not zero"
           status="ok"

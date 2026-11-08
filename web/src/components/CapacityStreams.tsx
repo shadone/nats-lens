@@ -20,6 +20,7 @@ import {
 import { fmtBytes, fmtGrowth, fmtInt } from "../lib/format";
 import { muteBy, reviewOn, sentence } from "../lib/muteView";
 import { streamLabel, accountLabel, findingPath, streamPath } from "../lib/view";
+import { useCapacityPage } from "../lib/useCapacityPage";
 import { CapacityHistoryChart, resourceHistoryQuery, useCapacityHistory } from "./CapacityHistory";
 import { AcceptDialog, type AcceptTarget } from "./AcceptDialog";
 import { Num, RLink } from "./common";
@@ -163,8 +164,7 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
   shown.current = answeredAt;
   const loaded = withAccepted(d.streams, saved, answeredAt, live);
   const filtered = resource === "all" ? loaded : loaded.filter((s) => s.kind === resource);
-  const [historyPage, setHistoryPage] = useState({resource, page:0});
-  const page = historyPage.resource === resource ? Math.min(historyPage.page, Math.max(0,Math.ceil(filtered.length/16)-1)) : 0;
+  const [page, setHistoryPage] = useCapacityPage(filtered.length, 16, resource);
   const offset = page*16;
   const rows = filtered.slice(offset, offset+16);
   const [expanded, setExpanded] = useState("");
@@ -253,7 +253,7 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
             </table>
           </div>
         )}
-        {filtered.length > 16 && <div className="cap-history-pages"><span>History rows {offset+1}–{Math.min(offset+16,filtered.length)} of {filtered.length} filtered loaded resources.</span><button className="btn" aria-label="Previous resource history page" disabled={offset===0} onClick={() => setHistoryPage({resource,page:page-1})}>Previous</button><button className="btn" aria-label="Next resource history page" disabled={offset+16>=filtered.length} onClick={() => setHistoryPage({resource,page:page+1})}>Next</button></div>}
+        {filtered.length > 16 && <div className="cap-history-pages"><span>History rows {offset+1}–{Math.min(offset+16,filtered.length)} of {filtered.length} filtered loaded resources.</span><button className="btn" aria-label="Previous resource history page" disabled={offset===0} onClick={() => setHistoryPage(page-1)}>Previous</button><button className="btn" aria-label="Next resource history page" disabled={offset+16>=filtered.length} onClick={() => setHistoryPage(page+1)}>Next</button></div>}
         {d.streamsTotal > d.streams.length && (
           <p className="cap-foot">
             The first {fmtInt(d.streams.length)} of {fmtInt(d.streamsTotal)} resources are loaded. Type filters apply only to these loaded resources.

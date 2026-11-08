@@ -1,7 +1,7 @@
 // The Capacity page's server cards: each server's JetStream file store, how
 // full it is, its growth and when it fills, and the finding that fires for
 // it.
-import { useState } from "react";
+import { useCapacityPage } from "../lib/useCapacityPage";
 import { CapacityHistoryChart, serverHistoryQuery, useCapacityHistory } from "./CapacityHistory";
 import type { TrendSlice } from "../api/trendBatch";
 import type { ServerStore } from "../api/capacity";
@@ -54,8 +54,8 @@ function ServerCard({ s, history }: { s: ServerStore; history: TrendSlice }) {
 }
 
 export function ServerCards({ servers, withoutJetstream }: { servers: ServerStore[]; withoutJetstream: number }) {
-  const [page, setPage] = useState(0);
-  const offset = Math.min(page, Math.max(0, Math.ceil(servers.length / 24) - 1)) * 24;
+  const [page, setPage] = useCapacityPage(servers.length, 24);
+  const offset = page * 24;
   const shown = servers.slice(offset, offset + 24);
   const queries = shown.map(s => serverHistoryQuery(s.name));
   const history = useCapacityHistory(queries);

@@ -39,18 +39,20 @@ interface Props {
   /** Width of one bucket, to tell a gap from the next point. */
   stepMs?: number;
   layers: Layer[];
+  /** Split at every absent bucket; other charts retain their existing tolerance. */
+  contiguousBuckets?: boolean;
   /** Where the y axis starts: at zero (default), or at the data's minimum with an 8% margin each side. */
   floor?: "zero" | "data";
   loading?: boolean;
   error?: string;
 }
 
-/** Runs of points without a gap of more than two steps between neighbours. */
-export function segments<T extends { time: number }>(pts: T[], stepMs: number): T[][] {
+/** Runs bounded by the allowed distance between neighbouring buckets. */
+export function segments<T extends { time: number }>(pts: T[], stepMs: number, maxGapSteps = 2): T[][] {
   const out: T[][] = [];
   for (const p of pts) {
     const run = out[out.length - 1];
-    if (run && (stepMs <= 0 || p.time - run[run.length - 1].time <= 2 * stepMs)) run.push(p);
+    if (run && (stepMs <= 0 || p.time - run[run.length - 1].time <= maxGapSteps * stepMs)) run.push(p);
     else out.push([p]);
   }
   return out;
@@ -74,7 +76,7 @@ export function yDomain(all: number[], floor: "zero" | "data"): [number, number]
   return [lo, max === lo ? lo + 1 : max];
 }
 
-export function TrendChart({ title, to, bucketNote, fmt = String, now, summary, start, end, stepMs = 0, layers, floor = "zero", loading, error }: Props) {
+export function TrendChart({ title, to, bucketNote, fmt = String, now, summary, start, end, stepMs = 0, layers, contiguousBuckets = false, floor = "zero", loading, error }: Props) {
   const h = usePageHistory();
   const coverage = ["Messages", "Bytes", "Connections"].includes(title) ? rangeCoverageText(h?.historyStart, start, end) : undefined;
   summary = [summary, coverage].filter(Boolean).join(" · ") || undefined;
@@ -102,7 +104,7 @@ export function TrendChart({ title, to, bucketNote, fmt = String, now, summary, 
           <line x1="0" x2={W} y1={H - 1} y2={H - 1} className="tc-axis" vectorEffect="non-scaling-stroke" />
           {layers.map((l, li) => {
             if (l.kind === "band") {
-              return segments(l.points, stepMs).map((run, ri) => {
+              return segments(l.points, stepMs, contiguousBuckets ? 1 : 2).map((run, ri) => {
                 // One point between two gaps has no width to fill: a thin
                 // vertical mark from low to high stands for it, at least
                 // MIN_MARK tall so that low equal to high still shows.
@@ -131,7 +133,7 @@ export function TrendChart({ title, to, bucketNote, fmt = String, now, summary, 
                   <rect key={`${li}-${p.time}`} x={(Number(x(p.time)) - barW / 2).toFixed(1)} y={y(p.value)} width={barW.toFixed(1)} height={(Number(y(lo)) - Number(y(p.value))).toFixed(1)} className={fillClass("bars", l.style)} />
                 ));
             }
-            return segments(l.points, stepMs).map((run, ri) =>
+            return segments(l.points, stepMs, contiguousBuckets ? 1 : 2).map((run, ri) =>
               run.length === 1 ? (
                 <circle key={`${li}-${ri}`} cx={x(run[0].time)} cy={y(run[0].value)} r="1.6" className={`tc-dot tk-${l.style.tone}`} />
               ) : (
