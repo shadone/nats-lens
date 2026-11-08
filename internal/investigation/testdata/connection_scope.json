@@ -1,0 +1,10 @@
+[
+ {"name":"","tooling":"","includeTooling":false},
+ {"name":"","tooling":"0","includeTooling":false},
+ {"name":"","tooling":"1","includeTooling":true},
+ {"name":"","tooling":"true","includeTooling":false},
+ {"name":"natslens","tooling":"","includeTooling":true},
+ {"name":"natslens","tooling":"0","includeTooling":true},
+ {"name":"natslens","tooling":"1","includeTooling":true},
+ {"name":" ","tooling":"0","includeTooling":true}
+]
