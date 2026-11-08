@@ -1,0 +1,54 @@
+{
+  "end": 1792238425000,
+  "series": {
+    "cluster.capacity_file_store_bytes": {
+      "metric": "cluster.capacity_file_store_bytes",
+      "points": [
+        {
+          "time": 1792238400000,
+          "value": 100
+        }
+      ],
+      "stepMs": 30000,
+      "topPoints": [],
+      "unit": "bytes"
+    },
+    "server.capacity_file_store_bytes": {
+      "metric": "server.capacity_file_store_bytes",
+      "points": [
+        {
+          "time": 1792238400000,
+          "value": 100
+        }
+      ],
+      "stepMs": 30000,
+      "topPoints": [],
+      "unit": "bytes"
+    },
+    "stream.bytes": {
+      "metric": "stream.bytes",
+      "points": [
+        {
+          "time": 1792238400000,
+          "value": 40
+        }
+      ],
+      "stepMs": 30000,
+      "topPoints": [],
+      "unit": "bytes"
+    },
+    "stream.observed_replica_bytes": {
+      "metric": "stream.observed_replica_bytes",
+      "points": [
+        {
+          "time": 1792238400000,
+          "value": 40
+        }
+      ],
+      "stepMs": 30000,
+      "topPoints": [],
+      "unit": "bytes"
+    }
+  },
+  "start": 1792238415000
+}
