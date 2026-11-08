@@ -345,12 +345,13 @@ export function useConnections(spec: RangeSpec, f: api.ConnectionFilter) {
 
 export function useSeries(spec: RangeSpec, metric: string, entity: Entity | undefined, maxPoints = 200) {
   const sys = useSystem();
-  return useQuery({
+  const query=useQuery({
     queryKey: ["series", sys, rangeKey(spec), metric, entityKey(entity), maxPoints],
     queryFn: ({ signal }) => api.getSeries(sys, spec, metric, entity, maxPoints, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepSameSystem(sys),
+    placeholderData: keepSameSystem(sys,{3:metric,4:entityKey(entity)}),
   });
+  return {...query,metric,entity};
 }
 
 /** Facts about this instance and the system; they change only on a restart. */

@@ -1,3 +1,4 @@
+import {resourceMetric,resourceSelection} from "./resourceMetrics";
 import {metricFamily} from "./metricNavigation";
 import {fromJson} from "@bufbuild/protobuf";
 import {TimestampSchema} from "@bufbuild/protobuf/wkt";
@@ -27,7 +28,8 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  const {origin,pathname,search,system,spec,selection:selection}=input;
  const family=pathname.startsWith("/metrics/")?metricFamily(pathname.slice("/metrics/".length)):undefined;
  const server=new URLSearchParams(search).get("server");const serverIdentity=server?{kind:"server" as const,key:server,server,name:server,account:"",stream:"",consumer:""}:undefined;
- const s:InvestigationSelection|undefined=selection??(family?{label:family.title,series:(server?family.metrics:family.fleetMetrics).map((metric,i)=>({label:family.labels[i],metric,entity:serverIdentity}))}:undefined);
+ const resource=pathname.startsWith("/metrics/")?resourceMetric(pathname.slice("/metrics/".length)):undefined;let selectedResource:Entity|undefined;try{if(resource)selectedResource=resourceSelection(resource,new URLSearchParams(search))}catch{/* Invalid route selectors remain untrusted filters, not invented identities. */}
+ const s:InvestigationSelection|undefined=selection??(resource?{label:resource.title,metric:resource.metric,entity:selectedResource}:undefined)??(family?{label:family.title,series:(server?family.metrics:family.fleetMetrics).map((metric,i)=>({label:family.labels[i],metric,entity:serverIdentity}))}:undefined);
  const params=new URLSearchParams(search);
  // ASVS 14.2.1: copy only known navigation fields; unknown query parameters,
  // credentials, cookies and browser storage never enter portable context.
