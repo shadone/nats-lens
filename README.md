@@ -98,7 +98,7 @@ To capture the stream and consumer advisories of a JetStream account as well, an
    curl -s -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:8080/api/natslens.v1.LensService/GetOverview
    ```
 
-6. **Work on the web UI** with hot reload: run `make demo` (or `make run-dev`) in one terminal and `make web-dev` in another, then open http://127.0.0.1:5173. The Vite dev server forwards `/api` to 127.0.0.1:8080; set `NATSLENS_API` to use another address. `make web-test` runs the Vitest tests. `go build` alone embeds a placeholder page instead of the UI; `make build` builds both.
+6. **Work on the web UI** with hot reload: run `make demo` (or `make run-dev`) in one terminal and `make web-dev` in another, then open http://127.0.0.1:5173. The Vite dev server forwards `/api` to 127.0.0.1:8080; set `NATSLENS_API` to use another address. `make web-test` runs the Vitest tests. `go build` alone embeds a placeholder page instead of the UI; `make build` builds both. Use the [production web-loading runbook](docs/operations/measure-web-loading.md) to measure bundle sizes and browser cost.
 
 ### Useful commands
 
