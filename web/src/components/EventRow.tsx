@@ -1,3 +1,4 @@
+import { Remediation } from "./Remediation";
 // One event of a feed. A row expands to the findings it raised (with
 // remediation and related config), its fields, and its raw payload.
 import { useState } from "react";
@@ -7,7 +8,7 @@ import { eventWhen, fmtDuration, isoSecond } from "../lib/format";
 import { selectionIntersects } from "../lib/textSelection";
 import { AccountName } from "./AccountName";
 import { streamLabel, FINDING_TAG_LABEL, SOURCE_CLASS, SOURCE_PILL, consumerPath, eventPath, findingPath, findingTag, serverPath, streamPath, type FindingTag } from "../lib/view";
-import { ErrorBox, KV, RLink, Remediation } from "./common";
+import { ErrorBox, KV, RLink } from "./common";
 import { Sev, StateTag } from "./Severity";
 
 /** The badge of a finding event: NEW, RESOLVED, FLAPPING or CHANGED, the CSS class; FINDING_TAG_LABEL names it. */

@@ -28,7 +28,7 @@ beforeEach(() => {
 it("keeps the shell and announces loading while route code is pending", async () => {
   state.pending = true;
   renderApp(<App />, "/checks?system=shop&range=6h&account=APP");
-  expect(await screen.findByRole("status")).toHaveTextContent("Loading page");
+  expect((await screen.findByText("Loading page…")).closest('[role="status"]')).toHaveAttribute("aria-live", "polite");
   expect(screen.getByText("Page navigation")).toBeInTheDocument();
   state.pending = false;
   await act(async () => state.resolve());
