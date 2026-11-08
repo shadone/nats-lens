@@ -89,3 +89,10 @@ it("keeps the touched bucket when the browser subsequently focuses the chart", (
   fireEvent.focus(cursor);
   expect(screen.getByRole("tooltip")).toHaveTextContent("8%");
 });
+
+it("does not describe a bytes mini-chart as a delivery-rate measurement",()=>{
+ render(<MiniLine points={[{time:1000,value:10},{time:2000,value:20}]} level="ok" label="orders bytes" period="range" fmt={v=>`${v} B`} frame={{start:1000,end:2000,stepMs:1000}}/>);
+ fireEvent.focus(screen.getByRole("slider",{name:"Inspect orders bytes"}));
+ expect(screen.getByRole("tooltip")).not.toHaveTextContent("delivery rate");
+ expect(screen.getByRole("tooltip")).toHaveTextContent("orders bytes");
+});
