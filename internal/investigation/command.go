@@ -479,6 +479,9 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 		}
 	}
 	for _, e := range c.Evidence {
+		if method == "GetOnCall" && e.Kind == "finding" {
+			put("findingId", e.ID)
+		}
 		if method == "GetFinding" && e.Kind == "finding" || method == "GetEvent" && e.Kind == "event" {
 			put("id", e.ID)
 		}
