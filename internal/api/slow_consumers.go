@@ -18,7 +18,10 @@ func (h *Handler) GetSlowConsumerInvestigation(ctx context.Context, req *connect
 		if m.Range.End.AsTime().Sub(m.Range.Start.AsTime()) > 30*24*time.Hour {
 			return invalid("investigation range exceeds 30 days")
 		}
-		if len(m.Server) > MaxNameLength || len(m.Account) > MaxNameLength {
+		if (m.ObservationServerId == "") != (m.ObservationEpoch == 0) || m.ObservationEpoch < 0 {
+			return invalid("counter selection requires a process ID and positive collection epoch")
+		}
+		if len(m.Server) > MaxNameLength || len(m.Account) > MaxNameLength || len(m.ObservationServerId) > MaxNameLength {
 			return invalid("server or account too long")
 		}
 		var err error

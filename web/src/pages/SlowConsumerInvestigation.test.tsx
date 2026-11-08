@@ -53,7 +53,8 @@ it("makes incomplete history and bounded results explicit",async()=>{
 });
 
 it("sends exact counter selection while keeping the full supporting event range", async () => {
-  vi.mocked(lens.getSlowConsumerInvestigation).mockResolvedValue(response());
+  const r = response(); r.range = { ...r.range!, start: stamp("13:40:00"), end: stamp("13:40:31") };
+  vi.mocked(lens.getSlowConsumerInvestigation).mockResolvedValue(r);
   renderApp(<SlowConsumerInvestigation />, "/servers/slow-consumers?from=2026-10-17T13:40:00Z&to=2026-10-17T13:40:31Z&system=example-prod&account=SHOP&server=nats-0&process=PROCESS0&epoch=2");
   await screen.findByText("5 counter detections");
   expect(lens.getSlowConsumerInvestigation).toHaveBeenCalledWith(expect.objectContaining({ observationServerId: "PROCESS0", observationEpoch: 2n, server: "nats-0", account: "SHOP" }), expect.anything());

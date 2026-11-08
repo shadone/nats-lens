@@ -213,11 +213,12 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 		var sum float64
 		var n int
 		var lo, hi *float64
-		if metric == "cluster.slow_consumers" {
-			for _, ev := range s.sc.slowEvents {
-				if c := ev.Add(s.shift); !c.Before(t) && c.Before(stop) {
-					sum++
+		if metric == "cluster.slow_consumers" || metric == "server.slow_consumers" {
+			for _, sp := range s.sc.servers {
+				if metric == "server.slow_consumers" && sp.name != e.GetKey() {
+					continue
 				}
+				sum += float64(s.slowCount(sp, t, stop))
 			}
 			n = 1
 		} else if eventMetrics[metric] {

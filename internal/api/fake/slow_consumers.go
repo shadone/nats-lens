@@ -11,6 +11,12 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
+// slowReportAt maps scenario detections to the next synthetic report endpoint.
+// Charts, summaries and investigation all select this endpoint in [start,end).
+func slowReportAt(at time.Time) time.Time {
+	return api.BucketStart(at, sampleEvery).Add(sampleEvery)
+}
+
 func (p *Provider) GetSlowConsumerInvestigation(ctx context.Context, req *v1.GetSlowConsumerInvestigationRequest) (*v1.GetSlowConsumerInvestigationResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -35,8 +41,8 @@ func (p *Provider) GetSlowConsumerInvestigation(ctx context.Context, req *v1.Get
 		counts := map[time.Time]int64{}
 		for _, fixed := range s.sc.slowTimes(sp) {
 			at := fixed.Add(s.shift)
-			stop := api.BucketStart(at, sampleEvery).Add(sampleEvery)
-			if !stop.Before(start) && stop.Before(end) && !stop.After(s.dataEnd()) {
+			stop := slowReportAt(at)
+			if !stop.Before(start) && stop.Before(earliest(end, s.dataEnd())) {
 				counts[stop]++
 			}
 		}
@@ -44,6 +50,9 @@ func (p *Provider) GetSlowConsumerInvestigation(ctx context.Context, req *v1.Get
 			id := sp.id
 			if stop.Before(s.started(sp)) {
 				id = sp.oldID
+			}
+			if req.ObservationServerId != "" && (req.ObservationServerId != id || req.ObservationEpoch != s.epochNumber(stop)) {
+				continue
 			}
 			out.Observations = append(out.Observations, &v1.SlowConsumerObservation{Server: sp.name, ServerId: id, Epoch: s.epochNumber(stop), IntervalStart: ts(stop.Add(-sampleEvery)), IntervalEnd: ts(stop), Increase: ptr(n)})
 			out.Detections += n

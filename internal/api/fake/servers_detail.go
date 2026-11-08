@@ -41,7 +41,7 @@ func (s scen) slowCount(sp serverSpec, after, before time.Time) int64 {
 	before = earliest(before, s.dataEnd())
 	var n int64
 	for _, t := range s.sc.slowTimes(sp) {
-		if c := t.Add(s.shift); !c.Before(after) && c.Before(before) {
+		if c := slowReportAt(t.Add(s.shift)); !c.Before(after) && c.Before(before) {
 			n++
 		}
 	}
