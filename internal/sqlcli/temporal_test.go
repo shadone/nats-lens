@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestJSONTemporalValuesRejectUnfaithfulRepresentations(t *testing.T) {
@@ -32,7 +33,7 @@ func TestJSONTemporalValuesRejectUnfaithfulRepresentations(t *testing.T) {
 			}
 		}
 	}
-	for _, expr := range []string{`DATE '10000-01-01'`, `DATE '-0001-01-01'`, `TIMESTAMP '10000-01-01'`, `TIMESTAMP '-0001-01-01 00:00:00'`, `TIMESTAMPTZ '10000-01-01 00:00:00+00'`} {
+	for _, expr := range []string{`DATE '10000-01-01'`, `DATE '-0001-01-01'`, `TIMESTAMP '10000-01-01'`, `TIMESTAMP '-0001-01-01 00:00:00'`, `TIMESTAMPTZ '10000-01-01 00:00:00+00'`, `TIMESTAMP_S '10000-01-01'`, `TIMESTAMP_MS '10000-01-01'`} {
 		proof, e := Execute(context.Background(), p, "SELECT isfinite("+expr+")", o)
 		if e != nil || !bytes.Contains(proof, []byte(`[true]`)) {
 			t.Fatalf("finite proof %s: %s %v", expr, proof, e)
@@ -58,6 +59,30 @@ func TestJSONTemporalFiniteBoundaries(t *testing.T) {
 		var r result
 		if e = json.Unmarshal(b, &r); e != nil || len(r.Rows) != 1 {
 			t.Fatalf("invalid result: %s %v", b, e)
+		}
+		var cells []*string
+		if e = json.Unmarshal(r.Rows[0], &cells); e != nil {
+			t.Fatal(e)
+		}
+		if cells[0] != nil {
+			if _, e = time.Parse(time.RFC3339Nano, *cells[0]); e != nil {
+				t.Fatalf("not RFC 3339: %s", r.Rows[0])
+			}
+		}
+	}
+}
+
+func TestJSONTemporalExplicitCastsPreserveSpecialValues(t *testing.T) {
+	p := fixture(t, "temporal.duckdb")
+	o := DefaultOptions()
+	o.Format = "json"
+	b, e := Execute(context.Background(), p, `SELECT [CAST('infinity'::TIMESTAMP_NS AS VARCHAR)], CAST(TIMESTAMP '-infinity' AS VARCHAR), CAST(DATE '10000-01-01' AS VARCHAR)`, o)
+	if e != nil || !bytes.Contains(b, []byte(`[["infinity"]`)) || !bytes.Contains(b, []byte(`"-infinity","10000-01-01"`)) {
+		t.Fatalf("explicit casts: %s %v", b, e)
+	}
+	for _, v := range []time.Time{time.Date(-1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)} {
+		if _, e := jsonValue(v); e == nil {
+			t.Fatalf("invalid RFC 3339 time accepted: %v", v)
 		}
 	}
 }
