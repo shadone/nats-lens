@@ -31,10 +31,16 @@ type Provider struct {
 	Interval time.Duration
 	// Live is whether a collector writes to the store in this process.
 	Live bool
+	// CapturedOnly excludes runtime state in offline investigations.
+	CapturedOnly bool
 	// Retention is how long the collector keeps epochs and events.
 	Retention time.Duration
+	// RetentionKnown is explicit captured metadata; bare offline files lack it.
+	RetentionKnown bool
 	// Clock returns now; nil means the wall clock.
 	Clock func() time.Time
+	// RangeClock overrides only derived half-open query bounds, not observed time.
+	RangeClock func() time.Time
 	// Checks names the checks and gives their remediation; nil leaves
 	// those fields empty.
 	Checks *checks.Set
@@ -71,6 +77,15 @@ func (p *Provider) Now() time.Time {
 		return p.Clock().UTC()
 	}
 	return time.Now().UTC()
+}
+
+// RangeReference is used only to resolve omitted range bounds. Explicit bounds
+// and Now's observed dataset clock remain unchanged.
+func (p *Provider) RangeReference() time.Time {
+	if p.RangeClock != nil {
+		return p.RangeClock().UTC()
+	}
+	return p.Now()
 }
 
 type queryReader interface {
@@ -151,7 +166,10 @@ func ntime(t sql.NullTime) time.Time {
 // Info reports the collector's settings, the cluster name of the newest
 // epoch's servers and the start of the oldest stored epoch.
 func (p *Provider) Info(ctx context.Context) (*v1.GetLensInfoResponse, error) {
-	res := &v1.GetLensInfoResponse{CollectInterval: dur(p.Interval), Retention: dur(p.Retention), Live: p.Live}
+	res := &v1.GetLensInfoResponse{CollectInterval: dur(p.Interval), Retention: dur(p.Retention), Live: p.Live, NowFixed: p.CapturedOnly}
+	if p.CapturedOnly && !p.RetentionKnown {
+		res.Retention = nil
+	}
 	var cluster sql.NullString
 	err := p.db().QueryRowContext(ctx, `
 SELECT any_value(s.cluster) FROM servers s

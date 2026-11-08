@@ -154,10 +154,19 @@ func (h *Handler) user(ctx context.Context, header interface{ Get(string) string
 	return email, nil
 }
 
+// rangeReference allows captured data to include a zero-duration latest sample
+// in a derived half-open interval without changing its observed reference time.
+func rangeReference(p Provider) time.Time {
+	if p, ok := p.(interface{ RangeReference() time.Time }); ok {
+		return p.RangeReference()
+	}
+	return p.Now()
+}
+
 // withRange fills an unset range with the default span ending at the
 // provider's now.
 func withRange(p Provider, r **v1.TimeRange) error {
-	out, err := ResolveRange(*r, p.Now(), DefaultRange)
+	out, err := ResolveRange(*r, rangeReference(p), DefaultRange)
 	if err == nil {
 		*r = out
 	}
@@ -294,7 +303,7 @@ func (h *Handler) ListMutes(ctx context.Context, req *connect.Request[v1.ListMut
 
 func (h *Handler) GetStatusTimeline(ctx context.Context, req *connect.Request[v1.GetStatusTimelineRequest]) (*connect.Response[v1.GetStatusTimelineResponse], error) {
 	return call(ctx, h, "GetStatusTimeline", req.Msg, func(p Provider, m *v1.GetStatusTimelineRequest) error {
-		return normalizeTimeline(m, p.Now())
+		return normalizeTimeline(m, rangeReference(p))
 	}, on(Provider.GetStatusTimeline))
 }
 
@@ -327,7 +336,7 @@ func (h *Handler) ListStreams(ctx context.Context, req *connect.Request[v1.ListS
 		if _, err = EntityLimit(m.GetLimit()); err != nil {
 			return err
 		}
-		m.Range, err = EntityListRange(m.GetRange(), m.GetPageToken(), p.Now())
+		m.Range, err = EntityListRange(m.GetRange(), m.GetPageToken(), rangeReference(p))
 		return err
 	}, on(Provider.ListStreams))
 }
@@ -347,7 +356,7 @@ func (h *Handler) ListConsumers(ctx context.Context, req *connect.Request[v1.Lis
 		if _, err = EntityLimit(m.GetLimit()); err != nil {
 			return err
 		}
-		m.Range, err = EntityListRange(m.GetRange(), m.GetPageToken(), p.Now())
+		m.Range, err = EntityListRange(m.GetRange(), m.GetPageToken(), rangeReference(p))
 		return err
 	}, on(Provider.ListConsumers))
 }
@@ -419,7 +428,7 @@ func (h *Handler) ListMetrics(context.Context, *connect.Request[v1.ListMetricsRe
 
 func (h *Handler) GetTimeSeries(ctx context.Context, req *connect.Request[v1.GetTimeSeriesRequest]) (*connect.Response[v1.GetTimeSeriesResponse], error) {
 	return call(ctx, h, "GetTimeSeries", req.Msg, func(p Provider, m *v1.GetTimeSeriesRequest) error {
-		return normalizeTimeSeries(m, p.Now())
+		return normalizeTimeSeries(m, rangeReference(p))
 	}, on(Provider.GetTimeSeries))
 }
 
@@ -443,7 +452,7 @@ func (h *Handler) ListObjectStores(ctx context.Context, req *connect.Request[v1.
 
 func (h *Handler) GetReplay(ctx context.Context, req *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error) {
 	return call(ctx, h, "GetReplay", req.Msg, func(p Provider, m *v1.GetReplayRequest) error {
-		return normalizeReplay(m, p.Now())
+		return normalizeReplay(m, rangeReference(p))
 	}, func(s System, ctx context.Context, m *v1.GetReplayRequest) (*v1.GetReplayResponse, error) {
 		f, err := s.Provider.Replay(ctx, m)
 		if err != nil {
