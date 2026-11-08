@@ -88,7 +88,9 @@ func callWithin[Req systemRequest, Res any](ctx context.Context, h *Handler, pro
 	if err != nil {
 		return nil, h.codeOf(procedure, err)
 	}
-	h.withAccountNames(ctx, sys.Provider, res)
+	if err := h.withEntityPageAccountNames(ctx, sys.Provider, res); err != nil {
+		return nil, h.codeOf(procedure, err)
+	}
 	// Account decoration happens after provider paging; enforce the final wire
 	// budget too, including names supplied by the collector.
 	switch m := any(res).(type) {

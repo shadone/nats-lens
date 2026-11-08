@@ -4,14 +4,15 @@ import (
 	"cmp"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
-	"google.golang.org/protobuf/proto"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // streamRows reads the streams of epoch e, optionally one account or one
@@ -51,7 +52,11 @@ func (p *Provider) streamBase(ctx context.Context, e epochInfo, account, stream 
 }
 
 func (p *Provider) streamBaseFiltered(ctx context.Context, e epochInfo, account, stream string, includeKV bool) ([]*v1.StreamSummary, *v1.StreamTotals, error) {
-	rows, err := p.db().QueryContext(ctx, `
+	var out []*v1.StreamSummary
+	totals := &v1.StreamTotals{}
+	budget := newMetadataBudget()
+	budget.rows = api.MaxListRankingRows
+	err := p.readMetadata(ctx, `
 WITH now_ AS (
   SELECT account, stream,
     coalesce(max(messages) FILTER (WHERE is_leader), max(messages)) AS messages,
@@ -71,46 +76,52 @@ cons AS (
     AND cc.stream = x.stream AND cc.consumer = x.consumer AND x.epoch BETWEEN cc.first_epoch AND cc.last_epoch
   WHERE x.epoch = ? GROUP BY ALL)
 SELECT n.account, n.stream, c.replicas, n.messages, n.bytes, n.leader,
-  coalesce(k.durable, 0), coalesce(k.ephemeral, 0), n.created_differs OR coalesce(c.config_differs, false)
+  coalesce(k.durable, 0) AS durable, coalesce(k.ephemeral, 0) AS ephemeral, n.created_differs OR coalesce(c.config_differs, false) AS disagree
 FROM now_ n LEFT JOIN cfg c USING (account, stream)
 LEFT JOIN cons k USING (account, stream)
-ORDER BY n.account, n.stream`, e.epoch, account, account, stream, stream, includeKV, e.epoch, e.epoch)
+ORDER BY n.account, n.stream`, []any{e.epoch, account, account, stream, stream, includeKV, e.epoch, e.epoch}, budget, func(raw []byte) error {
+		var v struct {
+			Account, Stream, Leader string
+			Replicas                *int32
+			Messages, Bytes         *int64
+			Durable, Ephemeral      int32
+			Disagree                bool
+		}
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		s := &v1.StreamSummary{Entity: refOf(v1.EntityType_ENTITY_TYPE_STREAM, []any{v.Account, v.Stream}),
+			Replicas: v.Replicas, Messages: v.Messages, Bytes: v.Bytes, Leader: v.Leader, Consumers: ptr(v.Durable + v.Ephemeral),
+			ServersDisagree: v.Disagree, Status: v1.Status_STATUS_NO_DATA}
+		totals.Bytes += s.GetBytes()
+		totals.DurableConsumers += v.Durable
+		totals.EphemeralConsumers += v.Ephemeral
+		out = append(out, s)
+		return nil
+	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("streams: %w", err)
 	}
-	defer rows.Close()
-	var out []*v1.StreamSummary
-	totals := &v1.StreamTotals{}
-	for rows.Next() {
-		var s v1.StreamSummary
-		var acc, name string
-		var leader sql.NullString
-		var durable, ephemeral int32
-		// Numbers scan into their optional fields: NULL leaves them unset.
-		if err := rows.Scan(&acc, &name, &s.Replicas, &s.Messages, &s.Bytes, &leader, &durable, &ephemeral,
-			&s.ServersDisagree); err != nil {
-			return nil, nil, err
-		}
-		s.Entity = refOf(v1.EntityType_ENTITY_TYPE_STREAM, []any{acc, name})
-		// The status is no data until streamStatus applies the findings.
-		s.Leader, s.Consumers, s.Status = leader.String, ptr(durable+ephemeral), v1.Status_STATUS_NO_DATA
-		totals.Bytes += s.GetBytes()
-		totals.DurableConsumers += durable
-		totals.EphemeralConsumers += ephemeral
-		out = append(out, &s)
-		if len(out) > api.MaxListRankingRows {
-			return nil, nil, fmt.Errorf("%w: list ranking exceeds %d rows; narrow the account or stream filter", api.ErrResourceExhausted, api.MaxListRankingRows)
-		}
+	keys := make([]string, 0, len(out))
+	for _, s := range out {
+		keys = append(keys, s.GetEntity().GetKey())
 	}
-	if err := rows.Err(); err != nil {
-		return nil, nil, err
-	}
-	reps, err := p.streamReplicas(ctx, e.epoch, account, stream, "")
+	reps, err := p.streamReplicasScoped(ctx, e.epoch, account, stream, "", keys, includeKV)
 	if err != nil {
 		return nil, nil, err
 	}
+	placementBudget := newMetadataBudget()
 	for _, s := range out {
+		n := max(len(reps[s.GetEntity().GetKey()]), int(s.GetReplicas()))
+		if n > placementBudget.rows {
+			return nil, nil, metadataOverflow()
+		}
+		placementBudget.rows -= n
 		s.Placement = placementOf(reps[s.GetEntity().GetKey()], s.GetReplicas())
+		placementBudget.bytes -= proto.Size(s)
+		if placementBudget.bytes < 0 {
+			return nil, nil, metadataOverflow()
+		}
 	}
 	return out, totals, nil
 }
@@ -295,7 +306,7 @@ func (p *Provider) ListStreams(ctx context.Context, req *v1.ListStreamsRequest) 
 		if err != nil {
 			return nil, err
 		}
-		if err = p.streamStatus(ctx, req.GetRange(), e, snap.Streams); err != nil {
+		if err = p.listStreamStatus(ctx, req.GetRange(), e, snap.Streams); err != nil {
 			return nil, err
 		}
 		return snap, nil

@@ -3,31 +3,35 @@ package storeprov
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
-	"google.golang.org/protobuf/proto"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // consumerRows reads the consumers of epoch e, optionally one account,
 // stream or consumer.
 func (p *Provider) consumerRows(ctx context.Context, e epochInfo, account, stream, consumer string) ([]*v1.ConsumerSummary, error) {
-	rows, err := p.db().QueryContext(ctx, `
+	var out []*v1.ConsumerSummary
+	budget := newMetadataBudget()
+	budget.rows = api.MaxListRankingRows
+	err := p.readMetadata(ctx, `
 SELECT x.account, x.stream, x.consumer,
-  bool_or(coalesce(cc.durable_name, '') <> ''),
-  coalesce(nullif(coalesce(max(cc.replicas) FILTER (WHERE x.is_leader), max(cc.replicas)), 0), any_value(sr.replicas)),
-  max(x.num_pending) FILTER (WHERE x.is_leader),
-  coalesce(max(x.num_ack_pending) FILTER (WHERE x.is_leader), max(x.num_ack_pending)),
-  coalesce(max(x.num_redelivered) FILTER (WHERE x.is_leader), max(x.num_redelivered)),
-  max(x.num_waiting) FILTER (WHERE x.is_leader),
-  coalesce(max(x.leader) FILTER (WHERE x.is_leader), max(x.leader) FILTER (WHERE x.leader <> '')),
-  coalesce(max(x.delivered_last_active) FILTER (WHERE x.is_leader), max(x.delivered_last_active)),
-  coalesce(bool_or(x.paused), false),
-  count(DISTINCT cc.config_hash) > 1 OR count(DISTINCT x.created) > 1
+  bool_or(coalesce(cc.durable_name, '') <> '') AS durable,
+  coalesce(nullif(coalesce(max(cc.replicas) FILTER (WHERE x.is_leader), max(cc.replicas)), 0), any_value(sr.replicas)) AS replicas,
+  max(x.num_pending) FILTER (WHERE x.is_leader) AS pending,
+  coalesce(max(x.num_ack_pending) FILTER (WHERE x.is_leader), max(x.num_ack_pending)) AS ackpending,
+  coalesce(max(x.num_redelivered) FILTER (WHERE x.is_leader), max(x.num_redelivered)) AS redelivered,
+  max(x.num_waiting) FILTER (WHERE x.is_leader) AS waiting,
+  coalesce(max(x.leader) FILTER (WHERE x.is_leader), max(x.leader) FILTER (WHERE x.leader <> '')) AS leader,
+  coalesce(max(x.delivered_last_active) FILTER (WHERE x.is_leader), max(x.delivered_last_active)) AS last,
+  coalesce(bool_or(x.paused), false) AS paused,
+  count(DISTINCT cc.config_hash) > 1 OR count(DISTINCT x.created) > 1 AS disagree
 FROM consumer_stats x LEFT JOIN consumer_config cc ON cc.server_id = x.server_id AND cc.account = x.account
   AND cc.stream = x.stream AND cc.consumer = x.consumer AND x.epoch BETWEEN cc.first_epoch AND cc.last_epoch
 LEFT JOIN (
@@ -36,37 +40,34 @@ LEFT JOIN (
     AND s.stream = c.stream
   WHERE ? BETWEEN c.first_epoch AND c.last_epoch GROUP BY ALL) sr ON sr.account = x.account AND sr.stream = x.stream
 WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?) AND (? = '' OR x.consumer = ?)
-GROUP BY x.account, x.stream, x.consumer ORDER BY x.account, x.stream, x.consumer`,
-		e.epoch, e.epoch, e.epoch, account, account, stream, stream, consumer, consumer)
+GROUP BY x.account, x.stream, x.consumer ORDER BY x.account, x.stream, x.consumer`, []any{e.epoch, e.epoch, e.epoch, account, account, stream, stream, consumer, consumer}, budget, func(raw []byte) error {
+		var v struct {
+			Account, Stream, Consumer, Leader         string
+			Last                                      *string
+			Durable, Paused, Disagree                 bool
+			Replicas                                  *int32
+			Pending, Ackpending, Redelivered, Waiting *int64
+		}
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		c := &v1.ConsumerSummary{Entity: refOf(v1.EntityType_ENTITY_TYPE_CONSUMER, []any{v.Account, v.Stream, v.Consumer}),
+			Durable: v.Durable, Replicas: v.Replicas, NumPending: v.Pending, NumAckPending: v.Ackpending, NumRedelivered: v.Redelivered,
+			NumWaiting: v.Waiting, Leader: v.Leader, Paused: v.Paused, ServersDisagree: v.Disagree, Present: true, Status: v1.Status_STATUS_NO_DATA}
+		if v.Last != nil {
+			last, err := time.Parse("2006-01-02 15:04:05.999999999", *v.Last)
+			if err != nil {
+				return err
+			}
+			c.LastDelivered = ts(last)
+		}
+		out = append(out, c)
+		return nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("consumers: %w", err)
 	}
-	defer rows.Close()
-	var out []*v1.ConsumerSummary
-	for rows.Next() {
-		var c v1.ConsumerSummary
-		var acc, st, name string
-		var leader sql.NullString
-		var last sql.NullTime
-		// Numbers scan into their optional fields: NULL leaves them unset.
-		// Pending and waiting come from the leader's row only, because
-		// followers report zero for both. Replicas is the effective count:
-		// a consumer configured with 0 replicas has its stream's. The
-		// leader and the last delivery are the leader's row's, a
-		// follower's otherwise.
-		if err := rows.Scan(&acc, &st, &name, &c.Durable, &c.Replicas, &c.NumPending, &c.NumAckPending, &c.NumRedelivered,
-			&c.NumWaiting, &leader, &last, &c.Paused, &c.ServersDisagree); err != nil {
-			return nil, err
-		}
-		c.Entity = refOf(v1.EntityType_ENTITY_TYPE_CONSUMER, []any{acc, st, name})
-		// The status is no data until applyConsumerStatus applies the findings.
-		c.Leader, c.LastDelivered, c.Present, c.Status = leader.String, ts(ntime(last)), true, v1.Status_STATUS_NO_DATA
-		out = append(out, &c)
-		if len(out) > api.MaxListRankingRows {
-			return nil, fmt.Errorf("%w: list ranking exceeds %d rows; narrow the account or stream filter", api.ErrResourceExhausted, api.MaxListRankingRows)
-		}
-	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // ListConsumers reads the consumers of the range's newest epoch.
@@ -306,12 +307,25 @@ func (p *Provider) consumersWithMissing(ctx context.Context, r *v1.TimeRange, e 
 			c.DeliveredPerSecond = ptr(v)
 		}
 	}
-	inv, _, err := p.inventory(ctx)
+	inv, err := p.listConsumerInventory(ctx, account, stream, consumer)
 	if err != nil {
 		return nil, err
 	}
-	cs = append(cs, missingConsumers(inv, cs, account, stream, consumer)...)
-	cur, err := p.firingFindings(ctx, r)
+	have := map[string]bool{}
+	for _, c := range cs {
+		have[c.GetEntity().GetKey()] = true
+	}
+	for _, c := range inv {
+		if have[c.key()] {
+			continue
+		}
+		if len(cs) >= api.MaxListRankingRows {
+			return nil, metadataOverflow()
+		}
+		cs = append(cs, missingConsumers([]expectedConsumer{c}, nil, account, stream, consumer)...)
+		have[c.key()] = true
+	}
+	cur, err := p.listStatusFindings(ctx, r, consumerSummaryKeys(cs), false)
 	if err != nil {
 		return nil, err
 	}

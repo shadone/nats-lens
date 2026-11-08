@@ -36,7 +36,7 @@ func (p *Provider) GetPlacement(ctx context.Context, req *v1.GetPlacementRequest
 	if err != nil {
 		return nil, err
 	}
-	sreps, err := p.streamReplicas(ctx, e.epoch, "", "", "")
+	sreps, err := p.streamReplicasAll(ctx, e.epoch, "", "", "")
 	if err != nil {
 		return nil, err
 	}
