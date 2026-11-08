@@ -273,3 +273,18 @@ func TestStorageChangeBoundedCaptureAndCancellation(t *testing.T) {
 		t.Fatalf("scope did not constrain bounded reads: %v", err)
 	}
 }
+func TestStorageChangeIncompleteResourceInventory(t *testing.T) {
+	p, req := storageCompareFixture(t)
+	for _, value := range []any{nil, 999} {
+		if _, err := p.St.DB().Exec(`UPDATE server_stats SET js_streams=? WHERE epoch=1 AND server_id='S0'`, value); err != nil {
+			t.Fatal(err)
+		}
+		facts, err := p.StorageChange(ctx, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if facts.A.InventoryComplete {
+			t.Fatal("successful JSZ certified missing detailed stream inventory")
+		}
+	}
+}

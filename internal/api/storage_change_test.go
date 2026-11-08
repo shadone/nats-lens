@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -168,5 +169,12 @@ func TestStorageChangeUnavailableEndpointLink(t *testing.T) {
 	u, _ := url.Parse(res.InvestigationUrl)
 	if u.Query().Has("epochA") {
 		t.Fatal("unavailable endpoint produced an invalid zero pin link")
+	}
+}
+func TestStorageChangeSerializedBudget(t *testing.T) {
+	req, f := storageFacts()
+	f.Rows[0].Stream = strings.Repeat("\x00", api.MaxStorageChangePageBytes/4)
+	if _, err := api.FinishStorageChange(req, f); !errors.Is(err, api.ErrResourceExhausted) {
+		t.Fatalf("escaped JSON exceeded advertised page budget: %v", err)
 	}
 }
