@@ -105,7 +105,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	pageSize := fs.Int("page-size", 100, "one page, at most 500 rows where supported")
 	token := fs.String("page-token", "", "explicit continuation token; never followed automatically")
 	maxPoints := fs.Int("max-points", 200, "series buckets, at most 2000")
-	timeout := fs.Duration("timeout", 45*time.Second, "whole command budget, at most 45s")
+	timeout := fs.Duration("timeout", 45*time.Second, "shared RPC budget, at most 45s")
 	if err = fs.Parse(args); err != nil {
 		return err
 	}
@@ -206,6 +206,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if *metric != "" {
 		c.Metric = *metric
 	}
+	c.keepPointWithinRange()
 	if err = c.Validate(p.Deployment); err != nil {
 		return err
 	}
@@ -262,6 +263,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if a := request["account"]; a != nil {
 		_ = json.Unmarshal(a, &linkContext.Account)
 	}
+	linkContext.keepPointWithinRange()
 	link, _ := linkContext.Link(p.Deployment)
 	return writeJSON(out, map[string]any{"version": 1, "source": map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": c, "links": evidenceLinks(method, response, &linkContext, p.Deployment, link), "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": map[string]Availability{"actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No cross-call snapshot/collection pin is supported; response evidence IDs are preserved"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "retention": {"available", "GetLensInfo retention and history-start facts are included; historical coverage requires GetDataHistory"}, "freshness": {"unavailable", "GetLensInfo does not report collection freshness; query GetOverview, GetShellStatus or GetDataHistory"}, "aggregation": {"unavailable", "Query ListMetrics for each metric ID’s authoritative aggregation description; series retain their units and bucket steps"}}})
 }

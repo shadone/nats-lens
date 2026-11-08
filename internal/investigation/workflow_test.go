@@ -50,6 +50,11 @@ func TestAgentWorkflow(t *testing.T) {
 			if string(c["version"]) != "1" || !bytes.Contains(c["range"], []byte("2026-10-17")) {
 				t.Fatalf("server clock: %s", c["range"])
 			}
+			if s.metric != "" {
+				var b inv.Bounds
+				json.Unmarshal(c["range"], &b)
+				c["point"], _ = json.Marshal(b.Start)
+			}
 			cb, _ := json.Marshal(c)
 			file := filepath.Join(dir, strings.ReplaceAll(s.name, " ", "-")+".json")
 			os.WriteFile(file, cb, 0600)
@@ -74,6 +79,18 @@ func TestAgentWorkflow(t *testing.T) {
 				}
 			}
 			run(append(args, "-from", "2026-10-17T14:00:00Z", "-to", "2026-10-17T14:20:00Z", "-max-points", "30")...)
+			if s.metric != "" {
+				request := filepath.Join(dir, "narrow-request.json")
+				os.WriteFile(request, []byte(`{"range":{"start":"2026-10-17T14:00:00Z","end":"2026-10-17T14:20:00Z"}}`), 0600)
+				narrow := run(append(args, "-request", request)...)
+				var ls []inv.EvidenceLink
+				json.Unmarshal(narrow["links"], &ls)
+				for _, l := range ls {
+					if l.URL == "" {
+						t.Fatal("narrowed request lost evidence link")
+					}
+				}
+			}
 			history := run("query", "GetDataHistory", "-context", file)
 			if !bytes.Contains(history["response"], []byte("coverage")) {
 				t.Fatal(string(history["response"]))
@@ -88,6 +105,18 @@ func TestAgentWorkflow(t *testing.T) {
 				json.Unmarshal(r["response"], &response)
 				if len(response.Findings) == 0 {
 					t.Fatal("fixture has no resolved findings")
+				}
+				foundLink := false
+				for _, l := range links {
+					if l.Kind == "finding" && l.ID == response.Findings[0].ID {
+						foundLink = true
+						if _, err := inv.ContextFromURL(l.URL, srv.URL, fake.FixedNow); err != nil {
+							t.Fatalf("finding link cannot be imported: %v", err)
+						}
+					}
+				}
+				if !foundLink {
+					t.Fatal("resolved finding has no scoped evidence link")
 				}
 				request := filepath.Join(dir, "finding.json")
 				os.WriteFile(request, []byte(`{"id":"`+response.Findings[0].ID+`"}`), 0600)

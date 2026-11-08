@@ -91,15 +91,27 @@ func bounds(b Bounds) (time.Time, time.Time, error) {
 	}
 	return a, z, nil
 }
-func supportedPath(p string) bool {
-	parts := strings.Split(strings.TrimPrefix(p, "/"), "/")
+
+// Split route segments before unescaping: a finding ID can itself contain
+// account/stream/consumer separators encoded inside the single :id segment.
+func pathSegments(p string) []string {
 	if !strings.HasPrefix(p, "/") || strings.HasPrefix(p, "//") || strings.Contains(p, "\\") {
-		return false
+		return nil
 	}
-	for _, part := range parts {
-		if part == "." || part == ".." {
-			return false
+	parts := strings.Split(strings.TrimPrefix(p, "/"), "/")
+	for i, part := range parts {
+		decoded, err := url.PathUnescape(part)
+		if err != nil || decoded == "." || decoded == ".." || !validText(decoded, 1024) || strings.Contains(decoded, "\\") {
+			return nil
 		}
+		parts[i] = decoded
+	}
+	return parts
+}
+func supportedPath(p string) bool {
+	parts := pathSegments(p)
+	if len(parts) == 0 {
+		return false
 	}
 	switch parts[0] {
 	case "", "fleet", "capacity", "data-history", "replay", "topology", "placement", "connections", "accounts", "subjects", "micro-services", "applications":
@@ -117,7 +129,7 @@ func supportedPath(p string) bool {
 }
 func validateSource(raw string) error {
 	u, err := url.Parse(raw)
-	if err != nil || u.IsAbs() || u.Host != "" || u.Fragment != "" || !supportedPath(u.Path) || len(raw) > 8192 {
+	if err != nil || u.IsAbs() || u.Host != "" || u.Fragment != "" || !supportedPath(u.EscapedPath()) || len(raw) > 8192 {
 		return errors.New("unsupported source UI path")
 	}
 	q, err := url.ParseQuery(u.RawQuery)
@@ -276,14 +288,17 @@ func ContextFromURL(raw, trusted string, now time.Time) (*Context, error) {
 	if u.Path == "/events" && c.Filters["show"] == "" {
 		c.Filters["show"] = "worth"
 	}
-	c.infer(u.Path, q)
+	c.infer(u.EscapedPath(), q)
 	if err = c.Validate(trusted); err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 func (c *Context) infer(path string, q url.Values) {
-	p := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	p := pathSegments(path)
+	if len(p) == 0 {
+		return
+	}
 	if len(p) == 2 {
 		switch p[0] {
 		case "servers":
@@ -350,4 +365,17 @@ func (c *Context) Link(trusted string) (string, error) {
 	}
 	u.RawQuery = q.Encode()
 	return strings.TrimSuffix(trusted, "/") + u.String(), nil
+}
+
+// A deliberate narrower query is a new selection. Preserve the original point
+// only while it remains inside that query; never relax imported validation.
+func (c *Context) keepPointWithinRange() {
+	if c.Point == "" {
+		return
+	}
+	a, z, err := bounds(c.Range)
+	p, parseErr := time.Parse(time.RFC3339Nano, c.Point)
+	if err == nil && parseErr == nil && (p.Before(a) || !p.Before(z)) {
+		c.Point = ""
+	}
 }
