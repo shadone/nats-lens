@@ -22,6 +22,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -303,6 +304,7 @@ func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
 		}
 		path = filepath.Join(dir, store.FileName)
 	}
+	var manifest json.RawMessage
 	if *bundle != "" {
 		// Shared validation owns the artifact format. Raw SQL remains its separate
 		// trusted advanced interface; this is not a semantic investigation method.
@@ -317,11 +319,12 @@ func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
 			return sqlcli.Invalid("Cannot validate bundle; select a trusted closed compatible dataset")
 		}
 		path = d.DBPath
+		manifest, _ = json.Marshal(d.Manifest)
 		if err = d.Close(); err != nil {
 			return sqlcli.Invalid("Cannot close validated bundle")
 		}
 	}
-	b, err := sqlcli.Execute(ctx, path, fs.Arg(0), sqlcli.Options{Format: *format, MaxRows: *maxRows, MaxBytes: *maxBytes, Timeout: *timeout})
+	b, err := sqlcli.Execute(ctx, path, fs.Arg(0), sqlcli.Options{Format: *format, MaxRows: *maxRows, MaxBytes: *maxBytes, Timeout: *timeout, Manifest: manifest})
 	if err != nil {
 		return err
 	}
