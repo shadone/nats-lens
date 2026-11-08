@@ -1,7 +1,7 @@
 # Metric investigations
 
 - **Surfaces:** `ui`
-- **Status:** partial — server, resource and aggregate metric pages; traffic volumes and global rankings remain open
+- **Status:** partial — server, resource and aggregate metric pages; complete volumes and global rankings remain open
 - **Related:** [metric-observations.md](metric-observations.md), [overview-page.md](overview-page.md), [servers.md](servers.md), [chart-interval-selection.md](chart-interval-selection.md), [agent-investigations.md](agent-investigations.md)
 
 ## What it does
@@ -26,7 +26,7 @@ Metric chart titles open CPU, memory, connection-count, message-rate or byte-rat
 - A fresh source clock resolves a live range before the comparison reads. Fixed ranges retain their endpoints. The page shows the requested interval and source clock; live comparisons refresh. It does not establish a universal collection pin.
 - Proposed, not yet confirmed: twelve server names per page, alphabetically paged, with at most twenty-six history queries in one batch. The server inventory is an existing separate read, not a bounded ranking API. Filtering selects names from that inventory. Sorting compares the loaded page only, not the entire fleet.
 - Charts display bucket aggregates. Tables use observation summaries from before bucketing: latest known-or-unknown value, sample mean or connection minimum, observed peak and its timestamp. Means are sample-weighted. A fleet median peak is not an individual server peak. Missing values stay unknown; known/returned counts do not certify complete collection coverage.
-- CPU is percent of one core and can exceed 100%; it is not host saturation. Memory is NATS process resident bytes, not host pressure. Connection counts do not identify clients. Incoming and outgoing traffic rates remain separate; the page does not integrate them into asserted volumes.
+- CPU is percent of one core and can exceed 100%; it is not host saturation. Memory is NATS process resident bytes, not host pressure. Connection counts do not identify clients. Incoming and outgoing traffic rates remain separate; the page does not integrate them into asserted volumes. Message/byte comparisons show exact observed counter increases separately per direction, admitted-pair counts, contributing stored server IDs and skipped-report details. Collection timestamps describe an envelope, not continuous coverage. No comparable evidence stays unknown; a comparable zero stays zero. The demo states that counter evidence is unavailable.
 - Histories group by reported server name across process lifetimes. Process-start counts include initial starts. Simultaneous same-name processes cannot be separated here. Evidence links lead to server diagnostics and retained coverage.
 - Selecting a supported chart interval offers Open metric details, Set time range and Copy as prompt. Actions preserve explicit endpoints; Back returns to the prior page or range. Other metric families retain their existing interval policies.
 - Findings open in a full-screen, fixed-interval view, including muted, resolved and unknown states. Observation refresh does not close it. Server-scoped API evidence remains separate from the broader Findings page link. Events retain supported server/account filters. Related evidence does not establish causation.
@@ -60,7 +60,7 @@ Metric chart titles open CPU, memory, connection-count, message-rate or byte-rat
 
 ## Not supported
 
-Exact traffic-volume summaries, global contributor ranking, attribution of aggregate counts to clients, simultaneous same-name process separation, universal collection pins and causal conclusions. These limitations keep the broader metric-investigation task open.
+Complete interval traffic volumes, resource sequence-volume summaries, global contributor ranking, attribution of aggregate counts to clients, simultaneous same-name process separation, universal collection pins and causal conclusions. These limitations keep the broader metric-investigation task open.
 
 ### Follow a consumer backlog
 
