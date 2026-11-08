@@ -17,7 +17,7 @@ Status: proposed, not yet confirmed. This branch is an implementation candidate 
 | Budgets and compatibility | 64 KiB input/request cap, 1 MiB RPC read cap, shared RPC deadline at most 45 s, explicit pages/points/ranges, no automatic continuation. Missing old clock contract and unsupported route/method fail explicitly; newer unknown fields are unavailable. |
 | Honest limits | No universal collection pin, consistency promise, table-local state capture, dedicated Timeline-mark or drag/drop action, offline parity/acquisition/export, MCP packaging, structured raw SQL or new storage comparison mathematics. |
 
-## Automated verification
+## R1 automated verification
 
 - `TZ=Europe/Oslo go test -race ./internal/investigation -count=1 -timeout 90s -coverprofile=…`: passes, 85.4% statement coverage. Only synthetic HTTP fixtures and the built-in fixed demo are used.
 - Focused `internal/api` read-boundary, range and batch-limit tests pass with the race detector. No broad API, full Go, checks or store-provider suite is run for this delivery.
@@ -63,3 +63,25 @@ Final R1 browser checks use real IBM Plex Sans at 360, 761 and 1280 pixels. At e
 Final R1 demo CLI probes request one stream and one consumer per page, assert outgoing `limit: 1`, one response row and an explicit token, then separately request a second page with the same epoch/range. An OTHER-to-APP account override produces APP request/context/evidence links and separately labels the original OTHER source. Streams UI currently retains account context without filtering its rows; `availability.uiLinkScope` states that limitation and exact resource links are supplied. No silent traversal or offline parity is claimed.
 
 The four corrections have runtime RED → GREEN and removed-fix RED → restored GREEN evidence. Additional global-discovery and selected-resource account precedence regressions are also exercised before and after their fixes. The unchanged reviewer probe remains checked in byte-for-byte. Final evidence is under `/tmp/natslens-r1-evidence`, including width screenshots and copied contexts. These are synthetic local artifacts, not uploaded reports.
+
+## R2 deterministic scope correction and SQL integration
+
+This candidate integrates approved local `c00b0bc1` in `db7144ac`. The two feature-doc conflicts preserve both the agent capability/coverage entries and the accepted SQL JSON, private diagnostic and temporal contracts. SQL flags, source/DSN rules, precise output and clock guards are inherited unchanged. Raw SQL remains absent from the remote read allowlist. The root checkout is untouched; this is still a candidate for fresh root-owned R3 review.
+
+The independent R2 probe is copied unchanged as `internal/investigation/r2_scope_probe_test.go`, SHA-256 `a587ecbdcafbbc826ce27b08584b24072916d8d1657eb1424ba6df94c2923ec6`. Its first RED run selects APP 85 times and OTHER 15 times. Additional deterministic assertions fail immediately on unresolved imported account and missing selected parent stream; success does not depend on observing a particular randomized map order. The RED checkpoint is `123e0379`; `d579c093` resolves selected resource scope in one phase before explicit request overrides, and `ceaea9ba` fixes browser selector precedence. The analogous audit also covers stream/consumer detail routes, older copied typed contexts, ListStreams, ListConsumers, GetStream, GetConsumer, ListEvents, ListFindings, GetTimeSeries, selected event evidence and effective links. Tests retain the imported context unchanged and require repeated requests to preserve the correct identity.
+
+Explicit request fields still win last. Focused synthetic CLI tests also exposed an account flag being replaced by selected resource scope: `0e2567e0` captures RED and `f7393834` applies the explicit flag after imported scope. Nested entity changes require the request's typed entity; the flag does not rewrite nested IDs. Page-specific selector RED tests (`ad57a594`) and fix (`4a831dfd`) prevent an ignored consumer/stream parameter from inventing a different resource on Consumers, Connections or slow-consumer investigation pages. Events retains consumer > stream > server precedence; selected chart/route resources outrank retained selectors. No sorting of map keys substitutes for these semantics.
+
+Runtime removal of the scope/client and browser corrections reproduces failures; exact restoration passes. Removal of the explicit-account flag fix and page-specific selector fix separately reproduces their failures, followed by restored GREEN. Logs are in `/tmp/natslens-r2-fix-evidence`. The original R1 probe also remains byte-for-byte unchanged and passes in the focused suite.
+
+Final combined verification:
+
+- `TZ=Europe/Oslo go test -race ./internal/investigation -count=1 -timeout 90s -coverprofile=…`: passes, 87.3% statement coverage.
+- Focused non-UTC API race tests for `InvestigationMethodBoundary`, `ResolveRange` and `Batch`: pass. `go vet ./internal/investigation`: passes.
+- Full web with two workers: 172 files, 1,698 passed, 24 skipped. TypeScript and production build pass with the existing large-chunk warning.
+- Combined binary builds; focused SQL process/configuration private-diagnostic tests pass. Both investigation method discovery and all SQL help flags remain available. No SQL implementation, migrations, generated protobuf or checks code is independently changed.
+- Feature audit: clean, 40 capability docs; diff whitespace clean.
+- Twenty actual CLI imports of the conflicting Consumers URL select APP/order-jobs with limit 1 and one result each. Explicit account-flag and request-file override probes pass. No automatic continuation occurs.
+- The fixed production demo is the only browser/API fixture. Real IBM Plex Sans and copied Consumers context are checked at 360, 761 and 1280 pixels; selected APP/order-jobs owns the account despite retained OTHER and an ignored stale consumer selector. An Events compound selector is copied and queried, and returned scope links are opened. Browser-to-client facts retain effective identity and the original context separately.
+
+T3 preview is attempted first again; two identical snapshot timeouts cause the isolated agent-browser fallback. Owned demo/browser processes are stopped at handoff. No broad Go, checks, store-provider or benchmark suite, private/live database/auth/configuration access, upload, deployment, push, board mutation or reviewer spawn is performed. Timeline/local-filter/collection-cursor handoff, universal provenance and offline semantic parity limits remain as described above; approved raw offline SQL does not fulfill them.
