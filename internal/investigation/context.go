@@ -265,6 +265,17 @@ func ContextFromURL(raw, trusted string, now time.Time) (*Context, error) {
 			c.Filters[k] = v[0]
 		}
 	}
+	if u.Path == "/findings" {
+		if c.Filters["state"] == "" {
+			c.Filters["state"] = "open"
+		}
+		if c.Filters["muted"] == "" {
+			c.Filters["muted"] = "1"
+		}
+	}
+	if u.Path == "/events" && c.Filters["show"] == "" {
+		c.Filters["show"] = "worth"
+	}
 	c.infer(u.Path, q)
 	if err = c.Validate(trusted); err != nil {
 		return nil, err

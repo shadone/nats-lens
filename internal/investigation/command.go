@@ -344,6 +344,8 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			if method == "ListFindings" {
 				states := []string{}
 				switch v {
+				case "flapping":
+					states = []string{"FINDING_STATE_FLAPPING"}
 				case "resolved":
 					states = []string{"FINDING_STATE_RESOLVED"}
 				case "all":
@@ -384,6 +386,9 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			applied = put("clientName", v)
 		case "show":
 			applied = put("hideRoutine", v != "all")
+			if applied {
+				put("foldRepeats", v != "all")
+			}
 		case "id":
 			if method == "GetEvent" {
 				applied = put("id", v)

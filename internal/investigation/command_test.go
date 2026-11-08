@@ -57,3 +57,16 @@ func TestRequestCannotDropFrozenRange(t *testing.T) {
 		t.Fatal("null range silently restored a live server default")
 	}
 }
+
+func TestPageDefaultFiltersSurviveHandoff(t *testing.T) {
+	for _, test := range []struct{ path, method, want string }{{"/events", "ListEvents", `"hideRoutine":true`}, {"/findings", "ListFindings", `"includeMuted":true`}} {
+		c, _ := ContextFromURL("https://lens.example.com"+test.path+"?system=shop", "https://lens.example.com", fixtureNow())
+		req, _, err := Prepare(test.method, c, nil)
+		if err != nil || !strings.Contains(strings.ReplaceAll(string(req), " ", ""), test.want) {
+			t.Errorf("%s: %s %v", test.path, req, err)
+		}
+		if test.method == "ListEvents" && !strings.Contains(strings.ReplaceAll(string(req), " ", ""), `"foldRepeats":true`) {
+			t.Errorf("event grouping lost: %s", req)
+		}
+	}
+}
