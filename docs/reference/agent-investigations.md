@@ -157,3 +157,27 @@ The API keeps its existing per-call, batch, identity, ID, filter and query limit
 On failure, stdout contains a versioned `error` object with `code: "investigation_failed"`, a bounded explanation and `nextStep`; the command exits unsuccessfully. HTTP/proxy bodies and arbitrary backend error text are omitted. Authentication and permission failures are distinguished by Connect codes in the explanation. An unsupported read-only path or method directs the operator to verify compatibility rather than bypass protection. Inspect Data history for retention loss, capture gaps and partial collections; an empty list alone cannot establish that nothing happened.
 
 Only the remote source ships. The shared source interface transports existing protobuf requests and responses; an offline implementation must reuse authoritative validation and response finishing. Offline parity, export/acquisition, MCP packaging, storage comparison mathematics and structured raw SQL remain separate work.
+
+## Effective page filter audit
+
+Connections resolves visibility before explicit request overrides: `tooling=1` includes tooling, and every nonempty `name` search includes matching tooling even with absent tooling or `tooling=0`. The raw URL value stays in the original context. Explicit `includeTooling: false` remains authoritative; with a nonempty effective name the returned `availability.uiLinkScope` is partial because the Connections UI cannot encode that exclusion. The link still opens, but its rows can differ. Inspect the exact request and response, not just the link.
+
+The table describes current transport support, not semantic offline parity or an assertion that a page renders exactly one RPC response. Page/point budgets differ from UI pagination; no copied traversal cursor is reused. `unappliedContextFilters` describes filters retained from the original handoff that did not constrain the RPC. A link to effective scope cannot restore such an original filter.
+
+| Page / query | Effective defaults and overrides | Scope limits |
+|---|---|---|
+| Connections / ListConnections | Tooling only for exact `1`, or any nonempty name; server/account/name projected. Explicit request fields win last. | Name + explicit tooling exclusion reports partial UI scope. |
+| Applications / GetApplications | Account scope; tooling only for exact `1`. | `sort`/`dir` are retained but unapplied; ordering is not promised. |
+| Findings / ListFindings | Open states; muted included unless `muted=0`; supported state/severity/check filters. | Unrepresentable state combinations and API entity restrictions report partial scope. |
+| Events / ListEvents | Hide routine and fold repeats unless `show=all`; sources, kinds, client and selected entity. | Independent hide/fold overrides report partial scope. Facets/histograms are response metadata, not implicit row predicates. |
+| Streams / ListStreams | KV/object streams excluded unless `kv=1`. | Account-specific API scope is partial in UI; summary-only/cursor options are not replayed by a link. |
+| Consumers / ListConsumers | Ephemeral excluded unless `ephemeral=1`; selected stream owns its account. | API sorting can differ; a link does not replay a page token. |
+| Stream, KV, object and consumer detail | Route/chart resource wins retained selectors; explicit request resource fields win afterward. | Typed keys, time and original context remain separate. |
+| Subjects / GetSubjects, MatchSubject | Account scope; literal tester subject can be requested. | Imported `filter` remains unapplied; explicit enum/subject options not projected into effective links are disclosed as partial. |
+| Micro services / GetMicroServices | Account scope, all services returned by the API. | `service` selection is not imported; a URL containing it is refused, and browser copies omit it. |
+| Placement / GetPlacement | Unfiltered API matrix unless request fields supplied explicitly. | Imported filter/comparison/server-display state remains unapplied. Explicit unencoded filter/cell options report partial scope. |
+| Replay / GetReplay | Explicit A/B preserved. Without them the client uses frozen range bounds. | The UI's dynamic strip-window defaults are not inferred; returned links carry effective explicit endpoints. |
+| Overview, Fleet, Servers, Capacity, Accounts, Topology, Data history, Checks | Existing system/time/resource request fields; unsupported account or page-local filters remain unapplied. | Unencoded request options, including Data history's server selector, report partial scope. Topology `cluster` selection is not imported. |
+| Copied chart / GetTimeSeries or batch | Known metric/resource identities and frozen times. | List-page filters such as name/tooling do not become series predicates; they remain unapplied. |
+
+Only literal URL `1` enables KV, ephemeral or tooling toggles; `0`, `true` and omission do not, except Connections' name rule above. Findings uses the page's distinct `muted != 0` policy and Events uses `show != all`. The contract fixtures exercise absent, zero, one, noncanonical boolean strings and explicit false overrides. All read-RPC boolean inputs are inventoried in tests: includeMuted, hideRoutine, foldRepeats, includeFacets, includeOk, includeTooling, includeKv, summaryOnly and includeEphemeral. No current read RPC exposes `includeInternal`; such request fields are rejected. Unknown tags/order parameters are rejected on URL import and omitted from browser copies. No IDs, filters or ordering are inferred from those missing inputs.
