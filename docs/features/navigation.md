@@ -8,6 +8,8 @@
 
 Every page of the web UI sits in one shell. A sidebar on the left lists the pages in groups and shows which system the pages read. A header above the page names it, limits a list to one account where the list supports it, searches the system's servers, streams, consumers and buckets, holds the one time range that every page reads, says how fresh the data is, and switches the theme. The range, the system and the account live in the page address, so a link shows the next person exactly what you saw.
 
+A page or shared chart can hand its scope and frozen UTC interval to a terminal agent through [agent investigations](agent-investigations.md).
+
 ## Behavior and rules
 
 - **Page loading and recovery.** Accounts, Applications, Connections, Data history, Micro services, Placement, Replay and Topology load their views when needed. Their scoped primary data reads start while the view code loads; other pages are available with the shell. While a view loads, the sidebar and header remain available, and a polite status announces “Loading page…”. If the view code fails, the page shows an alert and a **Reload page** link. The link reloads the full current address, including its range, system, account, and fragment. Navigating to another page clears the error for that destination.

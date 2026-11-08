@@ -10,6 +10,7 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 
 ## Behavior and rules
 
+- **Remote investigation.** `natslens investigate` uses configured API profiles without opening a database or connecting to NATS. Its separate read-only route needs the existing authenticated access perimeter and a restricted proxy policy for least privilege ([agent-investigations.md](agent-investigations.md)).
 - **Commands.** `natslens run` (also `natslens` alone) runs until SIGTERM or SIGINT. `natslens once` stores one collection of every system, or of the one `-system ID` names, runs the checks on it and exits, without events, archive or API. `natslens sql`, `natslens checks` and `natslens demo` are described in [sql-access.md](sql-access.md), [checks.md](checks.md) and [demo-mode.md](demo-mode.md).
 - **Test notifications.** `natslens notify test` reads the configured channels and sends test messages without opening a database or connecting to NATS ([notifications.md](notifications.md)). Only `run` schedules finding delivery; `once`, `checks run` and `demo` send no finding notifications.
 - **Receiver access.** Notification delivery needs DNS and outbound HTTPS to configured receivers. A NetworkPolicy that restricts egress must allow those destinations, including when copying the GKE component.

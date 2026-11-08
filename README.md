@@ -100,6 +100,10 @@ To capture the stream and consumer advisories of a JetStream account as well, an
 
 6. **Work on the web UI** with hot reload: run `make demo` (or `make run-dev`) in one terminal and `make web-dev` in another, then open http://127.0.0.1:5173. The Vite dev server forwards `/api` to 127.0.0.1:8080; set `NATSLENS_API` to use another address. `make web-test` runs the Vitest tests. `go build` alone embeds a placeholder page instead of the UI; `make build` builds both. Use the [production web-loading runbook](docs/operations/measure-web-loading.md) to measure bundle sizes and browser cost.
 
+### Investigate through the API
+
+`natslens investigate methods` discovers the remote read interface. Copy investigation context from a page or shared chart, then use a trusted profile to query the existing API without browser automation or database access. The [command reference](docs/reference/agent-investigations.md) covers profile/auth setup and JSON; the [agent playbook](docs/agents/investigate.md) covers bounded evidence gathering and citation. Only remote access ships; MCP, offline datasets and collection pinning remain separate work.
+
 ### Useful commands
 
 | Command               | Description                                                                         |
