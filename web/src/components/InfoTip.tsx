@@ -22,7 +22,7 @@ export function InfoTip({ label, text }: { label: string; text: ReactNode }) {
         aria-label={`About ${label}`}
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
-        onClick={() => setPinned((o) => !o)}
+        onClick={() => pinned ? close() : setPinned(true)}
         onFocus={() => setHover(true)}
         onBlur={close}
         onKeyDown={(e) => e.key === "Escape" && close()}
