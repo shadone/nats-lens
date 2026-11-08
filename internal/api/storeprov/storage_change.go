@@ -172,14 +172,14 @@ ORDER BY time,id`, []any{a.endpoint.FinishedAt.AsTime(), b.endpoint.FinishedAt.A
 				if deleted {
 					row.After = storageKnownZero()
 					row.Reasons = append(row.Reasons, "observed_delete_event")
-				} else if storageNewIncarnation(b, x) {
+				} else if storageNewIncarnation(b, x, a.endpoint.FinishedAt.AsTime()) {
 					row.After = storageKnownZero()
 					row.Reasons = append(row.Reasons, "incarnation_replaced")
 				} else {
 					row.Reasons = append(row.Reasons, "not_observed_at_b")
 				}
 			}
-			if len(ga) == 0 && len(gb) > 0 && x.Created != nil && a.endpoint.Epoch != 0 && *x.Created > a.endpoint.FinishedAt.AsTime().UnixMicro() {
+			if len(ga) == 0 && len(gb) > 0 && x.Created != nil && a.endpoint.Epoch != 0 && *x.Created > a.endpoint.FinishedAt.AsTime().UnixMicro() && *x.Created <= b.endpoint.FinishedAt.AsTime().UnixMicro() {
 				row.Before = storageKnownZero()
 				row.Reasons = append(row.Reasons, "created_after_a")
 			}
@@ -192,8 +192,9 @@ ORDER BY time,id`, []any{a.endpoint.FinishedAt.AsTime(), b.endpoint.FinishedAt.A
 			if x.Created == nil {
 				row.Delta = nil
 				row.Reasons = append(row.Reasons, "incarnation_unknown")
-				row.Before = storageUnknownExceptReported(row.Before)
-				row.After = storageUnknownExceptReported(row.After)
+			}
+			if x.Created != nil && ((len(ga) > 0 && *x.Created > a.endpoint.FinishedAt.AsTime().UnixMicro()) || (len(gb) > 0 && *x.Created > b.endpoint.FinishedAt.AsTime().UnixMicro())) {
+				row.Reasons = append(row.Reasons, "invalid_creation_time")
 			}
 			slices.Sort(row.Reasons)
 			row.Reasons = slices.Compact(row.Reasons)
@@ -462,18 +463,20 @@ func storageResourceValue(s *storageSnapshot, reports []storageReport, storage s
 func storageKnownZero() *v1.StorageChangeBytes {
 	return &v1.StorageChangeBytes{Logical: proto.Int64(0), ObservedReplicas: proto.Int64(0), EstimatedReplicas: proto.Int64(0)}
 }
-func storageUnknownExceptReported(x *v1.StorageChangeBytes) *v1.StorageChangeBytes {
-	return &v1.StorageChangeBytes{ServerReported: x.ServerReported}
-}
-func storageNewIncarnation(s *storageSnapshot, old storageReport) bool {
-	if old.Created == nil {
+func storageNewIncarnation(s *storageSnapshot, old storageReport, after time.Time) bool {
+	if old.Created == nil || s.endpoint.Epoch == 0 {
 		return false
 	}
+	var candidate *int64
 	for _, g := range s.groups {
 		r := g[0]
-		if r.Account == old.Account && r.Stream == old.Stream && r.Created != nil && *r.Created > *old.Created {
-			return true
+		if r.Account != old.Account || r.Stream != old.Stream {
+			continue
 		}
+		if r.Created == nil || candidate != nil && *candidate != *r.Created {
+			return false
+		}
+		candidate = r.Created
 	}
-	return false
+	return candidate != nil && *candidate > *old.Created && *candidate > after.UnixMicro() && *candidate <= s.endpoint.FinishedAt.AsTime().UnixMicro()
 }

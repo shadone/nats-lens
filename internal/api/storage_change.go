@@ -68,6 +68,9 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 			}
 		}
 		r.Delta = storageDifference(r.Before, r.After)
+		if slices.Contains(r.Reasons, "incarnation_unknown") || slices.Contains(r.Reasons, "invalid_creation_time") {
+			r.Delta = &v1.StorageChangeBytes{}
+		}
 		res.Rows = append(res.Rows, r)
 	}
 	slices.SortFunc(res.Rows, func(a, b *v1.StorageChangeRow) int {
@@ -107,7 +110,7 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 			return nil, err
 		}
 		total.Delta = storageDifference(total.Before, total.After)
-		total.KnownContributions, err = storageSum(res.Rows, storage, func(r *v1.StorageChangeRow) *v1.StorageChangeBytes { return r.Delta }, false, true)
+		total.KnownContributions, err = storageContributions(res.Rows, storage)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +165,7 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 		omitted = append(omitted, all[:offset]...)
 		omitted = append(omitted, all[end:]...)
 		var err error
-		total.OmittedContributions, err = storageSum(omitted, total.Storage, func(r *v1.StorageChangeRow) *v1.StorageChangeBytes { return r.Delta }, false, true)
+		total.OmittedContributions, err = storageContributions(omitted, total.Storage)
 		if err != nil {
 			return nil, err
 		}
@@ -258,4 +261,12 @@ func storageSum(rows []*v1.StorageChangeRow, storage string, get func(*v1.Storag
 		}
 	}
 	return storageValues(out), nil
+}
+
+func storageContributions(rows []*v1.StorageChangeRow, storage string) (*v1.StorageChangeBytes, error) {
+	sum, err := storageSum(rows, storage, func(r *v1.StorageChangeRow) *v1.StorageChangeBytes { return r.Delta }, false, true)
+	if sum != nil {
+		sum.ServerReported = nil
+	}
+	return sum, err
 }
