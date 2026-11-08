@@ -96,10 +96,11 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		c.Metric = r.Metric
 	}
 	if r.Entity != nil {
-		copy := *r.Entity
-		c.Entity = &copy
+		c.Entity = projectContextEntity(r.Entity)
 		if !has("account") {
-			c.Account = copy.Account
+			if c.Entity != nil {
+				c.Account = c.Entity.Account
+			}
 		}
 	}
 	if has("server") && r.Server != "" {
@@ -276,6 +277,7 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 				ref.Entity = nil
 				limitations = append(limitations, "Series entity kind cannot be projected into the UI")
 			}
+			ref.Entity = projectContextEntity(ref.Entity)
 			ref.Label = ref.Metric
 			for _, before := range original.Series {
 				if sameSeries(ref, before) {
@@ -301,7 +303,8 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 	return &c, limitations, nil
 }
 func entityPath(e *Entity) string {
-	if e == nil {
+	e = projectContextEntity(e)
+	if e == nil || e.Key == "" {
 		return ""
 	}
 	switch e.Type {
