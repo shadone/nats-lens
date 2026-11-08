@@ -3,6 +3,8 @@ import {Link,useLocation,useParams,useSearchParams} from 'react-router';
 import {useMetricComparison,type MetricComparison,type MetricComparisonRow} from '../api/metricComparison';
 import type {TrendSeries,MetricObservations} from '../api/overview';
 import type {Unit} from '../api/model';
+import {ResourceMetricInvestigation} from './ResourceMetricInvestigation';
+import {resourceMetric,resourceMetrics} from '../lib/resourceMetrics';
 import {metricFamilies,metricFamily,type MetricFamily} from '../lib/metricNavigation';
 import {useTimeRange} from '../lib/useTimeRange';
 import {usePageTitle} from '../lib/usePageTitle';
@@ -30,8 +32,9 @@ function Plot({s,label,f,d,error}:{s?:TrendSeries;label:string;f:MetricFamily;d:
  return <TrendChart intervalActions metricNavigation={false} investigation={{metric:s?.metric,entity:s?.entity}} title={label} now={last===undefined?undefined:`${format(last,s,f)} · last bucket`} fmt={v=>format(v,s,f)} bucketNote={band?'Bucket means of medians; bounds are observed server extremes':f.summary==='count'?'Last count in bucket':'Mean of known metric values in bucket'} summary={s?`${bucketLabel(s.stepMs??0)} buckets; unknown values can occur inside populated buckets`:undefined} start={d.start} end={d.end} stepMs={s?.stepMs} layers={layers} contiguousBuckets error={error}/>;
 }
 export function MetricInvestigation(){
- const key=useParams().family;const f=key?metricFamily(key):undefined;usePageTitle(f?`${f.title} investigation`:'Metric investigations');
- if(!f)return <><h1>{key?'Metric not found':'Metric investigations'}</h1><p>Choose a metric to compare captured server observations.</p><ul>{metricFamilies.map(x=><li key={x.key}><RLink to={`/metrics/${x.key}`}>{x.title}</RLink></li>)}</ul></>;
+ const key=useParams().family;const f=key?metricFamily(key):undefined;const resource=key?resourceMetric(key):undefined;usePageTitle(f?`${f.title} investigation`:resource?`${resource.title} investigation`:'Metric investigations');
+ if(resource)return <ResourceMetricInvestigation key={resource.key} family={resource}/>;
+ if(!f)return <><h1>{key?'Metric not found':'Metric investigations'}</h1><p>Choose a metric to compare captured server observations.</p><ul>{[...metricFamilies,...resourceMetrics].map(x=><li key={x.key}><RLink to={`/metrics/${x.key}`}>{x.title}</RLink></li>)}</ul></>;
  return <MetricPage key={f.key} f={f}/>;
 }
 function MetricPage({f}:{f:MetricFamily}){
