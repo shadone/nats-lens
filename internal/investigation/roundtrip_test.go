@@ -122,6 +122,7 @@ func TestBoundQueryIsReadOnlyValidatedData(t *testing.T) {
 	for _, bad := range []map[string]any{
 		{"method": "ExecuteSQL", "request": map[string]any{}},
 		{"method": "GetReplay", "request": map[string]any{"system": "shop", "a": "invalid", "b": "invalid"}},
+		{"method": "GetReplay", "request": map[string]any{"system": "shop", "a": "2026-10-17T13:00:00Z", "b": "2026-10-17T14:00:00Z"}},
 		{"method": "ListConnections", "request": map[string]any{}},
 		{"method": "ListConnections", "request": map[string]any{"system": "shop", "range": Bounds{"2026-10-17T13:00:00Z", "2026-10-17T14:00:00Z"}}},
 		{"method": "ListConnections", "request": map[string]any{"authorization": "secret"}},
