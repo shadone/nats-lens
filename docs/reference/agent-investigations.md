@@ -222,3 +222,26 @@ natslens investigate query ListConsumers -profiles profiles.json -profile demo \
 ```
 
 Use the documented fixed demo and a matching trusted loopback profile for this example. A returned binding stores the token used by its request, not the next token automatically. First-page requests do not acquire an arbitrary read-at-epoch selector. Actual collection epoch/range remain in typed responses, and only a retained explicit cursor pins the API’s bounded traversal. Browser page/chart copies still do not capture their traversal cursor; universal cross-query pins and semantic offline parity remain unavailable.
+
+## Positive UI-equivalence proof
+
+`availability.uiLinkScope: available` now requires a reviewed per-method projection and positive predicate comparison. The client reconstructs the linked page’s row-predicate projection, independently tested against actual React page requests. Page budgets and response metadata are classified separately rather than assumed byte-identical. A missing policy, including a newly added field at its zero/default value, produces partial scope. Numeric unknown enum values remain numeric in `context.query`; only a disposable UI-decoding view converts them to display text. The machine request is never normalized to make a link appear equivalent.
+
+The proof concerns row predicates and selected identity, not identical page cardinality, response shape, aggregation or a cross-query collection pin. Page/point budgets remain explicit. Reviewed inactive defaults can express no restriction; active unencoded options remain partial. Fields without any UI projection, including exact metric/batch selections, remain partial even when empty. A working navigational link is still provided, and the exact machine context remains reusable.
+
+| Field / request | Proven available scope | Partial / unavailable scope |
+|---|---|---|
+| Events entity | No entity; empty unspecified/system entities as the API's unfiltered predicate; server, stream and consumer type/key selectors | Account, client, connection and future entity kinds not projected by the link. The Events account toolbar parameter does not construct an entity predicate. |
+| Events sources/kinds | Supported source membership; exactly representable split/trim/drop-empty kinds | Unspecified/future sources; kinds changed by the UI parser. Explicit machine values remain exact. |
+| Findings severities | Empty means every severity; recognized critical/warning/info combinations | Unspecified zero, unknown numeric enums, or mixed supported/unsupported values. `sev=unspecified` is ignored by the UI and therefore cannot reproduce the explicit API predicate. |
+| Findings states | Empty API list means open; supported open/flapping/resolved/ALL combinations | Unspecified zero, future states or unsupported combinations. Comparison uses the documented API default without rewriting the machine list. |
+| Connections / Applications | Proven account/name/server/tooling rules, including Connections name-search inclusion | Connections name plus explicit tooling exclusion; unencoded options |
+| Consumers / streams / buckets | Proven account/stream/ephemeral/KV rules where the page applies them | Streams API account restrictions, non-UI sort/cursors/summary options; unsupported selectors |
+| Entity detail / OnCall | Canonical server/stream/consumer type/key identity and finding/event IDs; OnCall reads the finding route identity | Absent/unknown projection or contradictory selectors |
+| Subjects / Placement | Default filter when the linked page applies the same predicate | Explicit enum or selected-cell options absent from the emitted UI projection, including future numbers |
+| Timeline / series / catalog | Proven common scope fields where a projection exists | Exact unencoded metric/batch/bucket selection, or a catalog RPC without a dedicated UI projection |
+| Other fields / oneofs | Reviewed scalar/message predicates must compare with the page request, including presence | Unclassified fields are partial even when unset; oneof presence differences cannot be silently treated as equal |
+
+Events API entities use type/key as predicate identity. Optional redundant account/server/stream display components do not replace that identity. Returned UI metadata and selected-resource links derive canonical components from the typed key; `context.query` retains the exact original fields. A different read method can follow that projected resource without depending on optional metadata.
+
+Independent fixture checks reproduce both mismatch counts: an account-entity Events request returns 1107 while its UI-link projection returns 1176; an explicit unspecified severity returns zero while the UI-link projection returns eight. Both report partial, and machine-context reimport retains the original predicates and counts. Actual UI request tests verify the account-versus-entity distinction and severity-token filtering; they do not merely call the Go proof helper. Prior source attribution, explicit clears, boolean false, normalization and pagination controls remain active.
