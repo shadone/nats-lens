@@ -5,6 +5,7 @@ import {Dialog} from "../components/Dialog";
 import {InvestigationButton} from "../components/InvestigationContext";
 import type {InvestigationSelection} from "../lib/investigationContext";
 import {chartInterval,intervalProblem,parseUTCInput,supportsStorageChange,utcInput,validChartFrame,type ChartInterval} from "../lib/chartInterval";
+import {metricDestination} from "../lib/metricNavigation";
 import {useTimeRange} from "../lib/useTimeRange";
 
 interface SelectionInput {scope:string;chartId:string;label:string;source?:InvestigationSelection;frame:ChartInterval;range:ChartInterval}
@@ -30,7 +31,7 @@ export function ChartIntervalProvider({children}:{children:ReactNode}){
  return <IntervalHost.Provider value={host}>{children}{visible&&<IntervalDialog key={visible.id} choice={visible} onClose={close} onEdit={range=>setChoice(c=>c?.id===visible.id?{...c,highlight:range}:c)} onSet={range=>{close();setSpec({kind:"fixed",from:range.start,to:range.end},{push:true})}} onInvestigate={range=>{
    // ASVS 1.2.2: only a fixed local route and encoded scope/times are navigated.
    const p=new URLSearchParams({system:visible.system,account:visible.account,from:new Date(range.start).toISOString(),to:new Date(range.end).toISOString(),contributors:"1"});
-   close();navigate(`/capacity/storage-change?${p}`);
+   const destination=metricDestination(visible.source);if(destination?.startsWith("/metrics/")){const [path,own]=destination.split("?");new URLSearchParams(own).forEach((v,k)=>p.set(k,v));p.delete("contributors");close();navigate(`${path}?${p}`)}else{close();navigate(`/capacity/storage-change?${p}`)}
   }}/>}</IntervalHost.Provider>;
 }
 function IntervalDialog({choice,onClose,onEdit,onSet,onInvestigate}:{choice:Choice;onClose:()=>void;onEdit:(range:ChartInterval|undefined)=>void;onSet:(range:ChartInterval)=>void;onInvestigate:(range:ChartInterval)=>void}){
@@ -44,13 +45,13 @@ function IntervalDialog({choice,onClose,onEdit,onSet,onInvestigate}:{choice:Choi
    <label className="field">End (UTC)<input aria-label="End (UTC)" type="datetime-local" step="0.001" min={utcInput(choice.frame.start)} max={utcInput(choice.frame.end)} value={to} onChange={e=>edit(from,e.target.value)}/></label>
    {problem&&<p role="alert">{problem}</p>}
    <p>{choice.system||"Resolving system"}{choice.account?` · account ${choice.account}`:" · all accounts"}. Selecting an interval does not establish a cause.</p>
-   <div className="dlg-btns chart-interval-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn" type="submit" disabled={!!problem}>Set time range</button>{supportsStorageChange(choice.source)&&<button className="btn" type="button" disabled={!!problem||!choice.system} onClick={()=>{if(range&&!problem)onInvestigate(range)}}>Investigate change</button>}{range&&!problem&&<InvestigationButton label selection={{...choice.source,start:range.start,end:range.end,point:undefined,label:choice.label}}/>}</div>
+   <div className="dlg-btns chart-interval-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn" type="submit" disabled={!!problem}>Set time range</button>{metricDestination(choice.source)?.startsWith("/metrics/")&&<button className="btn" type="button" disabled={!!problem||!choice.system} onClick={()=>{if(range&&!problem)onInvestigate(range)}}>Open metric details</button>}{supportsStorageChange(choice.source)&&<button className="btn" type="button" disabled={!!problem||!choice.system} onClick={()=>{if(range&&!problem)onInvestigate(range)}}>Investigate change</button>}{range&&!problem&&<InvestigationButton label selection={{...choice.source,start:range.start,end:range.end,point:undefined,label:choice.label}}/>}</div>
   </form>
  </Dialog>;
 }
 interface Gesture {key:string;scope:string;target:HTMLDivElement;pointerId:number;x:number;y:number;left:number;width:number;frame:ChartInterval;moved:boolean}
 export function useChartIntervalInteraction({label,start,end,source,enabled}:{label:string;start:number;end:number;source?:InvestigationSelection;enabled?:boolean}){
- const host=useContext(IntervalHost),chartId=useId();const frame={start,end};const eligible=!!host&&validChartFrame(frame)&&(enabled??supportsStorageChange(source));
+ const host=useContext(IntervalHost),chartId=useId();const frame={start,end};const eligible=!!host&&validChartFrame(frame)&&(enabled??(supportsStorageChange(source)||!!metricDestination(source)?.startsWith("/metrics/")));
  const key=JSON.stringify([host?.scope,label,source?.metric,source?.entity?.key,source?.series?.map(x=>[x.metric,x.entity?.key])]);
  const gesture=useRef<Gesture|undefined>(undefined);const keyboard=useRef<{anchor:number;cursor:number;frame:ChartInterval;step:number}|undefined>(undefined);const blockClick=useRef(0);const [draft,setDraft]=useState<{key:string;range:ChartInterval;frame:ChartInterval}>();
  const release=(g:Gesture)=>{try{if(g.target.hasPointerCapture?.(g.pointerId))g.target.releasePointerCapture(g.pointerId)}catch{/* Pointer already ended. */}};

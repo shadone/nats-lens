@@ -15,4 +15,4 @@
 .metric-window{font-family:var(--mono);font-size:var(--fs-sm)}
 
 .metric-table-region { container-type: inline-size; }
-.metric-expanded { width: calc(100cqw - 2 * var(--space-4)); max-width: 100%; }
+.metric-expanded { width: calc(100cqw - 2 * var(--sp-3)); max-width: 100%; }

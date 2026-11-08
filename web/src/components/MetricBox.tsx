@@ -19,7 +19,8 @@ export {InfoTip} from "./InfoTip";
 import {MetricHelp} from "./MetricHelp";
 import { RLink } from "./common";
 import { type ReactNode } from "react";
-import type { Level, Series, Window } from "../api/model";
+import {metricDestination} from "../lib/metricNavigation";
+import type { Entity, Level, Series, Window } from "../api/model";
 import { rangeText } from "../charts/chartLabel";
 import { Sparkline } from "../charts/Sparkline";
 import { ChartHistoryStatus } from "../charts/HistoryGaps";
@@ -53,6 +54,7 @@ export interface MetricBoxProps {
   description?: string;
   /** API catalogue definitions; description, when present, adds chart-specific context. */
   metricIds?: string[];
+  metricEntity?: Entity;
   series?: Series;
   /** A second series drawn dashed, for example messages out beside in. */
   series2?: Series;
@@ -156,6 +158,7 @@ export function RangeTrack({
 }
 
 export function MetricBox(p: MetricBoxProps) {
+  const to=metricDestination({series:p.metricIds?.map((metric,i)=>({label:metric,metric,entity:p.metricEntity??(i?p.series2?.entity:p.series?.entity)}))})??p.to;
   const status = p.status ?? "ok";
   const track = p.track ?? true;
   const pts = p.series?.points ?? [];
@@ -173,10 +176,10 @@ export function MetricBox(p: MetricBoxProps) {
   // Whether a chart is drawn, the only case with a history read of its own.
   const drawn = chart && !(p.error && !p.series);
   return (
-    <div className={`card mbox${alert}${p.to ? " chart-linked" : ""}${chart ? "" : " mb-quiet"}`}>
+    <div className={`card mbox${alert}${to ? " chart-linked" : ""}${chart ? "" : " mb-quiet"}`}>
       <div className="mb-h">
         <span className="lbl">
-          {p.to ? <RLink to={p.to} className="mb-t chart-link">{p.title}</RLink> : <span className="mb-t">{p.title}</span>}
+          {to ? <RLink to={to} className="mb-t chart-link">{p.title}</RLink> : <span className="mb-t">{p.title}</span>}
           {p.metricIds?.length ? <MetricHelp label={p.title} ids={p.metricIds} context={p.description}/> : <InfoTip label={p.title} text={p.description??"Description unavailable."} />}
         </span>
         <span className="mb-v">

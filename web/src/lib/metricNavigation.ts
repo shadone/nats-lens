@@ -15,7 +15,7 @@ export function metricDestination(selection:InvestigationSelection|undefined):st
  if(!known.length)return;
  const paths=known.map(s=>{const family=metricFamilies.find(f=>[...f.metrics,...f.fleetMetrics].includes(s.metric!));if(family)return `/metrics/${family.key}`;if(s.metric==='server.slow_consumers'||s.metric==='cluster.slow_consumers')return '/servers/slow-consumers';if(['cluster.js_storage_bytes','server.js_storage_bytes','cluster.capacity_file_store_bytes','server.capacity_file_store_bytes'].includes(s.metric!))return '/capacity/storage-change';return undefined});
  if(paths.some(p=>!p)||new Set(paths).size!==1)return;
- const path=paths[0]!;const names=[...new Set(known.map(s=>s.entity?.kind==='server'?(s.entity.server||s.entity.key):'').filter(Boolean))];const p=new URLSearchParams();
- if(names.length===1)p.set(path==='/capacity/storage-change'?'sourceServer':'server',names[0]);
+ const path=paths[0]!;const names=[...new Set(known.map(s=>s.entity?.kind==='server'?(s.entity.server||s.entity.key):''))];const p=new URLSearchParams();
+ if(names.length===1&&names[0])p.set(path==='/capacity/storage-change'?'sourceServer':'server',names[0]);
  return path+(p.size?`?${p}`:'');
 }
