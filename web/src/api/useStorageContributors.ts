@@ -26,6 +26,7 @@ export function useStorageContributors(){
  }catch(e){problem=e instanceof Error?e.message:"Invalid comparison link"}
  const [snapshot,setSnapshot]=useState({base,system,a:initialA,b:initialB});const snap=snapshot.base===base?snapshot:{base,system,a:initialA,b:initialB};
  const selection=[base,order,resourceKind].join("|");const [paging,setPaging]=useState({selection,token:"",previous:[] as string[],offset:0});const page=paging.selection===selection?paging:{selection,token:"",previous:[],offset:0};
+ useEffect(()=>{setPaging(old=>old.selection===selection?old:{selection,token:"",previous:[],offset:0})},[selection]);
  const key=(sys:string,pa:bigint,pb:bigint,token:string)=>["capacity-contributors",selection,sys,String(pa),String(pb),token];
  const q=useQuery({queryKey:key(snap.system,snap.a,snap.b,page.token),enabled:!problem&&!!a&&!!b,staleTime:Infinity,queryFn:({signal})=>lens.getStorageChange({system:snap.system,account,a,b,epochA:snap.a,epochB:snap.b,pageSize:100,pageToken:page.token,order,resourceKind,resourcesOnly:true},{signal})});
  const d=q.data;

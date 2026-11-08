@@ -6,6 +6,7 @@ import {pickTrend,useTrends} from "../api/trendBatch";
 import {StorageChangeOrder,type GetStorageChangeResponse,type StorageChangeRow} from "../gen/natslens/v1/storage_change_pb";
 import {bytes,stamp,reason,resourceEndpointPath} from "../lib/storageChangeView";
 import {QueryView} from "./common";
+import {InfoTip} from "./InfoTip";
 import {OneLine} from "./Trends";
 import "../styles/storage-contributors.css";
 
@@ -21,7 +22,7 @@ function ChangeBar({value,max}:{value:bigint|undefined;max:bigint}){
 export function CapacityContributors(){
  const c=useStorageContributors();const [expanded,setExpanded]=useState({selection:"",id:""});
  return <section className="card cap-contributors" aria-label="Resources by measured change">
-  <div className="page-h"><h2>Resources by measured change</h2><button type="button" className="btn" onClick={c.refresh} disabled={c.q.isFetching}>Refresh comparison</button></div>
+  <div className="page-h"><h2>Resources by measured change</h2><button type="button" className="btn" onClick={c.refresh} disabled={c.q.isFetching||!c.ready}>Refresh comparison</button></div>
   <p>Measured one-copy logical change, not /day or a forecast. Includes resources observed at either endpoint, even when absent from the latest collection. A live selection is frozen for this comparison until refreshed.</p>
   {c.problem?<p role="alert">{c.problem}</p>:!c.ready?<p role="status">Resolving source clock…</p>:<QueryView q={c.q} what="storage contributors">{d=>{
    const p=comparisonParams(d);if(c.order===StorageChangeOrder.LOGICAL_ASCENDING)p.set("change","asc");if(c.order===StorageChangeOrder.LOGICAL_DESCENDING)p.set("change","desc");if(c.type&&c.type!=="all")p.set("resource",c.type);
@@ -34,8 +35,9 @@ export function CapacityContributors(){
     <dl className="contributor-totals">{d.totals.map(t=><div key={t.storage}><dt>{t.storage==="memory"?"Memory":"File"} logical change</dt><dd>{bytes(t.delta?.logical,true)}</dd><dt>Known contributions</dt><dd>{bytes(t.knownContributions?.logical,true)} · {t.unknownRows} unknown rows</dd><dt>Unreconciled difference</dt><dd>{bytes(t.unreconciled,true)} · server usage minus complete observed-copy change</dd><dt>Outside this page or type filter</dt><dd>{bytes(t.omittedContributions?.logical,true)}</dd></div>)}</dl>
     {[...(d.a?.reasons??[]),...(d.b?.reasons??[]),...d.reasons].filter((x,i,a)=>a.indexOf(x)===i).map(x=><p role="note" key={x}>{reason(x)}</p>)}
     <label>Contributor type <select value={c.type==="stream"||c.type==="kv"||c.type==="object"?c.type:"all"} onChange={e=>c.setParams(old=>{const next=new URLSearchParams(old);if(e.target.value==="all")next.delete("resource");else next.set("resource",e.target.value);return next})}><option value="all">All resources</option><option value="stream">Streams</option><option value="kv">KV buckets</option><option value="object">Object stores</option></select></label>
+    <p>Bars scale to the largest known magnitude on this page, centered on zero; color does not indicate health.</p>
     <p>Showing {d.rows.length?`${c.page.offset+1}–${c.page.offset+d.rows.length}`:"0"} of {d.totalCount} matching resource incarnations. Sorting applies before paging. Unknown changes remain last.</p>
-    <div className="table-wrap" tabIndex={0} role="region" aria-label="Measured contributors"><table className="tbl"><thead><tr><th>Resource</th><th aria-sort={c.order===StorageChangeOrder.LOGICAL_ASCENDING?"ascending":c.order===StorageChangeOrder.LOGICAL_DESCENDING?"descending":"none"}><button type="button" aria-label="Sort by Change in range" onClick={()=>c.setParams(old=>{const next=new URLSearchParams(old);next.set("change",c.order===StorageChangeOrder.LOGICAL_DESCENDING?"asc":"desc");return next})}>Change in range</button></th><th>Before → after</th><th>Observed-copy change</th><th>Evidence</th></tr></thead><tbody>{d.rows.map(r=><tr key={r.id}>
+    <div className="table-wrap" tabIndex={0} role="region" aria-label="Measured contributors"><table className="tbl"><thead><tr><th>Resource</th><th aria-sort={c.order===StorageChangeOrder.LOGICAL_ASCENDING?"ascending":c.order===StorageChangeOrder.LOGICAL_DESCENDING?"descending":"none"}><button type="button" aria-label="Sort by Change in range" onClick={()=>c.setParams(old=>{const next=new URLSearchParams(old);next.set("change",c.order===StorageChangeOrder.LOGICAL_DESCENDING?"asc":"desc");return next})}>Change in range</button><InfoTip label="Change in range" text="One-copy logical bytes at B minus A, with the actual collection windows above. Distinct fresh observations and known identity are required. Missing values remain unknown. Bars compare magnitudes on this page; they do not indicate severity."/></th><th>Before → after</th><th>Observed-copy change</th><th>Evidence</th></tr></thead><tbody>{d.rows.map(r=><tr key={r.id}>
      <th scope="row">{r.bucket||r.stream}<small>{r.bucket?r.stream.startsWith("KV_")?"KV bucket":"Object store":"Stream"} · {r.account} · {r.storage}</small></th>
      <td className="contributor-change"><span>{bytes(r.delta?.logical,true)}</span><ChangeBar value={r.delta?.logical} max={max}/></td><td>{bytes(r.before?.logical)} → {bytes(r.after?.logical)}</td><td>{bytes(r.delta?.observedReplicas,true)}</td><td><button className="btn" type="button" aria-expanded={selected?.id===r.id} aria-label={`Explore ${r.bucket||r.stream}`} onClick={()=>setExpanded({selection:c.selection,id:selected?.id===r.id?"":r.id})}>Explore</button></td>
     </tr>)}</tbody></table></div>
