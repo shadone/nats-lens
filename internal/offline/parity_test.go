@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,6 +51,25 @@ func withoutRuntime(t *testing.T, b []byte) any {
 func TestOfflineLiveParity(t *testing.T) {
 	ctx := context.Background()
 	path := closedFixture(t)
+	// Add a genuine cumulative-counter pair; the exact increase exceeds JS's
+	// safe integer range and must survive the same live/offline JSON path.
+	w, err := store.OpenPath(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO epochs BY NAME SELECT * REPLACE (9007199254740992 AS epoch, TIMESTAMP '2026-10-17 14:28:30' AS started_at,TIMESTAMP '2026-10-17 14:28:31' AS finished_at) FROM epochs`,
+		`UPDATE server_stats SET in_msgs=9007199254740993,out_msgs=42,in_bytes=9007199254740993,out_bytes=42`,
+		`INSERT INTO server_stats BY NAME SELECT * REPLACE (9007199254740992 AS epoch,0 AS in_msgs,0 AS out_msgs,0 AS in_bytes,0 AS out_bytes) FROM server_stats`,
+	} {
+		if _, err = w.DB().ExecContext(ctx, q); err != nil {
+			w.Close()
+			t.Fatal(err)
+		}
+	}
+	if err = w.Close(); err != nil {
+		t.Fatal(err)
+	}
 	session, err := Open(ctx, investigation.OfflineSelection{DB: path, System: "shop", Interval: 30 * time.Second})
 	if err != nil {
 		t.Fatal(err)
@@ -76,6 +96,8 @@ func TestOfflineLiveParity(t *testing.T) {
 		{"GetLensInfo", `{}`}, {"ListSystems", `{"stripBuckets":2}`}, {"ListMetrics", `{}`}, {"ListCheckDefinitions", `{}`},
 		{"GetOverview", `{}`}, {"GetTimeSeries", `{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"maxPoints":10}`},
 		{"GetTimeSeries", `{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"maxPoints":1,"includeObservations":true}`},
+		{"GetTimeSeries", `{"metric":"server.in_msgs_rate","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"includeObservations":true,"maxPoints":1}`},
+		{"GetTimeSeries", `{"metric":"cluster.in_msgs_rate","includeObservations":true,"maxPoints":1}`},
 		{"GetTimeSeriesBatch", `{"queries":[{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"includeObservations":true},{"metric":"cluster.cpu_percent","includeObservations":true}],"maxPoints":1}`},
 		{"ListEvents", `{"pageSize":1,"hideRoutine":false,"foldRepeats":false}`}, {"GetEvent", `{"id":"9007199254740993"}`},
 		{"ListFindings", `{"includeMuted":true,"pageSize":1}`}, {"GetFinding", `{"id":"server-001:nats-0"}`},
@@ -93,6 +115,9 @@ func TestOfflineLiveParity(t *testing.T) {
 			}
 			if !reflect.DeepEqual(withoutRuntime(t, live), withoutRuntime(t, offline)) {
 				t.Fatalf("live %s\noffline %s", live, offline)
+			}
+			if c.method == "GetTimeSeries" && strings.Contains(c.request, "in_msgs_rate") && !strings.Contains(string(offline), `"observedIncrease":"9007199254740993"`) && !strings.Contains(string(offline), `"observedIncrease":"18014398509481986"`) {
+				t.Fatalf("exact counter evidence absent: %s", offline)
 			}
 			if c.method == "ListEvents" {
 				var page struct {

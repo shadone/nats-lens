@@ -114,3 +114,45 @@ func TestSeriesObservationOptInBoundaryAndCancellation(t *testing.T) {
 		t.Fatal("wide raw summary succeeded")
 	}
 }
+
+func TestTrafficCounterComparisonsShareReadBoundary(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.OpenPath(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	at := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+	if _, err = st.DB().Exec("INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) VALUES ('S0','nats-0',1,1,TIMESTAMP '2026-10-17 12:00:00',TIMESTAMP '2026-10-17 12:00:00')"); err != nil {
+		t.Fatal(err)
+	}
+	add := func(epoch int64, at time.Time, n int64) {
+		t.Helper()
+		tx, e := st.DB().BeginTx(ctx, nil)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer tx.Rollback()
+		if _, e = tx.Exec("INSERT INTO epochs(epoch,started_at,finished_at,duration_ms,expected_servers,observed_servers,expected_names,observed_names,missing_names,endpoint_failures,partial,errors) VALUES (?,?,?,0,1,1,[],[],[],0,false,[])", epoch, at, at); e != nil {
+			t.Fatal(e)
+		}
+		if _, e = tx.Exec("INSERT INTO server_stats(epoch,server_id,in_msgs) VALUES (?,'S0',?)", epoch, n); e != nil {
+			t.Fatal(e)
+		}
+		if e = tx.Commit(); e != nil {
+			t.Fatal(e)
+		}
+	}
+	add(1, at, 0)
+	add(2, at.Add(30*time.Second), 10)
+	spy := &observationWriter{DB: st.DB()}
+	spy.write = func() { add(3, at.Add(time.Minute), 10000) }
+	p := &Provider{St: st, Interval: 30 * time.Second, readDB: spy}
+	out, e := p.GetTimeSeries(ctx, &v1.GetTimeSeriesRequest{Metric: "server.in_msgs_rate", Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-0"}, Range: &v1.TimeRange{Start: ts(at), End: ts(at.Add(90 * time.Second))}, MaxPoints: 1, IncludeObservations: true})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !spy.written || out.Series.GetObservations().GetCounterComparisons().GetObservedIncrease() != "10" || out.Series.GetObservations().GetCounterComparisons().GetComparisonCount() != 1 {
+		t.Fatalf("counter evidence crossed the read boundary: %v", out.Series)
+	}
+}
