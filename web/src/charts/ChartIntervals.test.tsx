@@ -58,7 +58,7 @@ it("allows touch selection while vertical gestures and pointer cancellation leav
  fireEvent.pointerDown(p,{pointerId:3,isPrimary:true,button:0,clientX:30,clientY:10,pointerType:"mouse"});fireEvent.pointerMove(p,{pointerId:3,clientX:90,clientY:10,pointerType:"mouse"});fireEvent.pointerCancel(p,{pointerId:3});fireEvent.pointerUp(p,{pointerId:3,clientX:90,clientY:10});expect(screen.queryByRole("dialog")).toBeNull();expect(screen.getByTestId("location")).toHaveTextContent(route);
 });
 it("does not automatically offer storage attribution for unrelated metrics",()=>{
- const props={label:"CPU",start,end,stepMs:1000,investigation:{metric:"server.cpu_percent"},series:[]};
+ const props={label:"CPU",start,end,stepMs:1000,investigation:{metric:"unknown.metric"},series:[]};
  mount(<inspection.ChartInspection {...props}><svg/></inspection.ChartInspection>);expect(screen.queryByRole("button",{name:"Select interval for CPU"})).toBeNull();
 });
 it("does not swallow a new modified link click after cancelling a drag",()=>{
@@ -71,4 +71,9 @@ it("keeps a keyboard selection's frame valid when live data moves the visible wi
 
 it("lets explicit generic plots select time without offering storage attribution",()=>{
  mount(<inspection.ChartInspection label="CPU" start={start} end={end} intervalActions investigation={{metric:"server.cpu_percent"}} series={[]}><svg/></inspection.ChartInspection>);fireEvent.click(screen.getByRole("button",{name:"Select interval for CPU"}));expect(screen.getByRole("button",{name:"Set time range"})).toBeEnabled();expect(screen.queryByRole("button",{name:"Investigate change"})).toBeNull();
+});
+
+it("opens metric details from an explicitly narrowed server interval",()=>{
+ mount(<inspection.ChartInspection label="CPU" start={start} end={end} investigation={{metric:"server.cpu_percent",entity:{kind:"server",key:"nats-0",server:"nats-0",name:"nats-0",account:"",stream:"",consumer:""}}} series={[]}><svg/></inspection.ChartInspection>);
+ fireEvent.click(screen.getByRole("button",{name:"Select interval for CPU"}));fireEvent.change(screen.getByLabelText("Start (UTC)"),{target:{value:"2026-10-17T13:00:12.000"}});fireEvent.click(screen.getByRole("button",{name:"Open metric details"}));const u=new URL(screen.getByTestId("location").textContent!,"http://example.com");expect(u.pathname).toBe("/metrics/cpu");expect(u.searchParams.get("server")).toBe("nats-0");expect(u.searchParams.get("system")).toBe("example-prod");expect(u.searchParams.get("account")).toBe("APP");expect(Date.parse(u.searchParams.get("from")!)).toBe(start+12000);expect(u.searchParams.has("range")).toBe(false);
 });
