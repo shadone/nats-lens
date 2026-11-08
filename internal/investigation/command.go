@@ -188,6 +188,9 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 			return err
 		}
 	}
+	originalJSON, _ := json.Marshal(c)
+	var originalContext Context
+	_ = json.Unmarshal(originalJSON, &originalContext)
 	if *system != "" {
 		c.System = *system
 	} else if c.System == "" {
@@ -249,23 +252,26 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if err != nil {
 		return err
 	}
-	// The response stays protobuf JSON. Never round-trip int64 values through
-	// float64 or flatten episode/event/collection identity into a label.
-	linkContext := *c
-	var request map[string]json.RawMessage
-	_ = json.Unmarshal(req, &request)
-	if r := request["range"]; r != nil {
-		_ = json.Unmarshal(r, &linkContext.Range)
+	// Links and context describe effective query scope; original handoff facts
+	// remain separately labeled and cannot reintroduce stale request filters.
+	linkContext, linkLimitations, err := effectiveContext(method, c, req)
+	if err != nil {
+		return err
 	}
-	if s := request["system"]; s != nil {
-		_ = json.Unmarshal(s, &linkContext.System)
+	link, err := linkContext.Link(p.Deployment)
+	if err != nil {
+		return err
 	}
-	if a := request["account"]; a != nil {
-		_ = json.Unmarshal(a, &linkContext.Account)
+	links := evidenceLinks(method, response, linkContext, p.Deployment, link)
+	if originalLink, err := originalContext.Link(p.Deployment); err == nil && originalLink != link {
+		links = append(links, EvidenceLink{Kind: "original_source", URL: originalLink})
 	}
-	linkContext.keepPointWithinRange()
-	link, _ := linkContext.Link(p.Deployment)
-	return writeJSON(out, map[string]any{"version": 1, "source": map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": c, "links": evidenceLinks(method, response, &linkContext, p.Deployment, link), "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": map[string]Availability{"actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No universal cross-RPC snapshot pin is supported; list traversal epoch/range and evidence IDs, when supplied, remain in the typed response"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "retention": {"available", "GetLensInfo retention and history-start facts are included; historical coverage requires GetDataHistory"}, "freshness": {"unavailable", "GetLensInfo does not report collection freshness; query GetOverview, GetShellStatus or GetDataHistory"}, "aggregation": {"unavailable", "Query ListMetrics for each metric ID’s authoritative aggregation description; series retain their units and bucket steps"}}})
+	linkScope := Availability{Status: "available", Reason: "UI link carries effective representable request scope; original handoff is labeled separately"}
+	if len(linkLimitations) > 0 {
+		linkScope = Availability{Status: "partial", Reason: strings.Join(linkLimitations, "; ")}
+	}
+
+	return writeJSON(out, map[string]any{"version": 1, "source": map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": linkContext, "originalContext": &originalContext, "links": links, "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": map[string]Availability{"uiLinkScope": linkScope, "actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No universal cross-RPC snapshot pin is supported; list traversal epoch/range and evidence IDs, when supplied, remain in the typed response"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "retention": {"available", "GetLensInfo retention and history-start facts are included; historical coverage requires GetDataHistory"}, "freshness": {"unavailable", "GetLensInfo does not report collection freshness; query GetOverview, GetShellStatus or GetDataHistory"}, "aggregation": {"unavailable", "Query ListMetrics for each metric ID’s authoritative aggregation description; series retain their units and bucket steps"}}})
 }
 
 // Page limits have two existing RPC spellings. Keep this transport mapping
@@ -396,7 +402,33 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			if len(values) == len(strings.Split(v, ",")) {
 				applied = put("sources", values)
 			}
-		case "server", "stream", "consumer":
+		case "kv":
+			applied = put("includeKv", v == "1")
+		case "ephemeral":
+			applied = put("includeEphemeral", v == "1")
+		case "tooling":
+			applied = put("includeTooling", v == "1")
+		case "name":
+			applied = put("nameContains", v)
+		case "process":
+			applied = put("observationServerId", v)
+		case "epoch":
+			applied = put("observationEpoch", v)
+		case "subject":
+			applied = put("subject", v)
+		case "server":
+			applied = put("server", v)
+			if !applied {
+				applied = c.Entity != nil && fields.ByJSONName("entity") != nil
+			}
+		case "stream":
+			if method == "ListConsumers" && c.Entity != nil && c.Entity.Type == "ENTITY_TYPE_STREAM" {
+				put("account", c.Entity.Account)
+				applied = put("stream", c.Entity.Stream)
+			} else {
+				applied = c.Entity != nil && fields.ByJSONName("entity") != nil
+			}
+		case "consumer":
 			applied = c.Entity != nil && fields.ByJSONName("entity") != nil
 		case "kind":
 			applied = put("kinds", strings.Split(v, ","))
