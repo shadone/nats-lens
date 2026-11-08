@@ -151,3 +151,23 @@ func TestEmittedContextCannotExceedImportBudget(t *testing.T) {
 		t.Fatal("emitted context exceeds the parser's 64 KiB budget")
 	}
 }
+
+func TestExplicitDescriptorAliasesAndClearOverrides(t *testing.T) {
+	c, _ := ContextFromURL("https://lens.example.com/consumers?system=shop&stream=APP/orders", "https://lens.example.com", fixtureNow())
+	req, _, _ := Prepare("ListConsumers", c, []byte(`{"includeEphemeral":true,"pageToken":"old","limit":1}`))
+	c, _, _ = effectiveContext("ListConsumers", c, req)
+	req, _, err := Prepare("ListConsumers", c, []byte(`{"include_ephemeral":false,"page_token":""}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r map[string]any
+	json.Unmarshal(req, &r)
+	if r["includeEphemeral"] != nil || r["pageToken"] != nil {
+		t.Fatal(string(req))
+	}
+	for _, bad := range []string{`{"includeEphemeral":true,"include_ephemeral":false}`, `{"limit":1,"limit":2}`} {
+		if _, _, err := Prepare("ListConsumers", c, []byte(bad)); err == nil {
+			t.Fatal("duplicate request field accepted")
+		}
+	}
+}
