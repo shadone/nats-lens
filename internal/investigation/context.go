@@ -346,16 +346,16 @@ func (c *Context) infer(path string, q url.Values) {
 		c.Account = p[1]
 	}
 	if c.Entity == nil {
-		if key := q.Get("server"); key != "" {
+		if key := q.Get("server"); key != "" && (path == "/events" || path == "/connections" || path == "/servers/slow-consumers" || path == "/placement") {
 			c.Entity = &Entity{Type: "ENTITY_TYPE_SERVER", Key: key, Server: key}
 		}
-		if key := q.Get("stream"); key != "" {
+		if key := q.Get("stream"); key != "" && (path == "/events" || path == "/consumers") {
 			parts := strings.SplitN(key, "/", 2)
 			if len(parts) == 2 {
 				c.Entity = &Entity{Type: "ENTITY_TYPE_STREAM", Key: key, Account: parts[0], Stream: parts[1]}
 			}
 		}
-		if key := q.Get("consumer"); key != "" {
+		if key := q.Get("consumer"); key != "" && path == "/events" {
 			parts := strings.SplitN(key, "/", 3)
 			if len(parts) == 3 {
 				c.Entity = &Entity{Type: "ENTITY_TYPE_CONSUMER", Key: key, Account: parts[0], Stream: parts[1], Consumer: parts[2]}
