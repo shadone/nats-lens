@@ -61,6 +61,12 @@ func diagnostic(code, message, next string) error {
 func Invalid(message string) error {
 	return diagnostic("invalid_argument", message, "Check natslens sql -help.")
 }
+
+// ConfigurationError deliberately omits config values, filenames and system IDs.
+func ConfigurationError() error {
+	return diagnostic("invalid_argument", "Cannot resolve database configuration or system selection", "Check the local configuration file and -system selection, or use -db with an existing offline snapshot.")
+}
+
 func queryError(ctx context.Context) error {
 	if ctx.Err() != nil {
 		return diagnostic("cancelled", "SQL cancelled or time budget expired", "Narrow the trusted query or adjust -timeout within 45s.")

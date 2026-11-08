@@ -291,7 +291,7 @@ func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
 	} else {
 		_, _, dir, err := db.resolve()
 		if err != nil {
-			return sqlcli.Invalid(err.Error())
+			return sqlcli.ConfigurationError()
 		}
 		path = filepath.Join(dir, store.FileName)
 	}
