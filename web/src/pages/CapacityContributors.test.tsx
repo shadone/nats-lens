@@ -60,3 +60,21 @@ it("does not keep a previous range's measurements when the scope changes",async(
  vi.mocked(lens.getStorageChange).mockImplementation(()=>new Promise(()=>{}));fireEvent.click(screen.getByRole("button",{name:"Change scope"}));
  await waitFor(()=>expect(screen.queryByText("+9,007,199,254,740,993 bytes")).not.toBeInTheDocument());
 });
+it("freezes the source clock and explicitly refreshes without showing a stale comparison",async()=>{
+ const {GetLensInfoResponseSchema}=await import("../gen/natslens/v1/info_pb");const info=(s:string)=>create(GetLensInfoResponseSchema,{now:stamp(s),nowFixed:true});
+ let finish!:(v:ReturnType<typeof info>)=>void;
+ vi.mocked(lens.getLensInfo).mockResolvedValueOnce(info("2026-10-17T14:30:00Z")).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}));
+ renderApp(<Capacity/>,"/capacity?system=example-prod&account=APP&range=1h");await region().findByRole("button",{name:"Sort by Change in range"});
+ expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({a:stamp("2026-10-17T13:30:00Z"),b:stamp("2026-10-17T14:30:00Z")}),expect.anything());
+ fireEvent.click(region().getByRole("button",{name:"Refresh comparison"}));await waitFor(()=>expect(lens.getLensInfo).toHaveBeenCalledTimes(2));
+ expect(screen.queryByText("+9,007,199,254,740,993 bytes")).not.toBeInTheDocument();expect(lens.getStorageChange).toHaveBeenCalledTimes(1);
+ finish(info("2026-10-17T14:31:00Z"));await waitFor(()=>expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({a:stamp("2026-10-17T13:31:00Z"),b:stamp("2026-10-17T14:31:00Z"),epochA:0n,epochB:0n,pageToken:""}),expect.anything()));
+});
+it("returns to the first page after changing a type filter and changing it back",async()=>{
+ const r=response();r.totalCount=105;r.nextPageToken="next";vi.mocked(lens.getStorageChange).mockResolvedValue(r);
+ renderApp(<Capacity/>,route);await region().findByRole("button",{name:"Sort by Change in range"});
+ fireEvent.click(region().getByRole("button",{name:"Next contributors"}));await region().findByText("Showing 5–8 of 105 matching resource incarnations. Sorting applies before paging. Unknown changes remain last.");
+ fireEvent.change(region().getByLabelText("Contributor type"),{target:{value:"kv"}});await region().findByRole("button",{name:"Sort by Change in range"});
+ fireEvent.change(region().getByLabelText("Contributor type"),{target:{value:"all"}});
+ expect(await region().findByText("Showing 1–4 of 105 matching resource incarnations. Sorting applies before paging. Unknown changes remain last.")).toBeInTheDocument();
+});
