@@ -27,35 +27,44 @@ Use a clean, isolated worktree, installed lockfile-matching web dependencies, No
    ./node_modules/.bin/tsc --noEmit
    node --input-type=module > "$BUNDLE_EVIDENCE/build.log" 2>&1 <<'JS'
    import { build } from 'vite';
-   import { writeFileSync } from 'node:fs';
+   import { readFileSync, writeFileSync } from 'node:fs';
+   import { resolve } from 'node:path';
    import { gzipSync, brotliCompressSync, constants } from 'node:zlib';
    const evidence = process.env.BUNDLE_EVIDENCE;
+   let observed = [];
    await build({
      configLoader: 'runner',
      cacheDir: `${evidence}/vite-cache`,
      plugins: [{ name: 'private-bundle-evidence', generateBundle(_, bundle) {
-       const chunks = Object.values(bundle).filter(x => x.type === 'chunk').map(x => ({
+       observed = Object.values(bundle).filter(x => x.type === 'chunk').map(x => ({
          file: x.fileName, entry: x.isEntry, imports: x.imports,
          dynamicImports: x.dynamicImports,
-         minified: Buffer.byteLength(x.code),
-         gzip9: gzipSync(x.code, { level: 9 }).length,
-         brotli11: brotliCompressSync(x.code, {
-           params: { [constants.BROTLI_PARAM_QUALITY]: 11 },
-         }).length,
          modules: Object.entries(x.modules).map(([id, m]) => ({
            id, renderedLength: m.renderedLength,
          })),
        }));
-       writeFileSync(`${evidence}/chunks.json`, JSON.stringify(chunks, null, 2));
      }}],
    });
+   // Read after the build completes: Vite may rewrite code after generateBundle.
+   const chunks = observed.map(chunk => {
+     const data = readFileSync(resolve('../internal/webui/dist', chunk.file));
+     return {
+       ...chunk,
+       minified: data.length,
+       gzip9: gzipSync(data, { level: 9 }).length,
+       brotli11: brotliCompressSync(data, {
+         params: { [constants.BROTLI_PARAM_QUALITY]: 11 },
+       }).length,
+     };
+   });
+   writeFileSync(`${evidence}/chunks.json`, JSON.stringify(chunks, null, 2));
    JS
    touch ../internal/webui/dist/.gitkeep
    cd ..
    tail -8 "$BUNDLE_EVIDENCE/build.log"
    ```
 
-   Check both command exit statuses before using the evidence. Keep the chunk warning in the log. `renderedLength` ranks modules before final chunk minification; it does not allocate compressed bytes among dependencies. The observer writes absolute module paths privately; normalize them before committing any summary.
+   Check both command exit statuses before using the evidence. Keep the chunk warning in the log. Size and compression totals come from the emitted files after the build finishes; the observer supplies only imports and attribution. `renderedLength` ranks modules before final chunk minification; it does not allocate compressed bytes among dependencies. The observer writes absolute module paths privately; normalize them before committing any summary.
 
 3. Inspect `internal/webui/dist/index.html` and `chunks.json`. Start with every HTML module script and module-preload link, then recursively include static `imports`, deduplicating filenames. Sum their minified, gzip, and Brotli bytes. Report dynamically fetched chunks separately, adding any fetched during initial loading to the initial total. Do not use only the largest chunk as the initial size.
 
