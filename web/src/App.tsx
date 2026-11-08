@@ -1,4 +1,7 @@
 import { lazy } from "react";
+import { useCheckDefinitions } from "./api/checks";
+import { useStreams } from "./api/queries";
+import { useTimeRange } from "./lib/useTimeRange";
 import { RouteBoundary } from "./components/RouteBoundary";
 // The shell and the routes. Every page reads the time range, the system and
 // the account scope from the URL; the sidebar's pages are listed in nav.ts.
@@ -40,6 +43,16 @@ const Applications = lazy(() => import("./routes/messaging").then(module => ({ d
 const Connections = lazy(() => import("./routes/messaging").then(module => ({ default: module.Connections })));
 const Overview = lazy(() => import("./routes/overview").then(module => ({ default: module.Overview })));
 
+// These primary-page reads commit outside Suspense, alongside the code request.
+// The page hooks join the same cache entry rather than issuing a second read.
+function CheckRead() { useCheckDefinitions(); return null; }
+function StreamRead() {
+  const { search } = useLocation();
+  const { spec } = useTimeRange();
+  useStreams(spec, new URLSearchParams(search).get("kv") === "1");
+  return null;
+}
+
 export function App() {
   const { pathname, search, hash } = useLocation();
   const system = useSystem();
@@ -61,6 +74,8 @@ export function App() {
           <StaleProvider key={`${pathname}|${system}`}>
             <SystemGate>
               <PageHistoryProvider>
+              {pathname === "/streams" && <StreamRead />}
+              {/^\/checks(?:\/|$)/.test(pathname) && <CheckRead />}
               <RouteBoundary key={pathname} href={pathname + search + hash}>
               <Routes>
                 <Route
