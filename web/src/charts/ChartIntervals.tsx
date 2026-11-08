@@ -28,13 +28,13 @@ export function ChartIntervalProvider({children}:{children:ReactNode}){
  const visible=choice?.scope===scope?choice:undefined;
  const host=useMemo(()=>({scope,selection:visible,open}),[scope,visible,open]);
  const close=()=>setChoice(undefined);
- return <IntervalHost.Provider value={host}>{children}{visible&&<IntervalDialog key={visible.id} choice={visible} onClose={close} onEdit={range=>setChoice(c=>c?.id===visible.id?{...c,highlight:range}:c)} onSet={range=>{close();setSpec({kind:"fixed",from:range.start,to:range.end},{push:true})}} onInvestigate={range=>{
+ return <IntervalHost.Provider value={host}>{children}{visible&&<IntervalDialog key={visible.id} choice={visible} onClose={close} onEdit={range=>setChoice(c=>c?.id===visible.id?{...c,highlight:range}:c)} onSet={range=>{close();setSpec({kind:"fixed",from:range.start,to:range.end},{push:true})}} onInvestigate={(range,metric)=>{
    // ASVS 1.2.2: only a fixed local route and encoded scope/times are navigated.
    const p=new URLSearchParams({system:visible.system,account:visible.account,from:new Date(range.start).toISOString(),to:new Date(range.end).toISOString(),contributors:"1"});
-   const destination=metricDestination(visible.source);if(destination?.startsWith("/metrics/")){const [path,own]=destination.split("?");new URLSearchParams(own).forEach((v,k)=>p.set(k,v));p.delete("contributors");close();navigate(`${path}?${p}`)}else{close();navigate(`/capacity/storage-change?${p}`)}
+   const destination=metricDestination(visible.source);if(metric&&destination?.startsWith("/metrics/")){const [path,own]=destination.split("?");new URLSearchParams(own).forEach((v,k)=>p.set(k,v));p.delete("contributors");close();navigate(`${path}?${p}`)}else{close();navigate(`/capacity/storage-change?${p}`)}
   }}/>}</IntervalHost.Provider>;
 }
-function IntervalDialog({choice,onClose,onEdit,onSet,onInvestigate}:{choice:Choice;onClose:()=>void;onEdit:(range:ChartInterval|undefined)=>void;onSet:(range:ChartInterval)=>void;onInvestigate:(range:ChartInterval)=>void}){
+function IntervalDialog({choice,onClose,onEdit,onSet,onInvestigate}:{choice:Choice;onClose:()=>void;onEdit:(range:ChartInterval|undefined)=>void;onSet:(range:ChartInterval)=>void;onInvestigate:(range:ChartInterval,metric?:boolean)=>void}){
  const [from,setFrom]=useState(utcInput(choice.range.start)),[to,setTo]=useState(utcInput(choice.range.end));
  const a=parseUTCInput(from),b=parseUTCInput(to);const range=a!==undefined&&b!==undefined?{start:a,end:b}:undefined;const problem=intervalProblem(range,choice.frame);
  const edit=(nextFrom:string,nextTo:string)=>{setFrom(nextFrom);setTo(nextTo);const start=parseUTCInput(nextFrom),end=parseUTCInput(nextTo);const next=start!==undefined&&end!==undefined?{start,end}:undefined;onEdit(intervalProblem(next,choice.frame)?undefined:next)};
@@ -45,7 +45,7 @@ function IntervalDialog({choice,onClose,onEdit,onSet,onInvestigate}:{choice:Choi
    <label className="field">End (UTC)<input aria-label="End (UTC)" type="datetime-local" step="0.001" min={utcInput(choice.frame.start)} max={utcInput(choice.frame.end)} value={to} onChange={e=>edit(from,e.target.value)}/></label>
    {problem&&<p role="alert">{problem}</p>}
    <p>{choice.system||"Resolving system"}{choice.account?` · account ${choice.account}`:" · all accounts"}. Selecting an interval does not establish a cause.</p>
-   <div className="dlg-btns chart-interval-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn" type="submit" disabled={!!problem}>Set time range</button>{metricDestination(choice.source)?.startsWith("/metrics/")&&<button className="btn" type="button" disabled={!!problem||!choice.system} onClick={()=>{if(range&&!problem)onInvestigate(range)}}>Open metric details</button>}{supportsStorageChange(choice.source)&&<button className="btn" type="button" disabled={!!problem||!choice.system} onClick={()=>{if(range&&!problem)onInvestigate(range)}}>Investigate change</button>}{range&&!problem&&<InvestigationButton label selection={{...choice.source,start:range.start,end:range.end,point:undefined,label:choice.label}}/>}</div>
+   <div className="dlg-btns chart-interval-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn" type="submit" disabled={!!problem}>Set time range</button>{metricDestination(choice.source)?.startsWith("/metrics/")&&<button className="btn" type="button" disabled={!!problem||!choice.system} onClick={()=>{if(range&&!problem)onInvestigate(range,true)}}>Open metric details</button>}{supportsStorageChange(choice.source)&&<button className="btn" type="button" disabled={!!problem||!choice.system} onClick={()=>{if(range&&!problem)onInvestigate(range)}}>Investigate change</button>}{range&&!problem&&<InvestigationButton label selection={{...choice.source,start:range.start,end:range.end,point:undefined,label:choice.label}}/>}</div>
   </form>
  </Dialog>;
 }
