@@ -418,7 +418,7 @@ it("offers Replay for the selected historical transition instead of the finding'
 });
 
 it.each(["firing","resolved","muted"])("copies a visible finding prompt for %s with the loaded ID, check, typed entity and frozen window",async state=>{
- const f:Finding={...base,id:"consumer-006:APP/orders/worker",checkCode:"consumer-006",checkName:"Consumer delivery stopped",entity:consumerEntity,state:state==="resolved"?"resolved":"firing",...(state==="muted"?{mute:{id:"mute",reason:"Accepted",by:"operator",accepted:true} as Finding["mute"]}:{})};
+ const f:Finding={...base,id:"consumer-006:APP/orders/worker",checkCode:"consumer-006",checkName:"Consumer delivery stopped",entity:consumerEntity,state:state==="resolved"?"resolved":"firing",...(state==="muted"?{mute:{id:"mute",checkCode:"consumer-006",reason:"Accepted",mutedBy:"operator",unmutedBy:"",endReason:"",accepted:true}}:{})};
  m.getFinding.mockResolvedValue({finding:f,transitions:[]});let selected:InvestigationSelection|undefined;
  renderApp(<InvestigationHandoff.Provider value={s=>{selected=s}}><Routes><Route path="/findings/:id" element={<FindingDetail/>}/></Routes></InvestigationHandoff.Provider>,"/findings/route-alias?system=shop&from=2026-10-17T13:30:00Z&to=2026-10-17T14:30:00Z&account=OTHER");
  const button=await screen.findByRole("button",{name:"Copy as prompt"});expect(button).toHaveTextContent("Copy as prompt");fireEvent.click(button);
