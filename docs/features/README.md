@@ -109,7 +109,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 **Collection**
 - [x] One snapshot of every server per interval, partial collections kept, account RAFTZ deletion boundary, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, the replies of micro services in the listed accounts, each client application's traffic per hour, and replies of newer servers kept when one of their values is unknown (monitoring-snapshots.md)
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services and, when one cannot connect, are dialled again without stopping the system; OCSP peer rejections retain known fields and peer fingerprints across payload key aliases (event-capture.md)
-- [x] Kubernetes events, node windows, and watch recovery with bounded retries and failure logs (kubernetes-context.md)
+- [x] Kubernetes events, node windows, and watch recovery with bounded retries, a relist after a stream closed at once, and failure logs (kubernetes-context.md)
 - [x] Retention, DuckDB 2.0 file compatibility, hourly Parquet exports, archive state, and rebuild from successful exports (history-and-archive.md)
 - [~] Several NATS systems in one nats-lens, with a system switcher, fatal database failure isolation, the Fleet page with readable strip intervals and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
