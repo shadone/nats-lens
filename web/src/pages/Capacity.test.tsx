@@ -261,3 +261,13 @@ it("opens a fixed storage comparison for the selected scope and interval",async(
  const link=new URL((await screen.findByRole("link",{name:"Compare storage in range"})).getAttribute("href")!,"http://example.com");
  expect(link.pathname).toBe("/capacity/storage-change");expect(Object.fromEntries(link.searchParams)).toEqual({system:"example-prod",account:"APP",from:"2026-10-17T13:00:00.000Z",to:"2026-10-17T14:00:00.000Z"});
 });
+it("uses the resolved source clock when metadata arrives after initial live render",async()=>{
+ const {setServerNow}=await import("../lib/clock");let finish!:(value:ReturnType<typeof prod>)=>void;
+ const pending=new Promise<ReturnType<typeof prod>>(r=>{finish=r});getCapacity.mockReturnValue(pending);
+ setServerNow(Date.parse("2027-01-01T12:00:00Z"),Date.now(),true);renderApp(<Capacity/>,"/capacity?system=example-prod");
+ setServerNow(Date.parse("2026-10-17T14:30:00Z"),Date.now(),true);finish(prod());
+ await screen.findByRole("region",{name:"Resources by what bounds them"});
+ const link=new URL(screen.getByRole("link",{name:"Compare storage in range"}).getAttribute("href")!,"http://example.com");
+ expect(link.searchParams.get("to")).toBe("2026-10-17T14:30:00.000Z");
+ setServerNow(Date.now());
+});

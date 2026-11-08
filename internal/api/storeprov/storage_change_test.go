@@ -1,11 +1,14 @@
 package storeprov_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/storeprov"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/investigation"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"testing"
@@ -289,5 +292,35 @@ func TestStorageChangeIncompleteResourceInventory(t *testing.T) {
 		if facts.A.InventoryComplete {
 			t.Fatal("successful JSZ certified missing detailed stream inventory")
 		}
+	}
+}
+func TestStorageChangeAgentUsesSameEvidence(t *testing.T) {
+	p, req := storageCompareFixture(t)
+	facts, err := p.StorageChange(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := api.FinishStorageChange(req, facts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := investigation.NewInProcess(api.NewInvestigationHandler(&api.Handler{Systems: api.One("example-prod", "Example shop", p)}))
+	request, err := protojson.Marshal(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := source.Query(ctx, "GetStorageChange", request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := &v1.GetStorageChangeResponse{}
+	if err = protojson.Unmarshal(result, got); err != nil {
+		t.Fatal(err)
+	}
+	if !proto.Equal(want, got) {
+		t.Fatalf("agent evidence differs from authoritative comparison: %s", result)
+	}
+	if !bytes.Contains(result, []byte(`"9007199254740999"`)) {
+		t.Fatal("event int64 identity lost in agent JSON")
 	}
 }
