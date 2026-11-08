@@ -19,6 +19,8 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
   - **JetStream store:** the median use of the store limit across servers, a track with the range from the emptiest to the fullest server and a tick at the median, and the fullest server.
   - **Slow-consumer detections:** "A detection means NATS had trouble sending data because a receiving connection could not keep up." The card offers "Investigate detections", a link from the busiest server and keyboard-accessible links from nonzero chart buckets. Links freeze the observed absolute time range and preserve system and account context. Optional help explains clients, routes, gateways, leaf connections and repeated retries. These detections are separate from unique JetStream consumers and pending messages.
 - **Slow-consumer investigation.** The investigation shows counter increases between collections of the same server process, with collection numbers and process IDs. Baselines, counter resets and gaps longer than three collect intervals have no inferred increase. Short missing-report gaps widen the observed interval. The interval can begin before the selected range; its end collection lies inside it. The page lists recorded slow-consumer disconnects and slow-consumer finding transitions separately. Event IDs open the recorded payload; finding links open the finding. Client names and connection IDs appear only when recorded. The counters do not establish an exact detection time, affected connection, application slowness, data loss or disconnect. Event and detection counts need not match.
+- **Counter agreement.** The headline, server summaries, charts and investigation select report endpoints from the range start inclusive to its end exclusive. A report up to three collection intervals before the start can supply a baseline. A missing counter breaks the baseline; a missing server report can widen the interval up to three collection intervals. Each process starts a separate baseline. Chart buckets add these same increases.
+- **One observed interval.** "Investigate this interval" selects the observation's process ID and collection number for the counter total. Supporting events and findings retain the entire observed interval, with visible inclusive and exclusive bounds. Links round the start down to its second and end after the endpoint's second. For 13:41:00–13:41:30, supporting evidence spans 13:41:00 inclusive to 13:41:31 exclusive. An earlier counter endpoint at 13:41:00 does not enter the selected counter total. Recorded evidence in that second remains available independently.
 - **Evidence coverage.** The investigation distinguishes unavailable capture history, incomplete history and no matching recorded disconnects. A counter-only result directs the reader to the affected server and its diagnostics. Partial collections remain explicit. An account filter limits recorded client evidence while counters and server findings remain system-wide.
 - **Bounded agent access.** The read-only investigation API returns the same counter intervals, stable evidence references, coverage and attribution limits. Each evidence list defaults to 100 rows and is capped at 200 with an independent truncation flag. Totals cover all matches. A request spans at most 30 days; callers narrow time or server when a list is cut. The response identifies stored or synthetic demo provenance.
 - **Charts across servers.** The same charts as the Overview's trends: CPU and memory are drawn as a band from the lowest to the highest server, with the median as a line and the busiest server (the highest mean over the range) dashed and named with its value ("busiest: nats-ap-2, 64.1%"); connections as the total; messages in and out per second, with out dashed. Each chart starts at zero, except Memory, which spans its own range with a small margin; its legend draws its own marks, its value is the newest bucket's median ("6.7% median") or total, and it states its minimum and maximum.
@@ -73,6 +75,23 @@ Server detail charts mark recorded missing answers and missing STATSZ/VARZ metri
 - **Then** counter detections and recorded disconnects have separate totals
 - **And** each observation identifies its server process, collection and observed interval without an exact detection time
 - **And** recorded event IDs and payload connection IDs remain separate from counter attribution
+
+### Keep totals when opening an investigation
+
+- **Surfaces:** `ui`, `api`
+- **Given** a server reports counters 0, 5 and 8 at 30-second intervals
+- **When** I select a range starting 15 seconds after the first report and ending after the third
+- **Then** the headline, server chart and investigation each count 8 detections
+- **And** the first report supplies a baseline without entering the selected range
+
+### Select one observation without losing supporting events
+
+- **Surfaces:** `ui`, `api`
+- **Given** consecutive observations end at 13:41:00 and 13:41:30
+- **When** I investigate the second observation's interval
+- **Then** the counter total includes only that process and collection
+- **And** supporting events and findings span 13:41:00 inclusive to 13:41:31 exclusive
+- **And** the page displays the counter selection and supporting evidence bounds separately
 
 ### Investigate a counter without captured identity
 
