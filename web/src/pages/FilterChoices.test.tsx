@@ -28,9 +28,10 @@ const page = (servers: string[]) => ({ items: [], nextPageToken: "", totalCount:
 const ent = (stream: string) => ({ kind: "stream", key: `APP/${stream}`, name: stream, account: "APP", accountName: "APP", stream, consumer: "", server: "" });
 
 describe("Connections server filter choices", () => {
-  it("offers the chosen server while the connections load", () => {
+  it("offers the chosen server while the connections load", async () => {
     vi.mocked(requests.listConnections).mockImplementation(() => new Promise(() => {}));
     renderApp(<Connections />, "/connections?server=nats-1");
+    await screen.findByRole("combobox", { name: "Server" });
     expect(opts("Server")).toEqual(["All servers", "nats-1"]);
     expect(select("Server")).toHaveValue("nats-1");
   });

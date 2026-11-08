@@ -33,10 +33,10 @@ function bodyRows(name: string) {
 }
 
 describe("DataHistory", () => {
-  it("says it is loading", () => {
+  it("says it is loading", async () => {
     m.getDataHistory.mockImplementation(() => new Promise(() => {}));
     renderApp(<DataHistory />, "/data-history");
-    expect(screen.getByRole("status")).toHaveTextContent("Loading the data history…");
+    expect(await screen.findByText("Loading the data history…")).toHaveAttribute("role", "status");
   });
 
   it("says what failed", async () => {
