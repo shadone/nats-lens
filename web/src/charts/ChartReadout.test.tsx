@@ -16,3 +16,12 @@ it('hides a detached-from-view anchor inside an independently scrolled table',()
  const mock=vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockImplementation(function(this:HTMLElement){return this.dataset.testid==='table'?bounds(100,200):this.tagName==='SPAN'?bounds(220,250):bounds(0,300,0,100)});
  render(<Fixture/>);expect(screen.getByRole('tooltip',{hidden:true})).toHaveStyle({visibility:'hidden'});mock.mockRestore();
 });
+it('clamps edge readouts independently of a narrow trigger and uses the native dialog layer',()=>{
+ function Fixture(){const anchor=useRef<HTMLSpanElement>(null);return <dialog open><span ref={anchor}>Plot</span><ChartReadout anchor={anchor} fraction={1} id="edge" contentKey="sample">Long observed value</ChartReadout></dialog>}
+ const rect=(left:number,top:number,width:number,height:number)=>({left,top,right:left+width,bottom:top+height,width,height,x:left,y:top,toJSON(){}} as DOMRect);
+ const mock=vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockImplementation(function(this:HTMLElement){return this.tagName==='SPAN'?rect(1000,730,10,10):this.className==='chart-readout'?rect(0,0,300,150):rect(0,0,1024,768)});
+ const {unmount}=render(<Fixture/>);const tip=screen.getByRole('tooltip');expect(tip.closest('dialog')).not.toBeNull();expect(parseFloat(tip.style.left)+300).toBeLessThanOrEqual(1012);expect(parseFloat(tip.style.top)+150).toBeLessThan(730);expect(tip.style.maxWidth).toBe('1000px');unmount();expect(document.getElementById('edge')).toBeNull();mock.mockRestore();
+});
+it('cleans pending hover dismissal on unmount and retains pinned help until blur or Escape',()=>{
+ vi.useFakeTimers();const {unmount}=render(<InfoTip label="Storage" text="Guidance"/>);const b=screen.getByRole('button');act(()=>b.focus());fireEvent.click(b);fireEvent.mouseLeave(b.parentElement!);act(()=>vi.advanceTimersByTime(500));expect(screen.getByRole('tooltip')).toBeInTheDocument();fireEvent.blur(b);expect(screen.queryByRole('tooltip')).toBeNull();fireEvent.mouseEnter(b.parentElement!);fireEvent.mouseLeave(b.parentElement!);unmount();act(()=>vi.runAllTimers());expect(document.querySelector('.chart-readout')).toBeNull();
+});
