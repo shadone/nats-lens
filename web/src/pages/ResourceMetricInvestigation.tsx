@@ -1,3 +1,4 @@
+import {MetricRankingPanel} from '../components/MetricRanking';
 import {useEffect,useState,type FormEvent} from 'react';
 import {Link,useLocation,useSearchParams} from 'react-router';
 import type {Entity} from '../api/model';
@@ -38,6 +39,7 @@ function ResourcePage({family:f,selection,account,stream}:{family:ResourceMetric
  {!selection&&<form className="metric-tools" onSubmit={apply}><label>Account ID<input value={accountInput} maxLength={512} onChange={e=>setAccount(e.target.value)}/></label>{f.kind==='consumer'&&<label>Stream name<input value={streamInput} maxLength={512} onChange={e=>setStream(e.target.value)}/></label>}<button className="btn" disabled={f.kind==='consumer'&&!!streamInput.trim()&&!accountInput.trim()}>Apply filters</button></form>}
  <p>{account?`Account ${account}.`:'All accounts.'} Twelve resources per list page, including KV/object backing streams or ephemeral consumers. Histories follow the returned page; sorting compares only these loaded resources. Lists use their existing status/name ordering, not a fleet-wide metric ranking. Recreation and missing capture limit continuity; a resource name does not identify a continuous incarnation.</p>
  {f.summary==='rate'&&<p>Comparable observed rates are not integrated into an asserted interval volume.</p>}
+ {!selection&&<MetricRankingPanel metrics={[f.metric]} kind={f.kind} account={account} stream={stream}/>}
  <QueryView q={q} what="resource metric observations">{d=>{const allowed=['name','latest','minimum','mean','maximum'];const active=sort&&allowed.includes(sort.key)?sort:undefined;const rows=active?sortRows(d.rows,r=>active.key==='name'?r.entity.key:r.series?.observations?.[active.key as 'latest'|'minimum'|'mean'|'maximum'],active.dir):d.rows;
  return <><p className="metric-window">Requested interval: {stamp(d.start)} to {stamp(d.end)}. Source clock: {stamp(d.readAt)}. {d.epoch&&`List collection: ${d.epoch}.`} The list snapshot does not pin independent metric or evidence reads. {spec.kind==='live'&&(traversal.token?'Continuation is fixed to this traversal. Refresh list to return to live observations.':'Live observations refresh automatically.')}</p>
  <p>Latest, sample mean/minimum and observed peak use metric values before chart bucketing. Means are sample-weighted; unknown is not zero. Known / returned counts describe metric rows, not complete collection coverage. Bucket summaries and actual sample times are distinct.</p>
