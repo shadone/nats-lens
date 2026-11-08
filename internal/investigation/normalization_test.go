@@ -62,3 +62,19 @@ func TestExplicitKindsStayExactAndDiscloseNonUIValues(t *testing.T) {
 		}
 	}
 }
+
+func TestIdentityPayloadsAreNotTrimmed(t *testing.T) {
+	c, err := ContextFromURL("https://lens.example.com/consumers?system=shop&stream="+url.QueryEscape(" APP / orders "), "https://lens.example.com", fixtureNow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, _, err := Prepare("ListConsumers", c, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r map[string]string
+	json.Unmarshal(req, &r)
+	if r["account"] != " APP " || r["stream"] != " orders " {
+		t.Fatal(string(req))
+	}
+}

@@ -1,6 +1,6 @@
 import { create } from "@bufbuild/protobuf";
 import { timestampFromMs } from "@bufbuild/protobuf/wkt";
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
 import { EntityType } from "../gen/natslens/v1/common_pb";
@@ -301,4 +301,21 @@ describe("Events", () => {
     expect(screen.queryByRole("img", { name: /Events over the range/ })).not.toBeInTheDocument();
   });
 
+});
+
+// Imported terminal filters must match the actual page's outgoing predicates.
+it.each([
+ [" finding.resolved ,, finding.firing ",["finding.resolved","finding.firing"]],
+ ["\uFEFF\u00a0finding.resolved\u2028,\u3000,",["finding.resolved"]],
+ ["\u0085finding.resolved\u0085",["\u0085finding.resolved\u0085"]],
+] as const)("normalizes only kind-list whitespace from the URL: %j",async(raw,want)=>{
+ listEvents.mockReset().mockResolvedValue(response());renderApp(<Events/>,`/events?kind=${encodeURIComponent(raw)}&show=all`);
+ await waitFor(()=>expect(listEvents).toHaveBeenCalled());expect(lastRequest().kinds).toEqual(want);
+});
+it.each([
+ ["findings,,nats,unknown,nats",[EventSource.NATS,EventSource.FINDING]],
+ [" nats ,collector",[EventSource.COLLECTOR]],
+] as const)("uses source membership in canonical UI order without trimming: %j",async(raw,want)=>{
+ listEvents.mockReset().mockResolvedValue(response());renderApp(<Events/>,`/events?src=${encodeURIComponent(raw)}`);
+ await waitFor(()=>expect(listEvents).toHaveBeenCalled());expect(lastRequest().sources).toEqual(want);
 });
