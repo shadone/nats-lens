@@ -331,7 +331,8 @@ type ObservationSummary struct {
 	FirstSampleAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=first_sample_at,json=firstSampleAt,proto3" json:"first_sample_at,omitempty"`
 	// Latest returned metric row, including a NULL value.
 	LastSampleAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=last_sample_at,json=lastSampleAt,proto3" json:"last_sample_at,omitempty"`
-	// Value of the latest metric row; absent if that row is unknown.
+	// Value at the latest metric timestamp; absent if any tied row is unknown
+	// or tied rows disagree. This does not reconstruct missing epoch ordering.
 	Latest *float64 `protobuf:"fixed64,5,opt,name=latest,proto3,oneof" json:"latest,omitempty"`
 	// Arithmetic mean of known per-collection values, not time-weighted.
 	Mean *float64 `protobuf:"fixed64,6,opt,name=mean,proto3,oneof" json:"mean,omitempty"`

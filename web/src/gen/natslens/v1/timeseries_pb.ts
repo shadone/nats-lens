@@ -201,7 +201,8 @@ export type ObservationSummary = Message<"natslens.v1.ObservationSummary"> & {
   lastSampleAt?: Timestamp | undefined;
 
   /**
-   * Value of the latest metric row; absent if that row is unknown.
+   * Value at the latest metric timestamp; absent if any tied row is unknown
+   * or tied rows disagree. This does not reconstruct missing epoch ordering.
    *
    * @generated from field: optional double latest = 5;
    */

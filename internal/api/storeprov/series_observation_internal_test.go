@@ -24,7 +24,7 @@ func (r *observationWriter) mutate() {
 	}
 }
 func (r *observationWriter) QueryRowContext(ctx context.Context, q string, args ...any) *sql.Row {
-	if strings.Contains(q, "first(v ORDER BY t DESC)") {
+	if strings.Contains(q, "/* observation_summary */") {
 		r.mutate()
 	}
 	return r.DB.QueryRowContext(ctx, q, args...)
