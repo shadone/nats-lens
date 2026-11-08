@@ -61,8 +61,8 @@ func TestOneDatabaseCommandsTakeSystem(t *testing.T) {
 		{"-config", conf, "SELECT 1"},
 		{"-config", conf, "-system", "shop-edge", "SELECT 1"},
 	} {
-		if err := runSQLTo(ctx, args, &out); err == nil || !strings.Contains(err.Error(), "shop-prod, shop-staging") {
-			t.Errorf("sql %v: err = %v, want the systems listed", args, err)
+		if err := runSQLTo(ctx, args, &out); err == nil || !strings.Contains(err.Error(), "invalid_argument") || strings.Contains(err.Error(), "shop-prod, shop-staging") {
+			t.Errorf("sql %v: err = %v, want a safe invalid_argument diagnostic", args, err)
 		}
 	}
 	if err := runChecksCmd(ctx, []string{"run", "-config", conf}, &out); err == nil || !strings.Contains(err.Error(), "-system") {
