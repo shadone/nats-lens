@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { usePager } from "./EntityParts";
+import { usePager } from "./Pager";
 
 describe("usePager", () => {
   it("walks forward and back through page tokens", () => {
