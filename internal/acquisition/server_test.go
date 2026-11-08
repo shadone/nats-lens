@@ -134,3 +134,112 @@ func TestAcquisitionCleanupDoesNotUnlinkReplacement(t *testing.T) {
 		t.Fatal("replacement removed")
 	}
 }
+
+func TestAcquisitionConfigurationAndClientFailures(t *testing.T) {
+	o, src := setup(t)
+	for _, change := range []func(*Options, *[]Source){
+		func(o *Options, _ *[]Source) { o.Socket = "" },
+		func(o *Options, _ *[]Source) { o.Directory = "" },
+		func(o *Options, _ *[]Source) { o.Budget.MaxBytes = -1 },
+		func(o *Options, _ *[]Source) { o.Budget.MaxBytes = dataset.MaxDataBytes + 1 },
+		func(_ *Options, s *[]Source) { *s = []Source{{}} },
+		func(_ *Options, s *[]Source) { *s = append(*s, (*s)[0]) },
+	} {
+		copyO := o
+		copyS := append([]Source{}, src...)
+		change(&copyO, &copyS)
+		if stop, err := Start(context.Background(), copyO, copyS); err == nil {
+			stop()
+			t.Fatal("invalid configuration accepted")
+		}
+	}
+	if _, err := Request(context.Background(), o.Socket, ""); err == nil {
+		t.Fatal("empty system accepted")
+	}
+	if _, err := Request(context.Background(), o.Socket, "shop-prod"); err == nil {
+		t.Fatal("missing socket accepted")
+	}
+	if err := os.WriteFile(o.Socket, []byte("ordinary file"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Request(context.Background(), o.Socket, "shop-prod"); err == nil {
+		t.Fatal("regular file accepted")
+	}
+	if err := os.Remove(o.Socket); err != nil {
+		t.Fatal(err)
+	}
+	stop, err := Start(context.Background(), o, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err = Request(ctx, o.Socket, "shop-prod"); err == nil || !strings.Contains(err.Error(), "cancelled") {
+		t.Fatalf("cancel failure %v", err)
+	}
+}
+func TestAcquisitionProtocolAndSanitizedFailures(t *testing.T) {
+	o, src := setup(t)
+	o.Budget.MaxBytes = 1
+	stop, err := Start(context.Background(), o, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, "unix", o.Socket)
+	}}
+	defer tr.CloseIdleConnections()
+	client := &http.Client{Transport: tr}
+	for _, test := range []struct {
+		method, path, content string
+		status                int
+	}{{"GET", "/acquire", "application/json", 404}, {"POST", "/unknown", "application/json", 404}, {"POST", "/acquire", "text/plain", 415}} {
+		req, err := http.NewRequest(test.method, "http://unix"+test.path, strings.NewReader(`{"system":"shop-prod"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", test.content)
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != test.status {
+			t.Fatalf("status %d", resp.StatusCode)
+		}
+	}
+	if _, err = Request(context.Background(), o.Socket, "shop-prod"); err == nil || !strings.Contains(err.Error(), "budget_exceeded") {
+		t.Fatalf("budget failure %v", err)
+	}
+	stop()
+	o.Budget.MaxBytes = 64 << 20
+	if err = src[0].Store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	stop, err = Start(context.Background(), o, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	if _, err = Request(context.Background(), o.Socket, "shop-prod"); err == nil || !strings.Contains(err.Error(), "acquisition_failed") || strings.Contains(err.Error(), o.Directory) {
+		t.Fatalf("unsanitized failure %v", err)
+	}
+}
+func TestAcquisitionStaleSocketIsNotRemoved(t *testing.T) {
+	o, src := setup(t)
+	ln, err := net.ListenUnix("unix", &net.UnixAddr{Name: o.Socket, Net: "unix"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln.SetUnlinkOnClose(false)
+	ln.Close()
+	if stop, err := Start(context.Background(), o, src); err == nil {
+		stop()
+		t.Fatal("stale socket reused")
+	}
+	if info, err := os.Lstat(o.Socket); err != nil || info.Mode()&os.ModeSocket == 0 {
+		t.Fatal("stale socket removed")
+	}
+}
