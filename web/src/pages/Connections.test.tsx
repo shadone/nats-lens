@@ -1,3 +1,4 @@
+import scopeCases from "../../../internal/investigation/testdata/connection_scope.json";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useNavigate } from "react-router";
@@ -162,4 +163,13 @@ describe("Connections finding discovery", () => {
     await waitFor(() => expect(requests.listFindings).toHaveBeenCalledTimes(3));
     expect(screen.queryByRole("link", { name: /client-001/ })).not.toBeInTheDocument();
   });
+});
+
+// The terminal importer runs this same fixture against its policy projection.
+it.each(scopeCases)("matches the shared effective visibility contract: %j", async ({name,tooling,includeTooling}) => {
+  vi.mocked(requests.listConnections).mockClear().mockResolvedValue({items: [], nextPageToken:"", totalCount:0, epoch:"3", toolingHidden:0, servers:[]});
+  const params=new URLSearchParams({name});if(tooling)params.set("tooling",tooling);
+  renderApp(<Connections/>,`/connections?${params}`);
+  await waitFor(()=>expect(requests.listConnections).toHaveBeenCalled());
+  expect(vi.mocked(requests.listConnections).mock.calls.at(-1)?.[2]).toMatchObject({nameContains:name,includeTooling});
 });
