@@ -19,3 +19,7 @@ it('freezes one shared live range, enriches only twelve visible servers and keep
 it('retains a selected historical server, clamps pages and does not mix another server history',async()=>{
  const result=await getMetricComparison('example-prod',{kind:'fixed',from:now-3600000,to:now},family,'nats-24','',7) as {rows:{name:string}[];page:number};expect(result.page).toBe(0);expect(result.rows.map(r=>r.name)).toEqual(['nats-24']);expect(vi.mocked(lens.getTimeSeriesBatch).mock.calls[0][0].queries?.map(q=>q.entity?.key??'')).toEqual(['','','nats-24','nats-24']);
 });
+it('rejects a response whose series belongs to another server',async()=>{
+ vi.mocked(lens.getTimeSeriesBatch).mockImplementation(async req=>create(GetTimeSeriesBatchResponseSchema,{results:req.queries!.map(q=>({series:create(SeriesSchema,{metric:q.metric,entity:q.entity?{...q.entity,key:'another',server:'another'}:undefined})}))}));
+ await expect(getMetricComparison('example-prod',{kind:'live',preset:'1h'},family,'nats-00','',0)).rejects.toThrow(/identity/i);
+});
