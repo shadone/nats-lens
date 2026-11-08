@@ -26,7 +26,7 @@ func validateContractV1(raw []byte, m Manifest) error {
 	if err != nil {
 		return err
 	}
-	if _, err = requiredObject(top["system"], []string{"id", "name", "collection_interval_ns"}, nil); err != nil {
+	if _, err = requiredObject(top["system"], []string{"id", "name", "collection_interval_ns"}, nil, "retention_ns"); err != nil {
 		return err
 	}
 	if _, err = requiredObject(top["data"], []string{"path", "size", "sha256"}, nil); err != nil {
@@ -65,7 +65,14 @@ func sameTokens(got, want []string) bool {
 
 // Read each object once to reject duplicate keys rather than silently adopting
 // the last value. Typed decoding separately checks field types and unknown keys.
-func requiredObject(raw []byte, required, nullable []string) (map[string]json.RawMessage, error) {
+func requiredObject(raw []byte, required, nullable []string, optional ...string) (map[string]json.RawMessage, error) {
+	allowed := map[string]bool{}
+	for _, name := range required {
+		allowed[name] = true
+	}
+	for _, name := range optional {
+		allowed[name] = true
+	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	token, err := dec.Token()
 	if err != nil || token != json.Delim('{') {
@@ -78,7 +85,7 @@ func requiredObject(raw []byte, required, nullable []string) (map[string]json.Ra
 			return nil, ErrInvalid
 		}
 		name, ok := key.(string)
-		if !ok {
+		if !ok || !allowed[name] {
 			return nil, ErrInvalid
 		}
 		if _, duplicate := fields[name]; duplicate {
