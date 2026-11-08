@@ -141,3 +141,50 @@ func TestSQLProcessDiagnostics(t *testing.T) {
 		}
 	}
 }
+
+func TestSQLConfigurationDiagnosticsDoNotEchoValues(t *testing.T) {
+	if os.Getenv("NATSLENS_SQL_CONFIG_HELPER") == "1" {
+		os.Args = append([]string{"natslens", "sql", "-config", os.Getenv("NATSLENS_SQL_CONFIG_PATH")}, strings.Split(os.Getenv("NATSLENS_SQL_CONFIG_ARGS"), "\n")...)
+		main()
+		return
+	}
+	const sensitive = "synthetic-secret-credential-123"
+	dir := t.TempDir()
+	cases := []struct{ name, body, args string }{
+		{"interval", "interval: " + sensitive + "\n", ""},
+		{"empty-systems", "systems: []\n", ""},
+		{"yaml", "systems: " + sensitive + "\n", ""},
+		{"multi-system", "systems:\n  - id: " + sensitive + "\n  - id: shop-staging\n", ""},
+		{"unknown-system", "systems:\n  - id: " + sensitive + "\n", "-system\nmissing-system\n"},
+		{"missing-file", "", ""},
+	}
+	for _, tc := range cases {
+		for _, format := range []string{"json", "table"} {
+			t.Run(tc.name+"/"+format, func(t *testing.T) {
+				path := filepath.Join(dir, tc.name+"-"+sensitive+".yaml")
+				if tc.name != "missing-file" {
+					if e := os.WriteFile(path, []byte(tc.body), 0600); e != nil {
+						t.Fatal(e)
+					}
+				}
+				cmd := exec.Command(os.Args[0], "-test.run=^TestSQLConfigurationDiagnosticsDoNotEchoValues$")
+				cmd.Env = append(os.Environ(), "NATSLENS_SQL_CONFIG_HELPER=1", "NATSLENS_SQL_CONFIG_PATH="+path, "NATSLENS_SQL_CONFIG_ARGS="+tc.args+"-format\n"+format+"\nSELECT 1")
+				var stdout, stderr bytes.Buffer
+				cmd.Stdout = &stdout
+				cmd.Stderr = &stderr
+				e := cmd.Run()
+				var exit *exec.ExitError
+				var d struct {
+					Version int
+					Error   struct{ Code, Message, NextStep string }
+				}
+				if !errors.As(e, &exit) || exit.ExitCode() != 1 || stdout.Len() != 0 || json.Unmarshal(bytes.TrimSpace(stderr.Bytes()), &d) != nil {
+					t.Fatalf("exit=%v stdout=%q stderr=%q", e, &stdout, &stderr)
+				}
+				if strings.Contains(stdout.String()+stderr.String(), sensitive) || d.Version != 1 || d.Error.Code != "invalid_argument" || d.Error.Message != "Cannot resolve database configuration or system selection" || !strings.Contains(d.Error.NextStep, "-db") {
+					t.Fatalf("unsafe or unhelpful diagnostic: %s", &stderr)
+				}
+			})
+		}
+	}
+}
