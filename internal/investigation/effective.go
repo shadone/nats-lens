@@ -64,6 +64,9 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 	}
 	c := *original
 	c.Query = &BoundQuery{Method: method, Request: canonical}
+	if f := md.Input().Fields().ByJSONName("range"); f != nil && !msg.Has(f) {
+		c.Query = nil
+	}
 	c.Filters = map[string]string{}
 	c.Series = nil
 	c.ChartLabel = ""
