@@ -22,7 +22,11 @@ export interface BandPoint extends Point {
 }
 
 /** A series whose points may carry a band, with the busiest server and its own line. */
+export interface MetricObservations {
+ sampleCount:bigint;knownCount:bigint;firstSampleAt?:number;lastSampleAt?:number;latest?:number;mean?:number;minimum?:number;maximum?:number;maximumAt?:number;observedTotal?:string;minimumLow?:number;maximumHigh?:number;
+}
 export interface TrendSeries extends Series {
+  observations?:MetricObservations;
   points: BandPoint[];
   /** Name of the busiest server of a band metric. */
   top?: string;
@@ -35,6 +39,7 @@ export function trendSeries(s: PSeries | undefined): TrendSeries | undefined {
   const top = entityOf(s.top);
   return {
     ...base,
+    observations:s.observations?{...s.observations,firstSampleAt:ms(s.observations.firstSampleAt),lastSampleAt:ms(s.observations.lastSampleAt),maximumAt:ms(s.observations.maximumAt)}:undefined,
     points: s.points.map((p) => ({ time: ms(p.time) ?? 0, value: p.value, low: p.low, high: p.high })),
     top: top ? top.server || top.name || top.key : undefined,
     topPoints: s.topPoints.map((p) => ({ time: ms(p.time) ?? 0, value: p.value })),
