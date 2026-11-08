@@ -2,6 +2,7 @@ package investigation
 
 import (
 	"encoding/json"
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"net/url"
 	"strings"
 
@@ -53,16 +54,16 @@ func evidenceLinks(method string, response json.RawMessage, c *Context, trusted,
 				add("event", id, "/events?id="+url.QueryEscape(id))
 			}
 		case "natslens.v1.EntityRef":
-			kind := text("type")
+			kind := v1.EntityType(m.Get(m.Descriptor().Fields().ByName("type")).Enum())
 			key := text("key")
 			path := ""
-			// Enum string values use the generated descriptor; no label-to-ID guessing.
+			// Typed identity follows the generated contract, never a display label.
 			switch kind {
-			case "2":
+			case v1.EntityType_ENTITY_TYPE_SERVER:
 				path = "/servers/" + url.PathEscape(key)
-			case "4":
+			case v1.EntityType_ENTITY_TYPE_STREAM:
 				path = "/streams/" + url.PathEscape(text("account")) + "/" + url.PathEscape(text("stream"))
-			case "5":
+			case v1.EntityType_ENTITY_TYPE_CONSUMER:
 				path = "/consumers/" + url.PathEscape(text("account")) + "/" + url.PathEscape(text("stream")) + "/" + url.PathEscape(text("consumer"))
 			}
 			if path != "" {

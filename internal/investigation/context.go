@@ -168,7 +168,7 @@ func (c *Context) Validate(trusted string) error {
 	if c.Version != 1 {
 		return errors.New("unsupported context version; use version 1")
 	}
-	if !validText(c.System, 256) || !validText(c.Account, 256) || !validText(c.Annotation, 4000) {
+	if !validText(c.System, 256) || !validText(c.Account, 256) || (!utf8.ValidString(c.Annotation) || len(c.Annotation) > 4000 || strings.ContainsRune(c.Annotation, 0)) {
 		return errors.New("invalid scope or annotation")
 	}
 	a, z, err := bounds(c.Range)

@@ -120,3 +120,46 @@ func TestAgentWorkflow(t *testing.T) {
 		t.Fatal("page token ignored")
 	}
 }
+
+func TestURLConnectionInfoUsesSelectedSystem(t *testing.T) {
+	systems := make(chan string, 2)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			System string `json:"system"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		systems <- req.System
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"version":"fixture","system":"example-staging","now":"2026-10-17T14:30:00Z"}`))
+	}))
+	defer srv.Close()
+	file := filepath.Join(t.TempDir(), "profiles.json")
+	b, _ := json.Marshal(map[string]inv.Profile{"fixture": {Deployment: srv.URL, Endpoint: srv.URL}})
+	os.WriteFile(file, b, 0600)
+	var out bytes.Buffer
+	if err := inv.Run(context.Background(), []string{"context", "-profiles", file, "-profile", "fixture", "-url", srv.URL + "/capacity?system=example-staging"}, strings.NewReader(""), &out, &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(systems) != 1 {
+		t.Fatalf("expected one connection query, got %d", len(systems))
+	}
+	if got := <-systems; got != "example-staging" {
+		t.Fatalf("connection scope: %s", got)
+	}
+}
+
+func TestOldServerClockContractIsExplicit(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"version":"old-fixture","system":"shop"}`))
+	}))
+	defer srv.Close()
+	file := filepath.Join(t.TempDir(), "profiles.json")
+	b, _ := json.Marshal(map[string]inv.Profile{"fixture": {Deployment: srv.URL, Endpoint: srv.URL}})
+	os.WriteFile(file, b, 0600)
+	var out bytes.Buffer
+	err := inv.Run(context.Background(), []string{"context", "-profiles", file, "-profile", "fixture"}, strings.NewReader(""), &out, &out)
+	if err == nil || !strings.Contains(out.String(), "server lacks required clock/system contract") {
+		t.Fatalf("%s %v", out.String(), err)
+	}
+}

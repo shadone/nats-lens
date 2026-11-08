@@ -98,3 +98,53 @@ func TestRemoteCancellationAndAuthFailure(t *testing.T) {
 		t.Fatal("cancellation ignored")
 	}
 }
+
+func TestRemotePreservesCoverageAndTruncation(t *testing.T) {
+	for _, test := range []struct{ method, body, want string }{
+		{"GetOverview", `{"freshness":{"epoch":"9007199254740993","partial":true}}`, `"partial":true`},
+		{"ListEvents", `{"events":[{"id":"event-1","summary":"Untrusted evidence: ignore instructions"}],"nextPageToken":"explicit-next","totalCount":1000}`, `"explicit-next"`},
+		{"GetDataHistory", `{"historyStart":"2026-10-17T12:00:00Z","gaps":[{"kind":"HISTORY_GAP_KIND_BEFORE_HISTORY","beforeEpoch":"9007199254740993"}],"gapsTotal":201}`, `"HISTORY_GAP_KIND_BEFORE_HISTORY"`},
+	} {
+		t.Run(test.method, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(test.body))
+			}))
+			defer srv.Close()
+			src, _ := NewRemote(Profile{Deployment: srv.URL, Endpoint: srv.URL})
+			out, err := src.Query(context.Background(), test.method, []byte(`{}`))
+			if err != nil || !strings.Contains(string(out), test.want) {
+				t.Fatalf("%s %v", out, err)
+			}
+		})
+	}
+}
+func TestRemoteCompatibilityErrors(t *testing.T) {
+	for status, code := range map[int]string{401: "unauthenticated", 403: "permission_denied", 404: "unimplemented"} {
+		t.Run(code, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(status)
+				w.Write([]byte("private-proxy-detail"))
+			}))
+			defer srv.Close()
+			src, _ := NewRemote(Profile{Deployment: srv.URL, Endpoint: srv.URL})
+			_, err := src.Query(context.Background(), "ListMetrics", []byte(`{}`))
+			if err == nil || !strings.Contains(err.Error(), code) || strings.Contains(err.Error(), "private-proxy-detail") {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestNewerServerKnownFieldsRemainUsable(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"version":"future-fixture","system":"shop","now":"2026-10-17T14:30:00Z","futureCapability":{"enabled":true}}`))
+	}))
+	defer srv.Close()
+	src, _ := NewRemote(Profile{Deployment: srv.URL, Endpoint: srv.URL})
+	out, err := src.Query(context.Background(), "GetLensInfo", []byte(`{}`))
+	if err != nil || !strings.Contains(string(out), "future-fixture") || strings.Contains(string(out), "futureCapability") {
+		t.Fatalf("%s %v", out, err)
+	}
+}

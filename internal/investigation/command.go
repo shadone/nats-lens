@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -155,6 +156,10 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if scope == "" && c != nil {
 		scope = c.System
 	}
+	if scope == "" && *page != "" {
+		u, _ := url.Parse(*page)
+		scope = u.Query().Get("system")
+	}
 	infoReq, _ := json.Marshal(map[string]string{"system": scope})
 	info, err := src.Query(ctx, "GetLensInfo", infoReq)
 	if err != nil {
@@ -176,7 +181,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if c == nil {
 		raw := *page
 		if raw == "" {
-			raw = p.Deployment + "/"
+			raw = strings.TrimSuffix(p.Deployment, "/") + "/"
 		}
 		c, err = ContextFromURL(raw, p.Deployment, now)
 		if err != nil {
@@ -190,6 +195,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	}
 	if *account != "" {
 		c.Account = *account
+		delete(c.Filters, "account")
 	}
 	if *from != "" {
 		c.Range.Start = *from
@@ -214,6 +220,12 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 		}
 		if err = json.Unmarshal(b, &overrides); err != nil || overrides == nil {
 			return errors.New("request must be one JSON object")
+		}
+	}
+	if raw := overrides["system"]; raw != nil {
+		var supplied string
+		if json.Unmarshal(raw, &supplied) != nil || supplied != c.System {
+			return errors.New("request system differs from context; use -system for an explicit scope change")
 		}
 	}
 	fields := Method(method).Input().Fields()
@@ -247,8 +259,11 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if s := request["system"]; s != nil {
 		_ = json.Unmarshal(s, &linkContext.System)
 	}
+	if a := request["account"]; a != nil {
+		_ = json.Unmarshal(a, &linkContext.Account)
+	}
 	link, _ := linkContext.Link(p.Deployment)
-	return writeJSON(out, map[string]any{"version": 1, "source": map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": c, "links": evidenceLinks(method, response, &linkContext, p.Deployment, link), "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": map[string]Availability{"actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No cross-call snapshot/collection pin is supported; response evidence IDs are preserved"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "freshnessRetention": {"available", "GetLensInfo connection facts are included; historical coverage requires GetDataHistory"}}})
+	return writeJSON(out, map[string]any{"version": 1, "source": map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": c, "links": evidenceLinks(method, response, &linkContext, p.Deployment, link), "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": map[string]Availability{"actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No cross-call snapshot/collection pin is supported; response evidence IDs are preserved"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "retention": {"available", "GetLensInfo retention and history-start facts are included; historical coverage requires GetDataHistory"}, "freshness": {"unavailable", "GetLensInfo does not report collection freshness; query GetOverview, GetShellStatus or GetDataHistory"}, "aggregation": {"unavailable", "Query ListMetrics for each metric ID’s authoritative aggregation description; series retain their units and bucket steps"}}})
 }
 
 func schema(m protoreflect.MessageDescriptor, depth int) any {
@@ -352,8 +367,10 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			values := []string{}
 			for _, source := range strings.Split(v, ",") {
 				switch source {
-				case "nats", "kubernetes", "check", "collector":
+				case "nats", "kubernetes", "collector":
 					values = append(values, "EVENT_SOURCE_"+strings.ToUpper(source))
+				case "findings":
+					values = append(values, "EVENT_SOURCE_FINDING")
 				}
 			}
 			if len(values) == len(strings.Split(v, ",")) {
@@ -405,7 +422,10 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 	}
 	// ASVS 2.2.1: client budget checks supplement the authoritative handler.
 	// Descriptor access is for a known request contract, never guessed response metadata.
-	if f := fields.ByName("range"); f != nil && msg.Has(f) {
+	if f := fields.ByName("range"); f != nil {
+		if !msg.Has(f) {
+			return nil, nil, errors.New("range-bearing queries require explicit frozen bounds; range cannot be null")
+		}
 		r := msg.Get(f).Message()
 		rb, _ := protojson.Marshal(r.Interface())
 		var b Bounds
