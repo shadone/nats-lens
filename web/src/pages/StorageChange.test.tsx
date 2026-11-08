@@ -1,0 +1,34 @@
+import { create, fromJson } from "@bufbuild/protobuf";
+import { TimestampSchema } from "@bufbuild/protobuf/wkt";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import { lens } from "../api/client";
+import { GetStorageChangeResponseSchema } from "../gen/natslens/v1/storage_change_pb";
+import { renderApp } from "../test/render";
+import { StorageChange } from "./StorageChange";
+vi.mock("../api/client",()=>({lens:{getStorageChange:vi.fn()}}));
+const from="2026-10-17T13:00:00.000123Z",to="2026-10-17T14:00:00.000456Z";
+const stamp=(s:string)=>fromJson(TimestampSchema,s);
+const route=`/capacity/storage-change?system=example-prod&account=APP&from=${from}&to=${to}`;
+function response(){return create(GetStorageChangeResponseSchema,{a:{requested:stamp(from),epoch:9007199254740993n,startedAt:stamp("2026-10-17T12:59:30Z"),finishedAt:stamp("2026-10-17T12:59:35Z"),inventoryComplete:true},b:{requested:stamp(to),epoch:9007199254740994n,startedAt:stamp("2026-10-17T13:59:30Z"),finishedAt:stamp("2026-10-17T13:59:35Z"),inventoryComplete:false,reasons:["missing_jsz"]},unit:"bytes",endpointPolicy:"completed_at_or_before_requested",rows:[{id:"bucket",rowKind:"resource",account:"APP",stream:"KV_order-cache",bucket:"order-cache",storage:"file",before:{logical:100n,observedReplicas:300n},after:{logical:50n,observedReplicas:150n},delta:{logical:-50n,observedReplicas:-150n},eventIds:[9007199254740999n],reasons:["observed_delete_event"]},{id:"missing",rowKind:"resource",account:"APP",stream:"orders",storage:"file",before:{logical:20n},after:{},delta:{},reasons:["not_observed_at_b"]}],totals:[{storage:"file",delta:{},knownContributions:{logical:-50n,observedReplicas:-150n},unknownRows:1}],totalCount:3,nextPageToken:"next"});}
+beforeEach(()=>vi.resetAllMocks());
+it("shows pinned windows, signed known contributions and unknown evidence distinctly",async()=>{
+ vi.mocked(lens.getStorageChange).mockResolvedValue(response());renderApp(<StorageChange/>,route);
+ expect(await screen.findByText(/9007199254740993/)).toBeInTheDocument();
+ expect(screen.getByText(/2026-10-17T13:00:00.000123Z/)).toBeInTheDocument();
+ expect(screen.getAllByText("−50 bytes").length).toBeGreaterThan(0);
+ expect(screen.getAllByText(/Unknown/).length).toBeGreaterThan(0);
+ expect(screen.getByText(/Missing JSZ evidence/)).toBeInTheDocument();
+ const link=new URL(screen.getByRole("link",{name:"order-cache"}).getAttribute("href")!,"http://example.com");expect(link.pathname).toBe("/kv-stores/APP/order-cache");expect(link.searchParams.get("system")).toBe("example-prod");
+ expect(screen.getByRole("link",{name:"Event 9007199254740999"})).toHaveAttribute("href",expect.stringContaining("id=9007199254740999"));
+ await waitFor(()=>expect(screen.getByTestId("location").textContent).toContain("epochA=9007199254740993"));
+ expect(lens.getStorageChange).toHaveBeenCalledWith(expect.objectContaining({a:stamp(from),b:stamp(to),account:"APP",system:"example-prod"}),expect.anything());
+});
+it("continues only the pinned comparison and exposes all-match counts",async()=>{
+ const second=response();second.rows=[{id:"last",rowKind:"resource",account:"APP",stream:"last",storage:"file",delta:{logical:1n}}];second.nextPageToken="";
+ vi.mocked(lens.getStorageChange).mockImplementation(async req=>req.pageToken?second:response());renderApp(<StorageChange/>,route);
+ await screen.findByText("Showing 1–2 of 3 rows");await waitFor(()=>expect(screen.getByTestId("location").textContent).toContain("epochB=9007199254740994"));
+ fireEvent.click(screen.getByRole("button",{name:"Next contributors"}));expect(await screen.findByRole("link",{name:"last"})).toBeInTheDocument();
+ expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({pageToken:"next",epochA:9007199254740993n,epochB:9007199254740994n}),expect.anything());
+});
+it("rejects malformed pins without issuing a read",async()=>{renderApp(<StorageChange/>,route+"&epochA=bad");expect(await screen.findByRole("alert")).toHaveTextContent(/collection pin/);expect(lens.getStorageChange).not.toHaveBeenCalled();});
