@@ -8,7 +8,7 @@
 
 The Events page lists the events of the time range, newest first: NATS advisories and system events, Kubernetes events, finding transitions and the collector's own records. It opens on the events worth reading, with routine events hidden behind a count and repeats folded into one row. A histogram shows when events came, and the sources and servers show how many events each holds. Filters narrow the list by source, server, kind, entity and client. An event opens in place to show the findings it raised, with their remediation, its fields, and its raw payload. Every event has its own link.
 
-Slow-consumer investigations separate recorded disconnects from aggregate counter increases and expose capture limitations ([servers.md](servers.md)).
+Slow-consumer investigations separate recorded disconnects from aggregate counter increases and expose capture limitations. Selecting one counter observation keeps the full supporting event interval ([servers.md](servers.md)).
 
 ## Behavior and rules
 
