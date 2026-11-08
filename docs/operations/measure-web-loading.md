@@ -116,12 +116,13 @@ await cdp.send('Network.emulateNetworkConditions', {
 await cdp.send('Performance.enable');
 ```
 
-The baseline used `chromium.launch` with installed Google Chrome, `headless: true`, and `--disable-background-networking`. Each context used `viewport: { width: 1280, height: 800 }` and `serviceWorkers: 'block'`. Browser-process startup was excluded. No external traffic shaping proxy modified the server responses.
+The baseline used `chromium.launch` with installed Google Chrome, `headless: true`, and `--disable-background-networking`. Each context used `viewport: { width: 1280, height: 800 }` and `serviceWorkers: 'block'`. Browser-process startup was excluded. No external traffic shaping proxy modified the server responses. Coordinate a bounded measurement window with other agents before the final timing batch. Record the acknowledgments and observed workload conditions; an idle process owned by this task alone does not establish an uncontended host.
 
 1. Navigate to `/fleet`. Observe **3 systems, worst first**, the completed `ListSystems` resource, and two animation frames. Record navigation-start-to-observation time, DOMContentLoaded, paint entries, all resource timings, and `Performance.getMetrics`.
 2. Record `performance.now()`, then click the sidebar link containing `/streams`. Observe `order-jobs` inside `main`, then two animation frames. Record the elapsed time and resources whose `startTime` follows the mark.
 3. Record another start mark, then click the sidebar link containing `/checks`. Observe the **Search checks** input, then two animation frames. Capture the same fields.
-4. Close the context. Repeat the complete sequence three times per profile, with a fresh context each time. Keep all samples and report medians and ranges. Separate cold deep links from client-side navigation if adding more routes.
+4. Run a separate first-visit control with the destination module explicitly imported before navigation. Record whether any JavaScript requests remain, primary API starts versus code completion, and visible readiness. This separates transfer from lazy-wrapper/scheduling delays; do not mix this control into cold samples.
+5. Close the context. Repeat the complete sequence three times per profile, with a fresh context each time. Keep all samples and report medians and ranges. Separate cold deep links from client-side navigation if adding more routes.
 
 The baseline's readiness frame wait was:
 
@@ -130,7 +131,7 @@ await page.evaluate(() => new Promise(resolve =>
   requestAnimationFrame(() => requestAnimationFrame(resolve))));
 ```
 
-These markers measure DOM readiness observed by automation. They do not prove a paint has completed or all fonts have arrived. Preserve raw paint entries; if FCP is absent at readiness, report it as unavailable rather than substituting first paint.
+The original baseline markers measure DOM readiness observed by automation. Locator polling can add substantial delay after content is visible. Retain those historical observations under their original source identities. For new comparisons, install an in-page MutationObserver and animation-frame visibility check before navigation. Match the marker inside `main`, check its visibility, and record both the first visible DOM timestamp and two subsequent animation frames. For navigation, retain the pre-click mark and the capture-phase trusted click timestamp separately. Hidden prerenders and header search controls do not count. Keep automation observation time as a separate field, never as the visible-content timestamp. None of these markers prove a paint has completed or all fonts have arrived. Preserve raw paint entries; if FCP is absent at readiness, report it as unavailable rather than substituting first paint.
 
 Capture `performance.getEntriesByType('resource')`, `performance.getEntriesByType('navigation')`, and `performance.getEntriesByType('paint')`. Keep resource path, initiator type, `startTime`, `requestStart`, `responseStart`, `responseEnd`, `transferSize`, `encodedBodySize`, `decodedBodySize`, status, and encoding. Register a buffered `PerformanceObserver` for `longtask` before loading the page. Read CDP `ScriptDuration` and `TaskDuration`; convert seconds to milliseconds and subtract consecutive cumulative samples for navigation costs.
 
