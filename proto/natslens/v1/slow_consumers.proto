@@ -19,6 +19,11 @@ message GetSlowConsumerInvestigationRequest {
   string account = 4;
   // Per evidence list: default 100, maximum 200. No implicit pagination.
   int32 limit = 5;
+  // Optional exact counter observation selection; both fields are required
+  // together. The report endpoint must lie within range. Events and findings
+  // still use the entire half-open range, independently of this selection.
+  string observation_server_id = 6;
+  int64 observation_epoch = 7;
 }
 
 // An increase observed between two collections of the same process.

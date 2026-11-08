@@ -33,9 +33,14 @@ type GetSlowConsumerInvestigationRequest struct {
 	// Filters recorded client evidence only. Counters remain system-wide.
 	Account string `protobuf:"bytes,4,opt,name=account,proto3" json:"account,omitempty"`
 	// Per evidence list: default 100, maximum 200. No implicit pagination.
-	Limit         int32 `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Limit int32 `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Optional exact counter observation selection; both fields are required
+	// together. The report endpoint must lie within range. Events and findings
+	// still use the entire half-open range, independently of this selection.
+	ObservationServerId string `protobuf:"bytes,6,opt,name=observation_server_id,json=observationServerId,proto3" json:"observation_server_id,omitempty"`
+	ObservationEpoch    int64  `protobuf:"varint,7,opt,name=observation_epoch,json=observationEpoch,proto3" json:"observation_epoch,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *GetSlowConsumerInvestigationRequest) Reset() {
@@ -99,6 +104,20 @@ func (x *GetSlowConsumerInvestigationRequest) GetAccount() string {
 func (x *GetSlowConsumerInvestigationRequest) GetLimit() int32 {
 	if x != nil {
 		return x.Limit
+	}
+	return 0
+}
+
+func (x *GetSlowConsumerInvestigationRequest) GetObservationServerId() string {
+	if x != nil {
+		return x.ObservationServerId
+	}
+	return ""
+}
+
+func (x *GetSlowConsumerInvestigationRequest) GetObservationEpoch() int64 {
+	if x != nil {
+		return x.ObservationEpoch
 	}
 	return 0
 }
@@ -499,13 +518,15 @@ var File_natslens_v1_slow_consumers_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_slow_consumers_proto_rawDesc = "" +
 	"\n" +
-	" natslens/v1/slow_consumers.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x18natslens/v1/events.proto\"\xb3\x01\n" +
+	" natslens/v1/slow_consumers.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x18natslens/v1/events.proto\"\x94\x02\n" +
 	"#GetSlowConsumerInvestigationRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
 	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x16\n" +
 	"\x06server\x18\x03 \x01(\tR\x06server\x12\x18\n" +
 	"\aaccount\x18\x04 \x01(\tR\aaccount\x12\x14\n" +
-	"\x05limit\x18\x05 \x01(\x05R\x05limit\"\xc3\x02\n" +
+	"\x05limit\x18\x05 \x01(\x05R\x05limit\x122\n" +
+	"\x15observation_server_id\x18\x06 \x01(\tR\x13observationServerId\x12+\n" +
+	"\x11observation_epoch\x18\a \x01(\x03R\x10observationEpoch\"\xc3\x02\n" +
 	"\x17SlowConsumerObservation\x12\x16\n" +
 	"\x06server\x18\x01 \x01(\tR\x06server\x12\x1b\n" +
 	"\tserver_id\x18\x02 \x01(\tR\bserverId\x12\x14\n" +

@@ -214,3 +214,41 @@ func TestSlowConsumerInvestigationAgreement(t *testing.T) {
 		})
 	}
 }
+
+func TestSlowConsumerInvestigationExactObservationAndEventBounds(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	r.server("OTHER", "nats-0")
+	for i, v := range []int{0, 5, 8} {
+		r.epoch(int64(i+1), t0.Add(time.Duration(i)*30*time.Second), "S0")
+		r.add("server_stats", map[string]any{"epoch": i + 1, "server_id": "S0", "slow_consumers": v})
+	}
+	r.add("server_stats", map[string]any{"epoch": 1, "server_id": "OTHER", "slow_consumers": 0})
+	r.add("server_stats", map[string]any{"epoch": 2, "server_id": "OTHER", "slow_consumers": 99})
+	for i, seconds := range []int{0, 15, 30, 31} {
+		at := t0.Add(time.Duration(seconds) * time.Second)
+		r.add("events", map[string]any{"id": i + 1, "time": at, "received_at": at, "source": "sys", "kind": "client.disconnect", "server_name": "nats-0", "reason": "Slow Consumer (Write Deadline)", "summary": "disconnect"})
+	}
+	c := serveSeries(t, st, t0.Add(90*time.Second))
+	req := &v1.GetSlowConsumerInvestigationRequest{Range: &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(t0.Add(31 * time.Second))}, Server: "nats-0", ObservationServerId: "S0", ObservationEpoch: 2}
+	inv := must(c.GetSlowConsumerInvestigation(ctx, connect.NewRequest(req)))
+	if inv.Detections != 5 || len(inv.Observations) != 1 || inv.Observations[0].Epoch != 2 || inv.Observations[0].ServerId != "S0" || inv.RecordedDisconnects != 3 {
+		t.Fatalf("exact selection and full supporting interval: %v", inv)
+	}
+	req.ObservationEpoch = 3
+	inv = must(c.GetSlowConsumerInvestigation(ctx, connect.NewRequest(req)))
+	if inv.Detections != 0 || len(inv.Observations) != 0 || inv.RecordedDisconnects != 3 {
+		t.Fatalf("endpoint outside range must not broaden it: %v", inv)
+	}
+	for _, bad := range []struct {
+		id    string
+		epoch int64
+	}{{"S0", 0}, {"", 2}, {"S0", -1}} {
+		req.ObservationServerId = bad.id
+		req.ObservationEpoch = bad.epoch
+		if _, err := c.GetSlowConsumerInvestigation(ctx, connect.NewRequest(req)); codeOf(err) != connect.CodeInvalidArgument {
+			t.Errorf("invalid selection %v: %v", bad, err)
+		}
+	}
+}
