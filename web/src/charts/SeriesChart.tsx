@@ -1,8 +1,10 @@
 // A metric over the range on detail pages: the sparkline drawn larger, with
 // the latest value, min and max as text and the range ends below. A series
 // whose refresh failed stays on screen, dimmed and dated.
-import {useInRouterContext} from "react-router";
-import {RLink} from "../components/common";
+import {Link,useInRouterContext} from "react-router";
+import {useGlobalQuery} from "../lib/useGlobalQuery";
+import {withGlobal} from "../lib/globalQuery";
+import {writeRange} from "../lib/timeRange";
 import {metricDestination} from "../lib/metricNavigation";
 import {MetricHelp} from "../components/MetricHelp";
 import type { Entity, Series, Window } from "../api/model";
@@ -38,7 +40,7 @@ export function SeriesChart({ title, series, start, end, windows = [], metric,en
   return (
     <div className={`card chart${stale ? " stale" : ""}`}>
       <div className="chart-h">
-        <span className="lbl">{to?<RLink className="x" to={to}>{title}</RLink>:title}</span>
+        <span className="lbl">{to?<MetricTitle title={title} to={to} start={start} end={end}/>:title}</span>
         <MetricHelp label={title} ids={[series?.metric??""]}/>
         <b className="mono">{loading ? "…" : fmt(latest)}</b>
       </div>
@@ -75,4 +77,9 @@ interface QueryLike {
 export function QuerySeriesChart({ q, ...rest }: { q: QueryLike; title: string; start: number; end: number; windows?: Window[] }) {
   useReportStale(q);
   return <SeriesChart {...rest} metric={q.metric} entity={q.entity} series={q.data} loading={q.isPending} error={q.error ? errorText(q.error) : undefined} updatedAt={q.dataUpdatedAt} />;
+}
+
+/** A chart can show a different interval from its containing page. */
+function MetricTitle({title,to,start,end}:{title:string;to:string;start:number;end:number}){
+ const global=useGlobalQuery();const [path,query]=to.split('?');const fixed=writeRange(new URLSearchParams(query),{kind:'fixed',from:start,to:end});const merged=new URLSearchParams(withGlobal(`${path}?${fixed}`,global).split('?')[1]);merged.delete('range');return <Link className="x" to={`${path}?${merged}`}>{title}</Link>;
 }
