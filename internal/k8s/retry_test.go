@@ -49,7 +49,7 @@ func closedWatch(fc *clocktesting.FakeClock, life time.Duration, evs ...watch.Ev
 
 func TestRetryShortClosuresAndRelists(t *testing.T) {
 	for _, relist := range []bool{false, true} {
-		t.Run(map[bool]string{false: "resume", true: "relist"}[relist], func(t *testing.T) {
+		t.Run(map[bool]string{false: "short", true: "short and gone"}[relist], func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			fc := clocktesting.NewFakeClock(t0)
@@ -91,8 +91,9 @@ func TestRetryShortClosuresAndRelists(t *testing.T) {
 			if l.failingSince.IsZero() || len(rec.all()) != 1 || rec.all()[0].Kind != KindNotWatching {
 				t.Errorf("outage lost: since=%v events=%v", l.failingSince, rec.kinds())
 			}
-			if relist && lists < 2 {
-				t.Error("no relists")
+			// Every short closure relists before the next watch; so does a 410.
+			if lists < len(waits) {
+				t.Errorf("lists = %d after %d short closures", lists, len(waits))
 			}
 		})
 	}
@@ -198,6 +199,50 @@ func (w *enteredWatch) ResultChan() <-chan watch.Event {
 		close(w.entered)
 	}
 	return w.ch
+}
+
+// A GKE API server closes a watch from a resource version it no longer has
+// at once and cleanly, without 410 Gone. The loop must list again and watch
+// from the fresh version, not retry the stale one forever.
+func TestRetryShortClosureFromStaleVersionRelists(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	fc := clocktesting.NewFakeClock(t0)
+	rec := &sink{}
+	var waits []time.Duration
+	var rvs []string
+	lists := 0
+	src := &source{name: "events in example", list: func(context.Context, metav1.ListOptions) ([]runtime.Object, string, string, error) {
+		lists++
+		return nil, map[bool]string{true: "100", false: "200"}[lists == 1], "", nil
+	}}
+	src.watch = func(_ context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+		rvs = append(rvs, opts.ResourceVersion)
+		switch {
+		case len(rvs) > 10 || len(rvs) > 1 && rvs[len(rvs)-2] == "200":
+			cancel()
+			return nil, context.Canceled
+		case opts.ResourceVersion == "200":
+			return closedWatch(fc, 2*time.Second), nil
+		default:
+			return closedWatch(fc, 10*time.Millisecond), nil
+		}
+	}
+	l := &loop{src: src, out: make(chan update, 32), record: rec.Record, gapAfter: 10 * time.Second, now: fc.Now, watchClock: fc, log: quietLog()}
+	l.sleep = func(_ context.Context, d time.Duration) {
+		waits = append(waits, d)
+		fc.Step(d)
+	}
+	l.run(ctx)
+	if lists != 2 || strings.Join(rvs, ",") != "100,200,200" {
+		t.Errorf("lists=%d watched from %v, want a relist and a watch from 200", lists, rvs)
+	}
+	if len(waits) != 1 || waits[0] != time.Second {
+		t.Errorf("waits %v", waits)
+	}
+	if !l.failingSince.IsZero() || l.lastErr != nil || len(rec.all()) != 0 {
+		t.Errorf("not recovered: since=%v err=%v events=%v", l.failingSince, l.lastErr, rec.kinds())
+	}
 }
 
 func TestRetrySuccessfulListDoesNotRecoverWatch(t *testing.T) {

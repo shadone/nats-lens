@@ -20,7 +20,7 @@ When NATS runs in Kubernetes, many of its troubles start outside NATS: a node is
 - **Client pods.** A pod is a NATS client when its name follows "@" in a connection name (a service that names its connection `service@pod`), or when `kubernetes.client_pods` matches it. The timeline's Kubernetes lane draws the failed scheduling, back-offs (including `CrashLoopBackOff`) and OOM kills of client pods as warnings.
 - **Each Event once.** A Kubernetes Event that repeats with a growing count is one row, updated as the count grows, and is not stored again after a relist or a restart of nats-lens.
 - **Gaps are recorded.** A list or watch that fails for `kubernetes.gap_after` (30 seconds) is recorded as `collector.k8s_not_watching`, and its recovery as `collector.k8s_gap` with the span. At start, nats-lens records a gap since its last Kubernetes event or collection, and compares the pods and nodes with what it last recorded. A change it missed is recorded then, with "(observed at start)" in the summary.
-- **Watch retries.** Failed lists, watch requests, and streams that close within one second retry after 1, 2, 4, 8, 16, 32, then 60 seconds. Retries continue until recovery or shutdown. A successful list or watch request alone does not reset an outage. An event, a bookmark, or a watch that stays open for one second restores watching, including in a quiet namespace. Normal watch timeouts resume from the last resource version; an expired resource version triggers a relist.
+- **Watch retries.** Failed lists, watch requests, and streams that close within one second retry after 1, 2, 4, 8, 16, 32, then 60 seconds. Retries continue until recovery or shutdown. A successful list or watch request alone does not reset an outage. An event, a bookmark, or a watch that stays open for one second restores watching, including in a quiet namespace. Normal watch timeouts resume from the last resource version; an expired resource version (410) triggers a relist. A stream that closes within one second without an error also triggers a relist before the next watch, as a GKE API server closes a watch from a resource version it no longer has that way instead of answering 410.
 - **Bounded failure logs.** Each source logs the first failure, then at most one warning per minute during that outage, even when errors change. Warnings include the next retry delay, total failed attempts, and warnings suppressed since the previous summary. Recovery logs the total attempts and remaining suppressed warnings. Watcher failure logs and gap records use bounded error classifications and status codes. They omit server error bodies and credential-plugin output. Dependency libraries may log failures separately.
 - **The Kubernetes lane.** The status timeline shows node cordons, drains, readiness, upgrades and deletions, the NATS pods' stops, starts and readiness, the watcher's gaps, and the client pod warnings. On a timeline for one server, the lane shows only that server's pods.
 - **Drain and upgrade windows.** A window opens at a node drain or upgrade and takes in every node or NATS pod event that follows within 15 minutes of the one before. A window without a drain or a NATS pod event is not shown. The window is labelled "Node upgrade" when it holds an upgrade or nodes of different kubelet versions, "GKE node upgrade" when a node in it also carries GKE's `cloud.google.com/gke-nodepool` label, "Node removed by the autoscaler" when every drain in it was the autoscaler's, and "Node drain" otherwise, with the number of drained nodes and NATS pods stopped.
@@ -68,6 +68,14 @@ When NATS runs in Kubernetes, many of its troubles start outside NATS: a node is
 - **When** a retry receives an event or bookmark, or stays open for one second without events
 - **Then** nats-lens records the outage span as `collector.k8s_gap`, logs recovery, and resets the retry delay
 - **And** a successful list or relist alone does not end the watch outage
+
+### The server no longer has a quiet source's resource version
+
+- **Surfaces:** `cli`
+- **Given** a quiet source, such as the node Events in `default`, has seen no event or bookmark for hours, so the API server no longer has the resource version it watches from
+- **When** the API server closes the next watch from that version at once without an error, as a GKE API server does in place of a 410
+- **Then** nats-lens counts the closure as a failure, waits the retry delay, lists the source again and watches from the list's resource version
+- **And** when that watch stays open for one second, watching is restored; an episode shorter than `kubernetes.gap_after` records no gap
 
 ## Not supported / out of scope
 
