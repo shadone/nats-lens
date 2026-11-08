@@ -25,3 +25,7 @@ it("preserves storage comparison pins and sub-millisecond requested bounds in co
  const c=buildInvestigationContext({origin:"https://lens.example.com",pathname:"/capacity/storage-change",search:"?from=2026-10-17T13:00:00.000123Z&to=2026-10-17T14:00:00.000456Z&epochA=9007199254740993&epochB=9007199254740994&account=APP",system:"shop",spec:{kind:"fixed",from:Date.parse("2026-10-17T13:00:00Z"),to:Date.parse("2026-10-17T14:00:00Z")}});
  expect(c.filters.epochA).toBe("9007199254740993");expect(c.filters.epochB).toBe("9007199254740994");expect(c.range).toEqual({start:"2026-10-17T13:00:00.000123Z",end:"2026-10-17T14:00:00.000456Z"});
 });
+it("keeps contributor selection in the copied pinned investigation",()=>{
+ const c=buildInvestigationContext({origin:"https://lens.example.com",pathname:"/capacity/storage-change",search:"?change=asc&resource=kv&contributors=1",system:"shop",spec:{kind:"fixed",from:now-3600000,to:now}});
+ expect(c.filters).toMatchObject({change:"asc",resource:"kv",contributors:"1"});
+});
