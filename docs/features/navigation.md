@@ -12,6 +12,9 @@ A compact **Copy as prompt** action in the top bar or beside a shared chart copi
 
 ## Behavior and rules
 
+- Supported server metric titles and selected intervals lead to [metric investigations](metric-investigations.md), preserving system, range and reported server scope. Storage and detections reuse specialist pages.
+
+
 - [Chart interval selection](chart-interval-selection.md) adds explicit storage-time selection and actions. Selection alone leaves navigation and the page range unchanged.
 
 - **Page loading and recovery.** Accounts, Applications, Connections, Data history, Micro services, Placement, Replay and Topology load their views when needed. Their scoped primary data reads start while the view code loads; other pages are available with the shell. While a view loads, the sidebar and header remain available, and a polite status announces “Loading page…”. If the view code fails, the page shows an alert and a **Reload page** link. The link reloads the full current address, including its range, system, account, and fragment. Navigating to another page clears the error for that destination.
