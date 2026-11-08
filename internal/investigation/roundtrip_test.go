@@ -136,3 +136,18 @@ func TestBoundQueryIsReadOnlyValidatedData(t *testing.T) {
 		}
 	}
 }
+
+func TestEmittedContextCannotExceedImportBudget(t *testing.T) {
+	c, _ := ContextFromURL("https://lens.example.com/", "https://lens.example.com", fixtureNow())
+	id := strings.Repeat("x", 256)
+	for i := 0; i < 32; i++ {
+		c.Series = append(c.Series, SeriesReference{Label: "series", Metric: "consumer.delivered_rate", Entity: &Entity{Type: "ENTITY_TYPE_CONSUMER", Key: id, Account: id, Stream: id, Consumer: id, Server: id}})
+	}
+	req, _, err := Prepare("GetTimeSeriesBatch", c, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = effectiveContext("GetTimeSeriesBatch", c, req); err == nil {
+		t.Fatal("emitted context exceeds the parser's 64 KiB budget")
+	}
+}
