@@ -24,7 +24,7 @@ function Values({ value }: { value: StorageChangeBytes | undefined }) {
 export function StorageChange(){
  usePageTitle("Storage change");const [params]=useSearchParams();
  if(!params.has("from")&&!params.has("to"))return <ResolveComparisonRange/>;
- return <PinnedStorageChange/>;
+ return <>{params.get("sourceServer")&&<p>Opened from server {params.get("sourceServer")}. This comparison covers the system; it is not filtered to that server.</p>}<PinnedStorageChange/></>;
 }
 function ResolveComparisonRange(){
  const system=useSystem();const info=useQuery({queryKey:["storage-change-clock",system],queryFn:async({signal})=>{const r=await lens.getLensInfo({system},{signal});if(!r.now)throw new Error("The source clock is unavailable.");return Number(r.now.seconds)*1000+r.now.nanos/1e6;},staleTime:0});const {spec,problem}=useTimeRange();const [params,setParams]=useSearchParams();

@@ -1,3 +1,4 @@
+import {metricFamily} from "./metricNavigation";
 import {fromJson} from "@bufbuild/protobuf";
 import {TimestampSchema} from "@bufbuild/protobuf/wkt";
 // Portable data only: no credential, clipboard or network access here.
@@ -23,7 +24,10 @@ function routeEntity(pathname:string):InvestigationEntity|undefined{
 }
 function portableEntity(e:Entity|undefined):InvestigationEntity|undefined{return e?{type:`ENTITY_TYPE_${e.kind.toUpperCase()}`,key:e.key,account:e.account||undefined,stream:e.stream||undefined,consumer:e.consumer||undefined,server:e.server||undefined}:undefined}
 export function buildInvestigationContext(input:{origin:string;pathname:string;search:string;system:string;spec:RangeSpec;selection?:InvestigationSelection}):InvestigationContext {
- const {origin,pathname,search,system,spec,selection:s}=input;
+ const {origin,pathname,search,system,spec,selection:selection}=input;
+ const family=pathname.startsWith("/metrics/")?metricFamily(pathname.slice("/metrics/".length)):undefined;
+ const server=new URLSearchParams(search).get("server");const serverIdentity=server?{kind:"server" as const,key:server,server,name:server,account:"",stream:"",consumer:""}:undefined;
+ const s:InvestigationSelection|undefined=selection??(family?{label:family.title,series:(server?family.metrics:family.fleetMetrics).map((metric,i)=>({label:family.labels[i],metric,entity:serverIdentity}))}:undefined);
  const params=new URLSearchParams(search);
  // ASVS 14.2.1: copy only known navigation fields; unknown query parameters,
  // credentials, cookies and browser storage never enter portable context.
