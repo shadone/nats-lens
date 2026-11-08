@@ -12,6 +12,9 @@ import (
 
 // A connection nats.go closed is dialled and subscribed again.
 func TestEventConnRedials(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true})
 	if err != nil {
 		t.Fatal(err)

@@ -109,8 +109,9 @@ To capture the stream and consumer advisories of a JetStream account as well, an
 | make web              | Builds the web UI into `internal/webui/dist` (`npm ci` first when the lockfile changed). |
 | make web-dev          | Runs the Vite dev server on 127.0.0.1:5173 against the API on 127.0.0.1:8080.       |
 | make web-test         | Runs the web UI tests (Vitest and Testing Library).                                 |
-| make test             | Runs all tests, including the in-process 3-node cluster test.                      |
-| make test-short       | Runs the tests without the cluster test.                                            |
+| make test             | Runs all Go tests, including local NATS clusters and scale cases.                      |
+| make test-fast        | Runs the curated pure Go policy/decoding tier, uncached.                           |
+| make test-short       | Runs mixed Go integration tests without local NATS or scale cases.                                            |
 | make lint             | Runs `go vet` and checks `gofmt`.                                                   |
 | make dev-cluster      | Starts nats-0, nats-1 and nats-2 on localhost (`scripts/dev-cluster.sh start`).     |
 | make dev-cluster-stop | Stops the dev cluster. `scripts/dev-cluster.sh stop 2` stops only nats-2.           |
@@ -123,6 +124,8 @@ To capture the stream and consumer advisories of a JetStream account as well, an
 | make image            | Builds the linux/amd64 container image with buildx; `IMAGE` names it (default `natslens:dev`). |
 | make vuln             | Runs `govulncheck ./...`; fails with an install hint when govulncheck is missing.  |
 | make clean            | Removes `bin/`.                                                                     |
+
+The [Go test tier runbook](docs/operations/go-test-tiers.md) lists dependencies, selectors, race checks, and full-suite limits.
 
 The dev cluster uses client ports 4222-4224, cluster ports 6222-6224 and monitoring ports 8222-8224. Its system account user is `sys` and its JetStream account user is `app`; the passwords are local development values in [scripts/dev-cluster.sh](scripts/dev-cluster.sh). Configuration, logs and data live in `.dev/`, which git ignores.
 

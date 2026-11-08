@@ -52,6 +52,9 @@ func TestNotConnectedAtStart(t *testing.T) {
 // A connection that loses its only server is recorded as disconnected,
 // then as not connected.
 func TestNotConnectedAfterLoss(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true})
 	if err != nil {
 		t.Fatal(err)
@@ -78,6 +81,9 @@ func TestNotConnectedAfterLoss(t *testing.T) {
 // A connection that reaches its server only after failed attempts at
 // start records not connected, then the connect.
 func TestConnectedAfterFailedStart(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -108,6 +114,9 @@ func TestConnectedAfterFailedStart(t *testing.T) {
 // its server at the first try, records one reconnect; a first dial that
 // connects at once records none.
 func TestRedialConnectedAtOnce(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true})
 	if err != nil {
 		t.Fatal(err)

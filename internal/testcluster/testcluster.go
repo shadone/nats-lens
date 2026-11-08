@@ -78,6 +78,7 @@ func freePort(t testing.TB) int {
 // routed into a JetStream cluster and Start waits until it has a meta
 // leader that knows every server; with n = 1 the server runs JetStream
 // without a cluster. Servers are shut down when the test ends.
+// Short mode skips callers before starting any NATS server.
 func Start(t testing.TB, n int) *Cluster {
 	t.Helper()
 	return start(t, n, 0)
@@ -95,6 +96,9 @@ func StartOnPort(t testing.TB, port int) *Cluster {
 
 func start(t testing.TB, n, port int) *Cluster {
 	t.Helper()
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	if n < 1 {
 		t.Fatalf("testcluster: need at least one server, got %d", n)
 	}

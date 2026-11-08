@@ -49,6 +49,9 @@ system_account: SYS
 
 // startMicroServer starts the server of microConf and returns its URL.
 func startMicroServer(t *testing.T) string {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "micro.conf")
 	if err := os.WriteFile(path, fmt.Appendf(nil, microConf, testcluster.FreePort(t)), 0o600); err != nil {

@@ -18,6 +18,9 @@ import (
 // SUBJECTS_SCALE_DAYS, SUBJECTS_SCALE_SERVERS and SUBJECTS_SCALE_ACCOUNTS
 // (4, 50 and 200 make 115 million rows); skipped otherwise.
 func TestSubjectsAPIRateScale(t *testing.T) {
+	if testing.Short() {
+		t.Skip("scale integration: run without -short")
+	}
 	days, _ := strconv.Atoi(os.Getenv("SUBJECTS_SCALE_DAYS"))
 	if days == 0 {
 		t.Skip()

@@ -18,6 +18,9 @@ import (
 // until it opens, with one warning before the first dial and one per
 // failed dial, and no error lines.
 func TestKeepDialsAConnectionWhoseFirstDialFailed(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true})
 	if err != nil {
 		t.Fatal(err)
