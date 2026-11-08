@@ -109,7 +109,8 @@ The result envelope contains these contracts:
 | `request` | Exact protobuf JSON request sent after context and explicit overrides. |
 | `response` | Typed protobuf JSON response with optional presence and 64-bit integers preserved. |
 | `connection` | The selected system's `GetLensInfo` response, including its clock, retention and history start when supplied. |
-| `context` | Imported context and explicit context-level flag changes; a request-file override can narrow the request separately. |
+| `context` | Effective request context after flags and request-file overrides; stale source queries and filters are removed. |
+| `originalContext` | Original imported handoff, retained separately from query facts. |
 | `links` | Scoped source, coverage and recognized finding/event/entity evidence links; at most 100 links plus a truncation notice. |
 | `unappliedContextFilters` | URL filters the requested method cannot express; inspect these before treating the query as page-equivalent. |
 | `limits` | RPC/read budgets and explicit pagination/truncation limitations. |
@@ -123,7 +124,7 @@ Optional fields retain absence. Default-valued nonoptional protobuf fields remai
 
 A request file contains one object in the method's protobuf JSON schema. It overlays context-derived fields and defaults. A range-bearing request cannot replace frozen bounds with null. Use `describe METHOD` before writing unfamiliar fields. `-request -` reads stdin; `-context -` also reads stdin, so choose only one stdin source. An explicit system change uses `-system`; a different `system` inside a request file is refused so that connection metadata describes the query's system.
 
-The CLI carries common account/entity, metric, finding/event ID, finding-state/severity, event-kind/client/source and Replay endpoint context where the method supports them. Other filters remain visible in `unappliedContextFilters`. A Capacity resource filter, for example, describes client-side rows and does not add an account/type filter to the system-wide Capacity API. Supply the supported request fields explicitly for further narrowing; do not claim an unapplied filter constrained results.
+The CLI carries common account/entity, metric, finding/event ID, finding-state/severity, event-kind/client/source, bucket/ephemeral/tooling visibility and Replay endpoint context where the method supports them. Returned query links are rebuilt from effective request scope. An `original_source` link is labeled separately. `availability.uiLinkScope` explains request options the destination UI cannot reproduce. Other filters remain visible in `unappliedContextFilters`. A Capacity resource filter, for example, describes client-side rows and does not add an account/type filter to the system-wide Capacity API. Supply the supported request fields explicitly for further narrowing; do not claim an unapplied filter constrained results.
 
 Retrieve another page only by a deliberate query using the returned `nextPageToken`, the same explicit UTC range and unchanged filters. `-page-token` supplies the token, and `-page-size` selects the page size where supported. The client maps that flag to `pageSize`, or to the existing `limit` field for ListStreams and ListConsumers; their service caps remain authoritative. There is no automatic crawl. Methods without pagination preserve their existing totals and truncation flags; absent metadata remains unavailable rather than implying a complete result. Changed source data can still change separate reads; no cross-call collection snapshot is claimed.
 

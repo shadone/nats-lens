@@ -51,7 +51,7 @@ const MaxInputBytes = 64 << 10
 const MaxRange = 30 * 24 * time.Hour
 
 var metricPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$`)
-var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b")
+var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset")
 
 func validText(s string, n int) bool {
 	if !utf8.ValidString(s) || len(s) > n {
@@ -354,15 +354,20 @@ func (c *Context) Link(trusted string) (string, error) {
 	q.Del("range")
 	q.Set("from", c.Range.Start)
 	q.Set("to", c.Range.End)
-	if c.System != "" {
-		q.Set("system", c.System)
-	}
-	if c.Account != "" {
-		q.Set("account", c.Account)
-	}
 	for k, v := range c.Filters {
 		q.Set(k, v)
 	}
+	if c.System != "" {
+		q.Set("system", c.System)
+	} else {
+		q.Del("system")
+	}
+	if c.Account != "" {
+		q.Set("account", c.Account)
+	} else {
+		q.Del("account")
+	}
+
 	u.RawQuery = q.Encode()
 	return strings.TrimSuffix(trusted, "/") + u.String(), nil
 }
