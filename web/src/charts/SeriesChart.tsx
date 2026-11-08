@@ -5,7 +5,7 @@ import {useInRouterContext} from "react-router";
 import {RLink} from "../components/common";
 import {metricDestination} from "../lib/metricNavigation";
 import {MetricHelp} from "../components/MetricHelp";
-import type { Series, Window } from "../api/model";
+import type { Entity, Series, Window } from "../api/model";
 import { useReportStale } from "../components/StaleContext";
 import { errorText } from "../components/common";
 import { dayMonHm, hms } from "../lib/format";
@@ -15,6 +15,8 @@ import { ChartHistoryStatus } from "./HistoryGaps";
 
 interface Props {
   title: string;
+  metric?:string;
+  entity?:Entity;
   series?: Series;
   start: number;
   end: number;
@@ -26,8 +28,8 @@ interface Props {
   updatedAt?: number;
 }
 
-export function SeriesChart({ title, series, start, end, windows = [], loading, error, updatedAt }: Props) {
-  const routing=useInRouterContext();const to=routing?metricDestination({metric:series?.metric,entity:series?.entity}):undefined;
+export function SeriesChart({ title, series, start, end, windows = [], metric,entity,loading, error, updatedAt }: Props) {
+  const routing=useInRouterContext();const to=routing?metricDestination({metric:metric??series?.metric,entity:entity??series?.entity}):undefined;
   const pts = series?.points ?? [];
   const latest = pts.length ? pts[pts.length - 1].value : undefined;
   const fmt = (v: number | undefined) => (v === undefined ? "–" : fmtValue(v, series?.unit ?? "count"));
@@ -43,7 +45,7 @@ export function SeriesChart({ title, series, start, end, windows = [], loading, 
       {error && !series ? (
         <p className="muted-note">Could not load: {error}</p>
       ) : (
-        <Sparkline investigation={{metric:series?.metric,entity:series?.entity}} bucketNote={series?.unit === "count" ? "Last count in bucket" : "Mean value in bucket"} stepMs={series?.stepMs} fmt={v => fmtValue(v, series?.unit ?? "count")} points={pts} status="ok" tone="change" windows={windows} start={start} end={end} label={title} current={latest === undefined ? undefined : fmt(latest)} note={asOf} />
+        <Sparkline investigation={{metric:metric??series?.metric,entity:entity??series?.entity}} bucketNote={series?.unit === "count" ? "Last count in bucket" : "Mean value in bucket"} stepMs={series?.stepMs} fmt={v => fmtValue(v, series?.unit ?? "count")} points={pts} status="ok" tone="change" windows={windows} start={start} end={end} label={title} current={latest === undefined ? undefined : fmt(latest)} note={asOf} />
       )}
       <div className="chart-f mono">
         <span>{dayMonHm(start)}</span>
@@ -60,6 +62,8 @@ export function SeriesChart({ title, series, start, end, windows = [], loading, 
 }
 
 interface QueryLike {
+  metric?:string;
+  entity?:Entity;
   data: Series | undefined;
   error: unknown;
   isPending: boolean;
@@ -70,5 +74,5 @@ interface QueryLike {
 /** A chart for a series query; a failed refresh also joins the page's banner. */
 export function QuerySeriesChart({ q, ...rest }: { q: QueryLike; title: string; start: number; end: number; windows?: Window[] }) {
   useReportStale(q);
-  return <SeriesChart {...rest} series={q.data} loading={q.isPending} error={q.error ? errorText(q.error) : undefined} updatedAt={q.dataUpdatedAt} />;
+  return <SeriesChart {...rest} metric={q.metric} entity={q.entity} series={q.data} loading={q.isPending} error={q.error ? errorText(q.error) : undefined} updatedAt={q.dataUpdatedAt} />;
 }
