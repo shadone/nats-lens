@@ -227,7 +227,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &overrides); err != nil || overrides == nil {
+		if overrides, err = requestFields(method, b); err != nil {
 			return errors.New("request must be one JSON object")
 		}
 	}
@@ -495,8 +495,10 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 		// Replace the lossy UI projection, including false/empty values, with
 		// the exact prior machine request. Explicit overrides still win last.
 		var exact map[string]json.RawMessage
-		if err := json.Unmarshal(c.Query.Request, &exact); err != nil || exact == nil {
+		if parsed, err := requestFields(method, c.Query.Request); err != nil {
 			return nil, nil, errors.New("invalid bound read request")
+		} else {
+			exact = parsed
 		}
 		m = map[string]any{}
 		for k, v := range exact {
@@ -505,8 +507,10 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 	}
 	if len(overrides) > 0 {
 		var extra map[string]json.RawMessage
-		if err := json.Unmarshal(overrides, &extra); err != nil {
-			return nil, nil, errors.New("invalid request object")
+		if parsed, err := requestFields(method, overrides); err != nil {
+			return nil, nil, errors.New("invalid request object or duplicate/unsupported fields")
+		} else {
+			extra = parsed
 		}
 		for k, v := range extra {
 			m[k] = v
