@@ -54,7 +54,13 @@ func OpenDatabase(ctx context.Context, path string) (*sql.DB, error) {
 
 // Open verifies the manifest, private regular files, SHA256, schema, engine and
 // provenance before returning the database. Only trusted datasets are supported.
-func Open(ctx context.Context, path string) (*Dataset, error) {
+func Open(ctx context.Context, path string) (*Dataset, error) { return openPrepared(ctx, path, false) }
+
+// openPrepared permits only the writer to validate its unpublished staging.
+func openPrepared(ctx context.Context, path string, allowStaging bool) (*Dataset, error) {
+	if !allowStaging && strings.HasPrefix(filepath.Base(path), ".dataset-partial-") {
+		return nil, fmt.Errorf("%w: dataset has not been published", ErrInvalid)
+	}
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	if err := ctx.Err(); err != nil {
