@@ -1,6 +1,7 @@
 package storeprov_test
 
 import (
+	"context"
 	"errors"
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/storeprov"
@@ -201,5 +202,74 @@ func TestStorageChangeIncarnationEvidenceBoundaries(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestStorageChangeRestartMigrationAndBuckets(t *testing.T) {
+	p, req := storageCompareFixture(t)
+	r := rows{t, p.St}
+	r.server("R0", "nats-0")
+	for _, q := range []string{`UPDATE server_stats SET server_id='R0' WHERE epoch=2 AND server_id='S0'`, `UPDATE stream_stats SET server_id='R0' WHERE epoch=2 AND server_id='S0'`, `UPDATE stream_config SET server_id='R0' WHERE first_epoch=2 AND server_id='S0'`, `UPDATE epoch_endpoints SET server_id='R0' WHERE epoch=2 AND server_id='S0'`, `UPDATE stream_config SET storage='file' WHERE first_epoch=2 AND stream='sessions'`} {
+		if _, err := p.St.DB().Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for e := int64(1); e <= 2; e++ {
+		id := "S0"
+		if e == 2 {
+			id = "R0"
+		}
+		created := req.A.AsTime().Add(-time.Hour)
+		r.add("stream_stats", map[string]any{"epoch": e, "server_id": id, "account": "APP", "stream": "KV_order-cache", "created": created, "bytes": 10 + e, "is_leader": true})
+		r.add("stream_config", map[string]any{"server_id": id, "account": "APP", "stream": "KV_order-cache", "created": created, "first_epoch": e, "last_epoch": e, "config_hash": "cache", "storage": "file", "replicas": 1})
+	}
+	f, err := p.StorageChange(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := api.FinishStorageChange(req, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	memory := findStorageRow(t, res, "sessions", "resource", "memory")
+	file := findStorageRow(t, res, "sessions", "resource", "file")
+	if memory.Delta.GetLogical() != -10 || file.Delta.GetLogical() != 30 {
+		t.Fatalf("storage migration mixed file and memory: %v / %v", memory, file)
+	}
+	bucket := findStorageRow(t, res, "KV_order-cache", "resource", "file")
+	if bucket.Bucket != "order-cache" || bucket.Kind != v1.CapacityStreamKind_CAPACITY_STREAM_KIND_KEY_VALUE || bucket.Delta.GetLogical() != 1 {
+		t.Fatalf("bucket missing/mislabeled=%v", bucket)
+	}
+	found := false
+	for _, row := range res.Rows {
+		if row.RowKind == "server" && row.Server == "nats-0" && row.Storage == "file" {
+			found = true
+			if row.Delta.GetServerReported() != 100 || row.ProcessesA[0] != "S0" || row.ProcessesB[0] != "R0" {
+				t.Fatalf("restart identity lost=%v", row)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("server restart row missing")
+	}
+}
+func TestStorageChangeBoundedCaptureAndCancellation(t *testing.T) {
+	p, req := storageCompareFixture(t)
+	for _, q := range []string{`INSERT INTO stream_config (server_id,account,stream,created,first_epoch,last_epoch,config_hash,storage,replicas) SELECT 'S0','APP','bulk-'||i,TIMESTAMP '2026-10-01',1,1,'config','file',1 FROM range(21000) r(i)`, `INSERT INTO stream_stats (epoch,server_id,account,stream,created,bytes,is_leader) SELECT 1,'S0','APP','bulk-'||i,TIMESTAMP '2026-10-01',1,true FROM range(21000) r(i)`} {
+		if _, err := p.St.DB().Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := p.StorageChange(ctx, req); !errors.Is(err, api.ErrResourceExhausted) {
+		t.Fatalf("ranking overflow produced partial success: %v", err)
+	}
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := p.StorageChange(canceled, req); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation=%v", err)
+	}
+	req.Account = "OTHER"
+	if _, err := p.StorageChange(ctx, req); err != nil {
+		t.Fatalf("scope did not constrain bounded reads: %v", err)
 	}
 }
