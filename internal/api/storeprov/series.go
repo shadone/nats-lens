@@ -367,6 +367,38 @@ FROM per_epoch WHERE t >= ? AND t < ? GROUP BY b` + having + ` ORDER BY b`
 
 // GetTimeSeries reads one metric of an entity the database knows.
 func (p *Provider) GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
+	if !req.GetIncludeObservations() {
+		return p.readTimeSeries(ctx, req)
+	}
+	start, end := span(req.Range)
+	if end.Sub(start) > api.MaxObservationRange {
+		return nil, fmt.Errorf("%w: observation range exceeds 30 days", api.ErrInvalid)
+	}
+	beginner, ok := p.db().(interface {
+		BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)
+	})
+	if !ok {
+		return nil, fmt.Errorf("%w: observation read transaction unavailable", api.ErrFailedPrecondition)
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	// A narrow read view avoids copying Provider's mutable caches. All queries
+	// here are SELECTs; captured databases also retain engine read-only mode.
+	view := &Provider{St: p.St, Interval: p.Interval, readDB: tx}
+	out, err := view.readTimeSeries(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (p *Provider) readTimeSeries(ctx context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
 	e, err := p.checkEntity(ctx, req.GetEntity())
 	if err != nil {
 		return nil, err
