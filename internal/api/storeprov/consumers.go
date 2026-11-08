@@ -297,7 +297,7 @@ func (p *Provider) consumersWithMissing(ctx context.Context, r *v1.TimeRange, e 
 	if err != nil {
 		return nil, err
 	}
-	rates, err := p.deliveredRates(ctx, r, account, stream, consumer)
+	rates, err := p.deliveredRatesLimited(ctx, r, account, stream, consumer, api.MaxListRankingRows)
 	if err != nil {
 		return nil, err
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -20,7 +21,16 @@ const deliveredSpan = 15 * time.Minute
 // over. A consumer with fewer than two leader rows in its newest run has
 // no rate.
 func (p *Provider) deliveredRates(ctx context.Context, r *v1.TimeRange, account, stream, consumer string) (map[string]float64, error) {
+	return p.deliveredRatesLimited(ctx, r, account, stream, consumer, api.MaxListRankingRows+1)
+}
+
+// deliveredRatesLimited bounds both SQL output and the application map. The
+// ordinary helper permits one overflow sentinel for inspection; ranking callers
+// use the strict context budget and reject before inserting the overflow row.
+// SQL aggregation itself may still examine all matching retained observations.
+func (p *Provider) deliveredRatesLimited(ctx context.Context, r *v1.TimeRange, account, stream, consumer string, budget int) (map[string]float64, error) {
 	_, end := span(r)
+	// ASVS 1.2.4: scope and the overflow read limit are bound parameters.
 	rows, err := p.db().QueryContext(ctx, `
 WITH lead AS (
   SELECT x.account, x.stream, x.consumer, x.server_id, x.created, e.started_at AS t, x.delivered_consumer_seq AS v
@@ -36,14 +46,20 @@ SELECT l.account, l.stream, l.consumer,
   (arg_max(l.v, l.t) - arg_min(l.v, l.t)) * 1000.0 / date_diff('millisecond', min(l.t), max(l.t))
 FROM lead l JOIN newest n ON n.account = l.account AND n.stream = l.stream AND n.consumer = l.consumer
   AND n.server_id = l.server_id AND n.created IS NOT DISTINCT FROM l.created
-GROUP BY ALL HAVING count(*) >= 2 AND max(l.t) > min(l.t)`,
-		end.Add(-deliveredSpan), end, account, account, stream, stream, consumer, consumer)
+GROUP BY ALL HAVING count(*) >= 2 AND max(l.t) > min(l.t)
+ORDER BY l.account, l.stream, l.consumer LIMIT ?`,
+		end.Add(-deliveredSpan), end, account, account, stream, stream, consumer, consumer, budget+1)
 	if err != nil {
 		return nil, fmt.Errorf("delivered rates: %w", err)
 	}
 	defer rows.Close()
 	out := map[string]float64{}
+	observed := 0
 	for rows.Next() {
+		observed++
+		if observed > budget {
+			return nil, fmt.Errorf("%w: delivered rate ranking exceeds %d rows; narrow the account or stream filter", api.ErrResourceExhausted, budget)
+		}
 		var acc, st, name string
 		var v float64
 		if err := rows.Scan(&acc, &st, &name, &v); err != nil {

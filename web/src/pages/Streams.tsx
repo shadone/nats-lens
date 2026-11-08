@@ -45,7 +45,7 @@ export function Streams() {
           </label>
         </div>
       </div>
-      <ListTraversal traversal={traversal} next={q.data?.nextPageToken} count={q.data?.totalCount} loaded={q.data?.streams.length ?? 0} error={q.error} refresh={() => { if (!traversal.token) void q.refetch(); }} />
+      <ListTraversal traversal={traversal} next={q.data?.nextPageToken} count={q.data?.totalCount} loaded={q.data?.streams.length ?? 0} error={q.error} refresh={() => q.refetch()} refreshing={q.isFetching} />
       <QueryView q={q} what="streams">
         {(d) =>
           d.streams.length === 0 ? (

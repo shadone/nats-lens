@@ -58,7 +58,7 @@ export function Consumers() {
           <input type="checkbox" checked={eph} onChange={(e) => set("ephemeral", e.target.checked ? "1" : "")} /> Include ephemeral and ordered
         </label>
       </div>
-      <ListTraversal traversal={traversal} next={q.data?.nextPageToken} count={q.data?.totalCount} loaded={q.data?.length ?? 0} error={q.error} refresh={() => { if (!traversal.token) void q.refetch(); }} />
+      <ListTraversal traversal={traversal} next={q.data?.nextPageToken} count={q.data?.totalCount} loaded={q.data?.length ?? 0} error={q.error} refresh={() => q.refetch()} refreshing={q.isFetching} />
       <QueryView q={q} what="consumers">
         {(cs) => (cs.length ? <ConsumersTable consumers={cs} end={end} /> : <Empty>No consumers match in the newest collection of this range.</Empty>)}
       </QueryView>
