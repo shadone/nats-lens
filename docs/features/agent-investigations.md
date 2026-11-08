@@ -6,14 +6,14 @@
 
 ## What it does
 
-A user can copy a page or chart's investigation context and give it to a terminal-capable agent. The agent reads the existing NATS Lens API through a configured connection profile and returns scoped evidence links. It needs neither browser automation nor NATS credentials or access to the collector's database.
+A user can activate **Copy as prompt** on a page or chart and paste the complete investigation prompt into a terminal-capable agent. The agent reads the existing NATS Lens API through a configured connection profile and returns scoped evidence links. It needs neither browser automation nor NATS credentials or access to the collector's database.
 
 ## Behavior and rules
 
-- **Portable context.** The page action records a version, deployment origin, system, account, explicit UTC interval, known resource identity, URL-backed filters including Findings and Events defaults, and source path. A chart action records its label and every available API series identity, including both traffic directions and both asset metrics. Unknown metric identities have explicit reasons. Stream mini-charts retain the API-provided history end and observed collection reference. The chart's selected point survives moving focus to its action. A focused shared chart opens the handoff with C. Investigation buttons remain independently clickable above stretched chart navigation links. The human question stays separate from observed context.
+- **Portable context.** The page action records a version, deployment origin, system, account, explicit UTC interval, known resource identity, URL-backed filters including Findings and Events defaults, and source path. A chart action records its label and every available API series identity, including both traffic directions and both asset metrics. Unknown metric identities have explicit reasons. Stream mini-charts retain the API-provided history end and observed collection reference. The chart's selected point survives moving focus to its action. A focused shared chart copies the prompt with C. Compact copy actions remain independently clickable beside charts and above stretched navigation links.
 - **Scope precedence.** A selected chart or route resource owns its compound account/stream identity ahead of retained page filters. URL imports infer only selectors used by that page: Consumers uses the selected stream account; Events uses consumer, then stream, then server. Explicit account flags override imported request scope where the RPC has an account field; explicit request-file fields win last. Repeated preparation does not depend on filter-map order.
 - **Clock.** A live page freezes its interval using the UI's existing server-adjusted clock. A URL imported by the terminal resolves live time from the selected system's server clock. Fixed intervals retain their UTC bounds.
-- **Deliberate copy.** The handoff opens a selectable JSON preview. Copy requires a separate action. A clipboard failure leaves keyboard-selectable text and an explanation. The UI never sends context or evidence to an agent service automatically.
+- **Deliberate copy.** One activation copies a ready-to-paste prompt and confirms success. The prompt includes the unchanged portable JSON context and a bounded read-only discovery and query workflow. A clipboard failure opens the complete selectable prompt with a retry action. The UI never sends context or evidence to an agent service automatically.
 - **Trusted connection.** Context and page URLs must match a configured deployment. Only the profile selects the API destination. Remote connections require HTTPS; explicit loopback profiles can use HTTP. Redirects are refused. Terminal credentials are configured independently of the browser.
 - **Read boundary.** The server's separate read-only investigation path admits an explicit set of existing read RPCs. It rejects mutations, SQL and unknown methods before dispatch. The deployment's access proxy must restrict the agent identity to that path and deny its access to the ordinary API. A broadly authorized credential keeps its broader powers.
 - **Reusable returned context.** A result context retains the exact descriptor-validated read request for that method, including false/empty values, point/page budgets and any requested cursor. Reimport repeats that request; selecting a new token remains explicit. Consumers contexts retain a typed selected stream and its machine evidence link. Explicit flags and request-file overrides still apply last, including clears. Unsupported UI representations remain partial even when the machine request is reusable.
@@ -32,8 +32,8 @@ A user can copy a page or chart's investigation context and give it to a termina
 
 - **Surfaces:** `ui`, `api`, `cli`
 - **Given** Capacity displays a storage history in a known system
-- **When** I select a chart time and open its investigation action
-- **Then** the preview includes the interval, selected point and known metric and resource identity
+- **When** I select a chart time and activate **Copy as prompt**
+- **Then** the copied prompt includes the interval, selected point and known metric and resource identity
 - **And** an agent with a configured profile can request that series and a narrower interval
 - **And** its result links back to the scoped page and Data history.
 
@@ -68,6 +68,14 @@ A user can copy a page or chart's investigation context and give it to a termina
 - **When** an agent retrieves a result
 - **Then** unavailable metadata has a reason and the original typed response remains available
 - **And** the agent can inspect Data history and explicit partial or truncation fields before drawing a conclusion.
+
+### Recover from a clipboard failure
+
+- **Surfaces:** `ui`
+- **Given** clipboard access is unavailable
+- **When** I activate **Copy as prompt**
+- **Then** a dialog contains the complete selectable prompt and a retry action
+- **And** closing the dialog restores focus to the control that opened it.
 
 ## Not supported / out of scope
 
