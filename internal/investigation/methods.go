@@ -24,7 +24,7 @@ var methods = []string{
 	"ListKeyValueStores", "ListObjectStores", "GetCapacity", "GetDataHistory",
 	"GetPlacement", "GetReplay", "GetTopology", "GetAccountsAndAuth",
 	"GetSubjects", "MatchSubject", "GetMicroServices", "GetApplications",
-	"GetSlowConsumerInvestigation",
+	"GetSlowConsumerInvestigation", "GetStorageChange",
 }
 
 func Methods() []string { return slices.Clone(methods) }
