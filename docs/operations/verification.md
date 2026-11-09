@@ -57,6 +57,6 @@ Checks write logs, temporary fixtures and tool caches. They do not format the ch
 
 ## Keep release and CI decisions explicit
 
-No CI provider or schedule is adopted by this change. A future CI workflow should call these same entry points after preparing pinned tools and dependencies. CI provider, schedule and artifact retention remain **proposed, not yet confirmed**. `govulncheck` remains the documented manual command; no gate runs it implicitly.
+GitHub Actions runs these entry points on every pull request and every push to `develop` ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)). One job runs the fast profile, the other the `vet-full`, `go-full` and race stages of the full profile; together they cover the full profile except `docs`, whose auditor is not in the repository. Run the docs stage locally. A failed job prints the last 200 lines of each stage log and keeps the logs as an artifact for 7 days. The workflow is **proposed, not yet confirmed**. `govulncheck` remains the documented manual command; no gate runs it implicitly.
 
 A passing full profile does not certify a release matrix, DuckDB upgrade/rollback compatibility, Docker architectures, live-deployment behavior, browser layout or extended fuzzing. Run those task-specific checks separately. See the [verification implementation record](../research/verification-gates-2026-11-08.md) for executed controls and timing limits.
