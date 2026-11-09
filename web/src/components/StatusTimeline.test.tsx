@@ -1,6 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { render as renderUI, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Timeline } from "../api/model";
+import {MemoryRouter} from "react-router";
+import type {ReactNode} from "react";
+const render=(ui:ReactNode)=>renderUI(<MemoryRouter>{ui}</MemoryRouter>);
 import { StatusTimeline } from "./StatusTimeline";
 
 const START = Date.parse("2026-10-17T09:00:00Z");
@@ -23,19 +26,19 @@ const tl: Timeline = {
 describe("StatusTimeline", () => {
   it("draws one cell per bucket, coloured by level and titled with its time", () => {
     const { container } = render(<StatusTimeline tl={tl} end={START + 4 * Q} live asTable={false} />);
-    const svg = screen.getByRole("img", { name: /^consumer-010:/ });
+    const svg = screen.getByRole("group", { name: /^consumer-010:/ });
     const rects = svg.querySelectorAll("rect");
     expect(rects).toHaveLength(4);
     expect([...rects].map((r) => r.getAttribute("data-level"))).toEqual(["ok", "ok", "critical", "critical"]);
     expect(rects[2].getAttribute("style")).toContain("--cell-critical");
-    expect(rects[2].querySelector("title")?.textContent).toBe("09:30 critical");
+    expect(rects[2].parentElement).toHaveAccessibleName("consumer-010: Critical");
     expect(container.querySelectorAll(".crow")).toHaveLength(2);
   });
 
   it("describes each row's runs in its label", () => {
     render(<StatusTimeline tl={tl} end={START + 4 * Q} live asTable={false} />);
-    expect(screen.getByRole("img", { name: "consumer-010: critical 09:30–10:00" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "server-002: warning 09:15–09:30, no data 09:45–10:00" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "consumer-010: critical 09:30–10:00" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "server-002: warning 09:15–09:30, no data 09:45–10:00" })).toBeInTheDocument();
   });
 
   it("shows the now column and no Kubernetes lane without Kubernetes events", () => {
@@ -57,6 +60,6 @@ describe("StatusTimeline", () => {
     render(<StatusTimeline tl={tl} end={START + 4 * Q} live asTable />);
     const rows = screen.getAllByRole("row");
     expect(rows).toHaveLength(3);
-    expect(within(rows[1]).getByText("critical 09:30–10:00")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("critical 2026-10-17 09:30:00 UTC–2026-10-17 10:00:00 UTC")).toBeInTheDocument();
   });
 });

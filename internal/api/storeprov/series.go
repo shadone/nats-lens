@@ -21,6 +21,7 @@ type metricSQL struct {
 	query    string
 	sum      bool
 	complete bool
+	counter  *serverCounterMetric
 }
 
 // maxGapToken in a metric query is replaced by the longest gap between
@@ -32,17 +33,40 @@ const maxGapToken = "{max_gap_ms}"
 // partition, so a reset counter never yields a negative rate. After a gap
 // in collection longer than three intervals (a collector restart) the
 // first epoch has no rate, so the increase over the gap is not one sample.
+type serverCounterMetric struct{ column, filter string }
+
+func trafficRate(col, serverFilter string) metricSQL {
+	return metricSQL{query: rate(col, serverFilter), counter: &serverCounterMetric{column: col, filter: serverFilter}}
+}
+
+// counterEvidence is shared by plotted server rates and exact comparison totals.
+// Column and filter fragments come only from the compile-time metric catalogue;
+// all range and entity values remain bound parameters (ASVS 1.2.4).
+func counterEvidence(col, serverFilter string) string {
+	// Restrict the epoch envelope, not individual report timestamps, before
+	// lag. Otherwise an out-of-range intervening report disappears and two
+	// nonconsecutive reports can become a fabricated comparable pair. The
+	// final membership filter retains the original timestamp scan scope.
+	return fmt.Sprintf(`WITH counter_epochs AS (
+ SELECT epoch FROM epochs WHERE started_at >= ? AND started_at < ?),
+ counter_reports AS (
+ SELECT e.epoch, e.started_at AS t, ss.server_id, ss.%[1]s AS counter,
+ lag(ss.%[1]s) OVER w AS previous_counter, lag(e.started_at) OVER w AS previous_at
+ FROM server_stats ss JOIN epochs e USING (epoch) JOIN servers s USING (server_id)
+ WHERE e.epoch BETWEEN (SELECT min(epoch) FROM counter_epochs) AND (SELECT max(epoch) FROM counter_epochs) %[2]s
+ WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch))
+ SELECT *, CASE WHEN counter >= 0 AND previous_counter >= 0
+ AND elapsed_ms > 0 AND elapsed_ms <= %[3]s AND counter >= previous_counter
+ THEN counter::HUGEINT - previous_counter::HUGEINT END AS delta
+ FROM (SELECT *, date_diff('millisecond', previous_at, t) AS elapsed_ms
+ FROM counter_reports WHERE epoch IN (SELECT epoch FROM counter_epochs))`, col, serverFilter, maxGapToken)
+}
+
+const counterRateProjection = `SELECT t, sum(delta * 1000.0 / elapsed_ms) AS v
+ FROM counter_evidence WHERE delta IS NOT NULL GROUP BY epoch,t`
+
 func rate(col, serverFilter string) string {
-	return fmt.Sprintf(`
-SELECT t, sum(r) AS v FROM (
-  SELECT e.epoch, e.started_at AS t,
-    CASE WHEN date_diff('millisecond', lag(e.started_at) OVER w, e.started_at) <= %[3]s THEN
-      (ss.%[1]s - lag(ss.%[1]s) OVER w) * 1000.0
-        / nullif(date_diff('millisecond', lag(e.started_at) OVER w, e.started_at), 0) END AS r
-  FROM server_stats ss JOIN epochs e USING (epoch) JOIN servers s USING (server_id)
-  WHERE e.started_at >= ? AND e.started_at < ? %[2]s
-  WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch))
-WHERE r >= 0 GROUP BY epoch, t`, col, serverFilter, maxGapToken)
+	return `WITH counter_evidence AS (` + counterEvidence(col, serverFilter) + `) ` + counterRateProjection
 }
 
 // metricQuery returns the metric's query with the gap bound filled in.
@@ -87,10 +111,10 @@ GROUP BY e.epoch, e.started_at`},
 	"cluster.servers_up":       {query: `SELECT started_at AS t, observed_servers AS v FROM epochs WHERE started_at >= ? AND started_at < ?`},
 	"cluster.connections":      {query: gauge("connections", "")},
 	"cluster.js_storage_bytes": {query: gauge("js_storage", "")},
-	"cluster.in_msgs_rate":     {query: rate("in_msgs", "")},
-	"cluster.out_msgs_rate":    {query: rate("out_msgs", "")},
-	"cluster.in_bytes_rate":    {query: rate("in_bytes", "")},
-	"cluster.out_bytes_rate":   {query: rate("out_bytes", "")},
+	"cluster.in_msgs_rate":     trafficRate("in_msgs", ""),
+	"cluster.out_msgs_rate":    trafficRate("out_msgs", ""),
+	"cluster.in_bytes_rate":    trafficRate("in_bytes", ""),
+	"cluster.out_bytes_rate":   trafficRate("out_bytes", ""),
 	// The slow consumer counter's increase per epoch: a sum, not a rate.
 	// A restarted process's first epoch has no increase, nor has the first
 	// epoch after a collection gap of more than three intervals, so the
@@ -152,40 +176,22 @@ WHERE delta >= 0 GROUP BY epoch, started_at`},
 	"server.mem_bytes":        {query: gauge("mem_bytes", byServer)},
 	"server.cpu_percent":      {query: gauge("cpu_percent", byServer)},
 	"server.js_storage_bytes": {query: gauge("js_storage", byServer)},
-	"server.in_msgs_rate":     {query: rate("in_msgs", byServer)},
-	"server.out_msgs_rate":    {query: rate("out_msgs", byServer)},
-	"server.in_bytes_rate":    {query: rate("in_bytes", byServer)},
-	"server.out_bytes_rate":   {query: rate("out_bytes", byServer)},
-	// The leader's last sequence per epoch, as a per-second increase; a
-	// recreated stream (a lower sequence) has no rate in that epoch, nor
-	// does the first epoch after a collection gap.
-	"stream.msgs_rate": {query: `
-SELECT t, r AS v FROM (
-  SELECT t, CASE WHEN date_diff('millisecond', lag(t) OVER w, t) <= ` + maxGapToken + ` THEN
-      (v - lag(v) OVER w) * 1000.0 / nullif(date_diff('millisecond', lag(t) OVER w, t), 0) END AS r FROM (
-    ` + leaderView("stream_stats", "last_seq", byStream) + `)
-  WINDOW w AS (ORDER BY t))
-WHERE r >= 0`},
+	"server.in_msgs_rate":     trafficRate("in_msgs", byServer),
+	"server.out_msgs_rate":    trafficRate("out_msgs", byServer),
+	"server.in_bytes_rate":    trafficRate("in_bytes", byServer),
+	"server.out_bytes_rate":   trafficRate("out_bytes", byServer),
+	// Reported sequence advance, not a count of stored messages. Known
+	// coherent creation and adjacent valid timing are required.
+	"stream.msgs_rate":         {query: resourceSequenceRate(false, byStream)},
 	"stream.messages":          {query: leaderView("stream_stats", "messages", byStream)},
 	"stream.bytes":             {query: leaderView("stream_stats", "bytes", byStream)},
 	"consumer.num_pending":     {query: leaderView("consumer_stats", "num_pending", byConsumer)},
 	"consumer.num_ack_pending": {query: leaderView("consumer_stats", "num_ack_pending", byConsumer)},
 	"consumer.num_redelivered": {query: leaderView("consumer_stats", "num_redelivered", byConsumer)},
 	// The leader's delivered consumer sequence as a per-second increase,
-	// per leading server and creation time: a leader move or a recreated
-	// consumer starts a new run whose first epoch has no rate, as servers
-	// and incarnations count apart. An epoch without a leader row has no
-	// value, and the first epoch after a collection gap no rate.
-	"consumer.delivered_rate": {query: `
-SELECT t, r AS v FROM (
-  SELECT t, CASE WHEN date_diff('millisecond', lag(t) OVER w, t) <= ` + maxGapToken + ` THEN
-      (v - lag(v) OVER w) * 1000.0 / nullif(date_diff('millisecond', lag(t) OVER w, t), 0) END AS r FROM (
-    SELECT e.started_at AS t, x.server_id, x.created, x.delivered_consumer_seq AS v
-    FROM consumer_stats x JOIN epochs e USING (epoch)
-    WHERE e.started_at >= ? AND e.started_at < ? ` + byConsumer + ` AND x.is_leader
-    QUALIFY row_number() OVER (PARTITION BY e.epoch ORDER BY x.delivered_consumer_seq DESC, x.server_id) = 1)
-  WINDOW w AS (PARTITION BY server_id, created ORDER BY t))
-WHERE r >= 0`},
+	// with adjacent leader/creation evidence. Unknown reports and changes
+	// start a new run rather than rejoining an earlier identity partition.
+	"consumer.delivered_rate": {query: resourceSequenceRate(true, byConsumer)},
 }
 
 // answeredAll keeps the epochs e in which every server that answered at
@@ -327,10 +333,7 @@ func (p *Provider) series(ctx context.Context, metric string, e *v1.EntityRef, r
 		edges = "min(v)::DOUBLE, max(v)::DOUBLE"
 	}
 	// Rates and deltas need the epoch before the range's first one.
-	lookback := start.Add(-2 * max(p.Interval, time.Minute))
-	if metric == "cluster.slow_consumers" || metric == "server.slow_consumers" {
-		lookback = p.slowCounterLookback(start)
-	}
+	lookback := p.seriesLookback(metric, start)
 	args := append([]any{lookback, end}, entityArgs(e)...)
 	args = append(args, step.Microseconds(), start, end)
 	having := " HAVING count(v) > 0"
@@ -370,6 +373,38 @@ FROM per_epoch WHERE t >= ? AND t < ? GROUP BY b` + having + ` ORDER BY b`
 
 // GetTimeSeries reads one metric of an entity the database knows.
 func (p *Provider) GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
+	if !req.GetIncludeObservations() {
+		return p.readTimeSeries(ctx, req)
+	}
+	start, end := span(req.Range)
+	if end.Sub(start) > api.MaxObservationRange {
+		return nil, fmt.Errorf("%w: observation range exceeds 30 days", api.ErrInvalid)
+	}
+	beginner, ok := p.db().(interface {
+		BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)
+	})
+	if !ok {
+		return nil, fmt.Errorf("%w: observation read transaction unavailable", api.ErrFailedPrecondition)
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	// A narrow read view avoids copying Provider's mutable caches. All queries
+	// here are SELECTs; captured databases also retain engine read-only mode.
+	view := &Provider{St: p.St, Interval: p.Interval, readDB: tx}
+	out, err := view.readTimeSeries(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (p *Provider) readTimeSeries(ctx context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
 	e, err := p.checkEntity(ctx, req.GetEntity())
 	if err != nil {
 		return nil, err
@@ -377,6 +412,12 @@ func (p *Provider) GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesReque
 	s, err := p.series(ctx, req.GetMetric(), e, req.GetRange(), req.GetMaxPoints())
 	if err != nil {
 		return nil, err
+	}
+	if req.GetIncludeObservations() {
+		s.Observations, err = p.observationSummary(ctx, req.Metric, e, req.Range)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &v1.GetTimeSeriesResponse{Series: s}, nil
 }

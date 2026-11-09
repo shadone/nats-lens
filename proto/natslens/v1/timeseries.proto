@@ -18,7 +18,7 @@ enum Unit {
   UNIT_BYTES = 2;
   // Events or messages per second.
   UNIT_PER_SECOND = 3;
-  // Percent, 0 to 100.
+  // Percent. Server process CPU is percent of one core and may exceed 100.
   UNIT_PERCENT = 4;
   // Seconds.
   UNIT_SECONDS = 5;
@@ -93,6 +93,68 @@ message Series {
   //
   // Each is the server's mean over the bucket, so it lies inside the band.
   repeated Point top_points = 9;
+
+  // Optional raw-observation summary, independent of bucket resolution.
+  // Only populated when include_observations was requested.
+  ObservationSummary observations = 10;
+}
+
+// Statistics of the metric's per-collection values before bucketing.
+// These are observations, not proof of continuous or complete capture.
+message ObservationSummary {
+  // Per-collection metric rows returned by the metric query, including NULL.
+  uint64 sample_count = 1;
+  // Rows with a known metric value. This is not an expected collection count.
+  uint64 known_count = 2;
+  // Earliest returned metric row, including a NULL value.
+  google.protobuf.Timestamp first_sample_at = 3;
+  // Latest returned metric row, including a NULL value.
+  google.protobuf.Timestamp last_sample_at = 4;
+  // Value at the latest metric timestamp; absent if any tied row is unknown
+  // or tied rows disagree. This does not reconstruct missing epoch ordering.
+  optional double latest = 5;
+  // Arithmetic mean of known per-collection values, not time-weighted.
+  optional double mean = 6;
+  // Smallest known per-collection value.
+  optional double minimum = 7;
+  // Largest known per-collection value, not the peak of bucket means.
+  optional double maximum = 8;
+  // Earliest returned metric timestamp with that maximum value.
+  google.protobuf.Timestamp maximum_at = 9;
+  // Sum of observed increments for summed event metrics, as an exact
+  // nonnegative decimal integer. Absent for gauges and rates; rates are not
+  // integrated into a volume. Missing comparisons are not fabricated as zero.
+  optional string observed_total = 10;
+  // Smallest raw lower edge for a band metric; absent otherwise.
+  optional double minimum_low = 11;
+  // Largest raw upper edge for a band metric; absent otherwise.
+  optional double maximum_high = 12;
+  // Optional exact counter evidence for supported server traffic rates.
+  // This does not integrate the plotted rates or certify a complete volume.
+  CounterComparisonSummary counter_comparisons = 13;
+}
+
+// Counter increases from comparable reports wholly inside the selected range.
+// Only supplied for cluster/server message and byte traffic rate metrics.
+message CounterComparisonSummary {
+  // Exact nonnegative decimal sum. Absent without a comparable pair;
+  // "0" means at least one comparable pair observed no increase.
+  optional string observed_increase = 1;
+  // Comparable report pairs, counted separately for each server ID.
+  uint64 comparison_count = 2;
+  // Distinct stored server IDs contributing pairs, not inferred lifetimes.
+  uint64 server_id_count = 3;
+  // Earliest collection timestamp of a preceding report in contributing pairs.
+  google.protobuf.Timestamp first_compared_at = 4;
+  // Latest collection timestamp of a current report in contributing pairs.
+  // The envelope is not proof of continuous coverage.
+  google.protobuf.Timestamp last_compared_at = 5;
+  // Returned counter rows in the range that cannot contribute: no baseline,
+  // NULL/negative counters, decreases, invalid time, excessive gaps or a pair
+  // crossing the range start. Entirely absent reports cannot be counted here.
+  uint64 excluded_reports = 6;
+  // Subset of excluded_reports: otherwise comparable pairs crossing start.
+  uint64 boundary_reports = 7;
 }
 
 // Request for one metric of one entity.
@@ -122,6 +184,10 @@ message GetTimeSeriesRequest {
 
   // System ID, as ListSystems returns it. Empty means the default system.
   string system = 5;
+
+  // Include a per-collection observation summary. Opt-in ranges are at most
+  // 30 days; ordinary series retain the existing 400-day limit and work.
+  bool include_observations = 6;
 }
 
 // One metric of one entity.
@@ -165,6 +231,10 @@ message SeriesQuery {
   // Number of buckets for this series, as in
   // GetTimeSeriesRequest.max_points. Zero means the request's max_points.
   int32 max_points = 3;
+
+  // Include the same observation summary as GetTimeSeries. A range longer
+  // than 30 days makes this query invalid without failing its siblings.
+  bool include_observations = 4;
 }
 
 // Request for several series over one time range.

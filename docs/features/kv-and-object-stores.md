@@ -10,6 +10,9 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 
 ## Behavior and rules
 
+- Supported history titles open [metric investigations](metric-investigations.md) with the resource identity, system and range. Native observation summaries distinguish peaks from bucket aggregates, and fixed-range findings/events remain accessible. Backing-stream statistics do not measure individual keys, objects or content.
+
+
 The Streams list can include storage streams with bounded pages and totals across all matches ([Streams](streams.md)). The dedicated bucket list calls retain their separate list contract.
 
 - **Capacity navigation.** Capacity labels KV buckets and object stores explicitly, shows their bucket names and underlying stream identities, and offers type filters over the loaded rows. Links open bucket details with the system, account and time range.

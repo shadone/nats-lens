@@ -1,0 +1,22 @@
+.cap-contributors {margin-block:var(--sp-4);padding:var(--sp-4);min-width:0}
+.cap-contributors h2 {margin:0}
+.cap-contributors small {display:block;color:var(--text-muted)}
+.cap-contributors .table-wrap {max-width:100%;overflow:auto}
+.cap-contributors table {min-width:44rem}
+.contributor-totals {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr));gap:var(--sp-4)}
+.contributor-totals dd {margin:0 0 var(--sp-2);overflow-wrap:anywhere}
+.contributor-totals dt {font-weight:600}
+.contributor-change {min-width:12rem;white-space:nowrap}
+.contributor-bar {display:block;position:relative;height:var(--sp-2);background:var(--border);margin-top:var(--sp-1)}
+.contributor-bar::after {content:"";position:absolute;left:50%;height:100%;border-left:1px solid var(--text-muted)}
+.contributor-bar>span {position:absolute;height:100%;background:var(--accent)}
+.contributor-bar>.decrease {background:var(--cell-info)}
+.contributor-evidence {margin-top:var(--sp-4);border-top:1px solid var(--border);padding-top:var(--sp-4)}
+
+.contributor-headlines {display:flex;flex-wrap:wrap;gap:var(--sp-6);margin-block:var(--sp-3)}
+.contributor-headlines dd {margin:0;font-size:var(--fs-lg);font-weight:500}
+.cap-contributors>details {margin-block:var(--sp-3)}
+/* This section is outside the bounds table's query container. */
+.cap-contributors .cap-history-expanded {width:100%;min-width:0}
+
+.cap-contributors p,.cap-contributors dd,.cap-contributors h3 {overflow-wrap:anywhere}

@@ -559,7 +559,9 @@ type FindingTransition struct {
 	// Severity after the transition.
 	Severity Severity `protobuf:"varint,4,opt,name=severity,proto3,enum=natslens.v1.Severity" json:"severity,omitempty"`
 	// Detail text the check returned at the transition.
-	Detail        string `protobuf:"bytes,5,opt,name=detail,proto3" json:"detail,omitempty"`
+	Detail string `protobuf:"bytes,5,opt,name=detail,proto3" json:"detail,omitempty"`
+	// Recorded collection epoch; retained as an exact int64 identifier.
+	Epoch         int64 `protobuf:"varint,6,opt,name=epoch,proto3" json:"epoch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -627,6 +629,13 @@ func (x *FindingTransition) GetDetail() string {
 		return x.Detail
 	}
 	return ""
+}
+
+func (x *FindingTransition) GetEpoch() int64 {
+	if x != nil {
+		return x.Epoch
+	}
+	return 0
 }
 
 // Counts of findings by severity and state.
@@ -1488,14 +1497,15 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x15transitions_last_hour\x18\x11 \x01(\x05R\x13transitionsLastHour\x12C\n" +
 	"\x0fcondition_since\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\x0econditionSince\x12\x16\n" +
 	"\x06expiry\x18\x13 \x01(\bR\x06expiry\x12F\n" +
-	"\x0facknowledgement\x18\x14 \x01(\v2\x1c.natslens.v1.AcknowledgementR\x0facknowledgement\"\xde\x01\n" +
+	"\x0facknowledgement\x18\x14 \x01(\v2\x1c.natslens.v1.AcknowledgementR\x0facknowledgement\"\xf4\x01\n" +
 	"\x11FindingTransition\x12\x1d\n" +
 	"\n" +
 	"finding_id\x18\x01 \x01(\tR\tfindingId\x12.\n" +
 	"\x04time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12/\n" +
 	"\x05state\x18\x03 \x01(\x0e2\x19.natslens.v1.FindingStateR\x05state\x121\n" +
 	"\bseverity\x18\x04 \x01(\x0e2\x15.natslens.v1.SeverityR\bseverity\x12\x16\n" +
-	"\x06detail\x18\x05 \x01(\tR\x06detail\"\xd1\x01\n" +
+	"\x06detail\x18\x05 \x01(\tR\x06detail\x12\x14\n" +
+	"\x05epoch\x18\x06 \x01(\x03R\x05epoch\"\xd1\x01\n" +
 	"\fFindingTally\x12\x1a\n" +
 	"\bcritical\x18\x01 \x01(\x05R\bcritical\x12\x18\n" +
 	"\awarning\x18\x02 \x01(\x05R\awarning\x12\x12\n" +

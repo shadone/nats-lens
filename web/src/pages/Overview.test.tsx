@@ -81,7 +81,7 @@ describe("Overview without findings", () => {
     expect(screen.getByText(/No collection stored in this range yet/)).toBeInTheDocument();
     expect(await screen.findByText(/No consumer in the newest collection/)).toBeInTheDocument();
     expect(await screen.findByText(/No streams in the newest collection/)).toBeInTheDocument();
-    expect(await screen.findByRole("img", { name: /^Findings: ok throughout/ })).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: /^Findings: no observed check state/ })).toBeInTheDocument();
   });
 
   it("shows the error with a retry when the overview fails", async () => {
@@ -215,4 +215,7 @@ it("replays every observed window while preserving timeline controls and scope p
   expect(p.get("to")).toBe(p.get("b"));
   expect(screen.getByRole("button",{name:"Each check"})).toBeInTheDocument();
   expect(screen.getByRole("link",{name:"Kubernetes"})).toBeInTheDocument();
+});
+it('requests observed OK rows so the Timeline can distinguish healthy observations from omitted rows',async()=>{
+ mock(quiet);renderApp(<Overview/>);await waitFor(()=>expect(requests.getTimeline).toHaveBeenCalled());expect(requests.getTimeline).toHaveBeenLastCalledWith(expect.anything(),expect.anything(),undefined,expect.anything(),true);
 });

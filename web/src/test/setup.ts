@@ -14,3 +14,6 @@ if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.sho
     this.removeAttribute("open");
   };
 }
+
+// jsdom has no viewport scrolling; modal tests can spy on restoration calls.
+window.scrollTo = () => {};

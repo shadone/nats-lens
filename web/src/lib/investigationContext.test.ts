@@ -21,3 +21,35 @@ it("records effective Findings and Events defaults even when absent from the URL
  expect(buildInvestigationContext({...input,pathname:"/findings"}).filters).toMatchObject({state:"open",muted:"1"});
  expect(buildInvestigationContext({...input,pathname:"/events"}).filters).toMatchObject({show:"worth"});
 });
+it("preserves storage comparison pins and sub-millisecond requested bounds in copied context",()=>{
+ const c=buildInvestigationContext({origin:"https://lens.example.com",pathname:"/capacity/storage-change",search:"?from=2026-10-17T13:00:00.000123Z&to=2026-10-17T14:00:00.000456Z&epochA=9007199254740993&epochB=9007199254740994&account=APP",system:"shop",spec:{kind:"fixed",from:Date.parse("2026-10-17T13:00:00Z"),to:Date.parse("2026-10-17T14:00:00Z")}});
+ expect(c.filters.epochA).toBe("9007199254740993");expect(c.filters.epochB).toBe("9007199254740994");expect(c.range).toEqual({start:"2026-10-17T13:00:00.000123Z",end:"2026-10-17T14:00:00.000456Z"});
+});
+it("keeps contributor selection in the copied pinned investigation",()=>{
+ const c=buildInvestigationContext({origin:"https://lens.example.com",pathname:"/capacity/storage-change",search:"?change=asc&resource=kv&contributors=1",system:"shop",spec:{kind:"fixed",from:now-3600000,to:now}});
+ expect(c.filters).toMatchObject({change:"asc",resource:"kv",contributors:"1"});
+});
+it('copies the exact occurrence read as descriptor-validated data without turning its route suffix into a finding ID',()=>{
+ const selection={check:'stream-001',query:{method:'ListFindingEpisodes',request:{findingId:'stream-001:APP/orders',firstRetainedEpoch:'9007199254740993',readEpoch:'9007199254740995',includeTransitions:true,pageSize:1}}};
+ const c=buildInvestigationContext({origin:'https://lens.example.com',pathname:'/findings/stream-001%3AAPP%2Forders/occurrences/9007199254740993',search:'?readEpoch=9007199254740995',system:'shop',spec:{kind:'fixed',from:now-3600000,to:now},selection});
+ expect(c).toMatchObject({query:{method:'ListFindingEpisodes',request:{system:'shop',range:c.range,firstRetainedEpoch:'9007199254740993',readEpoch:'9007199254740995',includeTransitions:true}}});
+ expect(c.evidence).toContainEqual({kind:'finding',id:'stream-001:APP/orders'});
+});
+it('infers the exact occurrence read for the page-level copy action',()=>{
+ const c=buildInvestigationContext({origin:'https://lens.example.com',pathname:'/findings/stream-001%3AAPP%2Forders/occurrences/9007199254740993',search:'?readEpoch=9007199254740995',system:'shop',spec:{kind:'fixed',from:now-3600000,to:now}});
+ expect(c).toMatchObject({query:{method:'ListFindingEpisodes',request:{system:'shop',range:c.range,findingId:'stream-001:APP/orders',firstRetainedEpoch:'9007199254740993',readEpoch:'9007199254740995',includeTransitions:true}}});
+});
+it('keeps captured event boundaries and submillisecond Timeline ranges in portable evidence',()=>{
+ const range={start:'2026-10-17T13:00:00.000123Z',end:'2026-10-17T14:00:00.000456Z'};
+ const c=buildInvestigationContext({origin:'https://lens.example.com',pathname:'/events',search:'?id=9007199254740993&eventReadId=9007199254740995',system:'shop',spec:{kind:'fixed',from:Date.parse(range.start),to:Date.parse(range.end)},selection:{range,query:{method:'GetEventBatch',request:{ids:['9007199254740993'],eventReadId:'9007199254740995'}}}});
+ expect(c.range).toEqual(range);expect(c.filters.eventReadId).toBe('9007199254740995');expect(c.query?.request).toMatchObject({ids:['9007199254740993'],eventReadId:'9007199254740995'});
+});
+it('copies the window page capture query and exact URL bounds without a local selection',()=>{
+ const start='2026-10-17T13:00:00.000123Z',end='2026-10-17T14:00:00.000456Z';
+ const c=buildInvestigationContext({origin:'https://lens.example.com',pathname:`/timeline/windows/${'a'.repeat(64)}`,search:`?from=${start}&to=${end}&eventReadId=9007199254740995`,system:'shop',spec:{kind:'fixed',from:Date.parse(start),to:Date.parse(end)}});
+ expect(c.query).toMatchObject({method:'GetStatusTimeline',request:{eventReadId:'9007199254740995',range:{start,end}}});
+});
+it('copies the retained history route as a scoped read instead of inventing a finding named history',()=>{
+ const c=buildInvestigationContext({origin:'https://lens.example.com',pathname:'/findings/history',search:'?from=2026-10-17T12:00:00.000123Z&to=2026-10-17T13:00:00.000456Z&readEpoch=0&check=stream-001&type=stream&key=APP%2Forders',system:'shop',spec:{kind:'fixed',from:Date.parse('2026-10-17T12:00:00Z'),to:Date.parse('2026-10-17T13:00:00Z')}});
+ expect(c.evidence).toBeUndefined();expect(c.query).toMatchObject({method:'ListFindingEpisodes',request:{readEpoch:'0',checkCode:'stream-001',entity:{type:'ENTITY_TYPE_STREAM',key:'APP/orders'},range:{start:'2026-10-17T12:00:00.000123Z',end:'2026-10-17T13:00:00.000456Z'}}});
+});

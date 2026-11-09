@@ -3,9 +3,11 @@ package investigation
 import (
 	"encoding/json"
 	"errors"
+	"github.com/shadone/nats-lens/internal/eventselection"
 	"io"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -60,7 +62,7 @@ const MaxInputBytes = 64 << 10
 const MaxRange = 30 * 24 * time.Hour
 
 var metricPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$`)
-var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset")
+var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId readEpoch")
 
 func validText(s string, n int) bool {
 	if !utf8.ValidString(s) || len(s) > n {
@@ -123,10 +125,16 @@ func supportedPath(p string) bool {
 		return false
 	}
 	switch parts[0] {
-	case "", "fleet", "capacity", "data-history", "replay", "topology", "placement", "connections", "accounts", "subjects", "micro-services", "applications":
+	case "capacity":
+		return len(parts) == 1 || len(parts) == 2 && parts[1] == "storage-change"
+	case "", "fleet", "data-history", "replay", "topology", "placement", "connections", "accounts", "subjects", "micro-services", "applications":
 		return len(parts) == 1
-	case "servers", "findings", "checks":
+	case "findings":
+		return len(parts) <= 2 || occurrenceRoute(parts)
+	case "servers", "checks":
 		return len(parts) <= 2
+	case "timeline":
+		return len(parts) == 2 && parts[1] == "events" || len(parts) == 3 && parts[1] == "windows" && len(parts[2]) == 64
 	case "events":
 		return len(parts) == 1
 	case "streams", "kv-stores", "object-stores":
@@ -136,6 +144,14 @@ func supportedPath(p string) bool {
 	}
 	return false
 }
+func occurrenceRoute(parts []string) bool {
+	if len(parts) != 4 || parts[0] != "findings" || parts[1] == "" || parts[2] != "occurrences" {
+		return false
+	}
+	n, err := strconv.ParseInt(parts[3], 10, 64)
+	return err == nil && n > 0 && strconv.FormatInt(n, 10) == parts[3]
+}
+
 func validateSource(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || u.IsAbs() || u.Host != "" || u.Fragment != "" || !supportedPath(u.EscapedPath()) || len(raw) > 8192 {
@@ -146,7 +162,14 @@ func validateSource(raw string) error {
 		return errors.New("invalid UI query")
 	}
 	for k, v := range q {
-		if (!allowedFilter(k) && k != "system" && k != "range" && k != "from" && k != "to") || len(v) != 1 || !validText(v[0], 1024) {
+		occurrenceBoundary := k == "readEpoch" && (occurrenceRoute(pathSegments(u.EscapedPath())) || u.Path == "/findings/history") || k == "eventReadId" && (u.Path == "/events" || strings.HasPrefix(u.Path, "/timeline/windows/"))
+		if occurrenceBoundary {
+			n, e := strconv.ParseInt(v[0], 10, 64)
+			if e != nil || n < 0 || strconv.FormatInt(n, 10) != v[0] {
+				return errors.New("invalid occurrence boundary")
+			}
+		}
+		if (!occurrenceBoundary && !allowedFilter(k) && k != "system" && k != "range" && k != "from" && k != "to") || len(v) != 1 || !validText(v[0], 1024) {
 			return errors.New("unsupported or duplicate UI parameter; remove credentials and unknown parameters")
 		}
 	}
@@ -260,11 +283,36 @@ func ContextFromURL(raw, trusted string, now time.Time) (*Context, error) {
 	if err != nil || u.User != nil || u.Scheme != t.Scheme || u.Host != t.Host {
 		return nil, errors.New("page URL must match the configured trusted deployment")
 	}
+	if u.Path == "/timeline/events" {
+		selected, page, e := eventselection.FromURL(u)
+		if e != nil {
+			return nil, e
+		}
+		request := map[string]any{"ids": selected.IDs, "system": selected.System, "offset": page.Offset, "pageSize": page.Size}
+		if selected.EventReadID != nil {
+			request["eventReadId"] = *selected.EventReadID
+		}
+		raw, _ := json.Marshal(request)
+		annotation := "Explicit captured Timeline membership; one summary page. No complete-capture or causal claim."
+		if len(selected.Limits) > 0 {
+			annotation += " Source Timeline input limit reached: " + strings.Join(selected.Limits, "; ") + ". This view may omit other observations."
+		}
+		c := &Context{Version: 1, Deployment: t.String(), System: selected.System, Range: Bounds{selected.From, selected.To}, SourcePath: "/timeline/events", Filters: map[string]string{}, Query: &BoundQuery{Method: "ListEventSelection", Request: raw}, Annotation: annotation, Provenance: Availability{"unavailable", "Event membership excludes later IDs, but does not pin updates, deletions or cross-query collections"}}
+		if e = c.Validate(trusted); e != nil {
+			return nil, e
+		}
+		return c, nil
+	}
 	source := u.RequestURI()
 	if err = validateSource(source); err != nil {
 		return nil, err
 	}
 	q := u.Query()
+	// A retained-history route has no live/default mode. Match the browser:
+	// missing fixed endpoints must not become invented last-24-hour evidence.
+	if u.Path == "/findings/history" && (!q.Has("from") || !q.Has("to")) {
+		return nil, errors.New("finding history URL requires explicit fixed from and to bounds")
+	}
 	end := now.UTC()
 	start := end.Add(-24 * time.Hour)
 	if q.Has("from") || q.Has("to") {
@@ -324,6 +372,59 @@ func (c *Context) infer(path string, q url.Values) {
 	if len(p) == 0 {
 		return
 	}
+	if len(p) == 3 && p[0] == "timeline" && p[1] == "windows" {
+		request := map[string]any{"system": c.System, "range": c.Range}
+		if q.Has("eventReadId") {
+			request["eventReadId"] = q.Get("eventReadId")
+		}
+		raw, _ := json.Marshal(request)
+		c.Query = &BoundQuery{Method: "GetStatusTimeline", Request: raw}
+	}
+	if len(p) == 2 && p[0] == "findings" && p[1] == "history" {
+		request := map[string]any{"system": c.System, "range": c.Range, "pageSize": 50}
+		if q.Has("readEpoch") {
+			request["readEpoch"] = q.Get("readEpoch")
+		}
+		if q.Get("check") != "" {
+			request["checkCode"] = q.Get("check")
+		}
+		if q.Has("type") || q.Has("key") {
+			c.Entity = &Entity{Type: "ENTITY_TYPE_" + strings.ToUpper(q.Get("type")), Key: q.Get("key")}
+			parts := strings.Split(c.Entity.Key, "/")
+			switch q.Get("type") {
+			case "server":
+				c.Entity.Server = c.Entity.Key
+			case "account":
+				c.Entity.Account = c.Entity.Key
+			case "system", "client", "connection":
+				if q.Get("type") == "connection" && len(parts) == 2 {
+					c.Entity.Server = parts[0]
+				}
+			case "stream", "consumer":
+				if len(parts) >= 2 {
+					c.Entity.Account = parts[0]
+					c.Entity.Stream = parts[1]
+				}
+				if len(parts) == 3 {
+					c.Entity.Consumer = parts[2]
+				}
+			default:
+				c.Entity.Type = "UNSUPPORTED_HISTORY_SCOPE"
+			}
+			request["entity"] = c.Entity
+		}
+		raw, _ := json.Marshal(request)
+		c.Query = &BoundQuery{Method: "ListFindingEpisodes", Request: raw}
+	}
+	if occurrenceRoute(p) {
+		c.Evidence = []Evidence{{"finding", p[1]}}
+		request := map[string]any{"system": c.System, "range": c.Range, "findingId": p[1], "firstRetainedEpoch": p[3], "includeTransitions": true, "pageSize": 1}
+		if q.Has("readEpoch") {
+			request["readEpoch"] = q.Get("readEpoch")
+		}
+		raw, _ := json.Marshal(request)
+		c.Query = &BoundQuery{Method: "ListFindingEpisodes", Request: raw}
+	}
 	if len(p) == 2 {
 		switch p[0] {
 		case "servers":
@@ -331,6 +432,9 @@ func (c *Context) infer(path string, q url.Values) {
 				c.Entity = &Entity{Type: "ENTITY_TYPE_SERVER", Key: p[1], Server: p[1]}
 			}
 		case "findings":
+			if p[1] == "history" {
+				break
+			}
 			c.Evidence = []Evidence{{"finding", p[1]}}
 		}
 	}

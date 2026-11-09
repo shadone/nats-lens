@@ -217,3 +217,10 @@ it("does not lend history facts from a previous range to a pending or failing ra
   await waitFor(() => expect(result!.isError).toBe(true));
   expect(result!.data).toBeUndefined();
 });
+
+it('keeps complete observed-row Timeline reads separate from failed-row-only cached reads',async()=>{
+ vi.mocked(lens.getStatusTimeline).mockClear();const qc=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ function Modes(){q.useTimeline(live,undefined,false);q.useTimeline(live,undefined,true);return null}
+ render(<QueryClientProvider client={qc}><MemoryRouter initialEntries={['/?system=shop']}><Modes/></MemoryRouter></QueryClientProvider>);
+ await waitFor(()=>expect(lens.getStatusTimeline).toHaveBeenCalledTimes(2));expect(vi.mocked(lens.getStatusTimeline).mock.calls.map(c=>c[0].includeOk).sort()).toEqual([false,true]);expect(qc.getQueryCache().getAll().filter(x=>x.queryKey[0]==='timeline')).toHaveLength(2);
+});

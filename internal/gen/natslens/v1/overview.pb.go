@@ -315,7 +315,18 @@ type TimeWindow struct {
 	// Short label, for example "GKE node upgrade".
 	Label string `protobuf:"bytes,3,opt,name=label,proto3" json:"label,omitempty"`
 	// One line of detail, for example "3 drains, 3 pod restarts".
-	Detail        string `protobuf:"bytes,4,opt,name=detail,proto3" json:"detail,omitempty"`
+	Detail string `protobuf:"bytes,4,opt,name=detail,proto3" json:"detail,omitempty"`
+	// Identity of the retained derivation inputs, not a causal incident ID.
+	Id string `protobuf:"bytes,5,opt,name=id,proto3" json:"id,omitempty"`
+	// Exact event rows used by the bounded derivation, in observed order.
+	SupportingEventIds []string `protobuf:"bytes,6,rep,name=supporting_event_ids,json=supportingEventIds,proto3" json:"supporting_event_ids,omitempty"`
+	// Meaning and grouping rule; bounds are observed/inferred, never causation.
+	Derivation    string   `protobuf:"bytes,7,opt,name=derivation,proto3" json:"derivation,omitempty"`
+	Unavailable   []string `protobuf:"bytes,8,rep,name=unavailable,proto3" json:"unavailable,omitempty"`
+	EvidenceTotal int32    `protobuf:"varint,9,opt,name=evidence_total,json=evidenceTotal,proto3" json:"evidence_total,omitempty"`
+	// Event membership boundary and original range used for reconstruction.
+	EventReadId   *int64     `protobuf:"varint,10,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
+	CaptureRange  *TimeRange `protobuf:"bytes,11,opt,name=capture_range,json=captureRange,proto3" json:"capture_range,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -376,6 +387,55 @@ func (x *TimeWindow) GetDetail() string {
 		return x.Detail
 	}
 	return ""
+}
+
+func (x *TimeWindow) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TimeWindow) GetSupportingEventIds() []string {
+	if x != nil {
+		return x.SupportingEventIds
+	}
+	return nil
+}
+
+func (x *TimeWindow) GetDerivation() string {
+	if x != nil {
+		return x.Derivation
+	}
+	return ""
+}
+
+func (x *TimeWindow) GetUnavailable() []string {
+	if x != nil {
+		return x.Unavailable
+	}
+	return nil
+}
+
+func (x *TimeWindow) GetEvidenceTotal() int32 {
+	if x != nil {
+		return x.EvidenceTotal
+	}
+	return 0
+}
+
+func (x *TimeWindow) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
+}
+
+func (x *TimeWindow) GetCaptureRange() *TimeRange {
+	if x != nil {
+		return x.CaptureRange
+	}
+	return nil
 }
 
 // Request for the system summary.
@@ -588,13 +648,24 @@ const file_natslens_v1_overview_proto_rawDesc = "" +
 	"value_text\x18\x0e \x01(\tR\tvalueTextB\b\n" +
 	"\x06_valueB\t\n" +
 	"\a_value2B\b\n" +
-	"\x06_limit\"\x9a\x01\n" +
+	"\x06_limit\"\xbd\x03\n" +
 	"\n" +
 	"TimeWindow\x120\n" +
 	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x12,\n" +
 	"\x03end\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x03end\x12\x14\n" +
 	"\x05label\x18\x03 \x01(\tR\x05label\x12\x16\n" +
-	"\x06detail\x18\x04 \x01(\tR\x06detail\"y\n" +
+	"\x06detail\x18\x04 \x01(\tR\x06detail\x12\x0e\n" +
+	"\x02id\x18\x05 \x01(\tR\x02id\x120\n" +
+	"\x14supporting_event_ids\x18\x06 \x03(\tR\x12supportingEventIds\x12\x1e\n" +
+	"\n" +
+	"derivation\x18\a \x01(\tR\n" +
+	"derivation\x12 \n" +
+	"\vunavailable\x18\b \x03(\tR\vunavailable\x12%\n" +
+	"\x0eevidence_total\x18\t \x01(\x05R\revidenceTotal\x12'\n" +
+	"\revent_read_id\x18\n" +
+	" \x01(\x03H\x00R\veventReadId\x88\x01\x01\x12;\n" +
+	"\rcapture_range\x18\v \x01(\v2\x16.natslens.v1.TimeRangeR\fcaptureRangeB\x10\n" +
+	"\x0e_event_read_id\"y\n" +
 	"\x12GetOverviewRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x1d\n" +
 	"\n" +
@@ -650,19 +721,20 @@ var file_natslens_v1_overview_proto_depIdxs = []int32{
 	9,  // 7: natslens.v1.Tile.series2:type_name -> natslens.v1.Series
 	5,  // 8: natslens.v1.TimeWindow.start:type_name -> google.protobuf.Timestamp
 	5,  // 9: natslens.v1.TimeWindow.end:type_name -> google.protobuf.Timestamp
-	10, // 10: natslens.v1.GetOverviewRequest.range:type_name -> natslens.v1.TimeRange
-	10, // 11: natslens.v1.GetOverviewResponse.range:type_name -> natslens.v1.TimeRange
-	0,  // 12: natslens.v1.GetOverviewResponse.freshness:type_name -> natslens.v1.Freshness
-	11, // 13: natslens.v1.GetOverviewResponse.servers:type_name -> natslens.v1.ServerSummary
-	12, // 14: natslens.v1.GetOverviewResponse.tally:type_name -> natslens.v1.FindingTally
-	13, // 15: natslens.v1.GetOverviewResponse.worst_finding:type_name -> natslens.v1.Finding
-	1,  // 16: natslens.v1.GetOverviewResponse.tiles:type_name -> natslens.v1.Tile
-	2,  // 17: natslens.v1.GetOverviewResponse.windows:type_name -> natslens.v1.TimeWindow
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	10, // 10: natslens.v1.TimeWindow.capture_range:type_name -> natslens.v1.TimeRange
+	10, // 11: natslens.v1.GetOverviewRequest.range:type_name -> natslens.v1.TimeRange
+	10, // 12: natslens.v1.GetOverviewResponse.range:type_name -> natslens.v1.TimeRange
+	0,  // 13: natslens.v1.GetOverviewResponse.freshness:type_name -> natslens.v1.Freshness
+	11, // 14: natslens.v1.GetOverviewResponse.servers:type_name -> natslens.v1.ServerSummary
+	12, // 15: natslens.v1.GetOverviewResponse.tally:type_name -> natslens.v1.FindingTally
+	13, // 16: natslens.v1.GetOverviewResponse.worst_finding:type_name -> natslens.v1.Finding
+	1,  // 17: natslens.v1.GetOverviewResponse.tiles:type_name -> natslens.v1.Tile
+	2,  // 18: natslens.v1.GetOverviewResponse.windows:type_name -> natslens.v1.TimeWindow
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_overview_proto_init() }
@@ -675,6 +747,7 @@ func file_natslens_v1_overview_proto_init() {
 	file_natslens_v1_servers_proto_init()
 	file_natslens_v1_timeseries_proto_init()
 	file_natslens_v1_overview_proto_msgTypes[1].OneofWrappers = []any{}
+	file_natslens_v1_overview_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

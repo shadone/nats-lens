@@ -95,11 +95,11 @@ export function useUnmuteFinding() {
   });
 }
 
-export function useTimeline(spec: RangeSpec, entity?: Entity) {
+export function useTimeline(spec: RangeSpec, entity?: Entity, includeOk=false) {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["timeline", sys, rangeKey(spec), entityKey(entity)],
-    queryFn: ({ signal }) => api.getTimeline(sys, spec, entity, signal),
+    queryKey: ["timeline", sys, rangeKey(spec), entityKey(entity), includeOk],
+    queryFn: ({ signal }) => api.getTimeline(sys, spec, entity, signal, includeOk),
     refetchInterval: refetch(spec),
     placeholderData: keepSameSystem(sys),
   });
@@ -116,11 +116,11 @@ export function useEvents(spec: RangeSpec, f: api.EventFilter) {
   });
 }
 
-export function useEvent(id: string | undefined) {
+export function useEvent(id: string | undefined,readId?:string) {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["event", sys, id],
-    queryFn: ({ signal }) => api.getEvent(sys, id!, signal),
+    queryKey: ["event", sys, id,readId],
+    queryFn: ({ signal }) => api.getEvent(sys, id!, signal,readId),
     enabled: id !== undefined,
     staleTime: Infinity,
   });
@@ -345,12 +345,13 @@ export function useConnections(spec: RangeSpec, f: api.ConnectionFilter) {
 
 export function useSeries(spec: RangeSpec, metric: string, entity: Entity | undefined, maxPoints = 200) {
   const sys = useSystem();
-  return useQuery({
+  const query=useQuery({
     queryKey: ["series", sys, rangeKey(spec), metric, entityKey(entity), maxPoints],
     queryFn: ({ signal }) => api.getSeries(sys, spec, metric, entity, maxPoints, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepSameSystem(sys),
+    placeholderData: keepSameSystem(sys,{3:metric,4:entityKey(entity)}),
   });
+  return {...query,metric,entity};
 }
 
 /** Facts about this instance and the system; they change only on a restart. */

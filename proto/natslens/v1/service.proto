@@ -10,9 +10,11 @@ import "natslens/v1/capacity.proto";
 import "natslens/v1/checks.proto";
 import "natslens/v1/consumers.proto";
 import "natslens/v1/events.proto";
+import "natslens/v1/finding_episodes.proto";
 import "natslens/v1/findings.proto";
 import "natslens/v1/history.proto";
 import "natslens/v1/info.proto";
+import "natslens/v1/metric_contributors.proto";
 import "natslens/v1/micro.proto";
 import "natslens/v1/oncall.proto";
 import "natslens/v1/overview.proto";
@@ -20,6 +22,7 @@ import "natslens/v1/placement.proto";
 import "natslens/v1/replay.proto";
 import "natslens/v1/servers.proto";
 import "natslens/v1/slow_consumers.proto";
+import "natslens/v1/storage_change.proto";
 import "natslens/v1/streams.proto";
 import "natslens/v1/subjects.proto";
 import "natslens/v1/systems.proto";
@@ -162,6 +165,12 @@ service LensService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
+  // Compare pinned completed collections with separate logical, replica and
+  // system-wide server storage quantities; missing observations stay unknown.
+  rpc GetStorageChange(GetStorageChangeRequest) returns (GetStorageChangeResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
   // What nats-lens holds of the system: where the history starts, the
   // collections and gaps of the range, the retention, the archive's state,
   // and how much history each use has.
@@ -263,6 +272,19 @@ service LensService {
   // would refuse as invalid_argument or not_found gets the error in its
   // result and the others are served; any other failure fails the call.
   rpc GetTimeSeriesBatch(GetTimeSeriesBatchRequest) returns (GetTimeSeriesBatchResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Bounded frozen metric summaries, ranked across matching observed entities.
+  rpc ListMetricContributors(ListMetricContributorsRequest) returns (ListMetricContributorsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // Retained historical occurrences, without collapsing later recurrences.
+  rpc ListFindingEpisodes(ListFindingEpisodesRequest) returns (ListFindingEpisodesResponse) {}
+  // At most 50 exact retained event identities; payloads are read separately.
+  rpc GetEventBatch(GetEventBatchRequest) returns (GetEventBatchResponse);
+  // One bounded page of an explicit captured event selection.
+  rpc ListEventSelection(ListEventSelectionRequest) returns (ListEventSelectionResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 }

@@ -2,13 +2,17 @@
 
 - **Surfaces:** `api`, `cli`
 - **Status:** shipped
-- **Related:** [monitoring-snapshots.md](monitoring-snapshots.md), [history-and-archive.md](history-and-archive.md), [metrics-and-alerting.md](metrics-and-alerting.md), [notifications.md](notifications.md), [kubernetes-context.md](kubernetes-context.md), [demo-mode.md](demo-mode.md), [design.md](../design.md)
+- **Related:** [offline-datasets.md](offline-datasets.md), [monitoring-snapshots.md](monitoring-snapshots.md), [history-and-archive.md](history-and-archive.md), [metrics-and-alerting.md](metrics-and-alerting.md), [notifications.md](notifications.md), [kubernetes-context.md](kubernetes-context.md), [demo-mode.md](demo-mode.md), [design.md](../design.md)
 
 ## What it does
 
 nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` collects, captures events, runs the checks, archives the history and serves the API and the UI until it is stopped, for every NATS system the configuration lists ([multiple-systems.md](multiple-systems.md)). `natslens once` takes a single collection and exits. Settings come from defaults, a YAML configuration file and flags. The repository's `k8s/` directory holds Kubernetes manifests that run it as one replica beside a NATS cluster, with health and readiness endpoints for the probes.
 
 ## Behavior and rules
+
+- **Repository verification.** Contributors can select fast or full verification and receive the first failing check with saved logs. Checks preserve local generated-source edits. The fast profile excludes heavy Go integration; the full profile includes it. See the [verification workflow and limits](../operations/verification.md).
+
+- **Build artifacts.** `make build` verifies frontend inputs and output bytes, rebuilding assets only when necessary, then embeds them while holding the asset lock. `make build-full` forces generation. `make build-go` skips freshness checks and embeds existing assets, or the placeholder when assets are absent. Dependency/configuration/generated changes and missing outputs invalidate reuse. See [build guarantees and container-validation limits](../operations/build-reuse.md).
 
 - **Remote investigation.** `natslens investigate` uses configured API profiles without opening a database or connecting to NATS. Its separate read-only route needs the existing authenticated access perimeter and a restricted proxy policy for least privilege ([agent-investigations.md](agent-investigations.md)).
 - **Commands.** `natslens run` (also `natslens` alone) runs until SIGTERM or SIGINT. `natslens once` stores one collection of every system, or of the one `-system ID` names, runs the checks on it and exits, without events, archive or API. `natslens sql`, `natslens checks` and `natslens demo` are described in [sql-access.md](sql-access.md), [checks.md](checks.md) and [demo-mode.md](demo-mode.md).
@@ -30,6 +34,8 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **The Kubernetes manifests.** `k8s/base` creates the namespace `nats-lens`, a service account with read-only roles, a volume, the Deployment and the Service, and expects two Secrets with the NATS credentials. `k8s/components/gke-iap` adds IAP, a load balancer health check on `/healthz`, a NetworkPolicy and a Managed Prometheus scrape of `/metrics`. Two overlays to copy: `k8s/examples/basic`, reached by `kubectl port-forward` only, and `k8s/examples/gke-iap`, behind IAP on an existing Gateway.
 - **One replica.** DuckDB has one writer, so the Deployment runs one replica with the `Recreate` strategy, and the database and the archive share a volume. The pod prefers a node without a NATS server, so draining a NATS node does not also take nats-lens away. It runs as non-root on a read-only root filesystem.
 - **Out-of-the-box limits.** The base asks for 100m CPU and 512 MiB of memory with a 5 GiB volume (a laptop cluster or a small system); the `gke-iap` example asks for 500m, 2 GiB and 20 GiB as a starting point for production. Reading the Topology of a system with 1,000 leaf node sites takes up to about 450 MB in the process, more when servers' LEAFZ answers failed during the day, so a system with hundreds of leaf node sites is estimated to need more, and several systems in one process need more. The README's [Memory size](../../README.md#memory-size) table gives a memory limit per size of system; its figures are proposed, not yet confirmed.
+
+- **Offline acquisition.** The [offline dataset channel](offline-datasets.md) creates a full-system artifact at one database read boundary. Hourly recovery archives retain their own publication boundaries and are not exact-time investigation snapshots.
 
 ## Scenarios
 
@@ -82,6 +88,14 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **Given** a channel destination is configured and a NetworkPolicy limits the pod's egress
 - **When** the policy allows DNS and HTTPS to that receiver and I run `natslens notify test`
 - **Then** the command reports whether the receiver accepts the test without requiring a stopped collector
+
+### Verify a change without rewriting local work
+
+- **Surfaces:** `cli`
+- **Given** a prepared checkout with installed verification tools and a local generated-source edit
+- **When** I run the selected verification profile
+- **Then** drift fails the check without overwriting the edit, later checks stop, and the logs identify the failing stage
+- **And** a selected subset is labeled as incomplete verification
 
 ## Not supported / out of scope
 

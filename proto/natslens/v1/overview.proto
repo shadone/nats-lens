@@ -106,6 +106,17 @@ message TimeWindow {
 
   // One line of detail, for example "3 drains, 3 pod restarts".
   string detail = 4;
+  // Identity of the retained derivation inputs, not a causal incident ID.
+  string id = 5;
+  // Exact event rows used by the bounded derivation, in observed order.
+  repeated string supporting_event_ids = 6;
+  // Meaning and grouping rule; bounds are observed/inferred, never causation.
+  string derivation = 7;
+  repeated string unavailable = 8;
+  int32 evidence_total = 9;
+  // Event membership boundary and original range used for reconstruction.
+  optional int64 event_read_id = 10;
+  TimeRange capture_range = 11;
 }
 
 // Request for the system summary.

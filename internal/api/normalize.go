@@ -124,6 +124,9 @@ func ceilDiv(a, b time.Duration) int64 {
 func BucketCount(span, bucket time.Duration) int { return int(ceilDiv(span, bucket)) }
 
 func normalizeTimeline(req *v1.GetStatusTimelineRequest, now time.Time) error {
+	if _, err := EventSelection(nil, req.EventReadId); err != nil {
+		return err
+	}
 	r, err := ResolveRange(req.GetRange(), now, DefaultRange)
 	if err != nil {
 		return err
@@ -167,6 +170,9 @@ func normalizeTimeSeries(req *v1.GetTimeSeriesRequest, now time.Time) error {
 		return err
 	}
 	req.Range = r
+	if req.GetIncludeObservations() && r.GetEnd().AsTime().Sub(r.GetStart().AsTime()) > MaxObservationRange {
+		return invalid("observation range exceeds 30 days")
+	}
 	req.MaxPoints, err = points(req.GetMaxPoints(), DefaultSeriesPoints)
 	return err
 }

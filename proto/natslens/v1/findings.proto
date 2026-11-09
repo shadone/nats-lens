@@ -184,6 +184,8 @@ message FindingTransition {
 
   // Detail text the check returned at the transition.
   string detail = 5;
+  // Recorded collection epoch; retained as an exact int64 identifier.
+  int64 epoch = 6;
 }
 
 // Counts of findings by severity and state.

@@ -1,0 +1,25 @@
+.metric-page{min-width:0;overflow-wrap:anywhere}
+.metric-family-links,.metric-next{display:flex;flex-wrap:wrap;gap:var(--sp-3);margin-block:var(--sp-3)}
+.metric-family-links [aria-current=page]{font-weight:600;text-decoration:underline}
+.metric-tools{display:flex;align-items:end;flex-wrap:wrap;gap:var(--sp-3);margin-block:var(--sp-4)}
+.metric-tools label{display:grid;gap:var(--sp-1);max-width:100%}
+.metric-tools input{max-width:100%;box-sizing:border-box}
+.metric-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr));gap:var(--sp-3);min-width:0}
+.metric-charts>.card{min-width:0}
+.metric-charts .tc-h{flex-wrap:wrap}
+.metric-charts .tc-h b{font-size:var(--fs-sm);white-space:normal}
+.metric-table td,.metric-table th{vertical-align:top}
+.metric-table small{display:block;font:var(--fs-xs)/1.5 var(--mono);color:var(--text-muted)}
+.metric-table th[scope=row] .btn,.metric-table td:last-child>.x{display:block;margin-top:var(--sp-2)}
+.metric-table tbody>tr>td[colspan]{padding:var(--sp-3)}
+.metric-window{font-family:var(--mono);font-size:var(--fs-sm)}
+
+.metric-table-region { container-type: inline-size; }
+.metric-expanded { width: calc(100cqw - 2 * var(--sp-3)); max-width: 100%; }
+
+.metric-fleet-series{min-width:0}
+.metric-counter-note{margin-block:var(--sp-2);font-size:var(--fs-sm)}
+.metric-counter-note small{display:block;color:var(--text-muted)}
+.metric-table details{max-width:24rem;white-space:normal}
+
+.metric-ranking .metric-table time {display:inline-block;white-space:nowrap}

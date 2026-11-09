@@ -1,4 +1,6 @@
 // Proto to view model: enums, references, series and other shared messages.
+import {toJson} from "@bufbuild/protobuf";
+import {TimestampSchema} from "@bufbuild/protobuf/wkt";
 import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
 import { durationMs, timestampMs } from "@bufbuild/protobuf/wkt";
 import {
@@ -26,6 +28,7 @@ import type {
   SeverityLevel,
   Unit,
   Window,
+  FrozenEvidenceRange,
 } from "./model";
 
 export function ms(t: Timestamp | undefined): number | undefined {
@@ -167,8 +170,14 @@ export function range(r: TimeRange | undefined): Range | undefined {
   return start !== undefined && end !== undefined ? { start, end } : undefined;
 }
 
+export function frozenRange(r:TimeRange|undefined):FrozenEvidenceRange|undefined {
+ return r?.start&&r.end?{start:toJson(TimestampSchema,r.start) as string,end:toJson(TimestampSchema,r.end) as string}:undefined;
+}
+
 export function window(w: TimeWindow): Window {
-  return { start: ms(w.start) ?? 0, end: ms(w.end) ?? 0, label: w.label, detail: w.detail };
+  return { start: ms(w.start) ?? 0, end: ms(w.end) ?? 0, label: w.label, detail: w.detail,
+ ...(w.id?{id:w.id,supportingEventIds:w.supportingEventIds,derivation:w.derivation,unavailable:w.unavailable,evidenceTotal:w.evidenceTotal}:{}),
+ ...(w.eventReadId!==undefined?{eventReadId:w.eventReadId.toString()}:{}),...(w.captureRange?{captureRange:frozenRange(w.captureRange)}:{}) };
 }
 
 export function config(c: ConfigValue[]): ConfigItem[] {

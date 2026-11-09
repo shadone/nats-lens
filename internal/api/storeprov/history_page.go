@@ -17,7 +17,7 @@ import (
 // spans for uses.
 func (p *Provider) DataHistory(ctx context.Context, req *v1.GetDataHistoryRequest) (*api.HistoryFacts, error) {
 	start, end := span(req.GetRange())
-	f := &api.HistoryFacts{Start: start, End: end, Now: p.Now(), Interval: p.Interval, Retention: p.Retention}
+	f := &api.HistoryFacts{RuntimeUnavailable: p.CapturedOnly, Start: start, End: end, Now: p.Now(), Interval: p.Interval, Retention: p.Retention}
 	if p.ArchiveStatus != nil {
 		f.Archive = p.ArchiveStatus()
 		f.Archive.Enabled = true

@@ -91,7 +91,8 @@ describe("Capacity", () => {
     getCapacity.mockResolvedValue(prod());
     renderApp(<Capacity />, "/capacity");
     await screen.findByRole("region", { name: "Resources by what bounds them" });
-    expect(table().getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Resource", "Bounded by", "Data held", "Size × R", "/day", "Next limit", "Status"]);
+    expect(table().getAllByRole("columnheader").map((h) => h.getAttribute("aria-label") ?? h.textContent)).toEqual(["Resource", "Bounded by", "Data held", "Size × R", "/day", "Next limit", "Status"]);
+    expect(table().getByRole("button", { name: "About Resource storage history" })).toBeInTheDocument();
     expect(table().getByRole("link", { name: "order-archive" })).toHaveAttribute("href", "/streams/APP/order-archive");
     expect(row("order-archive")).toHaveTextContent("R3 · limits · 1,000 msgs");
     expect(cellTexts("order-archive").slice(0, 5)).toEqual(["nothing (keeps all)", "since 2025-12-25", "12 GiB", "+3 MiB", "none: grows until the store is full"]);
@@ -252,4 +253,21 @@ it("discloses collection bounds to the second around the six-hour boundary", asy
   getCapacity.mockResolvedValue(d);
   renderApp(<Capacity />);
   expect(await screen.findByText(/Collection bounds: 2026-10-17 08:00:15 to 2026-10-17 14:00:30 UTC/)).toBeInTheDocument();
+});
+
+it("opens a fixed storage comparison for the selected scope and interval",async()=>{
+ getCapacity.mockResolvedValue(prod());
+ renderApp(<Capacity/>,"/capacity?system=example-prod&account=APP&from=2026-10-17T13:00:00Z&to=2026-10-17T14:00:00Z");
+ const link=new URL((await screen.findByRole("link",{name:"Compare storage in range"})).getAttribute("href")!,"http://example.com");
+ expect(link.pathname).toBe("/capacity/storage-change");expect(Object.fromEntries(link.searchParams)).toEqual({system:"example-prod",account:"APP",from:"2026-10-17T13:00:00.000Z",to:"2026-10-17T14:00:00.000Z"});
+});
+it("uses the resolved source clock when metadata arrives after initial live render",async()=>{
+ const {setServerNow}=await import("../lib/clock");let finish!:(value:ReturnType<typeof prod>)=>void;
+ const pending=new Promise<ReturnType<typeof prod>>(r=>{finish=r});getCapacity.mockReturnValue(pending);
+ setServerNow(Date.parse("2027-01-01T12:00:00Z"),Date.now(),true);renderApp(<Capacity/>,"/capacity?system=example-prod");
+ setServerNow(Date.parse("2026-10-17T14:30:00Z"),Date.now(),true);finish(prod());
+ await screen.findByRole("region",{name:"Resources by what bounds them"});
+ const link=new URL(screen.getByRole("link",{name:"Compare storage in range"}).getAttribute("href")!,"http://example.com");
+ expect(link.searchParams.get("to")).toBe("2026-10-17T14:30:00.000Z");
+ setServerNow(Date.now());
 });

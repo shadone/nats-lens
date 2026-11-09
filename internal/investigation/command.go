@@ -20,15 +20,19 @@ import (
 
 const Help = `natslens investigate methods
 natslens investigate describe METHOD
-natslens investigate context -profiles FILE -profile NAME -url URL
-natslens investigate query METHOD -profiles FILE -profile NAME [-context FILE | -url URL]
+natslens investigate context SOURCE [-context FILE | -url URL]
+  (SOURCE uses the same exclusive source flags as query below)
+natslens investigate query METHOD (-endpoint ORIGIN | -profiles FILE -profile NAME |
+  -bundle DIR | -db FILE -system ID -collection-interval DURATION) [-context FILE | -url URL]
   [-request FILE] [-system ID] [-account ID] [-from UTC -to UTC] [-metric ID]
   [-page-size N] [-page-token TOKEN] [-max-points N] [-timeout 45s]
 
 Requests use protobuf JSON; -request - or -context - reads stdin (choose one).
 One query sends at most two RPCs (connection info, then the selected read).
 No automatic pagination, credential discovery, SQL, uploads or NATS connections.
-Use ListSystems, ListMetrics and ListCheckDefinitions to discover live facts.
+Use ListSystems, ListMetrics and ListCheckDefinitions to discover source facts.
+Offline contexts use https://offline.invalid as an inert namespace, never fetched.
+Reimport with -context FILE and the same source; remote UI links are unavailable.
 Use GetDataHistory to inspect coverage, partial collections and retention.
 The methods list is the local client contract, not a claim about server support.
 `
@@ -55,10 +59,32 @@ func readInput(name string, stdin io.Reader) ([]byte, error) {
 	return b, nil
 }
 
-func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Writer) (err error) {
+// OpenOffline is supplied by the application composition root, keeping the
+// command layer independent of API and database implementation packages.
+type OpenOffline func(context.Context, OfflineSelection) (*Session, error)
+type OfflineSelection struct {
+	DB, Bundle, System string
+	Interval           time.Duration
+}
+type Session struct {
+	Source         Source
+	Provenance     any
+	QueryReference time.Time
+	Close          func() error
+}
+
+func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Writer) error {
+	return RunWithOffline(ctx, args, stdin, out, errout, nil)
+}
+func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, errout io.Writer, openOffline OpenOffline) (err error) {
 	defer func() {
 		if err != nil && !errors.Is(err, flag.ErrHelp) {
-			_ = writeJSON(out, map[string]any{"version": 1, "error": map[string]string{"code": "investigation_failed", "message": err.Error(), "nextStep": "Check help, configured access, method schema and Data history; do not retry by bypassing the proxy."}})
+			code := "investigation_failed"
+			var diagnostic *Diagnostic
+			if errors.As(err, &diagnostic) {
+				code = diagnostic.Code
+			}
+			_ = writeJSON(out, map[string]any{"version": 1, "error": map[string]string{"code": code, "message": err.Error(), "nextStep": "Check help, configured access, method schema and Data history; do not retry by bypassing the proxy."}})
 		}
 	}()
 	if len(args) == 0 {
@@ -69,7 +95,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 		if len(args) != 1 {
 			return errors.New("methods takes no arguments")
 		}
-		return writeJSON(out, map[string]any{"version": 1, "methods": Methods(), "serverSupport": "unverified; query checks selected method", "sourceKinds": []string{"remote"}})
+		return writeJSON(out, map[string]any{"version": 1, "methods": Methods(), "serverSupport": "unverified; query checks selected method", "sourceKinds": []string{"remote", "offline"}})
 	}
 	if args[0] == "describe" {
 		if len(args) != 2 || Method(args[1]) == nil {
@@ -92,6 +118,10 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	fs := flag.NewFlagSet("natslens investigate "+action, flag.ContinueOnError)
 	fs.SetOutput(errout)
 	fs.Usage = func() { fmt.Fprint(errout, Help) }
+	endpoint := fs.String("endpoint", "", "explicit live API and UI origin")
+	db := fs.String("db", "", "closed compatible offline database")
+	bundle := fs.String("bundle", "", "validated offline dataset directory")
+	interval := fs.Duration("collection-interval", 0, "operator-asserted captured collection interval for a bare database")
 	profiles := fs.String("profiles", "", "trusted profiles JSON file")
 	name := fs.String("profile", "", "configured profile name")
 	contextFile := fs.String("context", "", "copied context JSON file, or - for stdin")
@@ -114,8 +144,24 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if fs.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
 	}
-	if *profiles == "" || *name == "" {
-		return errors.New("-profiles and -profile are required; browser login does not authorize terminal access")
+	offline := *db != "" || *bundle != ""
+	sources := 0
+	for _, selected := range []bool{*endpoint != "", *db != "", *bundle != "", *profiles != "" || *name != ""} {
+		if selected {
+			sources++
+		}
+	}
+	if sources != 1 {
+		return errors.New("choose exactly one source: -endpoint, -profiles with -profile, -db, or -bundle")
+	}
+	if (*profiles == "") != (*name == "") {
+		return errors.New("-profiles and -profile are required together")
+	}
+	if *db != "" && (*system == "" || *interval <= 0) {
+		return errors.New("bare -db requires -system and positive -collection-interval assertions; identity and cadence are not stored in the database")
+	}
+	if *db == "" && visited["collection-interval"] {
+		return errors.New("-collection-interval applies only to bare -db")
 	}
 	if (*contextFile != "" && *page != "") || (*contextFile == "-" && *requestFile == "-") {
 		return errors.New("choose one context source and one stdin input")
@@ -123,13 +169,41 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if *timeout <= 0 || *timeout > 45*time.Second || *pageSize < 1 || *pageSize > 500 || *maxPoints < 1 || *maxPoints > 2000 {
 		return errors.New("invalid budget: timeout 0–45s, page-size 1–500, max-points 1–2000")
 	}
-	b, err := readInput(*profiles, stdin)
-	if err != nil {
-		return err
-	}
-	p, err := LoadProfile(strings.NewReader(string(b)), *name)
-	if err != nil {
-		return err
+	ctx, cancel := context.WithTimeout(ctx, *timeout)
+	defer cancel()
+	var b []byte
+	p := Profile{Deployment: *endpoint, Endpoint: *endpoint}
+	var src Source
+	var provenance any
+	var queryReference time.Time
+	if offline {
+		if openOffline == nil {
+			return errors.New("offline source is unavailable in this embedding")
+		}
+		session, e := openOffline(ctx, OfflineSelection{DB: *db, Bundle: *bundle, System: *system, Interval: *interval})
+		if e != nil {
+			return e
+		}
+		if session.Close != nil {
+			defer session.Close()
+		}
+		src, provenance, queryReference = session.Source, session.Provenance, session.QueryReference
+		p.Deployment = "https://offline.invalid"
+	} else {
+		if *profiles != "" {
+			b, err = readInput(*profiles, stdin)
+			if err != nil {
+				return err
+			}
+			p, err = LoadProfile(strings.NewReader(string(b)), *name)
+			if err != nil {
+				return err
+			}
+		}
+		src, err = NewRemote(p)
+		if err != nil {
+			return err
+		}
 	}
 	var c *Context
 	if *contextFile != "" {
@@ -137,23 +211,42 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 		if err != nil {
 			return err
 		}
+		if offline {
+			// ASVS 1.2.2: the copied origin is an inert namespace here, never an HTTP
+			// destination. Full context validation still runs before any semantic query.
+			var identity struct {
+				Deployment string `json:"deployment"`
+			}
+			if json.Unmarshal(b, &identity) != nil {
+				return errors.New("invalid context JSON")
+			}
+			u, e := origin(identity.Deployment)
+			if e != nil {
+				return e
+			}
+			p.Deployment = u.String()
+		}
 		c, err = ParseContext(strings.NewReader(string(b)), p.Deployment)
 		if err != nil {
 			return err
 		}
 	}
 	if *page != "" {
+		if offline {
+			u, e := url.Parse(*page)
+			if e != nil || u.User != nil {
+				return errors.New("invalid inert page URL")
+			}
+			o, e := origin(u.Scheme + "://" + u.Host)
+			if e != nil {
+				return e
+			}
+			p.Deployment = o.String()
+		}
 		if err = p.ValidateURL(*page); err != nil {
 			return err
 		}
 	}
-	remote, err := NewRemote(p)
-	if err != nil {
-		return err
-	}
-	var src Source = remote
-	ctx, cancel := context.WithTimeout(ctx, *timeout)
-	defer cancel()
 	scope := *system
 	if scope == "" && c != nil {
 		scope = c.System
@@ -179,6 +272,9 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	now, err := time.Parse(time.RFC3339Nano, connection.Now)
 	if err != nil {
 		return errors.New("server returned an unsupported clock")
+	}
+	if offline && !queryReference.IsZero() {
+		now = queryReference
 	}
 	if c == nil {
 		raw := *page
@@ -249,7 +345,11 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	}
 	bound := c.Query != nil && c.Query.Method == method
 	if !bound || visited["page-size"] {
-		setDefault(pageSizeField(method), *pageSize)
+		size := *pageSize
+		if method == "ListEventSelection" && !visited["page-size"] {
+			size = 50
+		}
+		setDefault(pageSizeField(method), size)
 	}
 	if !bound || visited["max-points"] {
 		setDefault("maxPoints", *maxPoints)
@@ -268,7 +368,14 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	}
 	// Links and context describe effective query scope; original handoff facts
 	// remain separately labeled and cannot reintroduce stale request filters.
-	linkContext, linkLimitations, err := effectiveContext(method, c, req)
+	replayRequest := req
+	if method == "GetStorageChange" {
+		replayRequest, err = bindStorageComparison(req, response)
+		if err != nil {
+			return err
+		}
+	}
+	linkContext, linkLimitations, err := effectiveContext(method, c, replayRequest)
 	if err != nil {
 		return err
 	}
@@ -285,7 +392,24 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 		linkScope = Availability{Status: "partial", Reason: strings.Join(linkLimitations, "; ")}
 	}
 
-	return writeJSON(out, map[string]any{"version": 1, "source": map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": linkContext, "originalContext": &originalContext, "links": links, "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": map[string]Availability{"uiLinkScope": linkScope, "actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No universal cross-RPC snapshot pin is supported; list traversal epoch/range and evidence IDs, when supplied, remain in the typed response"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "retention": {"available", "GetLensInfo retention and history-start facts are included; historical coverage requires GetDataHistory"}, "freshness": {"unavailable", "GetLensInfo does not report collection freshness; query GetOverview, GetShellStatus or GetDataHistory"}, "aggregation": {"unavailable", "Query ListMetrics for each metric ID’s authoritative aggregation description; series retain their units and bucket steps"}}})
+	sourceMetadata := map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}
+	if offline {
+		sourceMetadata = map[string]any{"kind": "offline", "dataset": provenance, "referenceTime": connection.Now, "queryReference": now.Format(time.RFC3339Nano), "readOnlyRouteVerified": true, "selectedMethodVerified": method, "remoteUI": "unavailable; context can be reimported with the same offline source"}
+		links = nil
+		linkScope = Availability{"unavailable", "No remote UI serves this dataset; reimport context with -context and the same -db or -bundle"}
+	}
+	availability := map[string]Availability{"uiLinkScope": linkScope, "actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No universal cross-RPC snapshot pin is supported; list traversal epoch/range and evidence IDs, when supplied, remain in the typed response"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "retention": {"available", "GetLensInfo retention and history-start facts are included; historical coverage requires GetDataHistory"}, "freshness": {"unavailable", "GetLensInfo does not report collection freshness; query GetOverview, GetShellStatus or GetDataHistory"}, "aggregation": {"unavailable", "Query ListMetrics for each metric ID’s authoritative aggregation description; series retain their units and bucket steps"}}
+	if offline {
+		availability["runtimeStatus"] = Availability{"unavailable", "Collector, archiver and current configuration status cannot be obtained from captured rows"}
+		availability["retention"] = Availability{"partial", "Retained history is queryable; absent retention policy and deleted rows are unknown"}
+		availability["provenance"] = Availability{"available", "Dataset metadata and reference clock are reported in source; capture/export time is separate"}
+	}
+	requestedBounds := map[string]any{"context": originalContext.Range, "fromOverride": *from, "toOverride": *to, "requestRange": overrides["range"]}
+	if *page != "" {
+		u, _ := url.Parse(*page)
+		requestedBounds["urlRange"], requestedBounds["urlFrom"], requestedBounds["urlTo"] = u.Query().Get("range"), u.Query().Get("from"), u.Query().Get("to")
+	}
+	return writeJSON(out, map[string]any{"version": 1, "source": sourceMetadata, "method": method, "request": json.RawMessage(req), "response": response, "bounds": map[string]any{"requested": requestedBounds, "requestedSourcePath": originalContext.SourcePath, "requestedFrom": *from, "requestedTo": *to, "resolved": linkContext.Range, "referenceTime": connection.Now, "queryReference": now.Format(time.RFC3339Nano)}, "connection": info, "context": linkContext, "originalContext": &originalContext, "links": links, "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": availability})
 }
 
 // Page limits have two existing RPC spellings. Keep this transport mapping
@@ -296,7 +420,7 @@ func pageSizeField(method string) string {
 		return f.JSONName()
 	}
 	switch method {
-	case "ListStreams", "ListConsumers":
+	case "ListStreams", "ListConsumers", "ListMetricContributors":
 		if f := fields.ByName("limit"); f != nil {
 			return f.JSONName()
 		}
@@ -439,11 +563,44 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			if applied {
 				put("foldRepeats", v != "all")
 			}
+		case "readEpoch":
+			applied = put("readEpoch", v)
+		case "eventReadId":
+			applied = put("eventReadId", v)
 		case "id":
 			if method == "GetEvent" {
 				applied = put("id", v)
 			}
-		case "a", "b":
+		case "change":
+			if method == "GetStorageChange" {
+				value := "STORAGE_CHANGE_ORDER_UNSPECIFIED"
+				if v == "asc" {
+					value = "STORAGE_CHANGE_ORDER_LOGICAL_ASCENDING"
+				}
+				if v == "desc" {
+					value = "STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING"
+				}
+				applied = put("order", value)
+			}
+		case "resource":
+			if method == "GetStorageChange" {
+				value := "CAPACITY_STREAM_KIND_UNSPECIFIED"
+				if v == "stream" {
+					value = "CAPACITY_STREAM_KIND_STREAM"
+				}
+				if v == "kv" {
+					value = "CAPACITY_STREAM_KIND_KEY_VALUE"
+				}
+				if v == "object" {
+					value = "CAPACITY_STREAM_KIND_OBJECT_STORE"
+				}
+				applied = put("resourceKind", value)
+			}
+		case "contributors":
+			if method == "GetStorageChange" {
+				applied = put("resourcesOnly", v == "1")
+			}
+		case "a", "b", "epochA", "epochB":
 			applied = put(k, v)
 		}
 		if !applied {
@@ -486,7 +643,7 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			put("id", e.ID)
 		}
 	}
-	if method == "GetReplay" {
+	if method == "GetReplay" || method == "GetStorageChange" {
 		if m["a"] == nil {
 			m["a"] = c.Range.Start
 		}
