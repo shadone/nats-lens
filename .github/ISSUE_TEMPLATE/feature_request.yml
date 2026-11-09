@@ -1,0 +1,28 @@
+name: Feature request
+description: Propose something nats-lens should do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to find out or do with your NATS system, and what stops you today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What nats-lens could show, check or send. A sketch or an example finding helps.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other tools or workarounds you use now.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: The NATS topology and size this is for, such as servers, streams, accounts or leaf nodes.
