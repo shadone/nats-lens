@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // GetEventBatch reads exact retained identities, including window inputs outside
@@ -25,7 +26,13 @@ func (p *Provider) GetEventBatch(ctx context.Context, req *v1.GetEventBatchReque
 	if err != nil {
 		return nil, err
 	}
-	res := &v1.GetEventBatchResponse{Events: rows.Events, TotalCount: rows.TotalCount, SelectedIds: append([]string(nil), req.Ids...), EventReadId: req.EventReadId}
+	summaries := make([]*v1.Event, 0, len(rows.Events))
+	for _, e := range rows.Events {
+		summary := proto.Clone(e).(*v1.Event)
+		summary.Raw = ""
+		summaries = append(summaries, summary)
+	}
+	res := &v1.GetEventBatchResponse{Events: summaries, TotalCount: rows.TotalCount, SelectedIds: append([]string(nil), req.Ids...), EventReadId: req.EventReadId}
 	if !api.FitsEntityPage(res) {
 		return nil, fmt.Errorf("%w: selected event response exceeds page budget", api.ErrResourceExhausted)
 	}
