@@ -24,8 +24,9 @@ import (
 // Provider reads the store. Every query is a read; the only writes are
 // mutes, through the store's own methods.
 type Provider struct {
-	listPages api.EntityPages
-	St        *store.Store
+	listPages    api.EntityPages
+	episodePages api.EpisodePages
+	St           *store.Store
 	// Interval is the collector's time between epochs: the shortest series
 	// step and the freshness interval.
 	Interval time.Duration
