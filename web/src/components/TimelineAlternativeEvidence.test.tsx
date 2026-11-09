@@ -23,3 +23,7 @@ it('keeps inferred windows inspectable in the table and dates explicit across mi
 it('links the expanded Kubernetes label to captured events rather than an unrelated current feed',()=>{
  render(<MemoryRouter initialEntries={['/?system=shop']}><StatusTimeline tl={tl} end={start+120000} live={false} asTable={false}/></MemoryRouter>);const u=new URL(screen.getByRole('link',{name:'Kubernetes event history'}).getAttribute('href')!,'https://example.com');expect(Object.fromEntries(u.searchParams)).toMatchObject({system:'shop',from:range.start,to:range.end,eventReadId:'99',src:'kubernetes',show:'all'});
 });
+it('uses the visible fixed interval when event-only Timelines have no check buckets',()=>{
+ render(<MemoryRouter initialEntries={['/?system=shop']}><StatusTimeline tl={{...tl,bucketCount:0,bucketMs:0,rows:[],windows:[],evidenceRange:undefined}} end={start+120000} live={false} asTable/></MemoryRouter>);
+ fireEvent.click(screen.getByRole('button',{name:'Kubernetes event: nats-0 ready'}));const u=new URL(screen.getByRole('link',{name:'Open recorded event'}).getAttribute('href')!,'https://example.com');expect(Date.parse(u.searchParams.get('from')!)).toBe(start);expect(Date.parse(u.searchParams.get('to')!)).toBe(start+120000);
+});
