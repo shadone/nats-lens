@@ -51,3 +51,8 @@ it('opens the Findings lane in retained occurrence history with the captured ran
  render(<MemoryRouter initialEntries={['/?system=shop&range=1h']}><StoryLanes tl={{...tl,findingReadEpoch:'0'}} end={end} live/></MemoryRouter>);
  const link=screen.getByRole('link',{name:'Findings'}).getAttribute('href')!;const u=new URL(link,'https://example.com');expect(u.pathname).toBe('/findings/history');expect(u.searchParams.get('readEpoch')).toBe('0');expect(Date.parse(u.searchParams.get('from')!)).toBe(start);expect(u.searchParams.has('range')).toBe(false);
 });
+it('keeps finding and collector observations in the Events lane destination instead of hiding them as routine',()=>{
+ render(<MemoryRouter initialEntries={['/?system=shop']}><StoryLanes tl={{...tl,nats:[e,{...e,id:'2',source:'finding'},{...e,id:'3',source:'collector'}]}} end={end} live={false}/></MemoryRouter>);
+ const events=new URL(screen.getByRole('link',{name:'Events'}).getAttribute('href')!,'https://example.com');expect(events.searchParams.get('src')?.split(',')).toEqual(['nats','findings','collector']);expect(events.searchParams.get('show')).toBe('all');expect(events.searchParams.get('eventReadId')).toBe(tl.eventReadId);
+ const k8s=new URL(screen.getByRole('link',{name:'Kubernetes'}).getAttribute('href')!,'https://example.com');expect(k8s.searchParams.get('show')).toBe('all');
+});
