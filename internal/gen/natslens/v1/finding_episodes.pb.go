@@ -222,8 +222,11 @@ type ListFindingEpisodesRequest struct {
 	IncludeTransitions bool `protobuf:"varint,9,opt,name=include_transitions,json=includeTransitions,proto3" json:"include_transitions,omitempty"`
 	// At most 100 transitions per call, with explicit continuation.
 	TransitionOffset int32 `protobuf:"varint,10,opt,name=transition_offset,json=transitionOffset,proto3" json:"transition_offset,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Optional high-water epoch from Timeline. It freezes transition membership,
+	// not all database facts. A continuation must retain the same boundary.
+	ReadEpoch     int64 `protobuf:"varint,11,opt,name=read_epoch,json=readEpoch,proto3" json:"read_epoch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListFindingEpisodesRequest) Reset() {
@@ -322,6 +325,13 @@ func (x *ListFindingEpisodesRequest) GetIncludeTransitions() bool {
 func (x *ListFindingEpisodesRequest) GetTransitionOffset() int32 {
 	if x != nil {
 		return x.TransitionOffset
+	}
+	return 0
+}
+
+func (x *ListFindingEpisodesRequest) GetReadEpoch() int64 {
+	if x != nil {
+		return x.ReadEpoch
 	}
 	return 0
 }
@@ -445,7 +455,7 @@ const file_natslens_v1_finding_episodes_proto_rawDesc = "" +
 	"\x15transition_page_token\x18\x0e \x01(\tR\x13transitionPageToken\x12F\n" +
 	"\x11first_retained_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\x0ffirstRetainedAt\x12$\n" +
 	"\x0ecause_event_id\x18\x10 \x01(\x03R\fcauseEventIdB\x0e\n" +
-	"\f_start_epoch\"\x9c\x03\n" +
+	"\f_start_epoch\"\xbb\x03\n" +
 	"\x1aListFindingEpisodesRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x1d\n" +
 	"\n" +
@@ -460,7 +470,9 @@ const file_natslens_v1_finding_episodes_proto_rawDesc = "" +
 	"\x06system\x18\b \x01(\tR\x06system\x12/\n" +
 	"\x13include_transitions\x18\t \x01(\bR\x12includeTransitions\x12+\n" +
 	"\x11transition_offset\x18\n" +
-	" \x01(\x05R\x10transitionOffset\"\xc3\x02\n" +
+	" \x01(\x05R\x10transitionOffset\x12\x1d\n" +
+	"\n" +
+	"read_epoch\x18\v \x01(\x03R\treadEpoch\"\xc3\x02\n" +
 	"\x1bListFindingEpisodesResponse\x127\n" +
 	"\bepisodes\x18\x01 \x03(\v2\x1b.natslens.v1.FindingEpisodeR\bepisodes\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +

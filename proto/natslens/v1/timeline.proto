@@ -122,4 +122,7 @@ message GetStatusTimelineResponse {
   // Whether the range held more Kubernetes events than the 1000 in
   // kubernetes.
   bool kubernetes_truncated = 10;
+  // Boundary for ListFindingEpisodes after selecting this Timeline. Later
+  // finding transitions are excluded; this is not a persistent database pin.
+  int64 finding_read_epoch = 11;
 }

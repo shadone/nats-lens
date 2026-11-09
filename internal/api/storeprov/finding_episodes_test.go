@@ -6,6 +6,7 @@ import (
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/apitest"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"testing"
 	"time"
 
@@ -169,5 +170,59 @@ func TestFindingEpisodeAPIRawHistoryPagesOnlySelectedOccurrence(t *testing.T) {
 	}
 	if next.Episodes[0].LatestRetainedState != v1.FindingState_FINDING_STATE_UNSPECIFIED {
 		t.Fatal("missing current finding row invented present state")
+	}
+}
+
+func TestTimelineOccurrenceBoundaryExcludesLaterRecurrence(t *testing.T) {
+	p := episodeProvider(t)
+	rng := &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(t0.Add(10 * time.Minute))}
+	timeline, err := p.GetStatusTimeline(ctx, &v1.GetStatusTimelineRequest{Range: rng, Bucket: durationpb.New(time.Minute)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if timeline.GetFindingReadEpoch() != 3 {
+		t.Errorf("Timeline boundary = %d, want captured epoch3", timeline.GetFindingReadEpoch())
+	}
+	r := rows{t, p.St}
+	for e := int64(4); e <= 5; e++ {
+		r.epoch(e, t0.Add(time.Duration(e-1)*time.Minute), "S0")
+		var findings []store.FindingRow
+		if e == 5 {
+			findings = []store.FindingRow{{EntityKey: "APP/orders", Severity: "info", Detail: "later"}}
+		}
+		if _, err := p.St.ApplyCheckRuns(ctx, e, []store.CheckRun{{Code: "stream-001", EntityType: "stream", Status: store.RunOK, Rows: findings}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := p.ListFindingEpisodes(ctx, &v1.ListFindingEpisodesRequest{Range: rng, ReadEpoch: timeline.GetFindingReadEpoch()})
+	if err != nil || got.GetTotalCount() != 2 {
+		t.Fatalf("later recurrence entered selected Timeline: %v %v", got, err)
+	}
+	for _, episode := range got.Episodes {
+		if episode.FirstRetainedEpoch > 3 {
+			t.Fatalf("future occurrence %v", episode)
+		}
+	}
+}
+
+func TestTimelineEmptyBoundaryExcludesLateChecksInSameCollection(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.epoch(1, t0, "S0")
+	p := &storeprov.Provider{St: st, Clock: func() time.Time { return t0.Add(time.Minute) }}
+	rng := &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(t0.Add(2 * time.Minute))}
+	timeline, err := p.GetStatusTimeline(ctx, &v1.GetStatusTimelineRequest{Range: rng, Bucket: durationpb.New(time.Minute)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if timeline.FindingReadEpoch != 0 {
+		t.Fatal("empty history unexpectedly had a transition boundary")
+	}
+	if _, err := st.ApplyCheckRuns(ctx, 1, []store.CheckRun{{Code: "stream-001", EntityType: "stream", Status: store.RunOK, Rows: []store.FindingRow{{EntityKey: "APP/orders", Severity: "warning", Detail: "checks published later"}}}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := p.ListFindingEpisodes(ctx, &v1.ListFindingEpisodesRequest{Range: rng, ReadEpoch: timeline.FindingReadEpoch})
+	if err != nil || got.GetTotalCount() != 0 || len(got.GetUnavailable()) == 0 {
+		t.Fatalf("late check publication entered selected empty history: %v %v", got, err)
 	}
 }
