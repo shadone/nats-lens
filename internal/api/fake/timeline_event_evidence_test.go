@@ -123,3 +123,29 @@ func TestDemoEventBatchSummariesDeferPayloads(t *testing.T) {
 		}
 	}
 }
+
+func TestDemoCapturedEventSelectionReopensItsFrame(t *testing.T) {
+	p := New(true)
+	now := FixedNow
+	p.clock = func() time.Time { return now }
+	capture, err := p.captureEvents(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := []string{capture.events[0].Id, capture.events[1].Id}
+	r := &v1.ListEventSelectionRequest{Ids: ids, EventReadId: proto.Int64(capture.boundary), PageSize: 1}
+	a, err := p.ListEventSelection(context.Background(), r)
+	if err != nil || a.GetSelectedTotalCount() != 2 || a.GetNextOffset() != 1 || len(a.GetEvents()) != 1 {
+		t.Fatalf("first selection missing: %v %v", a, err)
+	}
+	now = now.Add(time.Hour)
+	b, err := p.ListEventSelection(context.Background(), r)
+	if err != nil || !proto.Equal(a, b) {
+		t.Fatalf("selection moved with clock: %v", err)
+	}
+	r.Offset = 1
+	c, err := p.ListEventSelection(context.Background(), r)
+	if err != nil || c.GetNextOffset() != 0 || len(c.GetEvents()) != 1 || c.Events[0].Id != ids[1] || c.Events[0].Raw != "" {
+		t.Fatalf("last selection page changed: %v %v", c, err)
+	}
+}
