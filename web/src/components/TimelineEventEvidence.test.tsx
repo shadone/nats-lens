@@ -38,3 +38,12 @@ it('opens the actual inference explanation and exact window input identities',()
  expect(screen.getByRole('dialog')).toHaveTextContent('Groups node and NATS pod observations within 15 minutes');
  expect(screen.getByRole('link',{name:'Open complete window evidence'})).toHaveAttribute('href',expect.stringContaining('a'.repeat(64)));
 });
+it('reads contributor pages only after an explicit action and keeps missing captured labels',async()=>{
+ const {CapturedEventList}=await import('./TimelineEventEvidence');
+ vi.mocked(useSelectedTimelineEvents).mockReturnValue(result({items:[],totalCount:0,nextPageToken:''}));
+ const ids=Array.from({length:51},(_,i)=>`${i+1}`);
+ render(<MemoryRouter><CapturedEventList ids={ids} range={range} readId="55" captured={[{...e,id:'1',eventId:'1',label:'Retained captured label'}]}/></MemoryRouter>);
+ expect(screen.getByText('Retained captured label')).toBeInTheDocument();expect(screen.getAllByRole('button',{name:'Read event detail'})).toHaveLength(50);
+ expect(useSelectedTimelineEvents).toHaveBeenLastCalledWith(range,ids.slice(0,50),'55');
+ fireEvent.click(screen.getByRole('button',{name:'Next events'}));expect(screen.getAllByRole('button',{name:'Read event detail'})).toHaveLength(1);expect(useSelectedTimelineEvents).toHaveBeenLastCalledWith(range,['51'],'55');
+});
