@@ -387,8 +387,8 @@ type GetStatusTimelineResponse struct {
 	KubernetesTruncated bool `protobuf:"varint,10,opt,name=kubernetes_truncated,json=kubernetesTruncated,proto3" json:"kubernetes_truncated,omitempty"`
 	// Boundary for ListFindingEpisodes after selecting this Timeline. Later
 	// finding transitions are excluded; this is not a persistent database pin.
-	FindingReadEpoch int64 `protobuf:"varint,11,opt,name=finding_read_epoch,json=findingReadEpoch,proto3" json:"finding_read_epoch,omitempty"`
-	EventReadId      int64 `protobuf:"varint,12,opt,name=event_read_id,json=eventReadId,proto3" json:"event_read_id,omitempty"`
+	FindingReadEpoch int64  `protobuf:"varint,11,opt,name=finding_read_epoch,json=findingReadEpoch,proto3" json:"finding_read_epoch,omitempty"`
+	EventReadId      *int64 `protobuf:"varint,12,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
 	// Resolved query bounds, separate from the possibly partial last bucket.
 	Range         *TimeRange `protobuf:"bytes,13,opt,name=range,proto3" json:"range,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -503,8 +503,8 @@ func (x *GetStatusTimelineResponse) GetFindingReadEpoch() int64 {
 }
 
 func (x *GetStatusTimelineResponse) GetEventReadId() int64 {
-	if x != nil {
-		return x.EventReadId
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
 	}
 	return 0
 }
@@ -554,7 +554,7 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"include_ok\x18\x04 \x01(\bR\tincludeOk\x12\x16\n" +
 	"\x06system\x18\x05 \x01(\tR\x06system\x12'\n" +
 	"\revent_read_id\x18\x06 \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
-	"\x0e_event_read_id\"\xef\x04\n" +
+	"\x0e_event_read_id\"\x86\x05\n" +
 	"\x19GetStatusTimelineResponse\x120\n" +
 	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x121\n" +
 	"\x06bucket\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x06bucket\x12!\n" +
@@ -569,9 +569,10 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"\x11finding_truncated\x18\t \x01(\bR\x10findingTruncated\x121\n" +
 	"\x14kubernetes_truncated\x18\n" +
 	" \x01(\bR\x13kubernetesTruncated\x12,\n" +
-	"\x12finding_read_epoch\x18\v \x01(\x03R\x10findingReadEpoch\x12\"\n" +
-	"\revent_read_id\x18\f \x01(\x03R\veventReadId\x12,\n" +
-	"\x05range\x18\r \x01(\v2\x16.natslens.v1.TimeRangeR\x05rangeBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\x12finding_read_epoch\x18\v \x01(\x03R\x10findingReadEpoch\x12'\n" +
+	"\revent_read_id\x18\f \x01(\x03H\x00R\veventReadId\x88\x01\x01\x12,\n" +
+	"\x05range\x18\r \x01(\v2\x16.natslens.v1.TimeRangeR\x05rangeB\x10\n" +
+	"\x0e_event_read_idBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_timeline_proto_rawDescOnce sync.Once
@@ -635,6 +636,7 @@ func file_natslens_v1_timeline_proto_init() {
 	file_natslens_v1_events_proto_init()
 	file_natslens_v1_overview_proto_init()
 	file_natslens_v1_timeline_proto_msgTypes[2].OneofWrappers = []any{}
+	file_natslens_v1_timeline_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

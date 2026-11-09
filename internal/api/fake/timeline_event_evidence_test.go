@@ -18,7 +18,7 @@ func TestDemoTimelineEventCaptureAndWindowInputs(t *testing.T) {
 		t.Fatalf("demo evidence mapping absent: %v %v", got, err)
 	}
 	for _, w := range got.Windows {
-		if w.GetEventReadId() != got.EventReadId || w.CaptureRange == nil {
+		if w.GetEventReadId() != got.GetEventReadId() || w.CaptureRange == nil {
 			t.Fatalf("window lost frame: %v", w)
 		}
 	}

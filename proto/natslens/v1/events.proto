@@ -72,7 +72,8 @@ message Event {
   // For a finding event: the finding and the transition.
   FindingTransition transition = 16;
 
-  // For a finding event: the finding as it is now.
+  // Latest finding row returned by the source, separate from the recorded
+  // transition. A synthetic reference-frame read can return frame-relative state.
   Finding finding = 17;
 
   // Findings this event most likely caused, for example the missing
@@ -231,8 +232,12 @@ message ListEventsResponse {
   repeated EventBucket histogram = 7;
 
   // With include_facets: number of events in the range, with no other
-  // filter.
+  // UI filter. Explicit selected IDs and event membership remain in force.
   int32 total_unfiltered = 8;
+  // Acknowledged exact selection; preserves input order. Older servers lacking
+  // these fields must not be treated as honoring the selection or boundary.
+  repeated string selected_ids = 9;
+  optional int64 event_read_id = 10;
 }
 
 // Request for one event.
@@ -249,4 +254,6 @@ message GetEventRequest {
 message GetEventResponse {
   // The event, with raw set.
   Event event = 1;
+  // Acknowledged event membership; absence means unsupported/unrequested.
+  optional int64 event_read_id = 2;
 }

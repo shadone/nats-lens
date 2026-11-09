@@ -118,7 +118,8 @@ type Event struct {
 	Reason string `protobuf:"bytes,15,opt,name=reason,proto3" json:"reason,omitempty"`
 	// For a finding event: the finding and the transition.
 	Transition *FindingTransition `protobuf:"bytes,16,opt,name=transition,proto3" json:"transition,omitempty"`
-	// For a finding event: the finding as it is now.
+	// Latest finding row returned by the source, separate from the recorded
+	// transition. A synthetic reference-frame read can return frame-relative state.
 	Finding *Finding `protobuf:"bytes,17,opt,name=finding,proto3" json:"finding,omitempty"`
 	// Findings this event most likely caused, for example the missing
 	// durable a consumer.deleted raised.
@@ -746,10 +747,14 @@ type ListEventsResponse struct {
 	// first, from every filter except hide_routine.
 	Histogram []*EventBucket `protobuf:"bytes,7,rep,name=histogram,proto3" json:"histogram,omitempty"`
 	// With include_facets: number of events in the range, with no other
-	// filter.
+	// UI filter. Explicit selected IDs and event membership remain in force.
 	TotalUnfiltered int32 `protobuf:"varint,8,opt,name=total_unfiltered,json=totalUnfiltered,proto3" json:"total_unfiltered,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Acknowledged exact selection; preserves input order. Older servers lacking
+	// these fields must not be treated as honoring the selection or boundary.
+	SelectedIds   []string `protobuf:"bytes,9,rep,name=selected_ids,json=selectedIds,proto3" json:"selected_ids,omitempty"`
+	EventReadId   *int64   `protobuf:"varint,10,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListEventsResponse) Reset() {
@@ -838,6 +843,20 @@ func (x *ListEventsResponse) GetTotalUnfiltered() int32 {
 	return 0
 }
 
+func (x *ListEventsResponse) GetSelectedIds() []string {
+	if x != nil {
+		return x.SelectedIds
+	}
+	return nil
+}
+
+func (x *ListEventsResponse) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
+}
+
 // Request for one event.
 type GetEventRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -905,7 +924,9 @@ func (x *GetEventRequest) GetEventReadId() int64 {
 type GetEventResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The event, with raw set.
-	Event         *Event `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	Event *Event `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	// Acknowledged event membership; absence means unsupported/unrequested.
+	EventReadId   *int64 `protobuf:"varint,2,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -945,6 +966,13 @@ func (x *GetEventResponse) GetEvent() *Event {
 		return x.Event
 	}
 	return nil
+}
+
+func (x *GetEventResponse) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
 }
 
 var File_natslens_v1_events_proto protoreflect.FileDescriptor
@@ -1017,7 +1045,7 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x12\x18\n" +
 	"\awarning\x18\x02 \x01(\x05R\awarning\x12\x18\n" +
 	"\anotable\x18\x03 \x01(\x05R\anotable\x12\x18\n" +
-	"\aroutine\x18\x04 \x01(\x05R\aroutine\"\x86\x03\n" +
+	"\aroutine\x18\x04 \x01(\x05R\aroutine\"\xe4\x03\n" +
 	"\x12ListEventsResponse\x12*\n" +
 	"\x06events\x18\x01 \x03(\v2\x12.natslens.v1.EventR\x06events\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
@@ -1027,14 +1055,20 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\x06facets\x18\x05 \x03(\v2\x17.natslens.v1.EventFacetR\x06facets\x12@\n" +
 	"\x0eroutine_groups\x18\x06 \x03(\v2\x19.natslens.v1.RoutineGroupR\rroutineGroups\x126\n" +
 	"\thistogram\x18\a \x03(\v2\x18.natslens.v1.EventBucketR\thistogram\x12)\n" +
-	"\x10total_unfiltered\x18\b \x01(\x05R\x0ftotalUnfiltered\"t\n" +
+	"\x10total_unfiltered\x18\b \x01(\x05R\x0ftotalUnfiltered\x12!\n" +
+	"\fselected_ids\x18\t \x03(\tR\vselectedIds\x12'\n" +
+	"\revent_read_id\x18\n" +
+	" \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
+	"\x0e_event_read_id\"t\n" +
 	"\x0fGetEventRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06system\x18\x02 \x01(\tR\x06system\x12'\n" +
 	"\revent_read_id\x18\x03 \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
-	"\x0e_event_read_id\"<\n" +
+	"\x0e_event_read_id\"w\n" +
 	"\x10GetEventResponse\x12(\n" +
-	"\x05event\x18\x01 \x01(\v2\x12.natslens.v1.EventR\x05event*\x95\x01\n" +
+	"\x05event\x18\x01 \x01(\v2\x12.natslens.v1.EventR\x05event\x12'\n" +
+	"\revent_read_id\x18\x02 \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
+	"\x0e_event_read_id*\x95\x01\n" +
 	"\vEventSource\x12\x1c\n" +
 	"\x18EVENT_SOURCE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11EVENT_SOURCE_NATS\x10\x01\x12\x1b\n" +
@@ -1106,7 +1140,9 @@ func file_natslens_v1_events_proto_init() {
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_findings_proto_init()
 	file_natslens_v1_events_proto_msgTypes[1].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[5].OneofWrappers = []any{}
 	file_natslens_v1_events_proto_msgTypes[6].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
