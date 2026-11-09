@@ -61,6 +61,9 @@ message ListFindingEpisodesRequest {
   bool include_transitions = 9;
   // At most 100 transitions per call, with explicit continuation.
   int32 transition_offset = 10;
+  // Optional high-water epoch from Timeline. It freezes transition membership,
+  // not all database facts. A continuation must retain the same boundary.
+  int64 read_epoch = 11;
 }
 
 message ListFindingEpisodesResponse {

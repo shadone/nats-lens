@@ -349,8 +349,11 @@ type GetStatusTimelineResponse struct {
 	// Whether the range held more Kubernetes events than the 1000 in
 	// kubernetes.
 	KubernetesTruncated bool `protobuf:"varint,10,opt,name=kubernetes_truncated,json=kubernetesTruncated,proto3" json:"kubernetes_truncated,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Boundary for ListFindingEpisodes after selecting this Timeline. Later
+	// finding transitions are excluded; this is not a persistent database pin.
+	FindingReadEpoch int64 `protobuf:"varint,11,opt,name=finding_read_epoch,json=findingReadEpoch,proto3" json:"finding_read_epoch,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetStatusTimelineResponse) Reset() {
@@ -453,6 +456,13 @@ func (x *GetStatusTimelineResponse) GetKubernetesTruncated() bool {
 	return false
 }
 
+func (x *GetStatusTimelineResponse) GetFindingReadEpoch() int64 {
+	if x != nil {
+		return x.FindingReadEpoch
+	}
+	return 0
+}
+
 var File_natslens_v1_timeline_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_timeline_proto_rawDesc = "" +
@@ -484,7 +494,7 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"\x06entity\x18\x03 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12\x1d\n" +
 	"\n" +
 	"include_ok\x18\x04 \x01(\bR\tincludeOk\x12\x16\n" +
-	"\x06system\x18\x05 \x01(\tR\x06system\"\xef\x03\n" +
+	"\x06system\x18\x05 \x01(\tR\x06system\"\x9d\x04\n" +
 	"\x19GetStatusTimelineResponse\x120\n" +
 	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x121\n" +
 	"\x06bucket\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x06bucket\x12!\n" +
@@ -498,7 +508,8 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"\x0enats_truncated\x18\b \x01(\bR\rnatsTruncated\x12+\n" +
 	"\x11finding_truncated\x18\t \x01(\bR\x10findingTruncated\x121\n" +
 	"\x14kubernetes_truncated\x18\n" +
-	" \x01(\bR\x13kubernetesTruncatedBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	" \x01(\bR\x13kubernetesTruncated\x12,\n" +
+	"\x12finding_read_epoch\x18\v \x01(\x03R\x10findingReadEpochBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_timeline_proto_rawDescOnce sync.Once
