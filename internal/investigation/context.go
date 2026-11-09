@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -127,7 +128,9 @@ func supportedPath(p string) bool {
 		return len(parts) == 1 || len(parts) == 2 && parts[1] == "storage-change"
 	case "", "fleet", "data-history", "replay", "topology", "placement", "connections", "accounts", "subjects", "micro-services", "applications":
 		return len(parts) == 1
-	case "servers", "findings", "checks":
+	case "findings":
+		return len(parts) <= 2 || occurrenceRoute(parts)
+	case "servers", "checks":
 		return len(parts) <= 2
 	case "events":
 		return len(parts) == 1
@@ -138,6 +141,14 @@ func supportedPath(p string) bool {
 	}
 	return false
 }
+func occurrenceRoute(parts []string) bool {
+	if len(parts) != 4 || parts[0] != "findings" || parts[1] == "" || parts[2] != "occurrences" {
+		return false
+	}
+	n, err := strconv.ParseInt(parts[3], 10, 64)
+	return err == nil && n > 0 && strconv.FormatInt(n, 10) == parts[3]
+}
+
 func validateSource(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || u.IsAbs() || u.Host != "" || u.Fragment != "" || !supportedPath(u.EscapedPath()) || len(raw) > 8192 {
@@ -148,7 +159,14 @@ func validateSource(raw string) error {
 		return errors.New("invalid UI query")
 	}
 	for k, v := range q {
-		if (!allowedFilter(k) && k != "system" && k != "range" && k != "from" && k != "to") || len(v) != 1 || !validText(v[0], 1024) {
+		occurrenceBoundary := k == "readEpoch" && occurrenceRoute(pathSegments(u.EscapedPath()))
+		if occurrenceBoundary {
+			n, e := strconv.ParseInt(v[0], 10, 64)
+			if e != nil || n < 0 || strconv.FormatInt(n, 10) != v[0] {
+				return errors.New("invalid occurrence boundary")
+			}
+		}
+		if (!occurrenceBoundary && !allowedFilter(k) && k != "system" && k != "range" && k != "from" && k != "to") || len(v) != 1 || !validText(v[0], 1024) {
 			return errors.New("unsupported or duplicate UI parameter; remove credentials and unknown parameters")
 		}
 	}
@@ -325,6 +343,15 @@ func (c *Context) infer(path string, q url.Values) {
 	p := pathSegments(path)
 	if len(p) == 0 {
 		return
+	}
+	if occurrenceRoute(p) {
+		c.Evidence = []Evidence{{"finding", p[1]}}
+		request := map[string]any{"system": c.System, "range": c.Range, "findingId": p[1], "firstRetainedEpoch": p[3], "includeTransitions": true, "pageSize": 1}
+		if q.Has("readEpoch") {
+			request["readEpoch"] = q.Get("readEpoch")
+		}
+		raw, _ := json.Marshal(request)
+		c.Query = &BoundQuery{Method: "ListFindingEpisodes", Request: raw}
 	}
 	if len(p) == 2 {
 		switch p[0] {
