@@ -20,7 +20,7 @@ export interface InvestigationContext {
  filters:Record<string,string>;entity?:InvestigationEntity;metric?:string;point?:string;evidence?:{kind:string;id:string}[];
  provenance:{status:"unavailable";reason:string};annotation?:string;
 }
-const FILTERS="sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId readEpoch".split(" ");
+const FILTERS="sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId readEpoch page rank rankMetric rankBy rankOrder rankQuery".split(" ");
 function routeEntity(pathname:string):InvestigationEntity|undefined{
  let p:string[];try{p=pathname.split("/").slice(1).map(decodeURIComponent)}catch{return undefined}
  if(p[0]==="servers"&&p.length===2&&p[1]!=="slow-consumers")return {type:"ENTITY_TYPE_SERVER",key:p[1],server:p[1]};
