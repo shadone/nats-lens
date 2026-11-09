@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
@@ -73,7 +75,7 @@ func (p *Provider) GetStatusTimeline(ctx context.Context, req *v1.GetStatusTimel
 	s := capture.scen
 	r := req.GetRange()
 	n := api.BucketCount(r.GetEnd().AsTime().Sub(r.GetStart().AsTime()), req.GetBucket().AsDuration())
-	res := &v1.GetStatusTimelineResponse{Start: r.GetStart(), Bucket: req.GetBucket(), BucketCount: int32(n), EventReadId: capture.boundary, Windows: p.windowsFromEvents(s, r, capture.events, capture.boundary),
+	res := &v1.GetStatusTimelineResponse{Range: proto.Clone(r).(*v1.TimeRange), Start: r.GetStart(), Bucket: req.GetBucket(), BucketCount: int32(n), EventReadId: capture.boundary, Windows: p.windowsFromEvents(s, r, capture.events, capture.boundary),
 		Rows: s.timelineRows(r, req.GetBucket().AsDuration(), req.GetEntity(), req.GetIncludeOk())}
 	_, boundary, err := p.demoEpisodeHistory(s)
 	if err != nil {
