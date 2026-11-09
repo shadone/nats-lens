@@ -627,5 +627,8 @@ func (h *Handler) ListMetricContributors(ctx context.Context, req *connect.Reque
 }
 
 func (h *Handler) ListFindingEpisodes(ctx context.Context, req *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error) {
-	return call(ctx, h, "ListFindingEpisodes", req.Msg, func(p Provider, m *v1.ListFindingEpisodesRequest) error { return withRange(p, &m.Range) }, on(Provider.ListFindingEpisodes))
+	return call(ctx, h, "ListFindingEpisodes", req.Msg, func(p Provider, m *v1.ListFindingEpisodesRequest) error {
+		_, err := NormalizeFindingEpisodes(m, rangeReference(p))
+		return err
+	}, on(Provider.ListFindingEpisodes))
 }

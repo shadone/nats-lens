@@ -55,11 +55,20 @@ func (p *Provider) ListFindingEpisodes(ctx context.Context, in *v1.ListFindingEp
 		return nil, err
 	}
 	out := &v1.ListFindingEpisodesResponse{Range: r.Range, ReadEpoch: page.ReadEpoch, ReadAt: ts(p.Now()), TotalCount: int32(page.Total)}
+	if page.Total == 0 {
+		out.Unavailable = []string{"matching_occurrence_history"}
+	}
 	for i, e := range page.Items {
 		item := &v1.FindingEpisode{Finding: findings[i], FirstRetainedEpoch: e.FirstRetainedEpoch, FirstRetainedAt: ts(e.Finding.Since),
 			ObservedResolutionAt: ts(e.ResolutionAt), ResolutionEpoch: e.ResolutionEpoch, LatestRetainedSeverity: severityOfText[e.LatestSeverity],
 			LatestStartEpoch: e.LatestStartEpoch, LatestObservedAt: ts(e.LatestObservedAt), TransitionCount: int32(e.TransitionCount), CauseEventId: e.Finding.CauseEventID,
 			Unavailable: []string{"historical_related_configuration", "historical_condition_onset", "historical_operator_state", "historical_flapping", "historical_check_definition"},
+		}
+		if !e.StartKnown {
+			item.Unavailable = append(item.Unavailable, "occurrence_onset")
+		}
+		if e.LatestState == "" {
+			item.Unavailable = append(item.Unavailable, "latest_retained_state")
 		}
 		if e.StartKnown {
 			v := e.Finding.SinceEpoch
