@@ -7,7 +7,7 @@ import {timelineCaptureLimits} from "./TimelineCaptureNotice";
 // Kubernetes lane sits on top when the range has Kubernetes events; a table
 // gives the same content as text.
 import { useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
-import type { Level, Timeline, TimelineRow } from "../api/model";
+import type { FrozenEvidenceRange, Level, Timeline, TimelineRow } from "../api/model";
 import { hm } from "../lib/format";
 import { placeLaneAnnotations } from "../lib/laneLayout";
 import { axisTicks, cellRuns, isDeployment, laneAnnotations, runsText } from "../lib/timelineModel";
@@ -83,7 +83,7 @@ function K8sLane({ tl, scroller, end }: { tl: Timeline; scroller: RefObject<HTML
   );
 }
 
-function TimelineTable({ tl,history }: { tl: Timeline;history:(row:TimelineRow)=>string }) {
+function TimelineTable({ tl,history,range }: { tl: Timeline;history:(row:TimelineRow)=>string;range:FrozenEvidenceRange }) {
   return (
     <div className="table-wrap">
       <table className="tbl">
@@ -108,11 +108,11 @@ function TimelineTable({ tl,history }: { tl: Timeline;history:(row:TimelineRow)=
           {tl.kubernetes.map((e) => (
             <tr key={e.id}>
               <td className="mono">K8s</td>
-              <td colSpan={2}><TimelineMark className="timeline-table-event x" label={`Kubernetes event: ${e.label}`} captureLimits={timelineCaptureLimits(tl,"kubernetes")} preview={<EventPreview event={e}/>} details={<EventDetails event={e} range={tl.evidenceRange??evidenceRange(tl.start,tl.start+tl.bucketCount*tl.bucketMs)} readId={tl.eventReadId} captureLimits={timelineCaptureLimits(tl,"kubernetes")}/>}>{e.label}</TimelineMark></td>
+              <td colSpan={2}><TimelineMark className="timeline-table-event x" label={`Kubernetes event: ${e.label}`} captureLimits={timelineCaptureLimits(tl,"kubernetes")} preview={<EventPreview event={e}/>} details={<EventDetails event={e} range={range} readId={tl.eventReadId} captureLimits={timelineCaptureLimits(tl,"kubernetes")}/>}>{e.label}</TimelineMark></td>
               <td className="mono">{timelineTime(e.time)}</td>
             </tr>
           ))}
-          {tl.windows.map((w,i)=><tr key={w.id??`${w.start}:${i}`}><td>Window</td><td colSpan={2}><TimelineMark className="timeline-table-event x" label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>} details={<TimelineWindowEvidence window={w} range={tl.evidenceRange??evidenceRange(tl.start,tl.start+tl.bucketCount*tl.bucketMs)} readId={tl.eventReadId}/>}>{w.label}</TimelineMark></td><td className="mono">{timelineTime(w.start)} – {timelineTime(w.end)}</td></tr>)}
+          {tl.windows.map((w,i)=><tr key={w.id??`${w.start}:${i}`}><td>Window</td><td colSpan={2}><TimelineMark className="timeline-table-event x" label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>} details={<TimelineWindowEvidence window={w} range={range} readId={tl.eventReadId}/>}>{w.label}</TimelineMark></td><td className="mono">{timelineTime(w.start)} – {timelineTime(w.end)}</td></tr>)}
         </tbody>
       </table>
     </div>
@@ -138,7 +138,7 @@ export function StatusTimeline({ tl, end, live, asTable }: { tl: Timeline; end: 
     redraw((n) => n + 1);
   }, [tl.bucketCount, asTable]);
 
-  if (asTable) return <TimelineTable tl={tl} history={history} />;
+  if (asTable) return <TimelineTable tl={tl} history={history} range={fixed} />;
   const style = { "--buckets": tl.bucketCount } as CSSProperties;
   return (
     <div className="tlx" style={style}>
