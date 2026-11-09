@@ -18,3 +18,4 @@ docs/*
 !docs/features
 
 internal/webui/.build-*
+/dist
