@@ -1,7 +1,14 @@
 package investigation
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/dynamicpb"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -85,4 +92,88 @@ func TestMetricRouteConsumerStreamRankingScope(t *testing.T) {
 	if r.Account != "APP" || r.Stream != "orders" || r.Metric != "consumer.num_pending" {
 		t.Fatalf("broadened stream comparison: %s; unapplied %v", req, unapplied)
 	}
+}
+
+func TestMetricRoutesMatchUIInventory(t *testing.T) {
+	seen := map[string]bool{}
+	pattern := regexp.MustCompile(`key:'([^']+)'[^\n]*?(?:metrics:\['|metric:')([^']+)'`)
+	for _, path := range []string{"../../web/src/lib/metricNavigation.ts", "../../web/src/lib/resourceMetrics.ts", "../../web/src/lib/aggregateMetrics.ts"} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range pattern.FindAllStringSubmatch(string(data), -1) {
+			r, ok := metricRoutes[m[1]]
+			if !ok || len(r.metrics) == 0 || r.metrics[0] != m[2] {
+				t.Fatalf("UI route %s/%s is not explicitly mapped", m[1], m[2])
+			}
+			seen[m[1]] = true
+		}
+	}
+	if len(seen) != len(metricRoutes) {
+		t.Fatalf("UI/CLI route inventory differs: %d vs %d", len(seen), len(metricRoutes))
+	}
+}
+func TestMetricURLAndCopiedContextThroughCommand(t *testing.T) {
+	address := "https://lens.example.com/metrics/messages?system=shop&server=nats-east&range=1h&page=2&rank=1"
+	copied, err := ContextFromURL(address, "https://lens.example.com", fixtureNow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(copied)
+	var first json.RawMessage
+	for _, mode := range []string{"url", "copied"} {
+		t.Run(mode, func(t *testing.T) {
+			source := new(frozenSource)
+			opener := func(context.Context, OfflineSelection) (*Session, error) { return &Session{Source: source}, nil }
+			args := []string{"query", "GetTimeSeriesBatch", "-bundle", "fixture"}
+			if mode == "url" {
+				args = append(args, "-url", address)
+			} else {
+				args = append(args, "-context", "-")
+			}
+			var out, diagnostic bytes.Buffer
+			if err := RunWithOffline(context.Background(), args, bytes.NewReader(raw), &out, &diagnostic, opener); err != nil {
+				t.Fatalf("%v %s", err, out.String())
+			}
+			var result struct {
+				Request   json.RawMessage
+				Context   *Context
+				Unapplied []string `json:"unappliedContextFilters"`
+			}
+			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+			if len(source.requests) != 2 || !strings.Contains(string(result.Request), "server.in_msgs_rate") || !strings.Contains(string(result.Request), "server.out_msgs_rate") || !strings.Contains(string(result.Request), "nats-east") || !strings.Contains(strings.Join(result.Unapplied, ","), "page") || !strings.Contains(strings.Join(result.Unapplied, ","), "rank") {
+				t.Fatalf("lost request scope/disclosure: %s", out.String())
+			}
+			if mode == "url" {
+				first = result.Request
+			} else if !equalMetricRequest(t, first, result.Request) {
+				t.Fatalf("URL/copied requests differ: %s / %s", first, result.Request)
+			}
+			saved, _ := json.Marshal(result.Context)
+			again, err := ParseContext(bytes.NewReader(saved), result.Context.Deployment)
+			if err != nil {
+				t.Fatal(err)
+			}
+			replay, _, err := Prepare("GetTimeSeriesBatch", again, nil)
+			if err != nil || !equalMetricRequest(t, replay, result.Request) {
+				t.Fatalf("returned machine context changed: %s %v", replay, err)
+			}
+		})
+	}
+}
+
+func equalMetricRequest(t *testing.T, a, b []byte) bool {
+	t.Helper()
+	left := dynamicpb.NewMessage(Method("GetTimeSeriesBatch").Input())
+	right := dynamicpb.NewMessage(Method("GetTimeSeriesBatch").Input())
+	if err := protojson.Unmarshal(a, left); err != nil {
+		t.Fatal(err)
+	}
+	if err := protojson.Unmarshal(b, right); err != nil {
+		t.Fatal(err)
+	}
+	return proto.Equal(left, right)
 }
