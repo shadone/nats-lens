@@ -61,12 +61,12 @@ func FromURL(u *url.URL) (Link, Page, error) {
 	if d.Decode(&s) != nil || d.Decode(new(any)) != io.EOF {
 		return bad()
 	}
-	if s.Version != 1 || s.System == "" || len(s.System) > 256 || strings.ContainsAny(s.System, "\x00\r\n\t") {
+	if s.Version != 1 || s.System == "" || len(s.System) > 256 || strings.ContainsFunc(s.System, func(r rune) bool { return r < 32 || r == 127 }) {
 		return bad()
 	}
 	a, ae := time.Parse(time.RFC3339Nano, s.From)
 	b, be := time.Parse(time.RFC3339Nano, s.To)
-	if ae != nil || be != nil || !a.Before(b) {
+	if ae != nil || be != nil || !a.Before(b) || !strings.HasSuffix(s.From, "Z") || !strings.HasSuffix(s.To, "Z") || b.Sub(a) > 30*24*time.Hour {
 		return bad()
 	}
 	var boundary *int64
