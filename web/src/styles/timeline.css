@@ -62,3 +62,11 @@ button.timeline-mark::after { content: ""; position: absolute; inset: -4px; }
 .timeline-finding-list { display: grid; gap: var(--sp-3); }
 .timeline-finding-list > article { padding: var(--sp-4); }
 .timeline-finding-list .btns { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+
+/* Long historical labels must not consume the value column on phones. */
+.occurrence-facts.kv{grid-template-columns:minmax(0,1fr);row-gap:var(--sp-1);margin-block:var(--sp-3)}
+.occurrence-facts.kv dt,.occurrence-facts.kv dd{min-width:0;overflow-wrap:anywhere}
+.occurrence-facts.kv dd{margin-bottom:var(--sp-2)}
+@media(min-width:761px){.occurrence-facts.kv{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.finding-occurrence{padding:var(--sp-4);min-width:0}
+.finding-occurrence .btns{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-3)}
