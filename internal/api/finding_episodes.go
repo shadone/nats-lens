@@ -90,7 +90,7 @@ func decodeEpisodeCursor(token string) (EpisodeCursor, error) {
 
 // Prepare pins omitted bounds from a continuation before resolving defaults.
 // Scope binds the source, system and all selectors; size/offset may change.
-func (p *EpisodePages) Prepare(r *v1.ListFindingEpisodesRequest, reference time.Time) (EpisodeCursor, error) {
+func NormalizeFindingEpisodes(r *v1.ListFindingEpisodesRequest, reference time.Time) (EpisodeCursor, error) {
 	var c EpisodeCursor
 	if r.PageSize < 0 || r.PageSize > 100 || r.FirstRetainedEpoch < 0 || r.TransitionOffset < 0 || r.TransitionOffset > MaxOffset {
 		return c, invalid("invalid occurrence page bounds")
@@ -135,6 +135,14 @@ func (p *EpisodePages) Prepare(r *v1.ListFindingEpisodesRequest, reference time.
 		}
 	}
 	r.Range, err = ResolveRange(r.Range, reference, DefaultRange)
+	if err != nil {
+		return c, err
+	}
+	return c, nil
+}
+
+func (p *EpisodePages) Prepare(r *v1.ListFindingEpisodesRequest, reference time.Time) (EpisodeCursor, error) {
+	c, err := NormalizeFindingEpisodes(r, reference)
 	if err != nil {
 		return c, err
 	}
