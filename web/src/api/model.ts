@@ -287,6 +287,8 @@ export interface TimelineRow {
 }
 
 export interface Timeline {
+  /** Exact transition high-water mark; zero is a known empty capture. */
+  findingReadEpoch?: string;
   start: number;
   bucketMs: number;
   bucketCount: number;

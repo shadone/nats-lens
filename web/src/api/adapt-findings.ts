@@ -154,6 +154,7 @@ export function timeline(r: GetStatusTimelineResponse): Timeline {
     windows: r.windows.map(window),
     natsTruncated: r.natsTruncated,
     findingTruncated: r.findingTruncated,
+    findingReadEpoch:r.findingReadEpoch.toString(),
     kubernetesTruncated: r.kubernetesTruncated,
   };
 }
