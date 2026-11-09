@@ -761,7 +761,12 @@ type ListFindingsRequest struct {
 	// filters.
 	PageToken string `protobuf:"bytes,8,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	// System ID, as ListSystems returns it. Empty means the default system.
-	System        string `protobuf:"bytes,9,opt,name=system,proto3" json:"system,omitempty"`
+	System string `protobuf:"bytes,9,opt,name=system,proto3" json:"system,omitempty"`
+	// Only findings whose check code, check name or entity (its key, name,
+	// account, stream, consumer or server) contains this text, ignoring
+	// case. Empty means all; at most 256 characters, surrounding spaces
+	// dropped.
+	Text          string `protobuf:"bytes,10,opt,name=text,proto3" json:"text,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -855,6 +860,13 @@ func (x *ListFindingsRequest) GetPageToken() string {
 func (x *ListFindingsRequest) GetSystem() string {
 	if x != nil {
 		return x.System
+	}
+	return ""
+}
+
+func (x *ListFindingsRequest) GetText() string {
+	if x != nil {
+		return x.Text
 	}
 	return ""
 }
@@ -1513,7 +1525,7 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x05muted\x18\x04 \x01(\x05R\x05muted\x12\x1a\n" +
 	"\bflapping\x18\x05 \x01(\x05R\bflapping\x12!\n" +
 	"\fresolved_24h\x18\x06 \x01(\x05R\vresolved24h\x12\"\n" +
-	"\facknowledged\x18\a \x01(\x05R\facknowledged\"\xf5\x02\n" +
+	"\facknowledged\x18\a \x01(\x05R\facknowledged\"\x89\x03\n" +
 	"\x13ListFindingsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x121\n" +
 	"\x06states\x18\x02 \x03(\x0e2\x19.natslens.v1.FindingStateR\x06states\x125\n" +
@@ -1527,7 +1539,9 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\tpage_size\x18\a \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\b \x01(\tR\tpageToken\x12\x16\n" +
-	"\x06system\x18\t \x01(\tR\x06system\"\x91\x01\n" +
+	"\x06system\x18\t \x01(\tR\x06system\x12\x12\n" +
+	"\x04text\x18\n" +
+	" \x01(\tR\x04text\"\x91\x01\n" +
 	"\x14ListFindingsResponse\x120\n" +
 	"\bfindings\x18\x01 \x03(\v2\x14.natslens.v1.FindingR\bfindings\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +

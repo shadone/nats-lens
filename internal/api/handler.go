@@ -228,6 +228,7 @@ func (h *Handler) ListFindings(ctx context.Context, req *connect.Request[v1.List
 			func() error { return maxLen("states", len(m.GetStates()), MaxEnumFilters) },
 			func() error { return maxLen("severities", len(m.GetSeverities()), MaxEnumFilters) },
 			func() error { return checkEntity("entity", m.GetEntity(), true) },
+			func() error { return searchText(&m.Text) },
 		)
 	}, on(Provider.ListFindings))
 }
@@ -324,6 +325,7 @@ func (h *Handler) ListEvents(ctx context.Context, req *connect.Request[v1.ListEv
 			func() error { return histogramBuckets(m.GetHistogramBuckets()) },
 			func() error { _, err := EventSelection(m.SelectedIds, m.EventReadId); return err },
 			func() error { return checkEntity("entity", m.GetEntity(), true) },
+			func() error { return searchText(&m.Text) },
 		)
 	}, on(Provider.ListEvents))
 }

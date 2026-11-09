@@ -156,6 +156,13 @@ message ListEventsRequest {
   repeated string selected_ids = 13;
   // Captured event membership. A known zero excludes all events.
   optional int64 event_read_id = 14;
+
+  // Only events whose kind, server, account, stream, consumer, client
+  // name, finding ID (for a finding event) or ID of a finding it caused
+  // contains this text, ignoring case. Empty means all; at most 256 characters, surrounding spaces
+  // dropped. It is a filter like the others: facets and the histogram
+  // count with it, total_unfiltered without it.
+  string text = 15;
 }
 
 // The count of events with one value of a dimension.

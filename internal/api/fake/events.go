@@ -300,6 +300,9 @@ func keepEvent(e *v1.Event, req *v1.ListEventsRequest) bool {
 	if req.GetClientName() != "" && e.GetClientName() != req.GetClientName() {
 		return false
 	}
+	if !api.EventHasText(e, req.GetText()) {
+		return false
+	}
 	w := req.GetEntity()
 	switch w.GetType() {
 	case v1.EntityType_ENTITY_TYPE_SERVER:

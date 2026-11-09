@@ -243,6 +243,12 @@ message ListFindingsRequest {
 
   // System ID, as ListSystems returns it. Empty means the default system.
   string system = 9;
+
+  // Only findings whose check code, check name or entity (its key, name,
+  // account, stream, consumer or server) contains this text, ignoring
+  // case. Empty means all; at most 256 characters, surrounding spaces
+  // dropped.
+  string text = 10;
 }
 
 // Findings, worst first: unmuted before muted, then by severity, then the

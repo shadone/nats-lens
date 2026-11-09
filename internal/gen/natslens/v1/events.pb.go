@@ -378,7 +378,13 @@ type ListEventsRequest struct {
 	// It intersects the other predicates; missing IDs remain missing.
 	SelectedIds []string `protobuf:"bytes,13,rep,name=selected_ids,json=selectedIds,proto3" json:"selected_ids,omitempty"`
 	// Captured event membership. A known zero excludes all events.
-	EventReadId   *int64 `protobuf:"varint,14,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
+	EventReadId *int64 `protobuf:"varint,14,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
+	// Only events whose kind, server, account, stream, consumer, client
+	// name, finding ID (for a finding event) or ID of a finding it caused
+	// contains this text, ignoring case. Empty means all; at most 256 characters, surrounding spaces
+	// dropped. It is a filter like the others: facets and the histogram
+	// count with it, total_unfiltered without it.
+	Text          string `protobuf:"bytes,15,opt,name=text,proto3" json:"text,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -509,6 +515,13 @@ func (x *ListEventsRequest) GetEventReadId() int64 {
 		return *x.EventReadId
 	}
 	return 0
+}
+
+func (x *ListEventsRequest) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
 }
 
 // The count of events with one value of a dimension.
@@ -1324,7 +1337,7 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\arepeats\x18\x15 \x01(\x05R\arepeats\x129\n" +
 	"\n" +
 	"first_time\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampR\tfirstTime\x12\x18\n" +
-	"\aroutine\x18\x17 \x01(\bR\aroutine\"\xa8\x04\n" +
+	"\aroutine\x18\x17 \x01(\bR\aroutine\"\xbc\x04\n" +
 	"\x11ListEventsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x122\n" +
 	"\asources\x18\x02 \x03(\x0e2\x18.natslens.v1.EventSourceR\asources\x12\x14\n" +
@@ -1342,7 +1355,8 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\x11histogram_buckets\x18\v \x01(\x05R\x10histogramBuckets\x12%\n" +
 	"\x0einclude_facets\x18\f \x01(\bR\rincludeFacets\x12!\n" +
 	"\fselected_ids\x18\r \x03(\tR\vselectedIds\x12'\n" +
-	"\revent_read_id\x18\x0e \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
+	"\revent_read_id\x18\x0e \x01(\x03H\x00R\veventReadId\x88\x01\x01\x12\x12\n" +
+	"\x04text\x18\x0f \x01(\tR\x04textB\x10\n" +
 	"\x0e_event_read_id\"V\n" +
 	"\n" +
 	"EventFacet\x12\x1c\n" +

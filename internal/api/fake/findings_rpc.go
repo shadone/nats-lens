@@ -56,6 +56,9 @@ func keepFinding(f *v1.Finding, req *v1.ListFindingsRequest) bool {
 	if req.GetCheckCode() != "" && f.GetCheckCode() != req.GetCheckCode() {
 		return false
 	}
+	if !api.FindingHasText(f, req.GetText()) {
+		return false
+	}
 	return matchesEntity(f.GetEntity(), req.GetEntity())
 }
 

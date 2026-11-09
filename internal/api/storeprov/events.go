@@ -110,6 +110,12 @@ func eventFilter(req *v1.ListEventsRequest) (string, []any) {
 	if req.GetClientName() != "" {
 		where, args = append(where, "e.client_name = ?"), append(args, req.GetClientName())
 	}
+	if t := strings.ToLower(req.GetText()); t != "" {
+		where = append(where, eventText)
+		for range strings.Count(eventText, "?") {
+			args = append(args, t)
+		}
+	}
 	// Events name the account as configured, entities as the servers
 	// report it; in operator mode these differ, so both are accepted.
 	account := "(e.account = ? OR e.account = (SELECT any_value(account_name) FROM accounts WHERE account = ?))"
@@ -143,6 +149,15 @@ func eventFilter(req *v1.ListEventsRequest) (string, []any) {
 	}
 	return strings.Join(where, " AND "), args
 }
+
+// eventText is the text filter of ListEvents, as api.EventHasText has it;
+// each placeholder takes the lowered text. contains() takes the text as it
+// is, so % and _ need no escaping.
+const eventText = `(contains(lower(e.kind), ?) OR contains(lower(coalesce(e.server_name, '')), ?)
+  OR contains(lower(coalesce(e.account, '')), ?) OR contains(lower(coalesce(e.stream, '')), ?)
+  OR contains(lower(coalesce(e.consumer, '')), ?) OR contains(lower(coalesce(e.client_name, '')), ?)
+  OR (e.source = 'finding' AND contains(lower(coalesce(json_extract_string(e.raw, '$.finding_id'), '')), ?))
+  OR e.id IN (SELECT cause_event_id FROM findings WHERE cause_event_id IS NOT NULL AND contains(lower(id), ?)))`
 
 // eventCols are the columns scanEvent reads; for a finding event also the
 // finding, severity and detail from raw.
