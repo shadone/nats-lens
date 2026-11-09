@@ -17,7 +17,7 @@ nats:
   url: nats://nats.nats.svc.cluster.local:4222
   name: natslens
   # Secret natslens-nats-system, key system.creds: a user of the system
-  # account with the grants in the README (NATS permissions).
+  # account with the grants in docs/configuration.md (NATS permissions).
   creds: /etc/natslens-creds/system/system.creds
 
 events:

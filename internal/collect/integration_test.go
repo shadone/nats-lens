@@ -226,7 +226,7 @@ WHERE consumer = 'resize-worker' AND NOT is_leader AND num_pending IS NULL AND n
 	}
 }
 
-// The scoped system user of the README collects every endpoint.
+// The scoped system user of docs/configuration.md collects every endpoint.
 func TestCollectWithScopedSysUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts a 3-node cluster")

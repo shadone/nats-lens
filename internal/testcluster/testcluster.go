@@ -22,8 +22,9 @@ const (
 	SysPass = "sys-test"
 	AppUser = "app"
 	AppPass = "app-test"
-	// ScopedSysUser and ScopedAppUser hold only the permissions the
-	// README asks for, so tests show that they are enough.
+	// ScopedSysUser and ScopedAppUser hold only the grants that
+	// docs/configuration.md lists under NATS permissions, so tests show
+	// that they are enough.
 	ScopedSysUser = "sys-scoped"
 	ScopedSysPass = "sys-scoped-test"
 	ScopedAppUser = "app-scoped"

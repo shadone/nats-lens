@@ -4,7 +4,7 @@ Use these entry points to check a stable working tree before integration. Choose
 
 ## Prepare the tools
 
-Use the Go version required by `go.mod`, its native DuckDB build prerequisites, Node.js and npm from the [development prerequisites](../../README.md#prerequisites), Python 3.9 or later, and `buf`. Install locked web dependencies explicitly before verification. Go protobuf plugins come from the tool declarations in `go.mod`; the TypeScript plugin comes from the installed web dependencies.
+Use the Go version required by `go.mod`, its native DuckDB build prerequisites, Node.js and npm from the [development prerequisites](../development.md#prerequisites), Python 3.9 or later, and `buf`. Install locked web dependencies explicitly before verification. Go protobuf plugins come from the tool declarations in `go.mod`; the TypeScript plugin comes from the installed web dependencies.
 
 Provide the installed feature-docs auditor. The runner discovers the highest numbered `ddenis-core` version in the local Codex plugin cache. On another machine, set `FEATURE_DOCS_AUDITOR` to its `skills/feature-docs/scripts/audit_feature_docs.py` path, or pass `--auditor PATH`. A missing auditor fails verification; the runner never downloads one.
 

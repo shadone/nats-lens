@@ -1,0 +1,14 @@
+# Commands
+
+The `natslens` binary has these subcommands. `-h` after a command, such as `natslens demo -h`, prints its flags. [Configuration](configuration.md) lists the settings that `run` and `once` read.
+
+| Command                              | Description                                                   |
+| ------------------------------------ | ------------------------------------------------------------- |
+| natslens [run] [flags]               | Takes one epoch per interval of every configured system, captures events and archives closed hours until stopped. |
+| natslens notify test -config FILE [-channel NAME] [-system ID] | Sends a test to configured channels without opening a database or connecting to NATS. |
+| natslens once [-system ID] [flags]   | Takes and stores a single epoch of every system, or only of the system `-system` names; no events. |
+| natslens sql [-db FILE] [-config FILE] [-system ID] [-data-dir DIR] [-format table\|json] [-output FILE] QUERY | Runs trusted offline SQL. `-db` selects an existing file and is exclusive with legacy source flags. Default tables and JSON have explicit row/byte/time budgets; see the [SQL CLI reference](reference/sql-cli.md). Read-only access to the selected database is not an untrusted SQL sandbox. |
+| natslens checks list [-config FILE]  | Lists every check with its entity, severity, kind, lookback and thresholds after the file's overrides, and whether it is disabled. |
+| natslens checks run [-config FILE] [-system ID] [-data-dir DIR] [-epoch N] | Evaluates every check for the newest (or the given) epoch of a database no collector has open, read-only, and prints what fails; stores nothing. The database is chosen as for `natslens sql`. |
+| natslens demo [-listen ADDR] [-allowed-host H] [-fixed] | Serves the API with the three demo systems, shifted to now unless `-fixed`. |
+
