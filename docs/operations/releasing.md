@@ -43,7 +43,7 @@ Later releases push to the same package and stay public.
 | Build provenance | A GitHub attestation for every archive and for the image. |
 | GitHub release | Titled with the tag, with install notes followed by notes generated from the merged pull requests. |
 
-Every binary prints the tag: `natslens version` shows `natslens v0.2.0 (go1.27.2 linux/amd64)`. A build from a push to `develop`, a pull request or a manual run is stamped `dev-<commit>`.
+Every binary prints the tag: `natslens version` shows `natslens v0.2.0 (go1.27.3 linux/amd64)`. A build from a push to `develop`, a pull request or a manual run is stamped `dev-<commit>`.
 
 A release that is not a prerelease becomes `:latest` and the GitHub release marked Latest only when no published release has a higher version, so a patch for an older line (v0.1.3 after v0.2.0) leaves both on the newer line.
 

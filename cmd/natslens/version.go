@@ -7,7 +7,7 @@ import (
 )
 
 // runVersion prints the version the binary was built with, the Go release
-// and the platform, for example "natslens v0.1.0 (go1.27.2 linux/amd64)".
+// and the platform, for example "natslens v0.1.0 (go1.27.3 linux/amd64)".
 func runVersion(args []string, w io.Writer) error {
 	if len(args) > 0 {
 		return fmt.Errorf("version takes no arguments, got %q", args)

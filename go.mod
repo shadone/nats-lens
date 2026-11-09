@@ -2,6 +2,8 @@ module github.com/shadone/nats-lens
 
 go 1.27.1
 
+toolchain go1.27.3
+
 require (
 	connectrpc.com/connect v1.21.1
 	github.com/duckdb/duckdb-go/v2 v2.20000.0

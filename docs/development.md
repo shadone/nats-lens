@@ -4,7 +4,7 @@ This page is for contributors: what to install, how to build and run nats-lens a
 
 ## Prerequisites
 
-- Go 1.27 (1.27.2 or later for the standard library's security fixes)
+- Go 1.27 (1.27.3 or later for the standard library's security fixes; `go.mod`'s `toolchain go1.27.3` line has the go command download it when an older 1.27 is installed, unless `GOTOOLCHAIN=local`)
 - `nats-server` (v2.15) and the `nats` CLI, for the local dev cluster
 - Node.js 22.22, 24.15 or 26 and npm, to build and test the web UI (`make build` verifies or regenerates production assets)
 - A C and C++ compiler, because DuckDB is linked through cgo

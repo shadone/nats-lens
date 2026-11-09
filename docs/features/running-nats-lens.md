@@ -17,7 +17,7 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **Remote investigation.** `natslens investigate` uses configured API profiles without opening a database or connecting to NATS. Its separate read-only route needs the existing authenticated access perimeter and a restricted proxy policy for least privilege ([agent-investigations.md](agent-investigations.md)).
 - **Commands.** `natslens run` (also `natslens` alone) runs until SIGTERM or SIGINT. `natslens once` stores one collection of every system, or of the one `-system ID` names, runs the checks on it and exits, without events, archive or API. `natslens sql`, `natslens checks` and `natslens demo` are described in [sql-access.md](sql-access.md), [checks.md](checks.md) and [demo-mode.md](demo-mode.md).
 - **Published builds.** Each release publishes the container image `ghcr.io/shadone/nats-lens` for linux/amd64 and linux/arm64 and binary archives for Linux and macOS on amd64 and arm64, with `checksums.txt` and build provenance attestations. The Linux binaries need glibc 2.34 and libstdc++ from GCC 12 or later; the macOS binaries need macOS 13 or later. See [releasing.md](../operations/releasing.md).
-- **Version.** `natslens version` prints the version the binary was built with, the Go release and the platform, for example `natslens v0.1.0 (go1.27.2 linux/amd64)`, without reading a configuration. Release binaries and images carry their release tag; a binary built from a checkout prints `dev`. The same version appears in the start log line.
+- **Version.** `natslens version` prints the version the binary was built with, the Go release and the platform, for example `natslens v0.1.0 (go1.27.3 linux/amd64)`, without reading a configuration. Release binaries and images carry their release tag; a binary built from a checkout prints `dev`. The same version appears in the start log line.
 - **Test notifications.** `natslens notify test` reads the configured channels and sends test messages without opening a database or connecting to NATS ([notifications.md](notifications.md)). Only `run` schedules finding delivery; `once`, `checks run` and `demo` send no finding notifications.
 - **Receiver access.** Notification delivery needs DNS and outbound HTTPS to configured receivers. A NetworkPolicy that restricts egress must allow those destinations, including when copying the GKE component.
 - **Where settings come from.** Defaults first, then the file named by `-config`, then flags. The project's `natslens.example.yaml` lists every key. nats-lens checks the whole configuration at start and stops with every error it found, for example "timeout must be less than a third of interval: an epoch can take three collect windows".
@@ -53,7 +53,7 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **Surfaces:** `cli`
 - **Given** a binary from the `v0.1.0` release for linux/amd64
 - **When** I run `natslens version`
-- **Then** it prints `natslens v0.1.0 (go1.27.2 linux/amd64)` and exits, with the Go release it was built with
+- **Then** it prints `natslens v0.1.0 (go1.27.3 linux/amd64)` and exits, with the Go release it was built with
 
 ### Refuse to serve openly by mistake
 
