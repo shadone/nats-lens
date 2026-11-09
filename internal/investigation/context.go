@@ -61,7 +61,7 @@ const MaxInputBytes = 64 << 10
 const MaxRange = 30 * 24 * time.Hour
 
 var metricPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$`)
-var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors")
+var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId")
 
 func validText(s string, n int) bool {
 	if !utf8.ValidString(s) || len(s) > n {
@@ -132,6 +132,8 @@ func supportedPath(p string) bool {
 		return len(parts) <= 2 || occurrenceRoute(parts)
 	case "servers", "checks":
 		return len(parts) <= 2
+	case "timeline":
+		return len(parts) == 3 && parts[1] == "windows" && len(parts[2]) == 64
 	case "events":
 		return len(parts) == 1
 	case "streams", "kv-stores", "object-stores":
@@ -159,7 +161,7 @@ func validateSource(raw string) error {
 		return errors.New("invalid UI query")
 	}
 	for k, v := range q {
-		occurrenceBoundary := k == "readEpoch" && occurrenceRoute(pathSegments(u.EscapedPath()))
+		occurrenceBoundary := k == "readEpoch" && occurrenceRoute(pathSegments(u.EscapedPath())) || k == "eventReadId" && (u.Path == "/events" || strings.HasPrefix(u.Path, "/timeline/windows/"))
 		if occurrenceBoundary {
 			n, e := strconv.ParseInt(v[0], 10, 64)
 			if e != nil || n < 0 || strconv.FormatInt(n, 10) != v[0] {
@@ -343,6 +345,14 @@ func (c *Context) infer(path string, q url.Values) {
 	p := pathSegments(path)
 	if len(p) == 0 {
 		return
+	}
+	if len(p) == 3 && p[0] == "timeline" && p[1] == "windows" {
+		request := map[string]any{"system": c.System, "range": c.Range}
+		if q.Has("eventReadId") {
+			request["eventReadId"] = q.Get("eventReadId")
+		}
+		raw, _ := json.Marshal(request)
+		c.Query = &BoundQuery{Method: "GetStatusTimeline", Request: raw}
 	}
 	if occurrenceRoute(p) {
 		c.Evidence = []Evidence{{"finding", p[1]}}

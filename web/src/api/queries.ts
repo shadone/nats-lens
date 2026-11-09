@@ -116,11 +116,11 @@ export function useEvents(spec: RangeSpec, f: api.EventFilter) {
   });
 }
 
-export function useEvent(id: string | undefined) {
+export function useEvent(id: string | undefined,readId?:string) {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["event", sys, id],
-    queryFn: ({ signal }) => api.getEvent(sys, id!, signal),
+    queryKey: ["event", sys, id,readId],
+    queryFn: ({ signal }) => api.getEvent(sys, id!, signal,readId),
     enabled: id !== undefined,
     staleTime: Infinity,
   });

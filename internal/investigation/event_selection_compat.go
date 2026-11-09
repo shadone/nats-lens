@@ -61,6 +61,9 @@ func checkEventSelectionReply(method string, in, out protoreflect.Message) error
 			return mismatch()
 		}
 		events := out.Descriptor().Fields().ByJSONName("events")
+		if method == "GetEventBatch" && count != nil && events != nil && out.Get(count).Int() != int64(out.Get(events).List().Len()) {
+			return mismatch()
+		}
 		if events != nil {
 			rows := out.Get(events).List()
 			seen := map[string]bool{}

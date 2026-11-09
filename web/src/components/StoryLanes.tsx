@@ -8,12 +8,16 @@ import { hm } from "../lib/format";
 import { findingRuns } from "../lib/storyLanes";
 import { useWidth } from "../lib/useWidth";
 import { axisTicks, isDeployment, runsText, zoomWindow } from "../lib/timelineModel";
-import { RLink } from "./common";
+import {Link} from "react-router";
+import {useSystem} from "../lib/useSystem";
 import { StatusTimeline, trackSpan } from "./StatusTimeline";
 import {InfoTip} from "./MetricBox";
 import {TimelineInvestigationProvider,TimelineFindingRange} from "./TimelineInvestigation";
-import {TimelineMark, EventPreview, EventDetails, WindowPreview, timelineTime} from "./TimelineMark";
+import {TimelineMark, WindowPreview, timelineTime} from "./TimelineMark";
 import {LEVEL_LABEL} from "../lib/view";
+import {TimelineEventTicks} from "./TimelineEventTicks";
+import {TimelineWindowEvidence} from "./TimelineEventEvidence";
+import {evidenceRange,evidenceQuery} from "../lib/timelineEvidence";
 import { ZoomStrip } from "./ZoomStrip";
 
 interface Props {
@@ -29,16 +33,6 @@ function firedNote(n: number): string {
 
 function pct(v: number): string {
   return `${(Math.min(1, Math.max(0, v)) * 100).toFixed(3)}%`;
-}
-
-function Ticks({ events, frac, cls }: { events: LaneEvent[]; frac: (t: number) => number; cls: (e: LaneEvent) => string }) {
-  return (
-    <>
-      {events.map((e) => (
-        <TimelineMark key={e.id} className={`sl-tick ${cls(e)}`} style={{left:pct(frac(e.time))}} label={`${e.source === "kubernetes" ? "Kubernetes" : "NATS"} event: ${e.label}`} preview={<EventPreview event={e}/>} details={<EventDetails event={e}/>}/>
-      ))}
-    </>
-  );
 }
 
 function natsClass(e: LaneEvent): string {
@@ -71,18 +65,21 @@ function LaneLegend({ windows }: { windows: boolean }) {
 export function StoryLanes(props:Props) { return <TimelineInvestigationProvider><StoryLaneContents {...props}/></TimelineInvestigationProvider>; }
 
 function StoryLaneContents({ tl, end, live }: Props) {
+  const system=useSystem();
   const [checks, setChecks] = useState(false);
   const [asTable, setAsTable] = useState(false);
   const span = trackSpan(tl, end);
   const axis = useRef<HTMLDivElement>(null);
   const axisW = useWidth(axis);
   const frac = (t: number) => (t - tl.start) / span;
+ const fixed=tl.evidenceRange??evidenceRange(tl.start,tl.start+span);
+  const lanePath=(path:string)=>{const [base,query]=path.split('?'),p=evidenceQuery(system,fixed);new URLSearchParams(query).forEach((v,k)=>p.set(k,v));if(base==='/events'&&tl.eventReadId!==undefined)p.set('eventReadId',tl.eventReadId);return `${base}?${p}`};
   const runs = findingRuns(tl.rows, tl.start, tl.bucketMs, tl.bucketCount).filter((r) => r.level !== "nodata");
   const deploys = tl.kubernetes.filter(isDeployment).length;
   const natsWarn = tl.nats.filter((e) => e.severity === "warning" || e.severity === "critical").length;
   const win = zoomWindow(tl.windows);
   const windows = tl.windows.map((w) => (
-    <TimelineMark key={w.start} className="sl-win" style={{left:pct(frac(w.start)),width:pct(frac(w.end)-frac(w.start))}} label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>}/>
+    <TimelineMark key={w.start} className="sl-win" style={{left:pct(frac(w.start)),width:pct(frac(w.end)-frac(w.start))}} label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>} details={<TimelineWindowEvidence window={w} range={fixed} readId={tl.eventReadId}/>}/>
   ));
   const k8sName = `Kubernetes: ${tl.kubernetes.length} events${deploys ? `, ${deploys} deployments` : ""}${tl.windows.map((w) => `, ${w.label} ${hm(w.start)}–${hm(w.end)}`).join("")}`;
   const lanes = [
@@ -94,7 +91,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
       marks: (
         <>
           {windows}
-          <Ticks events={tl.kubernetes} frac={frac} cls={(e) => `k8s${isDeployment(e) ? " deploy" : ""}`} />
+          <TimelineEventTicks events={tl.kubernetes} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={(e) => `sl-tick k8s${isDeployment(e) ? " deploy" : ""}`} />
         </>
       ),
       more: "/events?src=kubernetes",
@@ -118,7 +115,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
       name: "Events",
       note: tl.nats.length ? `${tl.nats.length} NATS${natsWarn ? `, ${natsWarn} warnings` : ""}` : "no NATS events",
       label: `NATS events: ${tl.nats.length}${natsWarn ? `, ${natsWarn} warnings` : ""}`,
-      marks: <Ticks events={tl.nats} frac={frac} cls={natsClass} />,
+      marks: <TimelineEventTicks events={tl.nats} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={e=>`sl-tick ${natsClass(e)}`} />,
       more: "/events?src=nats",
     },
   ];
@@ -129,9 +126,9 @@ function StoryLaneContents({ tl, end, live }: Props) {
         {lanes.map((l) => (
           <div className="sl-row" key={l.id}>
             <div className="sl-lab">
-              <RLink to={l.more} className="x sl-name">
+              <Link to={lanePath(l.more)} className="x sl-name">
                 {l.name}
-              </RLink>
+              </Link>
               <small>{l.note}</small>
             </div>
             <div className="sl-track" role="group" aria-label={l.label}>

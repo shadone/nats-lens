@@ -6,7 +6,8 @@ import {RLink} from "./common";
 import {useReadoutHover} from "../charts/useReadoutHover";
 import {ChartReadout} from "../charts/ChartReadout";
 import {isoSecond} from "../lib/format";
-import type {LaneEvent} from "../api/model";
+import {RecordedTimelineEvent} from "./TimelineEventEvidence";
+import type {FrozenEvidenceRange,LaneEvent} from "../api/model";
 
 export const timelineTime=(time:number)=>`${isoSecond(time)} UTC`;
 
@@ -34,8 +35,8 @@ export function TimelineMark({label,preview,children,className,style,svg=false,d
   return svg?<><g {...props} ref={el=>{anchor.current=el}} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();activate()}}}>{children}</g>{tip}{modal}</>:<><button {...props} ref={el=>{anchor.current=el}} type="button">{children}</button>{tip}{modal}</>;
 }
 
-export function EventDetails({event:e}:{event:LaneEvent}) {
-  return e.eventId?<p><RLink to={`/events?id=${encodeURIComponent(e.eventId)}`}>Open recorded event</RLink></p>:<p>Only the Timeline summary is available here; this mark has no recorded-event ID.</p>;
+export function EventDetails(props:{event:LaneEvent;range?:FrozenEvidenceRange;readId?:string}) {
+ return <RecordedTimelineEvent {...props}/>;
 }
 export function CheckDetails({code}:{code:string}) {
   return <p><RLink to={`/checks/${encodeURIComponent(code)}`}>Read check reference</RLink></p>;

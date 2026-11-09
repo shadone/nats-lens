@@ -19,6 +19,7 @@ import { Overview } from "./pages/Overview";
 import { Checks, CheckDetail } from "./pages/Checks";
 import { Findings } from "./pages/Findings";
 import { FindingByLabels } from "./pages/FindingByLabels";
+import {TimelineWindow} from "./pages/TimelineWindow";
 import {FindingOccurrence} from "./pages/FindingOccurrence";
 import { FindingDetail } from "./pages/FindingDetail";
 import { Events } from "./pages/Events";
@@ -81,6 +82,7 @@ export function App() {
                 <Route path="/findings/by-labels" element={<FindingByLabels />} />
                 <Route path="/findings/:id/occurrences/:firstEpoch" element={<FindingOccurrence />} />
                 <Route path="/findings/:id" element={<FindingDetail />} />
+                <Route path="/timeline/windows/:id" element={<TimelineWindow />} />
                 <Route path="/events" element={<Events />} />
                 <Route path="/streams" element={<Streams />} />
                 <Route path="/streams/:account/:stream" element={<StreamDetail />} />

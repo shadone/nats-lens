@@ -40,7 +40,8 @@ export function entityFromParams(p: URLSearchParams): Entity | undefined {
 }
 
 function OneEvent({ id, end }: { id: string; end: number }) {
-  const q = useEvent(id);
+  const [params]=useSearchParams();
+  const q = useEvent(id,params.get("eventReadId")??undefined);
   const [open, setOpen] = useState(true);
   if (q.error) return <ErrorBox error={q.error} what={`event ${id}`} retry={() => q.refetch()} />;
   if (!q.data) return null;
@@ -144,7 +145,7 @@ export function Events() {
   const worthReading = params.get("show") !== "all";
   const id = params.get("id") ?? undefined;
   const pager = usePager([sys, sources.join(), kinds.join(), fromParams?.key, client, worthReading, rangeKey(spec)].join("|"));
-  const filter: FeedFilter = { sources, kinds, entity: fromParams, clientName: client, worthReading, pageSize: 50, pageToken: pager.token };
+  const filter: FeedFilter = { eventReadId:params.get("eventReadId")??undefined, evidenceRange:params.has("eventReadId")&&params.has("from")&&params.has("to")?{start:params.get("from")!,end:params.get("to")!}:undefined, sources, kinds, entity: fromParams, clientName: client, worthReading, pageSize: 50, pageToken: pager.token };
   const q = useEventFeed(spec, filter);
   // Placeholder results belong to a previous filter. A failed empty refresh
   // cannot establish an empty result either; show the error and Retry instead.

@@ -225,6 +225,9 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 	case "GetFinding":
 		c.SourcePath = "/findings/" + url.PathEscape(r.ID)
 		c.Evidence = []Evidence{{Kind: "finding", ID: r.ID}}
+	case "GetEventBatch":
+		c.SourcePath = "/events"
+		limitations = append(limitations, "Exact event identities are preserved in the machine request; the Events feed is broader context")
 	case "GetEvent":
 		c.SourcePath = "/events"
 		c.Filters["id"] = r.ID

@@ -10,6 +10,8 @@ vi.mock("../lib/useGlobalQuery",()=>({useGlobalQuery:()=>""}));
 vi.mock("../api/findingEpisodes",()=>({useFindingEpisodes:()=>({data:{items:[],totalCount:0,nextPageToken:"",readEpoch:"0"},isPending:false,error:null})}));
 vi.mock("../api/queries",()=>({useFindings:()=>({data:{items:[],totalCount:0,nextPageToken:""},isPending:false,error:null})}));
 
+vi.mock('../api/timelineEvidence',()=>({useCapturedEvent:()=>({data:undefined,isPending:false,error:null}),useSelectedTimelineEvents:()=>({data:undefined,isPending:false,error:null})}));
+
 const start = Date.parse("2026-10-17T23:59:00Z");
 const timeline: Timeline = {
   start, bucketMs: 60_000, bucketCount: 2,
