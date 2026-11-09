@@ -39,3 +39,8 @@ it('infers the exact occurrence read for the page-level copy action',()=>{
  const c=buildInvestigationContext({origin:'https://lens.example.com',pathname:'/findings/stream-001%3AAPP%2Forders/occurrences/9007199254740993',search:'?readEpoch=9007199254740995',system:'shop',spec:{kind:'fixed',from:now-3600000,to:now}});
  expect(c).toMatchObject({query:{method:'ListFindingEpisodes',request:{system:'shop',range:c.range,findingId:'stream-001:APP/orders',firstRetainedEpoch:'9007199254740993',readEpoch:'9007199254740995',includeTransitions:true}}});
 });
+it('keeps captured event boundaries and submillisecond Timeline ranges in portable evidence',()=>{
+ const range={start:'2026-10-17T13:00:00.000123Z',end:'2026-10-17T14:00:00.000456Z'};
+ const c=buildInvestigationContext({origin:'https://lens.example.com',pathname:'/events',search:'?id=9007199254740993&eventReadId=9007199254740995',system:'shop',spec:{kind:'fixed',from:Date.parse(range.start),to:Date.parse(range.end)},selection:{range,query:{method:'GetEventBatch',request:{ids:['9007199254740993'],eventReadId:'9007199254740995'}}}});
+ expect(c.range).toEqual(range);expect(c.filters.eventReadId).toBe('9007199254740995');expect(c.query?.request).toMatchObject({ids:['9007199254740993'],eventReadId:'9007199254740995'});
+});
