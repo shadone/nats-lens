@@ -27,3 +27,9 @@ it('uses the visible fixed interval when event-only Timelines have no check buck
  render(<MemoryRouter initialEntries={['/?system=shop']}><StatusTimeline tl={{...tl,bucketCount:0,bucketMs:0,rows:[],windows:[],evidenceRange:undefined}} end={start+120000} live={false} asTable/></MemoryRouter>);
  fireEvent.click(screen.getByRole('button',{name:'Kubernetes event: nats-0 ready'}));const u=new URL(screen.getByRole('link',{name:'Open recorded event'}).getAttribute('href')!,'https://example.com');expect(Date.parse(u.searchParams.get('from')!)).toBe(start);expect(Date.parse(u.searchParams.get('to')!)).toBe(start+120000);
 });
+
+ it("labels the table summary by its selected range rather than as current state",()=>{
+  render(<MemoryRouter><StatusTimeline tl={tl} end={start+120_000} live={false} asTable/></MemoryRouter>);
+  expect(screen.getByRole("columnheader",{name:"Range summary"})).toBeInTheDocument();
+  expect(screen.queryByRole("columnheader",{name:"Now"})).not.toBeInTheDocument();
+ });
