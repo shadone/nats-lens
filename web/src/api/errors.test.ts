@@ -12,7 +12,7 @@ describe("errorInfo", () => {
   });
 
   it("on the demo site, points to a reload, not to a server or its log", () => {
-    for (const code of [Code.Unknown, Code.Internal, Code.Unavailable]) {
+    for (const code of [Code.Unknown, Code.Internal, Code.Unavailable, Code.DeadlineExceeded]) {
       const hint = errorInfo(new ConnectError("The demo stopped before it started.", code), true).hint;
       expect(hint).toMatch(/reload the page/);
       expect(hint).not.toMatch(/server|log/);

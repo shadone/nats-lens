@@ -30,6 +30,7 @@ const DEMO_HINTS: Partial<Record<Code, string>> = {
   [Code.Unavailable]: "The demo in this page is not running; reload the page.",
   [Code.Internal]: "The demo in this page failed; reload the page to try again.",
   [Code.Unknown]: "The demo in this page failed; reload the page to try again.",
+  [Code.DeadlineExceeded]: "The demo is taking too long to start or answer; reload the page.",
 };
 const DEMO_NETWORK_HINT = "The browser could not download the demo; check the connection and reload the page.";
 
