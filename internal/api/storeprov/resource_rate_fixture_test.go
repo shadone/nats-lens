@@ -1,11 +1,12 @@
 package storeprov_test
 
 import (
+	"testing"
+	"time"
+
 	"github.com/shadone/nats-lens/internal/api/storeprov"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"testing"
-	"time"
 )
 
 // The scenario promises positive and measured-zero sequence rates. Those
@@ -28,6 +29,15 @@ func TestConformanceRateFixtureHasExplicitIdentityEvidence(t *testing.T) {
 		if err != nil || got.GetConsumer().DeliveredPerSecond == nil || got.GetConsumer().GetDeliveredPerSecond() != want {
 			t.Fatalf("%s rate = %v, %v; want measured %v", name, got, err, want)
 		}
+	}
+	// A provider configured for thirty seconds cannot certify five-minute
+	// pairs. This is independent of missing identity metadata.
+	shortCadence := *p
+	shortCadence.Interval = 30 * time.Second
+	req.Consumer = "fast"
+	tooFar, err := shortCadence.GetConsumer(ctx, req)
+	if err != nil || tooFar.GetConsumer().DeliveredPerSecond != nil {
+		t.Fatalf("out-of-policy cadence inferred rate: %v, %v", tooFar, err)
 	}
 	// Removing identity evidence must remove the rate, not turn it into zero
 	// or borrow an earlier known run.
