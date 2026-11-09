@@ -200,45 +200,70 @@ func (p *Provider) decorateEvents(ctx context.Context, evs []*v1.Event) error {
 	}
 	for _, ev := range evs {
 		if t := ev.GetTransition(); t != nil {
-			code, _, _ := strings.Cut(t.GetFindingId(), ":")
-			ev.Type = code
-			if p.Checks != nil {
-				if c, ok := p.Checks.Lookup(code); ok {
-					ev.Type = code + " " + c.Name
-				}
-			}
 			if f, ok := byID[t.GetFindingId()]; ok {
 				ev.Finding = p.findingProto(f, nil)
 			}
-			// The stored summary leads with the code for SQL readers; the
-			// type carries that here, so the summary names the entity. A
-			// resolve's detail is the last failing result, and says so.
-			label := entityLabel(ev)
-			if label == "" {
-				// No column names the entity: fall back to the finding's
-				// key, and for the system, whose key is empty, to its name.
-				_, label, _ = strings.Cut(t.GetFindingId(), ":")
-				if acc, rest, ok := strings.Cut(label, "/"); ok && names[acc] != "" {
-					label = names[acc] + "/" + rest
-				}
-				if label == "" {
-					label = "system"
-				}
-			}
-			switch {
-			case t.GetState() == v1.FindingState_FINDING_STATE_RESOLVED:
-				ev.Summary = "resolved: " + label + ". Last failing result: " + t.GetDetail()
-			case label != "":
-				ev.Summary = label + ": " + t.GetDetail()
-			default:
-				ev.Summary = t.GetDetail()
-			}
+			p.decorateEventLabel(ev, names)
+
 		}
 		for _, f := range byCause[ev.GetId()] {
 			ev.Raised = append(ev.Raised, p.findingProto(f, nil))
 		}
 	}
 	return nil
+}
+
+// Timeline's lane DTO does not contain current finding/raised-finding fields.
+// Reuse pure labels without leaving the caller's transaction connection.
+func (p *Provider) decorateTimelineEvents(ctx context.Context, evs []*v1.Event) error {
+	if len(evs) == 0 {
+		return nil
+	}
+	names, err := p.AccountNames(ctx)
+	if err != nil {
+		return err
+	}
+	for _, ev := range evs {
+		p.decorateEventLabel(ev, names)
+	}
+	return nil
+}
+
+func (p *Provider) decorateEventLabel(ev *v1.Event, names map[string]string) {
+	t := ev.GetTransition()
+	if t == nil {
+		return
+	}
+	code, _, _ := strings.Cut(t.GetFindingId(), ":")
+	ev.Type = code
+	if p.Checks != nil {
+		if c, ok := p.Checks.Lookup(code); ok {
+			ev.Type = code + " " + c.Name
+		}
+	}
+	// The stored summary leads with the code for SQL readers; the
+	// type carries that here, so the summary names the entity. A
+	// resolve's detail is the last failing result, and says so.
+	label := entityLabel(ev)
+	if label == "" {
+		// No column names the entity: fall back to the finding's
+		// key, and for the system, whose key is empty, to its name.
+		_, label, _ = strings.Cut(t.GetFindingId(), ":")
+		if acc, rest, ok := strings.Cut(label, "/"); ok && names[acc] != "" {
+			label = names[acc] + "/" + rest
+		}
+		if label == "" {
+			label = "system"
+		}
+	}
+	switch {
+	case t.GetState() == v1.FindingState_FINDING_STATE_RESOLVED:
+		ev.Summary = "resolved: " + label + ". Last failing result: " + t.GetDetail()
+	case label != "":
+		ev.Summary = label + ": " + t.GetDetail()
+	default:
+		ev.Summary = t.GetDetail()
+	}
 }
 
 // ListEvents reads events newest first, paging by time and ID so that new
@@ -352,7 +377,7 @@ func (p *Provider) lanes(ctx context.Context, r *v1.TimeRange, entity *v1.Entity
 		return nil, false, false, err
 	}
 	evs := append(nats, found...)
-	if err := p.decorateEvents(ctx, evs); err != nil {
+	if err := p.decorateTimelineEvents(ctx, evs); err != nil {
 		return nil, false, false, err
 	}
 	slices.SortStableFunc(evs, func(a, b *v1.Event) int {
