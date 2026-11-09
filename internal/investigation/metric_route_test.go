@@ -68,3 +68,21 @@ func TestMetricRouteSelectedScopeAndOptions(t *testing.T) {
 		}
 	}
 }
+
+func TestMetricRouteConsumerStreamRankingScope(t *testing.T) {
+	c, err := ContextFromURL("https://lens.example.com/metrics/consumer-pending?system=shop&stream=APP%2Forders&account=OTHER&range=1h", "https://lens.example.com", fixtureNow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, unapplied, err := Prepare("ListMetricContributors", c, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r struct{ Account, Stream, Metric string }
+	if err = json.Unmarshal(req, &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.Account != "APP" || r.Stream != "orders" || r.Metric != "consumer.num_pending" {
+		t.Fatalf("broadened stream comparison: %s; unapplied %v", req, unapplied)
+	}
+}
