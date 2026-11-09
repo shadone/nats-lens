@@ -20,7 +20,7 @@ export interface InvestigationContext {
  filters:Record<string,string>;entity?:InvestigationEntity;metric?:string;point?:string;evidence?:{kind:string;id:string}[];
  provenance:{status:"unavailable";reason:string};annotation?:string;
 }
-const FILTERS="sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId readEpoch".split(" ");
+const FILTERS="sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId readEpoch page rank rankMetric rankBy rankOrder rankQuery".split(" ");
 function routeEntity(pathname:string):InvestigationEntity|undefined{
  let p:string[];try{p=pathname.split("/").slice(1).map(decodeURIComponent)}catch{return undefined}
  if(p[0]==="servers"&&p.length===2&&p[1]!=="slow-consumers")return {type:"ENTITY_TYPE_SERVER",key:p[1],server:p[1]};
@@ -70,7 +70,7 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  // Selected chart/route identities outrank retained selectors. Query-only
  // contexts use the same consumer > stream > server precedence as Events.
  if(!entity&&pathname==="/events"&&params.get("consumer")){const key=params.get("consumer")!,p=key.split("/");if(p.length===3)entity={type:"ENTITY_TYPE_CONSUMER",key,account:p[0],stream:p[1],consumer:p[2]}}
- if(!entity&&["/events","/consumers"].includes(pathname)&&params.get("stream")){const key=params.get("stream")!,p=key.split("/");if(p.length===2)entity={type:"ENTITY_TYPE_STREAM",key,account:p[0],stream:p[1]}}
+ if(!entity&&(["/events","/consumers"].includes(pathname)||resource?.kind==="consumer")&&params.get("stream")){const key=params.get("stream")!,p=key.split("/");if(p.length===2)entity={type:"ENTITY_TYPE_STREAM",key,account:p[0],stream:p[1]}}
  if(!entity&&["/events","/connections","/servers/slow-consumers","/placement"].includes(pathname)&&params.get("server"))entity={type:"ENTITY_TYPE_SERVER",key:params.get("server")!,server:params.get("server")!};
  const evidence:{kind:string;id:string}[]=[...(s?.evidence??[])];
  if(pathname.startsWith("/findings/")&&pathname!=="/findings/by-labels"&&pathname!=="/findings/history"&&!evidence.some(e=>e.kind==="finding"))evidence.push({kind:"finding",id:decodeURIComponent(pathname.split("/")[2])});

@@ -62,7 +62,7 @@ const MaxInputBytes = 64 << 10
 const MaxRange = 30 * 24 * time.Hour
 
 var metricPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$`)
-var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId readEpoch")
+var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId readEpoch page rank rankMetric rankBy rankOrder rankQuery")
 
 func validText(s string, n int) bool {
 	if !utf8.ValidString(s) || len(s) > n {
@@ -125,6 +125,12 @@ func supportedPath(p string) bool {
 		return false
 	}
 	switch parts[0] {
+	case "metrics":
+		if len(parts) == 1 {
+			return true
+		}
+		_, ok := metricRouteAt(p)
+		return ok
 	case "capacity":
 		return len(parts) == 1 || len(parts) == 2 && parts[1] == "storage-change"
 	case "", "fleet", "data-history", "replay", "topology", "placement", "connections", "accounts", "subjects", "micro-services", "applications":
@@ -237,6 +243,17 @@ func (c *Context) Validate(trusted string) error {
 	for k, v := range c.Filters {
 		if !allowedFilter(k) || !validText(v, 1024) {
 			return errors.New("unsupported filter")
+		}
+	}
+	if r, ok := metricRouteAt(strings.Split(c.SourcePath, "?")[0]); ok {
+		params := url.Values{}
+		u, _ := url.Parse(c.SourcePath)
+		params = u.Query()
+		for k, v := range c.Filters {
+			params.Set(k, v)
+		}
+		if _, err := metricRouteEntity(r, params); err != nil {
+			return err
 		}
 	}
 	if err := validateEntity(c.Entity); err != nil {
@@ -358,6 +375,9 @@ func ContextFromURL(raw, trusted string, now time.Time) (*Context, error) {
 		c.Filters["show"] = "worth"
 	}
 	c.infer(u.EscapedPath(), q)
+	if err = c.inferMetricRoute(u.EscapedPath(), q); err != nil {
+		return nil, err
+	}
 	// A compound selected resource names its own account, as in the UI.
 	if c.Entity != nil && c.Entity.Account != "" {
 		c.Account = c.Entity.Account

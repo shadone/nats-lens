@@ -316,3 +316,22 @@ Use the shared `GetStorageChange` method for pinned before/after storage evidenc
 ## Pre-bucket metric evidence
 
 For a captured metric peak rather than a peak of chart buckets, request `includeObservations: true` with GetTimeSeries or its individual batch queries. [Metric observations](metric-observations.md) defines the sample counts, NULL/zero distinction, actual collection timestamps, arithmetic means, band edges and exact event totals. The 30-day option does not add traffic volumes, process attribution, complete-capture claims or a universal collection pin.
+
+## Metric-page imports
+
+The twenty-one shipped `/metrics/<family>` routes and the metric index are accepted source paths. URL imports derive known metric identities; selected server names use server series and unselected server families use fleet series. Both message/byte directions and both asset groups remain separate. Explicit stream/consumer keys retain their typed identity, including backing-stream prefixes. Consumer comparisons filtered by `stream=APP/orders` use account `APP` ahead of a retained account selector. Unknown routes or malformed selectors are errors.
+
+For example, with an already trusted `demo` profile:
+
+```sh
+natslens investigate query GetTimeSeriesBatch -profiles profiles.json -profile demo \
+  -url 'https://lens.example.com/metrics/messages?system=shop&server=nats-0&range=1h' \
+  -max-points 96
+natslens investigate query ListMetricContributors -profiles profiles.json -profile demo \
+  -url 'https://lens.example.com/metrics/consumer-pending?system=shop&stream=APP/orders&range=1h' \
+  -page-size 12
+```
+
+Copied contexts use the same validated pipeline and may substitute `-context context.json`. An unselected resource page does not identify one series entity; select a resource or use the bounded contributor method instead of treating missing identity as an aggregate measurement. Relative bounds use the selected source clock. Returned `context.query` retains the exact same-method request for replay.
+
+URL-backed page/ranking choices travel as context, including `page`, `rank`, `rankMetric`, `rankBy`, `rankOrder` and `rankQuery`. They do not automatically become a ranking RPC, change the primary metric or execute extra reads. Inspect `unappliedContextFilters`; use `describe ListMetricContributors` and an explicit request when those choices are intended. Existing conservative disclosures can also list a selector carried by a typed series. Effective series links remain partial projections and can lead to a general or entity page; they do not promise to recreate every comparison chart, ranking panel or page position. No new UI-equivalence or cross-query pinning claim is made.

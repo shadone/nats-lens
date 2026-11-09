@@ -3,7 +3,7 @@ import {useSystem} from "../lib/useSystem";
 import {findingHistoryPath} from "../lib/findingHistory";
 import {timelineCaptureLimits} from "./TimelineCaptureNotice";
 // The status timeline of the reference: a label column, a cell track that
-// scrolls sideways on narrow screens and opens at now, and a now column. A
+// scrolls sideways on narrow screens and opens at now, and a selected-range summary column. A
 // Kubernetes lane sits on top when the range has Kubernetes events; a table
 // gives the same content as text.
 import { useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
@@ -48,7 +48,7 @@ export function Cells({ row, start, bucketMs,readEpoch }: { row: TimelineRow; st
   return (
     <svg className="cells" viewBox={`0 0 ${CW} 16`} preserveAspectRatio="none" role="group" aria-label={`${row.checkCode}: ${runs}`}>
       {row.cells.map((lv, i) => (
-        <TimelineMark svg key={i} details={<><CheckDetails code={row.checkCode}/><TimelineFindingRange readEpoch={readEpoch} from={start+i*bucketMs} end={start+(i+1)*bucketMs} checkCode={row.checkCode} entity={row.entity}/></>} label={`${row.checkCode}: ${LEVEL_LABEL[lv]}`} preview={<><strong>{row.checkCode}: {row.checkName}</strong><div>{timelineTime(start+i*bucketMs)} – {timelineTime(start+(i+1)*bucketMs)}</div><div>Historical bucket: {LEVEL_LABEL[lv]}</div><div>Current check state: {LEVEL_LABEL[row.now]}</div><div>Bucket boundaries, not exact onset or resolution.</div></>}><rect x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="16" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
+        <TimelineMark svg key={i} details={<><CheckDetails code={row.checkCode}/><TimelineFindingRange readEpoch={readEpoch} from={start+i*bucketMs} end={start+(i+1)*bucketMs} checkCode={row.checkCode} entity={row.entity}/></>} label={`${row.checkCode}: ${LEVEL_LABEL[lv]}`} preview={<><strong>{row.checkCode}: {row.checkName}</strong><div>{timelineTime(start+i*bucketMs)} – {timelineTime(start+(i+1)*bucketMs)}</div><div>Historical bucket: {LEVEL_LABEL[lv]}</div><div>Range summary: {LEVEL_LABEL[row.now]}</div><div>Selected-range evidence with current mute rules. Not an independent current-state read.</div><div>Bucket boundaries, not exact onset or resolution.</div></>}><rect x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="16" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
         </rect></TimelineMark>
       ))}
     </svg>
@@ -92,7 +92,7 @@ function TimelineTable({ tl,history,range }: { tl: Timeline;history:(row:Timelin
           <tr>
             <th scope="col">Check</th>
             <th scope="col">Name</th>
-            <th scope="col">Now</th>
+            <th scope="col">Range summary</th>
             <th scope="col">Time, UTC</th>
           </tr>
         </thead>
@@ -191,7 +191,7 @@ export function StatusTimeline({ tl, end, live, asTable }: { tl: Timeline; end: 
           ))}
         </div>
       </div>
-      <div className="tl-col tl-now">
+      <div className="tl-col tl-now" role="group" aria-label="Selected-range summaries">
         {hasLane && (
           <>
             <div className="lane" />
@@ -200,8 +200,8 @@ export function StatusTimeline({ tl, end, live, asTable }: { tl: Timeline; end: 
         )}
         {tl.rows.map((r) => (
           <div className="now" key={r.key}>
-            {r.now === "ok" ? <span className="ok">ok now</span> : <Sev level={r.now} />}
-            <Glyph level={r.now === "ok" ? "nodata" : r.now} title={`${LEVEL_LABEL[r.now].toLowerCase()} now`} />
+            {r.now === "ok" ? <span className="ok">ok in range</span> : <Sev level={r.now} />}
+            <Glyph level={r.now === "ok" ? "nodata" : r.now} title={`${LEVEL_LABEL[r.now].toLowerCase()} range summary`} />
           </div>
         ))}
         <div className="axh" />

@@ -547,7 +547,7 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 				applied = c.Entity != nil && fields.ByJSONName("entity") != nil
 			}
 		case "stream":
-			if method == "ListConsumers" && c.Entity != nil && (c.Entity.Type == "ENTITY_TYPE_STREAM" || c.Entity.Type == "ENTITY_TYPE_CONSUMER") {
+			if (method == "ListConsumers" || method == "ListMetricContributors") && c.Entity != nil && (c.Entity.Type == "ENTITY_TYPE_STREAM" || c.Entity.Type == "ENTITY_TYPE_CONSUMER") {
 				applied = true
 			} else {
 				applied = c.Entity != nil && fields.ByJSONName("entity") != nil
@@ -622,7 +622,7 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 		switch method {
 		case "GetServer":
 			put("name", e.Server)
-		case "GetStream", "GetConsumer", "ListConsumers":
+		case "GetStream", "GetConsumer", "ListConsumers", "ListMetricContributors":
 			if e.Type == "ENTITY_TYPE_STREAM" || e.Type == "ENTITY_TYPE_CONSUMER" {
 				put("stream", e.Stream)
 				if method == "GetConsumer" {
