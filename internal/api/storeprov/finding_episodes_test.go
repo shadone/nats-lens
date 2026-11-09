@@ -194,7 +194,7 @@ func TestTimelineOccurrenceBoundaryExcludesLaterRecurrence(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	got, err := p.ListFindingEpisodes(ctx, &v1.ListFindingEpisodesRequest{Range: rng, ReadEpoch: timeline.GetFindingReadEpoch()})
+	got, err := p.ListFindingEpisodes(ctx, &v1.ListFindingEpisodesRequest{Range: rng, ReadEpoch: proto.Int64(timeline.GetFindingReadEpoch())})
 	if err != nil || got.GetTotalCount() != 2 {
 		t.Fatalf("later recurrence entered selected Timeline: %v %v", got, err)
 	}
@@ -221,7 +221,7 @@ func TestTimelineEmptyBoundaryExcludesLateChecksInSameCollection(t *testing.T) {
 	if _, err := st.ApplyCheckRuns(ctx, 1, []store.CheckRun{{Code: "stream-001", EntityType: "stream", Status: store.RunOK, Rows: []store.FindingRow{{EntityKey: "APP/orders", Severity: "warning", Detail: "checks published later"}}}}); err != nil {
 		t.Fatal(err)
 	}
-	got, err := p.ListFindingEpisodes(ctx, &v1.ListFindingEpisodesRequest{Range: rng, ReadEpoch: timeline.FindingReadEpoch})
+	got, err := p.ListFindingEpisodes(ctx, &v1.ListFindingEpisodesRequest{Range: rng, ReadEpoch: proto.Int64(timeline.FindingReadEpoch)})
 	if err != nil || got.GetTotalCount() != 0 || len(got.GetUnavailable()) == 0 {
 		t.Fatalf("late check publication entered selected empty history: %v %v", got, err)
 	}

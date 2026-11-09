@@ -63,7 +63,7 @@ message ListFindingEpisodesRequest {
   int32 transition_offset = 10;
   // Optional high-water epoch from Timeline. It freezes transition membership,
   // not all database facts. A continuation must retain the same boundary.
-  int64 read_epoch = 11;
+  optional int64 read_epoch = 11;
 }
 
 message ListFindingEpisodesResponse {

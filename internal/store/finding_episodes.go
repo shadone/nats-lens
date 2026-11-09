@@ -12,6 +12,7 @@ import (
 // FindingID and StartEpoch select a known occurrence without substituting a
 // later recurrence. Limits are validated independently of public API callers.
 type FindingEpisodeQuery struct {
+	ReadEpochKnown     bool
 	From, To           time.Time
 	FindingID          string
 	StartEpoch         int64
@@ -64,7 +65,7 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 	if readEpoch > newestEpoch {
 		return FindingEpisodePage{}, ErrInvalidFindingEpisodeQuery
 	}
-	if readEpoch == 0 {
+	if readEpoch == 0 && !q.ReadEpochKnown {
 		readEpoch = newestEpoch
 	}
 	rows, err := tx.QueryContext(ctx, findingEpisodesSQL, readEpoch, q.FindingID, q.FindingID, q.CheckCode, q.CheckCode,
