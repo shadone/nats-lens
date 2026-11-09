@@ -389,8 +389,10 @@ type GetStatusTimelineResponse struct {
 	// finding transitions are excluded; this is not a persistent database pin.
 	FindingReadEpoch int64 `protobuf:"varint,11,opt,name=finding_read_epoch,json=findingReadEpoch,proto3" json:"finding_read_epoch,omitempty"`
 	EventReadId      int64 `protobuf:"varint,12,opt,name=event_read_id,json=eventReadId,proto3" json:"event_read_id,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Resolved query bounds, separate from the possibly partial last bucket.
+	Range         *TimeRange `protobuf:"bytes,13,opt,name=range,proto3" json:"range,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetStatusTimelineResponse) Reset() {
@@ -507,6 +509,13 @@ func (x *GetStatusTimelineResponse) GetEventReadId() int64 {
 	return 0
 }
 
+func (x *GetStatusTimelineResponse) GetRange() *TimeRange {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
 var File_natslens_v1_timeline_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_timeline_proto_rawDesc = "" +
@@ -545,7 +554,7 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"include_ok\x18\x04 \x01(\bR\tincludeOk\x12\x16\n" +
 	"\x06system\x18\x05 \x01(\tR\x06system\x12'\n" +
 	"\revent_read_id\x18\x06 \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
-	"\x0e_event_read_id\"\xc1\x04\n" +
+	"\x0e_event_read_id\"\xef\x04\n" +
 	"\x19GetStatusTimelineResponse\x120\n" +
 	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x121\n" +
 	"\x06bucket\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x06bucket\x12!\n" +
@@ -561,7 +570,8 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"\x14kubernetes_truncated\x18\n" +
 	" \x01(\bR\x13kubernetesTruncated\x12,\n" +
 	"\x12finding_read_epoch\x18\v \x01(\x03R\x10findingReadEpoch\x12\"\n" +
-	"\revent_read_id\x18\f \x01(\x03R\veventReadIdBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\revent_read_id\x18\f \x01(\x03R\veventReadId\x12,\n" +
+	"\x05range\x18\r \x01(\v2\x16.natslens.v1.TimeRangeR\x05rangeBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_timeline_proto_rawDescOnce sync.Once
@@ -608,11 +618,12 @@ var file_natslens_v1_timeline_proto_depIdxs = []int32{
 	1,  // 14: natslens.v1.GetStatusTimelineResponse.kubernetes:type_name -> natslens.v1.LaneEvent
 	1,  // 15: natslens.v1.GetStatusTimelineResponse.nats:type_name -> natslens.v1.LaneEvent
 	11, // 16: natslens.v1.GetStatusTimelineResponse.windows:type_name -> natslens.v1.TimeWindow
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	9,  // 17: natslens.v1.GetStatusTimelineResponse.range:type_name -> natslens.v1.TimeRange
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_timeline_proto_init() }

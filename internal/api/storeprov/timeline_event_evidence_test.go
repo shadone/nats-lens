@@ -36,7 +36,7 @@ func TestTimelineCapturesEventMembership(t *testing.T) {
 	ctx := context.Background()
 	r := &v1.GetStatusTimelineRequest{Range: eventEvidenceRange(), Bucket: durationpb.New(time.Minute)}
 	first, err := p.GetStatusTimeline(ctx, r)
-	if err != nil || first.GetEventReadId() != 9007199254740995 {
+	if err != nil || first.GetEventReadId() != 9007199254740995 || !proto.Equal(first.GetRange(), r.Range) {
 		t.Fatalf("Timeline event membership absent: boundary=%d err=%v", first.GetEventReadId(), err)
 	}
 	if len(first.Windows) != 1 || len(first.Windows[0].SupportingEventIds) != 2 || first.Windows[0].GetEventReadId() != first.EventReadId {
@@ -91,5 +91,31 @@ func TestSelectedEventResponsesAreByteBounded(t *testing.T) {
 	}
 	if _, err := p.GetEvent(context.Background(), &v1.GetEventRequest{Id: "9007199254740993", EventReadId: proto.Int64(9007199254740995)}); !errors.Is(err, api.ErrResourceExhausted) {
 		t.Fatalf("oversized selected event succeeded: %v", err)
+	}
+}
+
+func TestTimelineFindingEventExposesRecordedIdentity(t *testing.T) {
+	p := episodeProvider(t)
+	r := &v1.GetStatusTimelineRequest{Range: eventEvidenceRange(), Bucket: durationpb.New(time.Minute)}
+	tl, err := p.GetStatusTimeline(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, e := range tl.Nats {
+		if e.Source != v1.EventSource_EVENT_SOURCE_FINDING {
+			continue
+		}
+		found = true
+		if e.FindingId != "stream-001:APP/orders" || e.TransitionEpoch < 1 || e.Entity.GetKey() != "APP/orders" {
+			t.Fatalf("recorded mapping missing: %v", e)
+		}
+		detail, err := p.GetEvent(context.Background(), &v1.GetEventRequest{Id: e.EventId, EventReadId: proto.Int64(tl.EventReadId)})
+		if err != nil || detail.GetEvent().GetTransition().GetEpoch() != e.TransitionEpoch {
+			t.Fatalf("mark/detail epoch disagree: %v %v", detail, err)
+		}
+	}
+	if !found {
+		t.Fatal("fixture had no finding events")
 	}
 }
