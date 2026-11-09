@@ -37,11 +37,13 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  const {origin,pathname,search,system,spec,selection:selection}=input;
  const params=new URLSearchParams(search);
  const occurrence=occurrenceRequest(pathname,params);
+ const boundary=params.get('eventReadId');
+ const windowQuery:BoundInvestigationQuery|undefined=/^\/timeline\/windows\/[a-f0-9]{64}$/.test(pathname)&&boundary!==null&&/^(0|[1-9]\d{0,18})$/.test(boundary)&&BigInt(boundary)<=9223372036854775807n?{method:'GetStatusTimeline',request:{eventReadId:boundary}}:undefined;
  const family=pathname.startsWith("/metrics/")?metricFamily(pathname.slice("/metrics/".length)):undefined;
  const server=new URLSearchParams(search).get("server");const serverIdentity=server?{kind:"server" as const,key:server,server,name:server,account:"",stream:"",consumer:""}:undefined;
  const resource=pathname.startsWith("/metrics/")?resourceMetric(pathname.slice("/metrics/".length)):undefined;let selectedResource:Entity|undefined;try{if(resource)selectedResource=resourceSelection(resource,new URLSearchParams(search))}catch{/* Invalid route selectors remain untrusted filters, not invented identities. */}
  const aggregate=pathname.startsWith("/metrics/")?aggregateMetric(pathname.slice("/metrics/".length)):undefined;
- const s:InvestigationSelection|undefined=selection??(occurrence?{query:occurrence}:undefined)??(aggregate?{label:aggregate.title,series:aggregate.metrics.map((metric,i)=>({label:aggregate.labels[i],metric}))}:undefined)??(resource?{label:resource.title,metric:resource.metric,entity:selectedResource}:undefined)??(family?{label:family.title,series:(server?family.metrics:family.fleetMetrics).map((metric,i)=>({label:family.labels[i],metric,entity:serverIdentity}))}:undefined);
+ const s:InvestigationSelection|undefined=selection??(occurrence?{query:occurrence}:undefined)??(windowQuery?{query:windowQuery,annotation:`Captured inferred window ${pathname.split('/').pop()}; supporting IDs describe recorded input, not causation.`}:undefined)??(aggregate?{label:aggregate.title,series:aggregate.metrics.map((metric,i)=>({label:aggregate.labels[i],metric}))}:undefined)??(resource?{label:resource.title,metric:resource.metric,entity:selectedResource}:undefined)??(family?{label:family.title,series:(server?family.metrics:family.fleetMetrics).map((metric,i)=>({label:family.labels[i],metric,entity:serverIdentity}))}:undefined);
  // ASVS 14.2.1: copy only known navigation fields; unknown query parameters,
  // credentials, cookies and browser storage never enter portable context.
  const filters:Record<string,string>={};for(const k of FILTERS){const v=params.get(k);if(v!==null&&v.length<=1024)filters[k]=v}
@@ -50,7 +52,7 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  if(pathname==="/events")filters.show ||= "worth";
  const range=resolveRange(spec,serverNow());const start=s?.start??range.start,end=s?.end??range.end;
  let portableRange={start:new Date(start).toISOString(),end:new Date(end).toISOString()};
- if(pathname==="/capacity/storage-change"&&s?.start===undefined&&s?.end===undefined){
+ if((pathname==="/capacity/storage-change"||windowQuery!==undefined||pathname==="/events"&&boundary!==null)&&s?.start===undefined&&s?.end===undefined){
   try{const from=params.get("from")!,to=params.get("to")!,a=fromJson(TimestampSchema,from),b=fromJson(TimestampSchema,to);if(a.seconds<b.seconds||a.seconds===b.seconds&&a.nanos<b.nanos)portableRange={start:from,end:to}}catch{/* Invalid links keep the existing resolved range and cannot invent pins. */}
  }
  if(s?.range){try{const a=fromJson(TimestampSchema,s.range.start),b=fromJson(TimestampSchema,s.range.end);if(a.seconds<b.seconds||a.seconds===b.seconds&&a.nanos<b.nanos)portableRange={...s.range}}catch{/* Invalid copied bounds cannot replace the resolved range. */}}
