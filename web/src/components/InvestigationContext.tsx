@@ -45,7 +45,7 @@ export function InvestigationProvider({ children }: { children: ReactNode }) {
   // URL/spec identities are stable across live-clock ticks and equivalent renders.
   const params = new URLSearchParams(loc.search);
   params.sort();
-  const scopeKey = JSON.stringify([loc.pathname, params.toString(), system.id, system.known, !!info.data, spec]);
+  const scopeKey = JSON.stringify([loc.pathname, loc.hash, params.toString(), system.id, system.known, !!info.data, spec]);
   const scope = useRef(scopeKey);
   const mounted = useRef(false);
   const generation = useRef(0);
@@ -85,7 +85,7 @@ export function InvestigationProvider({ children }: { children: ReactNode }) {
   };
   const handoff: Handoff | undefined = info.data && system.known && system.id ? (selection, valid = () => true) => {
     if (scope.current !== scopeKey || !valid()) return;
-    const context = buildInvestigationContext({ origin: window.location.origin, pathname: loc.pathname, search: loc.search, system: system.id, spec, selection });
+    const context = buildInvestigationContext({ origin: window.location.origin, pathname: loc.pathname, search: loc.search, hash: loc.hash, system: system.id, spec, selection });
     void copy(buildInvestigationPrompt(context), valid);
   } : undefined;
   const visible = feedback && feedback.action.scope === scopeKey && feedback.action.valid() ? feedback : undefined;

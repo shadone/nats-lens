@@ -345,7 +345,11 @@ func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, er
 	}
 	bound := c.Query != nil && c.Query.Method == method
 	if !bound || visited["page-size"] {
-		setDefault(pageSizeField(method), *pageSize)
+		size := *pageSize
+		if method == "ListEventSelection" && !visited["page-size"] {
+			size = 50
+		}
+		setDefault(pageSizeField(method), size)
 	}
 	if !bound || visited["max-points"] {
 		setDefault("maxPoints", *maxPoints)

@@ -1,8 +1,10 @@
 package investigation
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -48,5 +50,34 @@ func TestCapturedSelectionURLRejectsChangedScope(t *testing.T) {
 		if _, err := ContextFromURL(u.String(), "https://lens.example.com", fixtureNow()); err == nil {
 			t.Fatal("changed/missing captured scope accepted")
 		}
+	}
+}
+
+func TestCapturedSelectionMaximumMembershipFitsPortableBudget(t *testing.T) {
+	u, _ := url.Parse(capturedSelectionURL(t))
+	raw, _ := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(u.Fragment, "selection="))
+	var s map[string]any
+	_ = json.Unmarshal(raw, &s)
+	ids := make([]string, 2000)
+	for i := range ids {
+		ids[i] = fmt.Sprint(int64(9223372036854775807) - int64(i))
+	}
+	s["ids"] = ids
+	raw, _ = json.Marshal(s)
+	u.Fragment = "selection=" + base64.RawURLEncoding.EncodeToString(raw)
+	q := u.Query()
+	q.Set("offset", "1950")
+	q.Set("pageSize", "50")
+	u.RawQuery = q.Encode()
+	c, err := ContextFromURL(u.String(), "https://lens.example.com", fixtureNow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.MarshalIndent(c, "", "  ")
+	if len(data) > MaxInputBytes {
+		t.Fatalf("portable context %d exceeds budget", len(data))
+	}
+	if _, err := ParseContext(bytes.NewReader(data), "https://lens.example.com"); err != nil {
+		t.Fatal(err)
 	}
 }
