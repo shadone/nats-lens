@@ -13,7 +13,7 @@ require (
 	github.com/nats-io/nats.go v1.55.0
 	github.com/nats-io/nkeys v0.4.16
 	go.yaml.in/yaml/v3 v3.0.6
-	golang.org/x/crypto v0.58.1-0.20261009181718-2f1f834330b2
+	golang.org/x/crypto v0.58.1-0.20261009181718-2f1f834330b2 // fix for GO-2026-5932, untagged; move to the first tagged release that has it
 	golang.org/x/sys v0.49.0
 	google.golang.org/protobuf v1.36.12
 	k8s.io/api v0.37.2
