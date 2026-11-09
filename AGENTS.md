@@ -6,7 +6,7 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 
 | Path | What it holds |
 | --- | --- |
-| `cmd/natslens` | The `natslens` command: `run`, `once`, `sql`, `checks`, `demo` |
+| `cmd/natslens` | The `natslens` command: `run`, `once`, `sql`, `checks`, `demo`, `notify`, `investigate`, `acquire`, `version` |
 | `internal/collect`, `internal/events`, `internal/k8s` | Snapshots, NATS event capture, the Kubernetes watcher |
 | `internal/store` | DuckDB schema (`migrations/`), writes, retention, the Parquet archive |
 | `internal/checks`, `checks/*.sql` | The check engine and one SQL file per check |
