@@ -1,4 +1,4 @@
-import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
+import {focusManager,QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import {act,render,waitFor} from '@testing-library/react';
 import {MemoryRouter,useNavigate} from 'react-router';
 import {afterEach,expect,it,vi} from 'vitest';
@@ -31,4 +31,21 @@ it('polls only live annotations and shares their freshness interval',async()=>{
  const queries=client.getQueryCache().getAll();
  for(const query of queries){const options=[...query.observers][0]?.options;expect(options?.refetchInterval).toBe(String(query.queryKey[2]).startsWith('fixed:')?false:30000)}
  view.unmount();client.clear();
+});
+
+it('issues one shared live read per poll and no fixed-range polls',async()=>{
+ vi.useFakeTimers();focusManager.setFocused(true);
+ vi.mocked(requests.getTimeWindows).mockResolvedValue([]);
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ function Read(){useTimeWindows({kind:'live',preset:'1h'});useTimeWindows({kind:'live',preset:'1h'});useTimeWindows({kind:'fixed',from:1,to:2});return null}
+ const view=render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/?system=shop']}><Read/></MemoryRouter></QueryClientProvider>);
+ try{
+  await act(async()=>{await vi.advanceTimersByTimeAsync(0)});
+  expect(requests.getTimeWindows).toHaveBeenCalledTimes(2);
+  for(let i=0;i<3;i++)await act(async()=>{await vi.advanceTimersByTimeAsync(30000)});
+  const calls=vi.mocked(requests.getTimeWindows).mock.calls;
+  expect(calls.filter(([,spec])=>spec.kind==='live')).toHaveLength(4);
+  expect(calls.filter(([,spec])=>spec.kind==='fixed')).toHaveLength(1);
+  expect(calls.every(([system])=>system==='shop')).toBe(true);
+ }finally{view.unmount();client.clear();focusManager.setFocused(undefined);vi.useRealTimers()}
 });

@@ -19,3 +19,11 @@ The browser request contract changes one annotation RPC per detail load or live 
 Logs: `/private/tmp/nats-detail-windows-{red,green,removed,restored,types}.log`, `/private/tmp/nats-focused-timewindows-{native,race-parity}.log`. The first accidentally root-run web invocation lacked the web environment and is excluded; only the installed web runner's results are counted.
 
 No full web/Go suite, production browser or private-data access is claimed. Combined fresh review remains required before integration.
+
+## Polling and wire-contract follow-up
+
+Four focused tests pass across annotation cache and Connect wire-adapter fixtures. Two live observers share one initial read and three subsequent reads over three simulated 30-second intervals; the fixed-range observer makes one read total. This is virtual-time request-function evidence, not elapsed production timing. Removing polling makes the new count assertion fail at runtime (one live read instead of four); exact restoration passes.
+
+The real generated Connect client is exercised with a controlled no-network fetch implementation. It sends only the selected system/range to GetTimeWindows, and the returned view model retains event IDs above 2^53, derivation, supporting IDs, capture range and input-limit notice. The transport fixture initially assumed fetch received a Request object; correcting it to the actual URL/init signature was a fixture correction, not a production defect.
+
+Logs: `/private/tmp/nats-window-poll-{removed,wire-restored}.log`; types `/private/tmp/nats-window-poll-wire-types.log`. Fresh combined review could not start because T3 returned `parent_not_active`; no approval or merge is claimed.
