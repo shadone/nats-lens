@@ -238,3 +238,14 @@ A compact **Copy as prompt** action in the top bar or beside a shared chart copi
 ### Modal scrolling
 
 Native modal dialogs lock the background page at its existing scroll position. Long dialog content scrolls within the viewport without scrolling the page underneath. Closing or unmounting the last open modal restores the page position and its prior inline scroll styles; closing a nested modal keeps its parent’s lock. Focus returns to the opener without scrolling it into a new position.
+
+### Reopen captured Timeline membership
+
+- **Given** a valid `/timeline/events` link with its full selection fragment
+- **When** I reopen it or navigate Back/Forward between its explicit pages
+- **Then** its original system, fixed context, IDs, source-limit notices and page remain selected
+- **And** changed or missing selection data shows an error instead of falling back to a current event feed
+
+The proposed, not yet confirmed link format carries at most 2,000 IDs outside the HTTP query; it does not authorize reads or pin row updates/deletions.
+
+Captured event and inferred-window pages name their destination in the phone header while retaining Overview as their navigation parent.

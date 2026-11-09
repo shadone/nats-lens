@@ -172,3 +172,12 @@ Ordinary event requests with unset capture fields retain their existing reviewed
 - **When** I copy that selected event's prompt
 - **Then** its annotation retains the captured limitation separately from the exact recorded-event request
 - **And** neither a false limit flag nor a successful record read establishes complete capture
+
+### Continue a shared captured event selection
+
+- **Given** a captured Timeline group page or its full browser URL
+- **When** I copy/import context and query `ListEventSelection` against the trusted live or offline source
+- **Then** all supplied membership IDs, fixed context, source-limit annotation and current page survive serialization
+- **And** the source must acknowledge the exact page and boundary; broader Events links remain labeled partial context
+
+Proposed, not yet confirmed: selected pages contain at most 50 summaries within up to 2,000 captured IDs. The unsigned selection is navigation data, not authentication or a universal collection pin.

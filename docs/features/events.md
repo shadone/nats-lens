@@ -39,6 +39,21 @@ Slow-consumer investigations separate recorded disconnects from aggregate counte
 - **Acknowledgement events.** Saving an acknowledgement writes a non-routine `finding.acknowledged` event in the same transaction. Events and the finding timeline can show its author and note. Acknowledgement events are records of saves, not a list of release or replacement receipts; those receipts in finding details last only for the current visit.
 - Timeline event links carry a captured event boundary. The selected record and fixed-range feed honor it; an incompatible server that cannot acknowledge it is rejected. Exact window/overlap batches use the separate bounded, summary-only `GetEventBatch` read in native and demo providers; payloads require an explicit detail read; the ordinary feed remains broader time/filter context. Event membership is not an immutable snapshot or a guarantee of retained payloads.
 
+## Captured Timeline selections
+
+Proposed, not yet confirmed: an overlapping Timeline group offers **Open all captured events**. The separate `/timeline/events` page retains up to 2,000 explicit IDs in a bounded URL fragment, outside the HTTP query. The link binds its system, fixed interval, optional event boundary, original source-limit notices and selected page. Changing those query fields invalidates the selection instead of reading the current feed. Share the full URL only with intended recipients: IDs and context are data, not credentials or authorization.
+
+The page requests at most 50 summaries per explicit action through `ListEventSelection`. Captured membership and available records on the current page have separate counts. Missing rows remain named unavailable slots; records are not replaced or silently removed from membership. An opened row retrieves its payload separately. The interval describes context and does not filter these exact identity reads. Source limits do not establish omissions from any particular group, and the event boundary does not pin updates, deletion or latest finding state. Without an explicit system the in-place list remains available, but no share link is offered. Inferred-window selections above 2,000 IDs retain their separate complete-window route.
+
+Copy as prompt preserves the full selection and current offset/page size. Both copied contexts and full browser URLs can be imported by the same live/offline investigation command. A source response must acknowledge membership, page and boundary. The existing `GetEventBatch` contract stays at 1–50 IDs.
+
+### Reopen an overlapping group
+
+- **Given** a Timeline group has captured event IDs and an explicit system
+- **When** I open all captured events, move to another page and reopen its full URL
+- **Then** the same supplied membership, fixed context and page are selected
+- **And** missing records and original source-limit notices remain explicit, payloads load only on request, and no current event feed is substituted
+
 ## Scenarios
 
 ### Copy text from an event
