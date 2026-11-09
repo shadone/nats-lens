@@ -29,3 +29,15 @@ All Go runs use `GOCACHE=/private/tmp/nats-storage-go-cache GOPROXY=off`; synthe
 ## Limits
 
 Entirely absent resource rows may bridge a short allowed elapsed gap. Sampled creation metadata is not a physical incarnation certificate. Stream fallback sequence selection remains a reported-sequence projection. Floating rates/statistics are not exact integer traffic totals. These limits are explicit; no new resource-volume total is fabricated.
+
+## Acceptance fixture reconciliation
+
+The frozen full gate at `87200340` passed static/proto/docs/all-package vet and the complete web suite (204 files, 1,914 passed, 24 existing skips). Its Go run reported three store-provider failures: the two positive/zero-rate conformance rows and `TestReviewOnCallStaleDelivery`. The uninterrupted run is retained under `/private/tmp/natslens-full-87200340-20261109`; it is not a passing full-suite receipt.
+
+Focused isolation proved that all eight `fast`/`planner` reports in the positive fixture had NULL creation metadata. They now carry explicit creation timestamps supplied at the scenario call sites. The deliberately contradictory `settler` creation reports remain contradictory. The stale-delivery test also configured thirty seconds for historical reports five minutes apart. It now uses the fixture's five-minute cadence; newer empty collections still leave the historical reports inside the fifteen-minute window, so the current-presence assertions remain necessary. No assertions, production algorithms, gap limits or timeouts were weakened.
+
+`TestConformanceRateFixtureHasExplicitIdentityEvidence` reached runtime RED with 0/8 known creation values (`/private/tmp/nats-rate-fixture-red.log`). After metadata correction, only the cadence mismatch remained RED (`nats-rate-fixture-cadence-red.log`). Both focused contracts then passed (`nats-rate-fixture-green.log`). Coverage distinguishes positive one-per-second, measured zero, out-of-policy cadence and unknown creation.
+
+Independent overlays of the original fixture and original stale-delivery cadence each reproduce their runtime failures. Restored contracts pass (`/private/tmp/nats-rate-fixture-proof/{creation-red,cadence-red,restored}.log`). Production source is byte-identical to `87200340`; only test fixtures/regressions and this evidence record change. No frontend/capability behavior changes, so this test-only reconciliation does not add a feature-index entry. Focused checks ran with GOMAXPROCS=2 while the frozen full run continued; no uncontended-host performance claim is made. The original failed run must remain reported as failed even if corrected focused checks pass.
+
+The exact two original HTTP conformance cases also pass under `TZ=Pacific/Honolulu`: `go test ./internal/api/storeprov -run '^TestStoreConformance/(a_consumer_delivering,_its_rate_set|a_consumer_that_delivered_nothing,_its_rate_zero)$' -count=1 -timeout=3m` (21.900s; `/private/tmp/nats-rate-fixture-http.log`). Disposable loopback permission was approved. This is a selected-case result, not a broad store-provider pass.
