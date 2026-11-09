@@ -1,6 +1,6 @@
 # Timeline acceptance inventory
 
-Status: proposed, not yet confirmed. This inventory reconciles the implemented Timeline behavior, without asserting an external task-board status. Accepted baseline `fbafb978`; alternative-view correction was reviewed and merged at `942a7ec4`; aggregate missing-state correction was reviewed and merged at `0962fd1d`. This inventory checks the original task rather than treating any one partial slice as completion.
+Status: proposed, not yet confirmed. This inventory reconciles the implemented Timeline behavior, without asserting an external task-board status. Accepted baseline `fbafb978`; alternative-view correction was reviewed and merged at `942a7ec4`; aggregate missing-state correction was reviewed and merged at `0962fd1d`. The independently reviewed selected-range summary correction is included in this integration. This inventory checks the original task rather than treating any one partial slice as completion.
 
 | Original requirement | Current evidence | Assessment / remaining action |
 | --- | --- | --- |
@@ -29,3 +29,7 @@ The two new runtime regressions pass with the correction. Replacing both product
 Final scoped verification: `cd web && npx tsc --noEmit` passes. Vitest passes **79 tests across 10 files**: FindingDetail, FindingOccurrence, FindingHistory, TimelinePreviews, TimelineEventEvidence, TimelineCaptureLimits, TimelineNoData, TimelineAlternativeEvidence, TimelineOccurrences and StatusTimeline. The feature-doc audit passes with **46 capability docs**, both index sections consistent; `git diff --check` passes. Locked dependencies were restored with `npm ci --ignore-scripts`; dependency manifests are unchanged.
 
 A fresh read-only reviewer approves these two corrections with no code findings. Whole-Timeline acceptance and integration remain separate; this report does not assert a task-board change or a new full-repository acceptance run.
+
+## Selected-range summary audit
+
+The native legacy `TimelineRow.now` reads the newest evaluation inside the selected interval with current mute rules; the demo derives it from the selected cells. It is not an independent current check-status read. `5f65916b` changes UI labels and previews to “Range summary” and explicitly qualifies that meaning; latest linked finding state stays separate in retained occurrence details. Three runtime assertions fail before and with the fix removed; thirteen focused tests, TypeScript and the 46-capability audit pass restored. Fresh read-only review approves `26d2c28e` against `0962fd1d`, with no concrete findings. Earlier `parent_not_active` review failures were followed by this completed review, not treated as approval. Whole-Timeline acceptance remains separate.

@@ -51,13 +51,14 @@ it("explains aggregate finding boxes and inferred windows without inventing exac
   expect(screen.getByRole("tooltip")).toHaveTextContent(/inferred/i);
 });
 
-it("explains expanded per-check buckets and preserves their historical versus current state",()=>{
+it("explains expanded per-check buckets and distinguishes buckets from the selected-range summary",()=>{
   render(<Cells row={timeline.rows[0]} start={start} bucketMs={60_000}/>);
   const mark=screen.getByRole("button",{name:/consumer-006.*Warning/});
   fireEvent.focus(mark);
   const tip=screen.getByRole("tooltip");
   expect(within(tip).getByText(/No delivery while messages wait/)).toBeInTheDocument();
-  expect(tip).toHaveTextContent("Current check state: OK");
+  expect(tip).toHaveTextContent("Range summary: OK");
+  expect(tip).toHaveTextContent("Not an independent current-state read");
   expect(tip).toHaveTextContent("2026-10-18 00:00:00 UTC");
 });
 
@@ -81,7 +82,7 @@ it("opens window explanation and per-check evidence without claiming an exact in
   unmount();
   render(<MemoryRouter><Cells row={timeline.rows[0]} start={start} bucketMs={60_000}/></MemoryRouter>);
   fireEvent.keyDown(screen.getByRole("button",{name:/consumer-006.*Warning/}),{key:"Enter"});
-  expect(screen.getByRole("dialog")).toHaveTextContent("Current check state: OK");
+  expect(screen.getByRole("dialog")).toHaveTextContent("Range summary: OK");
   expect(within(screen.getByRole("dialog")).getByRole("link",{name:"Read check reference"})).toHaveAttribute("href","/checks/consumer-006");
 });
 
