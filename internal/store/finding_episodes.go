@@ -45,7 +45,7 @@ type FindingEpisodePage struct {
 // FindingEpisodes is a separate projection: FindingsAt intentionally retains
 // its established newest-episode-per-finding contract.
 func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (FindingEpisodePage, error) {
-	if q.From.IsZero() || !q.To.After(q.From) || q.Limit < 1 || q.Limit > 100 || q.Offset < 0 || q.Offset > 20000 || q.StartEpoch < 0 || q.ReadEpoch < 0 || (q.StartEpoch > 0 && q.FindingID == "") {
+	if q.From.IsZero() || !q.To.After(q.From) || q.Limit < 1 || q.Limit > 100 || q.Offset < 0 || q.Offset > 1<<20 || q.StartEpoch < 0 || q.FirstRetainedEpoch < 0 || q.ReadEpoch < 0 || ((q.StartEpoch > 0 || q.FirstRetainedEpoch > 0) && q.FindingID == "") || len(q.FindingID) > 4096 || len(q.CheckCode) > 128 || len(q.EntityType) > 64 || len(q.EntityKey) > 4096 {
 		return FindingEpisodePage{}, ErrInvalidFindingEpisodeQuery
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -53,20 +53,26 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 		return FindingEpisodePage{}, err
 	}
 	defer tx.Rollback()
+	var newestEpoch int64
+	if err := tx.QueryRowContext(ctx, `SELECT coalesce(max(epoch),0) FROM finding_transitions`).Scan(&newestEpoch); err != nil {
+		return FindingEpisodePage{}, err
+	}
 	readEpoch := q.ReadEpoch
+	if readEpoch > newestEpoch {
+		return FindingEpisodePage{}, ErrInvalidFindingEpisodeQuery
+	}
 	if readEpoch == 0 {
-		if err := tx.QueryRowContext(ctx, `SELECT coalesce(max(epoch),0) FROM finding_transitions`).Scan(&readEpoch); err != nil {
-			return FindingEpisodePage{}, err
-		}
+		readEpoch = newestEpoch
 	}
 	rows, err := tx.QueryContext(ctx, findingEpisodesSQL, readEpoch, q.FindingID, q.FindingID, q.CheckCode, q.CheckCode,
-		q.EntityType, q.EntityType, q.EntityKey, q.EntityType, q.EntityKey, q.To.UnixMicro(), q.From.UnixMicro(), q.To.UnixMicro(), q.StartEpoch, q.StartEpoch, q.Limit, q.Offset)
+		q.EntityType, q.EntityType, q.EntityKey, q.EntityType, q.EntityKey, q.To.UnixMicro(), q.From.UnixMicro(), q.To.UnixMicro(), q.StartEpoch, q.StartEpoch, q.FirstRetainedEpoch, q.FirstRetainedEpoch, q.Limit, q.Offset)
 	if err != nil {
 		return FindingEpisodePage{}, fmt.Errorf("finding episodes: %w", err)
 	}
 	defer rows.Close()
 	out := FindingEpisodePage{ReadEpoch: readEpoch}
 	bytes := 0
+	var sqlBytes int64
 	for rows.Next() {
 		var id, code, typ, key, kind, severity, detail sql.NullString
 		var firstEpoch, startEpoch, lastEpoch sql.NullInt64
@@ -76,8 +82,11 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 		var resolutionAt, latestAt sql.NullTime
 		var resolutionEpoch, latestStart sql.NullInt64
 		var latestState, latestSeverity sql.NullString
-		if err := rows.Scan(&out.Total, &id, &code, &typ, &key, &firstEpoch, &startEpoch, &firstAt, &lastEpoch, &lastAt, &kind, &severity, &detail, &value, &cause, &resolutionAt, &resolutionEpoch, &latestState, &latestSeverity, &latestStart, &latestAt); err != nil {
+		if err := rows.Scan(&out.Total, &sqlBytes, &id, &code, &typ, &key, &firstEpoch, &startEpoch, &firstAt, &lastEpoch, &lastAt, &kind, &severity, &detail, &value, &cause, &resolutionAt, &resolutionEpoch, &latestState, &latestSeverity, &latestStart, &latestAt); err != nil {
 			return FindingEpisodePage{}, err
+		}
+		if sqlBytes > 8<<20 {
+			return FindingEpisodePage{}, ErrFindingEpisodeReadLimit
 		}
 		if !id.Valid {
 			continue
@@ -138,14 +147,17 @@ const findingEpisodesSQL = `WITH ordered AS (
  FROM ordered GROUP BY finding_id,occurrence
 ), matching AS (
  SELECT * FROM episodes WHERE (resolved_at IS NULL OR resolved_at>make_timestamp(?::BIGINT)) AND first_at<make_timestamp(?::BIGINT) AND last IS NOT NULL
- AND (?=0 OR start_epoch=?)
+ AND (?=0 OR start_epoch=?) AND (?=0 OR first_epoch=?)
 ), page AS (
  SELECT * FROM matching ORDER BY first_epoch DESC,finding_id LIMIT ? OFFSET ?
 )
-SELECT totals.n,p.finding_id,p.check_code,p.entity_type,p.entity_key,p.first_epoch,p.start_epoch,p.first_at,
+SELECT totals.n,budget.n,p.finding_id,p.check_code,p.entity_type,p.entity_key,p.first_epoch,p.start_epoch,p.first_at,
  p.last.epoch,p.last.time,p.last.kind,p.last.severity,p.last.detail,p.last.value,p.last.cause_event_id,
  p.resolved_at,p.resolved_epoch,f.state,f.severity,f.since_epoch,latest.started_at
-FROM (SELECT count(*) AS n FROM matching) totals LEFT JOIN page p ON true
+FROM (SELECT count(*) AS n FROM matching) totals
+CROSS JOIN (SELECT coalesce(sum(octet_length(encode(finding_id))+octet_length(encode(check_code))+
+ octet_length(encode(entity_type))+octet_length(encode(entity_key))+octet_length(encode(last.detail))),0) AS n FROM page) budget
+LEFT JOIN page p ON budget.n<=8388608
 LEFT JOIN findings f ON f.id=p.finding_id
 LEFT JOIN epochs latest ON latest.epoch=f.last_seen_epoch
 ORDER BY p.first_epoch DESC,p.finding_id`
