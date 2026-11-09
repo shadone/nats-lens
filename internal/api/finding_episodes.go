@@ -51,14 +51,15 @@ func (p *EpisodePages) identity() (string, error) {
 }
 
 type EpisodeCursor struct {
-	Offset    int       `json:"o"`
-	ReadEpoch int64     `json:"e,string"`
-	Total     int32     `json:"n"`
-	From      time.Time `json:"f"`
-	To        time.Time `json:"t"`
-	Issued    int64     `json:"a,string"`
-	Scope     string    `json:"s"`
-	continued bool
+	Membership string    `json:"m"`
+	Offset     int       `json:"o"`
+	ReadEpoch  int64     `json:"e,string"`
+	Total      int32     `json:"n"`
+	From       time.Time `json:"f"`
+	To         time.Time `json:"t"`
+	Issued     int64     `json:"a,string"`
+	Scope      string    `json:"s"`
+	continued  bool
 }
 
 func decodeEpisodeCursor(token string) (EpisodeCursor, error) {
@@ -76,7 +77,7 @@ func decodeEpisodeCursor(token string) (EpisodeCursor, error) {
 		return EpisodeCursor{}, invalid("invalid occurrence page_token")
 	}
 	var extra any
-	if d.Decode(&extra) != io.EOF || c.Offset < 0 || c.Offset > MaxOffset || c.ReadEpoch < 1 || c.Total < 1 || c.Offset > int(c.Total) || !c.From.Before(c.To) || len(c.Scope) != 64 {
+	if d.Decode(&extra) != io.EOF || c.Offset < 0 || c.Offset > MaxOffset || c.ReadEpoch < 1 || c.Total < 1 || c.Offset > int(c.Total) || !c.From.Before(c.To) || len(c.Scope) != 64 || !validEpisodeMembership(c.Membership) {
 		return EpisodeCursor{}, invalid("invalid occurrence page_token")
 	}
 	now := time.Now().Unix()
@@ -168,9 +169,32 @@ func (c EpisodeCursor) Next(readEpoch int64, total int32, offset int) string {
 	b, _ := json.Marshal(c)
 	return "fep1." + base64.RawURLEncoding.EncodeToString(b)
 }
-func (c EpisodeCursor) CheckTotal(total int32) error {
-	if c.continued && c.Total != total {
+func (c EpisodeCursor) CheckTotal(total int32, membership string) error {
+	if c.continued && (c.Total != total || c.Membership != membership) {
 		return fmt.Errorf("%w: retained occurrence set changed; restart the list", ErrFailedPrecondition)
 	}
 	return nil
+}
+
+// The native aggregate is a compact change detector, not authenticity or a
+// persistent snapshot. Source identity and scope are checked independently.
+func validEpisodeMembership(s string) bool {
+	if len(s) < 3 || len(s) > 128 {
+		return false
+	}
+	parts := strings.Split(s, ":")
+	if len(parts) != 2 {
+		return false
+	}
+	for _, p := range parts {
+		if len(p) == 0 {
+			return false
+		}
+		for _, r := range p {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+	}
+	return true
 }
