@@ -74,10 +74,8 @@ func (p *Provider) ListFindingEpisodes(ctx context.Context, in *v1.ListFindingEp
 			v := e.Finding.SinceEpoch
 			item.StartEpoch = &v
 		}
-		if e.LatestState == store.StateFiring {
-			item.LatestRetainedState = v1.FindingState_FINDING_STATE_FIRING
-		} else if e.LatestState == store.StateResolved {
-			item.LatestRetainedState = v1.FindingState_FINDING_STATE_RESOLVED
+		if e.LatestState != "" {
+			item.LatestRetainedState = stateOf(store.Finding{State: e.LatestState, LastTransition: e.LatestTransition, Flapping: e.LatestFlapping})
 		}
 		if item.CauseEventId > 0 && item.Finding.Cause == nil {
 			item.Unavailable = append(item.Unavailable, "cause_event")
