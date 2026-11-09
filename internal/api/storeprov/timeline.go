@@ -8,6 +8,8 @@ import (
 	"slices"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
@@ -152,7 +154,7 @@ func (p *Provider) statusTimeline(ctx context.Context, req *v1.GetStatusTimeline
 	start, end := span(req.GetRange())
 	bucket := req.GetBucket().AsDuration()
 	n := api.BucketCount(end.Sub(start), bucket)
-	res := &v1.GetStatusTimelineResponse{Start: req.GetRange().GetStart(), Bucket: req.GetBucket(), BucketCount: int32(n)}
+	res := &v1.GetStatusTimelineResponse{Range: proto.Clone(req.Range).(*v1.TimeRange), Start: req.GetRange().GetStart(), Bucket: req.GetBucket(), BucketCount: int32(n)}
 	if err := p.db().QueryRowContext(ctx, `SELECT coalesce(max(epoch),0) FROM finding_transitions`).Scan(&res.FindingReadEpoch); err != nil {
 		return nil, err
 	}
