@@ -6,8 +6,9 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { syncClock } from "../api/requests";
 
-export function ClockGate({ children }: { children: ReactNode }) {
+/** fallback shows while the clock is read; by default nothing does. */
+export function ClockGate({ children, fallback = null }: { children: ReactNode; fallback?: ReactNode }) {
   const q = useQuery({ queryKey: ["serverClock"], queryFn: ({ signal }) => syncClock(signal), staleTime: Infinity, gcTime: Infinity, retry: false });
-  if (q.isPending) return null;
+  if (q.isPending) return fallback;
   return children;
 }

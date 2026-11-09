@@ -1,7 +1,7 @@
 BIN := bin/natslens
 DEV_DATA := .dev/natslens
 
-.PHONY: build build-full build-go build-release web-full web web-test web-dev proto test test-short test-fast verify-fast verify-full verify-web verify-proto verify-race lint fmt demo dev-cluster dev-cluster-stop load churn run-dev image vuln clean
+.PHONY: build build-full build-go build-release web-full web web-test web-dev proto test test-short test-fast verify-fast verify-full verify-web verify-proto verify-race lint fmt demo demo-site demo-wasm demo-wasm-smoke dev-cluster dev-cluster-stop load churn run-dev image vuln clean
 
 # Verifies/rebuilds production assets, then builds the binary that embeds them.
 build: web/node_modules/.package-lock.json
@@ -119,3 +119,26 @@ clean:
 # without NATS.
 demo: build
 	$(BIN) demo
+
+# The demo site: the web UI with the demo's API compiled to WebAssembly, as
+# static files served under DEMO_BASE, the path GitHub Pages serves the
+# repository's site at. See docs/features/demo-mode.md.
+DEMO_SITE ?= bin/demo-site
+DEMO_BASE ?= /nats-lens/
+demo-site: web/node_modules/.package-lock.json
+	cd web && npx tsc --noEmit
+	cd web && NATSLENS_BASE=$(DEMO_BASE) VITE_NATSLENS_WASM=1 NATSLENS_WEB_OUT_DIR="$(abspath $(DEMO_SITE))" npx vite build
+	$(MAKE) demo-wasm
+	cp $(DEMO_SITE)/index.html $(DEMO_SITE)/404.html
+	touch $(DEMO_SITE)/.nojekyll
+
+# The WebAssembly half of the demo site, with the Go toolchain's own loader
+# beside it: the two must come from the same Go release.
+demo-wasm:
+	mkdir -p $(DEMO_SITE)
+	GOOS=js GOARCH=wasm go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o $(DEMO_SITE)/natslens.wasm ./cmd/natslens-wasm
+	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" $(DEMO_SITE)/wasm_exec.js
+
+# Runs one call through the built WebAssembly under Node.
+demo-wasm-smoke: demo-wasm
+	node cmd/natslens-wasm/smoke.mjs $(DEMO_SITE)
