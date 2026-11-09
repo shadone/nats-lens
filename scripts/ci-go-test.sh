@@ -16,8 +16,11 @@
 set -euo pipefail
 
 # Packages split by test name, with their share counts. The slowest packages
-# go here: each share is one CI job.
-SPLIT="./internal/checks=4 ./internal/api/storeprov=3 ./internal/store=2"
+# go here: each share is one CI job. Shares take every nth test by sorted
+# name, so check the shares' times after changing a count: storeprov at 4
+# put its two slowest tests (TestStoreConformance, a fifth of the package,
+# and TestFinal2_BusyPool) in one share, slower than at 3.
+SPLIT="./internal/checks=4 ./internal/api/storeprov=5 ./internal/store=2"
 
 usage() { echo "usage: $0 matrix | share <pkg> <index> | rest" >&2; exit 2; }
 
