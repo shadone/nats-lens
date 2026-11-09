@@ -430,7 +430,7 @@ export function useShellStatus() {
 }
 
 /** A saved acknowledgement appears immediately in both current detail caches.
- * Refetch this system’s operator-dependent evidence and the shared fleet tallies. */
+ * Refetch this system's operator-dependent evidence and the shared fleet tallies. */
 export function useSaveAcknowledgement() {
   const qc = useQueryClient();
   return useMutation({
