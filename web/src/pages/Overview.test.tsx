@@ -216,3 +216,6 @@ it("replays every observed window while preserving timeline controls and scope p
   expect(screen.getByRole("button",{name:"Each check"})).toBeInTheDocument();
   expect(screen.getByRole("link",{name:"Kubernetes"})).toBeInTheDocument();
 });
+it('requests observed OK rows so the Timeline can distinguish healthy observations from omitted rows',async()=>{
+ mock(quiet);renderApp(<Overview/>);await waitFor(()=>expect(requests.getTimeline).toHaveBeenCalled());expect(requests.getTimeline).toHaveBeenLastCalledWith(expect.anything(),expect.anything(),undefined,expect.anything(),true);
+});

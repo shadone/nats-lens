@@ -2,6 +2,8 @@ package investigation
 
 import (
 	"encoding/json"
+	"fmt"
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
@@ -198,5 +200,25 @@ func TestPredicateProofDistinguishesOneofZeroFromAbsent(t *testing.T) {
 	ui.Set(f, protoreflect.ValueOfString(""))
 	if limits := compareUIFields("fixture", request, ui, policies); len(limits) != 0 {
 		t.Fatal(limits)
+	}
+}
+
+func TestTimelineRowCoverageOptionIsNotAnEncodedUIPredicate(t *testing.T) {
+	c, err := ContextFromURL("https://lens.example.com/?system=shop&range=1h", "https://lens.example.com", fixtureNow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []bool{false, true} {
+		raw, _, err := Prepare("GetStatusTimeline", c, []byte(fmt.Sprintf(`{"includeOk":%t}`, value)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var req v1.GetStatusTimelineRequest
+		if err := protojson.Unmarshal(raw, &req); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(strings.Join(proveUILinkScope("GetStatusTimeline", req.ProtoReflect(), c), " "), "includeOk") {
+			t.Fatalf("includeOk=%v silently treated as page-equivalent", value)
+		}
 	}
 }
