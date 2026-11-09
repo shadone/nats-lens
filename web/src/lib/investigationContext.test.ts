@@ -29,3 +29,9 @@ it("keeps contributor selection in the copied pinned investigation",()=>{
  const c=buildInvestigationContext({origin:"https://lens.example.com",pathname:"/capacity/storage-change",search:"?change=asc&resource=kv&contributors=1",system:"shop",spec:{kind:"fixed",from:now-3600000,to:now}});
  expect(c.filters).toMatchObject({change:"asc",resource:"kv",contributors:"1"});
 });
+it('copies the exact occurrence read as descriptor-validated data without turning its route suffix into a finding ID',()=>{
+ const selection={check:'stream-001',query:{method:'ListFindingEpisodes',request:{findingId:'stream-001:APP/orders',firstRetainedEpoch:'9007199254740993',readEpoch:'9007199254740995',includeTransitions:true,pageSize:1}}};
+ const c=buildInvestigationContext({origin:'https://lens.example.com',pathname:'/findings/stream-001%3AAPP%2Forders/occurrences/9007199254740993',search:'?readEpoch=9007199254740995',system:'shop',spec:{kind:'fixed',from:now-3600000,to:now},selection});
+ expect(c).toMatchObject({query:{method:'ListFindingEpisodes',request:{system:'shop',range:c.range,firstRetainedEpoch:'9007199254740993',readEpoch:'9007199254740995',includeTransitions:true}}});
+ expect(c.evidence).toContainEqual({kind:'finding',id:'stream-001:APP/orders'});
+});

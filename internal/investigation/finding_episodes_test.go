@@ -18,3 +18,22 @@ func TestFindingOccurrenceReadAdmission(t *testing.T) {
 		t.Fatalf("exact occurrence preparation: %s %v", req, err)
 	}
 }
+
+func TestFindingOccurrenceURLImportsExactRead(t *testing.T) {
+	c, err := ContextFromURL("https://lens.example.com/findings/stream-001%3AAPP%2Forders/occurrences/9007199254740993?system=shop&from=2026-10-17T13:00:00Z&to=2026-10-17T14:00:00Z&readEpoch=9007199254740995", "https://lens.example.com", fixtureNow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Query == nil || c.Query.Method != "ListFindingEpisodes" {
+		t.Fatalf("exact occurrence query lost: %+v", c)
+	}
+	req, _, err := Prepare("ListFindingEpisodes", c, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range []string{`9007199254740993`, `9007199254740995`, `stream-001:APP/orders`, `"includeTransitions":true`} {
+		if !strings.Contains(string(req), v) {
+			t.Fatalf("lost %s: %s", v, req)
+		}
+	}
+}
