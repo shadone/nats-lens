@@ -24,3 +24,6 @@
 
 # Verification helper bytecode
 /scripts/__pycache__/
+
+# Release archives (scripts/release-archive.sh)
+/dist/
