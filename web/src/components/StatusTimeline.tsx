@@ -35,13 +35,13 @@ export function cellStyle(lv: Level) {
 
 const CW = 960;
 
-export function Cells({ row, start, bucketMs }: { row: TimelineRow; start: number; bucketMs: number }) {
+export function Cells({ row, start, bucketMs,readEpoch }: { row: TimelineRow; start: number; bucketMs: number;readEpoch?:string }) {
   const cw = CW / Math.max(1, row.cells.length);
   const runs = runsText(cellRuns(row.cells, start, bucketMs));
   return (
     <svg className="cells" viewBox={`0 0 ${CW} 16`} preserveAspectRatio="none" role="group" aria-label={`${row.checkCode}: ${runs}`}>
       {row.cells.map((lv, i) => (
-        <TimelineMark svg key={i} details={<><CheckDetails code={row.checkCode}/><TimelineFindingRange from={start+i*bucketMs} end={start+(i+1)*bucketMs} checkCode={row.checkCode} entity={row.entity}/></>} label={`${row.checkCode}: ${LEVEL_LABEL[lv]}`} preview={<><strong>{row.checkCode}: {row.checkName}</strong><div>{timelineTime(start+i*bucketMs)} – {timelineTime(start+(i+1)*bucketMs)}</div><div>Historical bucket: {LEVEL_LABEL[lv]}</div><div>Current check state: {LEVEL_LABEL[row.now]}</div><div>Bucket boundaries, not exact onset or resolution.</div></>}><rect x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="16" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
+        <TimelineMark svg key={i} details={<><CheckDetails code={row.checkCode}/><TimelineFindingRange readEpoch={readEpoch} from={start+i*bucketMs} end={start+(i+1)*bucketMs} checkCode={row.checkCode} entity={row.entity}/></>} label={`${row.checkCode}: ${LEVEL_LABEL[lv]}`} preview={<><strong>{row.checkCode}: {row.checkName}</strong><div>{timelineTime(start+i*bucketMs)} – {timelineTime(start+(i+1)*bucketMs)}</div><div>Historical bucket: {LEVEL_LABEL[lv]}</div><div>Current check state: {LEVEL_LABEL[row.now]}</div><div>Bucket boundaries, not exact onset or resolution.</div></>}><rect x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="16" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
         </rect></TimelineMark>
       ))}
     </svg>
@@ -166,7 +166,7 @@ export function StatusTimeline({ tl, end, live, asTable }: { tl: Timeline; end: 
           )}
           {tl.rows.map((r) => (
             <div className="crow" key={r.key}>
-              <Cells row={r} start={tl.start} bucketMs={tl.bucketMs} />
+              <Cells row={r} start={tl.start} bucketMs={tl.bucketMs} readEpoch={tl.findingReadEpoch} />
             </div>
           ))}
           <div className="axh axis" aria-hidden="true">

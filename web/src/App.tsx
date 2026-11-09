@@ -19,6 +19,7 @@ import { Overview } from "./pages/Overview";
 import { Checks, CheckDetail } from "./pages/Checks";
 import { Findings } from "./pages/Findings";
 import { FindingByLabels } from "./pages/FindingByLabels";
+import {FindingOccurrence} from "./pages/FindingOccurrence";
 import { FindingDetail } from "./pages/FindingDetail";
 import { Events } from "./pages/Events";
 import { Streams } from "./pages/Streams";
@@ -78,6 +79,7 @@ export function App() {
                 <Route path="/checks/:code" element={<CheckDetail />} />
                 <Route path="/findings" element={<Findings />} />
                 <Route path="/findings/by-labels" element={<FindingByLabels />} />
+                <Route path="/findings/:id/occurrences/:firstEpoch" element={<FindingOccurrence />} />
                 <Route path="/findings/:id" element={<FindingDetail />} />
                 <Route path="/events" element={<Events />} />
                 <Route path="/streams" element={<Streams />} />

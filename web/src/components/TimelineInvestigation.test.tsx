@@ -2,7 +2,8 @@ import {fireEvent,render,screen} from "@testing-library/react";
 import {MemoryRouter} from "react-router";
 import {expect,it,vi} from "vitest";
 import {useFindings} from "../api/queries";
-import {TimelineFindingRange} from "./TimelineInvestigation";
+// Other metric interval panels intentionally keep the compatibility findings view.
+import {FindingIntervalEvidence as TimelineFindingRange} from "./FindingIntervalEvidence";
 vi.mock("../api/queries",()=>({useFindings:vi.fn()}));
 vi.mock("../lib/useGlobalQuery",()=>({useGlobalQuery:()=>"?range=1h&system=demo&account=APP"}));
 const from=Date.parse("2026-10-17T23:59:00Z"),end=from+60000;

@@ -1,7 +1,7 @@
 import {createContext,useCallback,useContext,useState,type ReactNode} from "react";
 import {createPortal} from "react-dom";
 import {Dialog} from "./Dialog";
-export {FindingIntervalEvidence as TimelineFindingRange} from "./FindingIntervalEvidence";
+export {TimelineFindingEpisodes as TimelineFindingRange} from "./TimelineFindingEpisodes";
 
 type Selection={label:string;preview:ReactNode;details?:ReactNode};
 const Context=createContext<((value:Selection)=>void)|null>(null);
