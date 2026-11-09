@@ -51,13 +51,13 @@ func (p *EpisodePages) identity() (string, error) {
 }
 
 type EpisodeCursor struct {
-	Offset    int    `json:"o"`
-	ReadEpoch int64  `json:"e,string"`
-	Total     int32  `json:"n"`
-	From      int64  `json:"f,string"`
-	To        int64  `json:"t,string"`
-	Issued    int64  `json:"a,string"`
-	Scope     string `json:"s"`
+	Offset    int       `json:"o"`
+	ReadEpoch int64     `json:"e,string"`
+	Total     int32     `json:"n"`
+	From      time.Time `json:"f"`
+	To        time.Time `json:"t"`
+	Issued    int64     `json:"a,string"`
+	Scope     string    `json:"s"`
 	continued bool
 }
 
@@ -76,7 +76,7 @@ func decodeEpisodeCursor(token string) (EpisodeCursor, error) {
 		return EpisodeCursor{}, invalid("invalid occurrence page_token")
 	}
 	var extra any
-	if d.Decode(&extra) != io.EOF || c.Offset < 0 || c.Offset > MaxOffset || c.ReadEpoch < 1 || c.Total < 1 || c.Offset > int(c.Total) || c.From >= c.To || len(c.Scope) != 64 {
+	if d.Decode(&extra) != io.EOF || c.Offset < 0 || c.Offset > MaxOffset || c.ReadEpoch < 1 || c.Total < 1 || c.Offset > int(c.Total) || !c.From.Before(c.To) || len(c.Scope) != 64 {
 		return EpisodeCursor{}, invalid("invalid occurrence page_token")
 	}
 	now := time.Now().Unix()
@@ -127,10 +127,10 @@ func (p *EpisodePages) Prepare(r *v1.ListFindingEpisodesRequest, reference time.
 			r.Range = proto.Clone(r.Range).(*v1.TimeRange)
 		}
 		if r.Range.Start == nil {
-			r.Range.Start = timestamppb.New(time.UnixMicro(c.From))
+			r.Range.Start = timestamppb.New(c.From)
 		}
 		if r.Range.End == nil {
-			r.Range.End = timestamppb.New(time.UnixMicro(c.To))
+			r.Range.End = timestamppb.New(c.To)
 		}
 	}
 	r.Range, err = ResolveRange(r.Range, reference, DefaultRange)
@@ -157,8 +157,8 @@ func (p *EpisodePages) Prepare(r *v1.ListFindingEpisodesRequest, reference time.
 	if !c.continued {
 		c.Scope = scope
 		c.Issued = time.Now().Unix()
-		c.From = r.Range.Start.AsTime().UnixMicro()
-		c.To = r.Range.End.AsTime().UnixMicro()
+		c.From = r.Range.Start.AsTime().UTC()
+		c.To = r.Range.End.AsTime().UTC()
 	}
 	return c, nil
 }
