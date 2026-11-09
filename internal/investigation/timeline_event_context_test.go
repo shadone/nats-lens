@@ -35,3 +35,28 @@ func TestTimelineEventContextRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestFindingHistoryURLPreservesCapturedScope(t *testing.T) {
+	c, err := ContextFromURL("https://lens.example.com/findings/history?system=shop&from=2026-10-17T12:00:00.000123Z&to=2026-10-17T13:00:00.000456Z&readEpoch=0&check=stream-001&type=stream&key=APP%2Forders", "https://lens.example.com", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Evidence) > 0 {
+		t.Fatalf("history route invented finding identity: %+v", c.Evidence)
+	}
+	request, _, err := Prepare("ListFindingEpisodes", c, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r map[string]any
+	if json.Unmarshal(request, &r) != nil {
+		t.Fatal("invalid JSON")
+	}
+	if r["readEpoch"] != "0" || r["checkCode"] != "stream-001" {
+		t.Fatalf("lost captured selection: %s", request)
+	}
+	entity := r["entity"].(map[string]any)
+	if entity["type"] != "ENTITY_TYPE_STREAM" || entity["key"] != "APP/orders" {
+		t.Fatalf("lost typed scope: %s", request)
+	}
+}
