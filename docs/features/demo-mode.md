@@ -37,7 +37,7 @@
 - **The same shapes as real data.** The scenario uses the same event kinds, check codes and API messages as a real collector. Every finding, timeline row and finding event is a real check, with its code, its name and a detail worded as the check's query writes it, with the online shop's assets of the project's examples (streams such as `order-jobs` and `order-archive`, consumers such as `resize-worker`).
 - **Marked as a demo.** The system switcher at the top of the sidebar shows "Demo" under the system name, and the collecting systems' summaries say demo as their collection state.
 - **Mutes in memory.** Mutes and lifts made in the demo work. A demo mute keeps its chosen end and stops applying when it expires or is lifted; mutes live in memory only and are gone when the demo stops. The mute dialog asks for a name, as without IAP. An acceptance made on the Capacity page works the same way: the row reads By design, its finding counts as muted, and the demo records the stream's growth from its scenario; the demo does not end acceptances when growth changes, so only the seeded one on `KV_feature-flags` shows an end by nats-lens.
-- **Address.** `-listen` sets the address (`127.0.0.1:8080` by default), and `-allowed-host` the Host names the API accepts.
+- **Address.** `-listen` sets the address, and `-allowed-host` the Host names the API accepts. Without `-listen` the address is `NATSLENS_DEMO_LISTEN` when it is set, else `127.0.0.1:8080`. The container image sets `NATSLENS_DEMO_LISTEN=0.0.0.0:8080`, so `docker run -p 8080:8080 ghcr.io/shadone/nats-lens demo` serves the demo at http://127.0.0.1:8080; on a non-loopback address the demo accepts any Host name.
 
 - **On-call story and acknowledgements.** `example-prod`'s `consumer-010` for `analytics-aggregator` on `order-archive` has Alice's acknowledgement with 2 hours of quiet and a note about recreating the durable. Its phone card includes the observed upgrade window, Replay steps, reported sibling delivery, and an HTTPS playbook. `example-global`'s `consumer-002` for `label-printer` on `shipping-updates` has Carol's replacement of Bob's acknowledgement; Carol's 30-minute quiet expired. Only the current acknowledgement appears after loading a finding. Demo acknowledgements and hand-backs work in memory and disappear when the process stops. The seeded scenario writes no acknowledgement events. `example-staging` has no recent present observations.
 ## Scenarios
@@ -48,6 +48,13 @@
 - **Given** a built `natslens` binary
 - **When** I run `natslens demo` and open http://127.0.0.1:8080
 - **Then** the Overview shows the scenario's findings, tiles, timeline with the node upgrade window, events, streams and servers, with "Demo" in the sidebar
+
+### Run the demo from the container image
+
+- **Surfaces:** `cli`
+- **Given** Docker and the published image `ghcr.io/shadone/nats-lens`
+- **When** I run `docker run -p 8080:8080 ghcr.io/shadone/nats-lens demo` and open http://127.0.0.1:8080
+- **Then** the demo serves the UI from inside the container, on `0.0.0.0:8080` as `NATSLENS_DEMO_LISTEN` sets it
 
 ### See several systems
 
