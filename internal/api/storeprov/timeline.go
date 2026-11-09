@@ -156,14 +156,28 @@ func (p *Provider) statusTimeline(ctx context.Context, req *v1.GetStatusTimeline
 	if err := p.db().QueryRowContext(ctx, `SELECT coalesce(max(epoch),0) FROM finding_transitions`).Scan(&res.FindingReadEpoch); err != nil {
 		return nil, err
 	}
+	var newestEvent int64
+	if err := p.db().QueryRowContext(ctx, `SELECT coalesce(max(id),0) FROM events`).Scan(&newestEvent); err != nil {
+		return nil, err
+	}
+	res.EventReadId = newestEvent
+	if req.EventReadId != nil {
+		if *req.EventReadId < 0 {
+			return nil, api.ErrInvalid
+		}
+		if *req.EventReadId > newestEvent {
+			return nil, fmt.Errorf("%w: event capture boundary is unavailable", api.ErrFailedPrecondition)
+		}
+		res.EventReadId = *req.EventReadId
+	}
 	var err error
-	if res.Nats, res.NatsTruncated, res.FindingTruncated, err = p.lanes(ctx, req.GetRange(), req.GetEntity()); err != nil {
+	if res.Nats, res.NatsTruncated, res.FindingTruncated, err = p.lanes(ctx, req.GetRange(), req.GetEntity(), res.EventReadId); err != nil {
 		return nil, err
 	}
-	if res.Kubernetes, res.KubernetesTruncated, err = p.k8sLane(ctx, req.GetRange(), req.GetEntity()); err != nil {
+	if res.Kubernetes, res.KubernetesTruncated, err = p.k8sLane(ctx, req.GetRange(), req.GetEntity(), res.EventReadId); err != nil {
 		return nil, err
 	}
-	if res.Windows, err = p.k8sWindows(ctx, req.GetRange()); err != nil {
+	if res.Windows, err = p.k8sWindows(ctx, req.GetRange(), res.EventReadId); err != nil {
 		return nil, err
 	}
 	if res.Rows, err = p.timelineRows(ctx, req.GetRange(), bucket, req.GetEntity(), req.GetIncludeOk()); err != nil {

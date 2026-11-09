@@ -317,6 +317,7 @@ func (h *Handler) ListEvents(ctx context.Context, req *connect.Request[v1.ListEv
 			func() error { return maxLen("sources", len(m.GetSources()), MaxEnumFilters) },
 			func() error { return maxLen("kinds", len(m.GetKinds()), MaxKindFilters) },
 			func() error { return histogramBuckets(m.GetHistogramBuckets()) },
+			func() error { _, err := EventSelection(m.SelectedIds, m.EventReadId); return err },
 			func() error { return checkEntity("entity", m.GetEntity(), true) },
 		)
 	}, on(Provider.ListEvents))
@@ -327,7 +328,8 @@ func (h *Handler) GetEvent(ctx context.Context, req *connect.Request[v1.GetEvent
 		if m.GetId() == "" {
 			return invalid("id is required")
 		}
-		return nil
+		_, err := EventSelection(nil, m.EventReadId)
+		return err
 	}, on(Provider.GetEvent))
 }
 
