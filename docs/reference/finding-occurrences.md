@@ -30,3 +30,9 @@ The browser route `/findings/:id/occurrences/:firstEpoch` requires fixed `from` 
 Use `natslens investigate describe ListFindingEpisodes` for the generated request descriptor and the existing trusted profile or closed-dataset workflow. Context JSON remains untrusted data. The server read-only allowlist and descriptor checks remain enforced. UI scope equivalence for this new RPC is conservative; inspect `availability.uiLinkScope` rather than assuming an exact remote UI link.
 
 The demo reconstructs existing seeded per-finding transitions in a stable synthetic reference frame. It does not invent entity contributors from shaded aggregate rows. Synthetic frame identities are not native collection IDs, and old frames disclose unavailable current-frame metadata. Complete overlapping-event contributors, richer inferred-window drill-down and universal Timeline/agent snapshot handoff remain separate work.
+
+## Historical all-results navigation
+
+`/findings/history?system=…&from=…&to=…&readEpoch=…` lists separate retained occurrences for a fixed range. Optional `check`, `type` and `key` select the same typed resource scope as the API. A stream includes its consumers. Invalid scope/bounds do not fall back to a broader read. Account navigation context alone is not an additional API filter; the page discloses that distinction. The route reuses 50-row occurrence pages and their existing source-bound continuation.
+
+Both its page prompt and CLI URL import preserve the exact request and timestamp precision. The browser and remote client reject a mismatched requested `readEpoch`, including a known-empty capture returning rows. This is transition membership, not a full immutable snapshot. The legacy `/findings` projection remains available separately; it is not used as the Timeline lane's historical all-results destination.

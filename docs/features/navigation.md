@@ -57,6 +57,8 @@ A compact **Copy as prompt** action in the top bar or beside a shared chart copi
 - **Finding links from alerts.** `/findings/by-labels` reads URL-encoded `system`, `code`, and `entity_key`, then replaces the route with `/findings/<id>?system=<id>`. A missing finding opens Findings filtered to its check, with an explanation that it may have resolved and been swept. Both destinations retain the global time range, system, and account, dropping label-routing and unknown parameters. Other API failures remain errors. The same canonical finding URL shows the [phone card](mobile.md) at 760 px and below.
 - Captured Timeline window routes belong to Overview. Their fixed range and event boundary reconstruct the exact inferred input identity or show unavailable evidence; they never fall back to a current window. Event-detail and lane links retain fixed system/range context and acknowledged event membership. Resource links provide historical context without promising pinned metadata.
 
+- `/findings/history` belongs to Findings and requires fixed valid bounds. Optional check, typed resource and captured transition boundary survive shared links, prompt copies and URL imports. Invalid typed scope shows an error rather than reading system-wide history. The existing `/findings` compatibility page remains separate.
+
 ## Scenarios
 
 ### Continue navigating while a view loads

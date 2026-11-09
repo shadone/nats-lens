@@ -149,3 +149,12 @@ This occurrence slice is proposed, not yet confirmed. See the [request and reten
 - **And** fixed timestamp precision is retained; broader UI projections remain explicitly partial when they cannot reproduce the machine selection
 
 This event slice is proposed, not yet confirmed. `GetEventBatch` reads 1–50 exact identities without inferring membership from a time interval. It is admitted by the same read-only boundary for live and closed datasets. The response acknowledges the selection; an older server that ignores the fields is rejected. Cross-query snapshot pinning is still unavailable.
+
+### Reopen retained occurrence lists
+
+- **Given** a `/findings/history` link with fixed bounds, check/resource scope and optional captured transition boundary
+- **When** I copy its page prompt or import that URL
+- **Then** the exact `ListFindingEpisodes` request is retained, including known-empty zero, without inventing a finding whose ID is `history`
+- **And** a mismatched acknowledged boundary fails explicitly instead of broadening the captured read
+
+Ordinary event requests with unset capture fields retain their existing reviewed UI predicates. Active exact-ID/event-boundary fields remain partial unless the effective UI projection proves them; no universal snapshot equivalence is inferred from their defaults.
