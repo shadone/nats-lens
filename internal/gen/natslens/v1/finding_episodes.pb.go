@@ -335,7 +335,9 @@ type ListFindingEpisodesResponse struct {
 	// Transition high-water mark, used by continuation tokens.
 	ReadEpoch int64 `protobuf:"varint,5,opt,name=read_epoch,json=readEpoch,proto3" json:"read_epoch,omitempty"`
 	// Source clock; a captured source retains its captured reference clock.
-	ReadAt        *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=read_at,json=readAt,proto3" json:"read_at,omitempty"`
+	ReadAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=read_at,json=readAt,proto3" json:"read_at,omitempty"`
+	// No retained match is not a healthy-state or complete-capture assertion.
+	Unavailable   []string `protobuf:"bytes,7,rep,name=unavailable,proto3" json:"unavailable,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -412,6 +414,13 @@ func (x *ListFindingEpisodesResponse) GetReadAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *ListFindingEpisodesResponse) GetUnavailable() []string {
+	if x != nil {
+		return x.Unavailable
+	}
+	return nil
+}
+
 var File_natslens_v1_finding_episodes_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_finding_episodes_proto_rawDesc = "" +
@@ -451,7 +460,7 @@ const file_natslens_v1_finding_episodes_proto_rawDesc = "" +
 	"\x06system\x18\b \x01(\tR\x06system\x12/\n" +
 	"\x13include_transitions\x18\t \x01(\bR\x12includeTransitions\x12+\n" +
 	"\x11transition_offset\x18\n" +
-	" \x01(\x05R\x10transitionOffset\"\xa1\x02\n" +
+	" \x01(\x05R\x10transitionOffset\"\xc3\x02\n" +
 	"\x1bListFindingEpisodesResponse\x127\n" +
 	"\bepisodes\x18\x01 \x03(\v2\x1b.natslens.v1.FindingEpisodeR\bepisodes\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
@@ -460,7 +469,8 @@ const file_natslens_v1_finding_episodes_proto_rawDesc = "" +
 	"\x05range\x18\x04 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x1d\n" +
 	"\n" +
 	"read_epoch\x18\x05 \x01(\x03R\treadEpoch\x123\n" +
-	"\aread_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x06readAtBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\aread_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x06readAt\x12 \n" +
+	"\vunavailable\x18\a \x03(\tR\vunavailableBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_finding_episodes_proto_rawDescOnce sync.Once
