@@ -13,6 +13,7 @@ import (
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/store"
+	"google.golang.org/protobuf/proto"
 )
 
 // sourceOf maps events.source to the API's sources: system events and
@@ -281,6 +282,12 @@ func (p *Provider) decorateEventLabel(ev *v1.Event, names map[string]string) {
 // events do not shift the pages.
 func (p *Provider) ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error) {
 	res, err := p.listEvents(ctx, req)
+	if err == nil {
+		res.SelectedIds = append([]string(nil), req.SelectedIds...)
+		if req.EventReadId != nil {
+			res.EventReadId = proto.Int64(*req.EventReadId)
+		}
+	}
 	if err == nil && (len(req.SelectedIds) > 0 || req.EventReadId != nil) && !api.FitsEntityPage(res) {
 		return nil, fmt.Errorf("%w: selected event response exceeds page budget", api.ErrResourceExhausted)
 	}
@@ -337,6 +344,9 @@ func (p *Provider) listEvents(ctx context.Context, req *v1.ListEventsRequest) (*
 // GetEvent reads one event with its payload.
 func (p *Provider) GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error) {
 	res, err := p.getEvent(ctx, req)
+	if err == nil && req.EventReadId != nil {
+		res.EventReadId = proto.Int64(*req.EventReadId)
+	}
 	if err == nil && req.EventReadId != nil && !api.FitsEntityPage(res) {
 		return nil, fmt.Errorf("%w: selected event exceeds page budget", api.ErrResourceExhausted)
 	}

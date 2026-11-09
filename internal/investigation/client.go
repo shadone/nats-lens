@@ -147,6 +147,9 @@ func (r *Remote) Query(ctx context.Context, method string, request []byte) (json
 		code := connect.CodeOf(err)
 		return nil, errors.New("query failed (" + code.String() + "); check access/server compatibility, narrow scope, or inspect Data history for retention loss")
 	}
+	if err := checkEventSelectionReply(method, req.ProtoReflect(), res.Msg.ProtoReflect()); err != nil {
+		return nil, err
+	}
 	// Standard protobuf JSON preserves int64/uint64 as decimal strings, optional
 	// presence. Fields newer than this client schema are unavailable.
 	return protojson.MarshalOptions{EmitDefaultValues: true}.Marshal(res.Msg)

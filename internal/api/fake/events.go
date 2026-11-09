@@ -11,6 +11,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -331,6 +332,12 @@ func (p *Provider) ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*
 	}
 	all := selectedDemoEvents(capture.events, req.SelectedIds)
 	res, err := p.listEventsAt(req, all)
+	if err == nil {
+		res.SelectedIds = append([]string(nil), req.SelectedIds...)
+		if req.EventReadId != nil {
+			res.EventReadId = proto.Int64(*req.EventReadId)
+		}
+	}
 	if err == nil && (len(req.SelectedIds) > 0 || req.EventReadId != nil) && !api.FitsEntityPage(res) {
 		return nil, fmt.Errorf("%w: selected event response exceeds page budget", api.ErrResourceExhausted)
 	}
@@ -397,6 +404,9 @@ func (p *Provider) GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.G
 			e.Raw = string(raw)
 		}
 		res := &v1.GetEventResponse{Event: e}
+		if req.EventReadId != nil {
+			res.EventReadId = proto.Int64(*req.EventReadId)
+		}
 		if req.EventReadId != nil && !api.FitsEntityPage(res) {
 			return nil, fmt.Errorf("%w: selected event exceeds page budget", api.ErrResourceExhausted)
 		}
