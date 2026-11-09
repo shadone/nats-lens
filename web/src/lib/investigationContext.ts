@@ -8,10 +8,11 @@ import type {Entity} from "../api/model";
 import {serverNow} from "./clock";
 import {resolveRange,type RangeSpec} from "./timeRange";
 export interface InvestigationSeries {label:string;metric?:string;entity?:Entity}
-export interface InvestigationSelection {check?:string;annotation?:string;metric?:string;entity?:Entity;series?:InvestigationSeries[];evidence?:{kind:string;id:string}[];start?:number;end?:number;point?:number;label?:string}
+export interface BoundInvestigationQuery {method:string;request:Record<string,unknown>}
+export interface InvestigationSelection {query?:BoundInvestigationQuery;check?:string;annotation?:string;metric?:string;entity?:Entity;series?:InvestigationSeries[];evidence?:{kind:string;id:string}[];start?:number;end?:number;point?:number;label?:string}
 export interface InvestigationEntity {type:string;key:string;account?:string;stream?:string;consumer?:string;server?:string}
 export interface InvestigationContext {
- version:1;deployment:string;system:string;account?:string;range:{start:string;end:string};sourcePath:string;
+ query?:BoundInvestigationQuery;version:1;deployment:string;system:string;account?:string;range:{start:string;end:string};sourcePath:string;
  chartLabel?:string;series?:{label:string;metric?:string;entity?:InvestigationEntity;unavailableReason?:string}[];
  filters:Record<string,string>;entity?:InvestigationEntity;metric?:string;point?:string;evidence?:{kind:string;id:string}[];
  provenance:{status:"unavailable";reason:string};annotation?:string;
@@ -54,7 +55,7 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  if(!entity&&["/events","/consumers"].includes(pathname)&&params.get("stream")){const key=params.get("stream")!,p=key.split("/");if(p.length===2)entity={type:"ENTITY_TYPE_STREAM",key,account:p[0],stream:p[1]}}
  if(!entity&&["/events","/connections","/servers/slow-consumers","/placement"].includes(pathname)&&params.get("server"))entity={type:"ENTITY_TYPE_SERVER",key:params.get("server")!,server:params.get("server")!};
  const evidence:{kind:string;id:string}[]=[...(s?.evidence??[])];
- if(pathname.startsWith("/findings/")&&pathname!=="/findings/by-labels"&&!evidence.some(e=>e.kind==="finding"))evidence.push({kind:"finding",id:decodeURIComponent(pathname.slice("/findings/".length))});
+ if(pathname.startsWith("/findings/")&&pathname!=="/findings/by-labels"&&!evidence.some(e=>e.kind==="finding"))evidence.push({kind:"finding",id:decodeURIComponent(pathname.split("/")[2])});
  if(pathname==="/events"&&params.get("id"))evidence.push({kind:"event",id:params.get("id")!});
- return {version:1,deployment:origin,system,account:entity?.account||params.get("account")||undefined,range:portableRange,sourcePath:pathname,filters,entity,chartLabel:s?.label,series,metric:s?.metric??primary?.metric,point:s?.point!==undefined&&s.point>=start&&s.point<end?new Date(s.point).toISOString():undefined,evidence:evidence.length?evidence.filter((e,i)=>evidence.findIndex(other=>other.kind===e.kind&&other.id===e.id)===i):undefined,annotation:s?.annotation,provenance:{status:"unavailable",reason:"API does not provide a cross-query collection pin. Follow Data history and response evidence IDs; this context records URL-backed filters only."}};
+ return {query:s?.query?{method:s.query.method,request:{...s.query.request,system,range:portableRange}}:undefined,version:1,deployment:origin,system,account:entity?.account||params.get("account")||undefined,range:portableRange,sourcePath:pathname,filters,entity,chartLabel:s?.label,series,metric:s?.metric??primary?.metric,point:s?.point!==undefined&&s.point>=start&&s.point<end?new Date(s.point).toISOString():undefined,evidence:evidence.length?evidence.filter((e,i)=>evidence.findIndex(other=>other.kind===e.kind&&other.id===e.id)===i):undefined,annotation:s?.annotation,provenance:{status:"unavailable",reason:"API does not provide a cross-query collection pin. Follow Data history and response evidence IDs; this context records URL-backed filters only."}};
 }
