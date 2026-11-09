@@ -518,7 +518,7 @@ The watcher (optional, `kubernetes.enabled`, in-cluster and read-only) reads `ev
 - Host allowlist: the API answers only requests whose Host is in `allowed_hosts`; without the setting that is localhost, 127.0.0.1 and ::1 when the listen address is a loopback one (against DNS rebinding from a web page), and any host otherwise. `/healthz` answers every host. On a loopback listener the allowlist applies to `/metrics`; on any other listener `/metrics` is exempt, because Prometheus scrapes by the pod's address, and that listener must stay inside the cluster.
 - Every UI and API response carries `Content-Security-Policy`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The policy is `default-src 'self'`; `script-src` and `style-src` are `'self'` plus the sha256 hash of each inline script and style of the embedded `index.html`, computed at start so they follow every build; `img-src 'self' data:` (the favicon); `object-src 'none'`, `base-uri 'none'`, `form-action 'self'` and `frame-ancestors 'none'`. No `unsafe-inline`.
 - Credentials are never logged; the password has no flag, so it never shows in the process list. User JWTs are removed from stored event payloads at any depth.
-- Supply chain: base images are pinned by digest; the web tree has an `.npmrc` with a min-release-age cooldown of 7 days; `make vuln` runs govulncheck when it is installed, and a weekly CI workflow runs govulncheck and `npm audit` (the owner's choice of 2026-11-09).
+- Supply chain: base images are pinned by digest; the web tree has an `.npmrc` with a min-release-age cooldown of 7 days; `make vuln` runs govulncheck when it is installed, and a weekly CI workflow runs govulncheck (the owner's choice of 2026-11-09) and `npm audit` (proposed, not yet confirmed).
 
 ## Decisions confirmed on 2026-10-26
 
@@ -587,7 +587,7 @@ The owner confirmed these decisions on 2026-10-26 ("Owner review of proposed dec
 | The Dockerfile cross-compiles with a gcc cross toolchain instead of QEMU | Deployment |
 | CSP with hashes of the inline script and style, nosniff and no-referrer on every response; JWTs removed from `raw` at any depth | Security |
 | `iap_audience` required beyond loopback unless `allow_unauthenticated`; IAP key caching rules | Security |
-| `.npmrc` cooldown of 7 days; `make vuln` runs govulncheck by hand. Changed by the owner on 2026-11-09: a weekly govulncheck and `npm audit` run in CI, in place of no CI job | Security |
+| `.npmrc` cooldown of 7 days; `make vuln` runs govulncheck by hand. Changed by the owner on 2026-11-09: a weekly govulncheck run in CI, in place of no CI job; the same workflow's `npm audit` job is proposed, not yet confirmed | Security |
 | Planned pages stay in `nav.ts`, hidden; KV Stores and Object Stores have their pages and are shown | UI |
 | With more than one system, `/` without `?system=` lands on Fleet; with one, on the Overview | UI |
 | Links carry `?system=` and the range, and `?account=` only to pages that apply it and their detail pages; a link's own parameter wins; a link to another system drops the account; with several systems a page without `?system=` links to the default system by name | UI |
@@ -718,7 +718,7 @@ The owner confirmed on 2026-10-27 every decision proposed in the account checks 
 
 ## Owner decision, 2026-11-09
 
-The owner chose a weekly govulncheck and npm audit run in CI on 2026-11-09, replacing the 2026-10-26 decision that `govulncheck` stays a manual step with no CI job. Built: `.github/workflows/vulncheck.yml` (see [verification](operations/verification.md)).
+The owner chose a weekly govulncheck run in CI on 2026-11-09, replacing the 2026-10-26 decision that `govulncheck` stays a manual step with no CI job. Built: `.github/workflows/vulncheck.yml` (see [verification](operations/verification.md)). The same workflow's `npm audit` job is proposed, not yet confirmed.
 
 ## Bounded history sample boundaries
 
