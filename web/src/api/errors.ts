@@ -1,5 +1,6 @@
 // What went wrong with a call, in words, and whether trying again can help.
 import { Code, ConnectError } from "@connectrpc/connect";
+import { HOSTED_DEMO } from "../lib/hostedDemo";
 
 export interface ErrorInfo {
   /** Connect code name, for example unavailable, or "network". */
@@ -20,6 +21,18 @@ const HINTS: Partial<Record<Code, string>> = {
   [Code.Internal]: "The server failed; its log says why.",
   [Code.Unknown]: "The server failed; its log says why.",
 };
+
+/**
+ * On the demo site no server runs and no log is kept: the API runs in the
+ * page, and a reload starts it again.
+ */
+const DEMO_HINTS: Partial<Record<Code, string>> = {
+  [Code.Unavailable]: "The demo in this page is not running; reload the page.",
+  [Code.Internal]: "The demo in this page failed; reload the page to try again.",
+  [Code.Unknown]: "The demo in this page failed; reload the page to try again.",
+  [Code.DeadlineExceeded]: "The demo is taking too long to start or answer; reload the page.",
+};
+const DEMO_NETWORK_HINT = "The browser could not download the demo; check the connection and reload the page.";
 
 /** snake_case, as Connect writes codes on the wire: deadline_exceeded. */
 function codeName(c: Code): string {
@@ -42,23 +55,32 @@ const FETCH_FAILURE = new RegExp(
   "i",
 );
 
-function isFetchFailure(e: unknown): boolean {
-  return e instanceof TypeError && FETCH_FAILURE.test(e.message);
+/**
+ * A file the page could not download outside fetch, such as a script whose
+ * error event gives no reason: a network failure, as a failed fetch is.
+ */
+export class DownloadError extends Error {
+  override name = "DownloadError";
 }
 
-/** A failed fetch, bare or wrapped by Connect as unknown or unavailable. */
+function isFetchFailure(e: unknown): boolean {
+  return (e instanceof TypeError && FETCH_FAILURE.test(e.message)) || e instanceof DownloadError;
+}
+
+/** A failed fetch or download, bare or wrapped by Connect as unknown or unavailable. */
 function isNetwork(e: unknown): boolean {
   if (isFetchFailure(e)) return true;
   return e instanceof ConnectError && (e.code === Code.Unknown || e.code === Code.Unavailable) && isFetchFailure(e.cause);
 }
 
-export function errorInfo(e: unknown): ErrorInfo {
+/** hosted is whether this is the demo site; tests set it. */
+export function errorInfo(e: unknown, hosted = HOSTED_DEMO): ErrorInfo {
   if (isNetwork(e)) {
     const message = e instanceof ConnectError ? e.rawMessage : (e as Error).message;
-    return { code: "network", message, hint: "The browser could not reach the nats-lens server." };
+    return { code: "network", message, hint: hosted ? DEMO_NETWORK_HINT : "The browser could not reach the nats-lens server." };
   }
   if (e instanceof ConnectError) {
-    return { code: codeName(e.code), message: e.rawMessage, hint: HINTS[e.code] ?? "" };
+    return { code: codeName(e.code), message: e.rawMessage, hint: (hosted ? DEMO_HINTS[e.code] : undefined) ?? HINTS[e.code] ?? "" };
   }
   if (e instanceof TypeError) {
     return { code: "client", message: e.message, hint: "The page hit an error of its own; reload it." };

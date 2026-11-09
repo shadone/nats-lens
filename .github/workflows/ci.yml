@@ -1,0 +1,129 @@
+# Runs the repository's verification profiles (docs/operations/verification.md)
+# on every pull request and on pushes to develop. The go-full stage is split
+# across parallel jobs by scripts/ci-go-test.sh.
+#
+# The feature-docs audit stage is left out: its auditor is not in this
+# repository, and verify.py never downloads it. Run it locally.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  BUF_VERSION: 1.75.0
+  NODE_VERSION: 24
+
+jobs:
+  fast:
+    name: Static checks, web and pure Go tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: bufbuild/buf-action@37ac33d8960807670a6e9719080e885197b09cc6 # v1.7.0
+        with:
+          version: ${{ env.BUF_VERSION }}
+          setup_only: true
+      - name: Install web dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: web
+      - name: Verify (fast profile without docs)
+        run: python3 -B scripts/verify.py fast --only format,go-version,gate-tests,build-tests,types,proto,vet-fast,go-fast,web-tests --log-dir "$RUNNER_TEMP/verify"
+      # The demo site as Pages publishes it: the UI under its base path with
+      # the WebAssembly transport, and the API, which fails to build when a
+      # package it imports, such as internal/checks, gains an import that
+      # does not build for WebAssembly. Reuses the npm ci above.
+      - name: Build the demo site and run one call through its WebAssembly
+        run: |
+          make demo-site DEMO_SITE="$RUNNER_TEMP/demo-site"
+          node cmd/natslens-wasm/smoke.mjs "$RUNNER_TEMP/demo-site"
+      - name: Show failed stage logs
+        if: failure()
+        run: tail -n 200 "$RUNNER_TEMP"/verify/*.log
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verify-fast-logs
+          path: ${{ runner.temp }}/verify
+          retention-days: 7
+
+  go-plan:
+    name: Plan the Go suite shares
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: plan
+        run: |
+          matrix=$(scripts/ci-go-test.sh matrix)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  go-full:
+    name: Full Go suite (${{ matrix.name }})
+    needs: go-plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.go-plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Test
+        env:
+          SHARE_ARGS: ${{ matrix.args }}
+          GO_TEST_JSON: ${{ runner.temp }}/go-test.json
+        run: |
+          # shellcheck disable=SC2086 # SHARE_ARGS holds several arguments
+          scripts/ci-go-test.sh $SHARE_ARGS
+      - name: Upload test output
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-test-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/go-test.json
+          retention-days: 7
+
+  go-vet-race:
+    name: Go vet and race checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Verify (vet and race stages)
+        run: python3 -B scripts/verify.py full --only vet-full,race-api,race-k8s --log-dir "$RUNNER_TEMP/verify"
+      - name: Show failed stage logs
+        if: failure()
+        run: tail -n 200 "$RUNNER_TEMP"/verify/*.log
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verify-go-vet-race-logs
+          path: ${{ runner.temp }}/verify
+          retention-days: 7

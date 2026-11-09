@@ -4,6 +4,7 @@ import { timestampFromMs } from "@bufbuild/protobuf/wkt";
 import { screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClockGate } from "../components/ClockGate";
+import { DemoStarting } from "../components/HostedDemo";
 import { serverNow, setServerNow } from "../lib/clock";
 import { renderApp } from "../test/render";
 import { lens } from "./client";
@@ -65,6 +66,18 @@ describe("the server's clock", () => {
     expect(screen.queryByText("shell")).toBeNull();
     expect(await screen.findByText("shell")).toBeInTheDocument();
     expect(Math.abs(serverNow() - FIXED)).toBeLessThan(1000);
+  });
+
+  it("shows its fallback, the demo site's start, until the server's now is read", async () => {
+    vi.mocked(lens.getLensInfo).mockResolvedValue({ now: timestampFromMs(FIXED) } as never);
+    renderApp(
+      <ClockGate fallback={<DemoStarting />}>
+        <p>shell</p>
+      </ClockGate>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Loading the demo…");
+    expect(await screen.findByText("shell")).toBeInTheDocument();
+    expect(screen.queryByText("Loading the demo…")).toBeNull();
   });
 
   it("shows the shell on the browser's clock when the server's now cannot be read", async () => {

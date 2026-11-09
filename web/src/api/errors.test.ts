@@ -11,6 +11,17 @@ describe("errorInfo", () => {
     expect(errorInfo(new ConnectError("bad range", Code.InvalidArgument)).code).toBe("invalid_argument");
   });
 
+  it("on the demo site, points to a reload, not to a server or its log", () => {
+    for (const code of [Code.Unknown, Code.Internal, Code.Unavailable, Code.DeadlineExceeded]) {
+      const hint = errorInfo(new ConnectError("The demo stopped before it started.", code), true).hint;
+      expect(hint).toMatch(/reload the page/);
+      expect(hint).not.toMatch(/server|log/);
+    }
+    expect(errorInfo(new TypeError("Failed to fetch"), true).hint).toMatch(/download the demo/);
+    expect(errorInfo(new ConnectError("x", Code.InvalidArgument), true).hint).toMatch(/check the range/);
+    expect(errorInfo(new ConnectError("x", Code.Unknown)).hint).toMatch(/its log says why/);
+  });
+
   it("calls a failed fetch a network error", () => {
     const e = new ConnectError("Failed to fetch", Code.Unknown, undefined, undefined, new TypeError("Failed to fetch"));
     expect(errorInfo(e).code).toBe("network");

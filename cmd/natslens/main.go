@@ -14,6 +14,7 @@
 //	natslens investigate methods              discover bounded remote read commands
 //	natslens acquire -socket PATH -system ID    acquire a consistent full-system offline dataset
 //	natslens demo [-listen ADDR]                serve the API with a fixed scenario, without NATS
+//	natslens version                            print the version, Go release and platform
 //	natslens notify test -config FILE [-channel NAME] [-system ID]
 //	                                            send a test message to each notification channel, or one
 //
@@ -65,8 +66,11 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	cmd := "run"
-	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks" || args[0] == "notify" || args[0] == "investigate" || args[0] == "acquire") {
+	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks" || args[0] == "notify" || args[0] == "investigate" || args[0] == "acquire" || args[0] == "version") {
 		cmd, args = args[0], args[1:]
+	}
+	if cmd == "version" {
+		return runVersion(args, os.Stdout)
 	}
 	if cmd == "acquire" {
 		return runAcquire(ctx, args, os.Stdout)

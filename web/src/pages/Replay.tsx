@@ -7,6 +7,7 @@ import { useLocation, useSearchParams } from "react-router";
 import { useLensInfo } from "../api/queries";
 import { useReplay, useReplayStrip, useSettledMoments } from "../api/replay";
 import { errorText } from "../components/common";
+import { appUrl } from "../lib/basePath";
 import { serverNow } from "../lib/clock";
 import { ACCOUNT_PARAM, SYSTEM_PARAM } from "../lib/globalQuery";
 import { logFileName, replayLog } from "../lib/replayLog";
@@ -86,7 +87,7 @@ function useReplayModel() {
     const p = shareParams(params, spec, m, at);
     if (system && !p.has(SYSTEM_PARAM)) p.set(SYSTEM_PARAM, system);
     p.delete(ACCOUNT_PARAM);
-    return { url: `${window.location.origin}${pathname}?${p}`, params: p, at };
+    return { url: appUrl(`${pathname}?${p}`), params: p, at };
   };
 
   const copy = async () => {
@@ -104,7 +105,7 @@ function useReplayModel() {
   const exportLog = () => {
     if (!current || !data) return;
     const s = shareUrl(moments!);
-    const text = replayLog(data, { system, origin: window.location.origin, global: `?${new URLSearchParams([...s.params].filter(([k]) => k !== A_PARAM && k !== B_PARAM))}`, link: s.url });
+    const text = replayLog(data, { system, origin: appUrl(""), global: `?${new URLSearchParams([...s.params].filter(([k]) => k !== A_PARAM && k !== B_PARAM))}`, link: s.url });
     download(logFileName(system, data), text);
     setStatus(`Saved ${logFileName(system, data)}.`);
   };

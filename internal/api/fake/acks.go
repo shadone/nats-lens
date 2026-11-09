@@ -105,7 +105,7 @@ func (p *Provider) AcknowledgeFinding(_ context.Context, req *v1.AcknowledgeFind
 	a.Id = strconv.Itoa(p.nextAckID)
 	p.nextAckID++
 	sa := &storedAck{a: a, since: s.clock(f.GetSince().AsTime())}
-	p.acks = append(p.acks, sa)
+	p.acks = keepNewest(append(p.acks, sa), p.seededAcks)
 	return sa.view(s), nil
 }
 

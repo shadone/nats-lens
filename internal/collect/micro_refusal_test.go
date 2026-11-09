@@ -137,7 +137,7 @@ func TestMicroLookupRetriedAfterRefusal(t *testing.T) {
 	}
 	url := startMicroServer(t)
 	startOrders(t, url, "1.4.2")
-	at := time.Now()
+	at := time.Now().Truncate(time.Microsecond) // the precision snapshot times have
 	c := microCollector(2*time.Second, 5*time.Minute, &at, fixedConn("shop-label", connectAs(t, url, "shop-nolookup")))
 	m := c.Collect(context.Background()).Micro[0]
 	st := c.microAccounts["shop-label"]

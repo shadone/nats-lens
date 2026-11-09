@@ -1,3 +1,10 @@
+//go:build !(js && wasm)
+
+// The engine reads and writes the DuckDB store, which needs cgo and so
+// does not build for WebAssembly. The tag leaves it out of the browser demo
+// (cmd/natslens-wasm), which needs only the check definitions; CI builds
+// that command, so a new store import elsewhere in the package fails there.
+
 package checks
 
 import (
@@ -380,23 +387,6 @@ func (e *Engine) runOne(ctx context.Context, conn *sql.Conn, c *Check, epoch int
 	return out, nil
 }
 
-// DurationText writes d the way ns_text does: 7d, 2h, 30s.
-func DurationText(d time.Duration) string {
-	switch {
-	case d == 0:
-		return "0"
-	case d%(24*time.Hour) == 0:
-		return strconv.FormatInt(int64(d/(24*time.Hour)), 10) + "d"
-	case d%time.Hour == 0:
-		return strconv.FormatInt(int64(d/time.Hour), 10) + "h"
-	case d%time.Minute == 0:
-		return strconv.FormatInt(int64(d/time.Minute), 10) + "m"
-	case d%time.Second == 0:
-		return strconv.FormatInt(int64(d/time.Second), 10) + "s"
-	}
-	return d.String()
-}
-
 // setVars sets DuckDB session variables on conn; values are SQL literals
 // or constant expressions.
 func setVars(ctx context.Context, conn *sql.Conn, vars map[string]string) error {
@@ -611,15 +601,6 @@ func relatedConfig(v any) (map[string]string, error) {
 		}
 	}
 	return out, nil
-}
-
-// listLiteral writes names as a DuckDB VARCHAR[] literal.
-func listLiteral(names []string) string {
-	q := make([]string, len(names))
-	for i, n := range names {
-		q[i] = "'" + strings.ReplaceAll(n, "'", "''") + "'"
-	}
-	return "[" + strings.Join(q, ", ") + "]::VARCHAR[]"
 }
 
 // escalationText is the sentence system-001's detail gains when checks

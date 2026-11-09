@@ -4,7 +4,7 @@ Use these entry points to check a stable working tree before integration. Choose
 
 ## Prepare the tools
 
-Use the Go version required by `go.mod`, its native DuckDB build prerequisites, Node.js and npm from the [development prerequisites](../../README.md#prerequisites), Python 3.9 or later, and `buf`. Install locked web dependencies explicitly before verification. Go protobuf plugins come from the tool declarations in `go.mod`; the TypeScript plugin comes from the installed web dependencies.
+Use the Go version required by `go.mod`, its native DuckDB build prerequisites, Node.js and npm from the [development prerequisites](../development.md#prerequisites), Python 3.9 or later, and `buf`. Install locked web dependencies explicitly before verification. Go protobuf plugins come from the tool declarations in `go.mod`; the TypeScript plugin comes from the installed web dependencies.
 
 Provide the installed feature-docs auditor. The runner discovers the highest numbered `ddenis-core` version in the local Codex plugin cache. On another machine, set `FEATURE_DOCS_AUDITOR` to its `skills/feature-docs/scripts/audit_feature_docs.py` path, or pass `--auditor PATH`. A missing auditor fails verification; the runner never downloads one.
 
@@ -16,8 +16,8 @@ Run commands from the repository root:
 
 | Entry point | Checks | Excluded work |
 | --- | --- | --- |
-| `make verify-fast` | Go format, gate/build helper tests, TypeScript, protobuf lint/format/drift, feature docs, scoped Go vet, curated pure Go tests, complete web tests | Database/NATS Go fixtures, scale tests, targeted race tests, production build |
-| `make verify-full` | Shared static checks, all Go vet, complete web tests, uncached full Go suite, targeted API/Kubernetes race tests | Explicit environment-sized scale cases, extended fuzzing, release/container matrix, production build |
+| `make verify-fast` | Go format, Go release agreement (the release go.mod builds with, from its `toolchain` line or else its `go` line, and the Dockerfile's `golang` image), gate/build helper tests, TypeScript, protobuf lint/format/drift, feature docs, scoped Go vet, curated pure Go tests, complete web tests | Database/NATS Go fixtures, scale tests, targeted race tests, production build |
+| `make verify-full` | Shared static checks (Go release agreement included), all Go vet, complete web tests, uncached full Go suite, targeted API/Kubernetes race tests | Explicit environment-sized scale cases, extended fuzzing, release/container matrix, production build |
 | `make verify-web` | TypeScript and complete web tests | Go, protobuf and documentation checks |
 | `make verify-proto` | Protobuf lint, format and isolated generated-code comparison | Other tests |
 | `make verify-race` | Selected API pagination/budget/cancellation and Kubernetes watch recovery races | Broader package or full-repository race coverage |
@@ -57,6 +57,6 @@ Checks write logs, temporary fixtures and tool caches. They do not format the ch
 
 ## Keep release and CI decisions explicit
 
-No CI provider or schedule is adopted by this change. A future CI workflow should call these same entry points after preparing pinned tools and dependencies. CI provider, schedule and artifact retention remain **proposed, not yet confirmed**. `govulncheck` remains the documented manual command; no gate runs it implicitly.
+GitHub Actions runs these entry points on every pull request and every push to `develop` ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)). One job runs the fast profile, and one the `vet-full` and race stages of the full profile. The `go-full` stage runs as parallel jobs through [`scripts/ci-go-test.sh`](../../scripts/ci-go-test.sh). Its `SPLIT` list names the slowest packages (`internal/checks`, `internal/api/storeprov` and `internal/store`) and how many jobs each gets; each of those jobs runs the tests whose sorted position falls to it, and one more job runs every other package with `go test`'s default parallelism rather than `-p 1`, since a runner has its cores to itself. The workflow builds its job list from `scripts/ci-go-test.sh matrix`, so changing `SPLIT` changes the jobs. Each job writes its package times and slowest tests to the run summary, prints the output of failed tests and, when it fails, keeps the raw `go test -json` stream as an artifact for 7 days. Together the jobs cover the full profile except `docs`, whose auditor is not in the repository. Run the docs stage locally. A failed fast or vet and race job prints the last 200 lines of each stage log and keeps the logs as an artifact for 7 days. The workflow is **proposed, not yet confirmed**. A separate workflow, [`.github/workflows/vulncheck.yml`](../../.github/workflows/vulncheck.yml), runs `govulncheck` at a pinned version, built with the Go release in the Dockerfile, and `npm audit --omit=dev --audit-level=high` in `web/`, every Monday and on demand; a finding fails the run. The owner chose the weekly govulncheck run on 2026-11-09; the `npm audit` job is **proposed, not yet confirmed**. Neither runs on pull requests or in `verify.py`; `make vuln` runs `govulncheck` locally.
 
 A passing full profile does not certify a release matrix, DuckDB upgrade/rollback compatibility, Docker architectures, live-deployment behavior, browser layout or extended fuzzing. Run those task-specific checks separately. See the [verification implementation record](../research/verification-gates-2026-11-08.md) for executed controls and timing limits.

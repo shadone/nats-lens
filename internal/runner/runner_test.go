@@ -136,7 +136,7 @@ func TestOnceCallsStored(t *testing.T) {
 	var got []int64
 	var at time.Time
 	r.Stored = func(epoch int64, startedAt time.Time) { got, at = append(got, epoch), startedAt }
-	before := time.Now()
+	before := time.Now().Truncate(time.Microsecond) // the precision snapshot times have
 	epoch, err := r.Once(context.Background())
 	if err != nil {
 		t.Fatal(err)

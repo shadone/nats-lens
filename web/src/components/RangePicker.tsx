@@ -2,7 +2,7 @@
 // custom dates in the panel. Dates follow the browser locale; times are UTC.
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { errorInfo } from "../api/errors";
-import type { Freshness } from "../api/model";
+import type { Freshness as FreshnessData } from "../api/model";
 import { serverNow } from "../lib/clock";
 import { createRangeDateEditor } from "../lib/rangeDateEditor";
 import { dayMonHm, fmtDuration, sinceText } from "../lib/format";
@@ -20,7 +20,7 @@ const FOCUSABLE = "button:not([disabled]), input:not([disabled]), select, textar
  * the longer texts with an ellipsis, so their title starts with the whole
  * text; "fixed" and "no data" are short enough to stay whole.
  */
-export function Freshness({ spec, freshness, error, id }: { spec: RangeSpec; freshness?: Freshness; error?: unknown; id?: string }) {
+export function Freshness({ spec, freshness, error, id }: { spec: RangeSpec; freshness?: FreshnessData; error?: unknown; id?: string }) {
   const now = useNow(1000, spec.kind === "live");
   if (error) {
     const i = errorInfo(error);
@@ -52,7 +52,7 @@ export function Freshness({ spec, freshness, error, id }: { spec: RangeSpec; fre
   );
 }
 
-export function RangePicker({ freshness, error }: { freshness?: Freshness; error?: unknown }) {
+export function RangePicker({ freshness, error }: { freshness?: FreshnessData; error?: unknown }) {
   const { spec, setSpec } = useTimeRange();
   const [open, setOpen] = useState(false);
   const panelId = useId();

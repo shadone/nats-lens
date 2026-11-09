@@ -2,6 +2,7 @@
 import { createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { LensService } from "../gen/natslens/v1/service_pb";
+import { demoFetch } from "./demoFetch";
 
 /**
  * Every call, query or mutation, gives up after 45 seconds with
@@ -14,4 +15,4 @@ import { LensService } from "../gen/natslens/v1/service_pb";
  */
 export const CALL_TIMEOUT_MS = 45_000;
 
-export const lens = createClient(LensService, createConnectTransport({ baseUrl: "/api", defaultTimeoutMs: CALL_TIMEOUT_MS }));
+export const lens = createClient(LensService, createConnectTransport({ baseUrl: "/api", defaultTimeoutMs: CALL_TIMEOUT_MS, ...(demoFetch ? { fetch: demoFetch } : {}) }));

@@ -9,9 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 
 	"github.com/shadone/nats-lens/internal/archive"
+	"github.com/shadone/nats-lens/internal/config"
+	"github.com/shadone/nats-lens/internal/events"
 	"github.com/shadone/nats-lens/internal/store"
 	"github.com/shadone/nats-lens/internal/testcluster"
 )
@@ -27,6 +30,7 @@ func TestShutdownWritesEventsThenState(t *testing.T) {
 	dir := t.TempDir()
 	conf := filepath.Join(dir, "natslens.yaml")
 	body := fmt.Sprintf(`interval: 10s
+listen: ""
 timeout: 1s
 shutdown_grace: 2s
 data_dir: %s
@@ -38,9 +42,15 @@ nats: { url: %s, user: %s, password: %s }
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel) // stops run if a wait below fails the test
 	done := make(chan error, 1)
 	go func() { done <- run(ctx, []string{"run", "-config", conf, "-log-level", "error"}) }()
-	time.Sleep(2 * time.Second) // started, first epoch and archive tick done
+	// Events are captured once the events connection has subscribed;
+	// before that the clients below would go unseen. How long the start
+	// takes depends on the machine.
+	started := time.Now()
+	waitFor(t, "the events connection to subscribe", 30*time.Second, func() bool { return eventsSubscribed(c.Servers[0]) })
+	t.Logf("events connection subscribed after %s", time.Since(started).Round(time.Millisecond))
 	// Connections made now produce events that wait in the buffer: the
 	// flush interval is a minute.
 	for i := range 5 {
@@ -82,4 +92,20 @@ nats: { url: %s, user: %s, password: %s }
 	if state.MaxEventID != maxID {
 		t.Fatalf("state.json max_event_id = %d, stored max id = %d: the state was written before the last events", state.MaxEventID, maxID)
 	}
+}
+
+// eventsSubscribed reports whether s has the events connection of a
+// collector with the default connection name, with all its subscriptions
+// (account_connections is off).
+func eventsSubscribed(s *server.Server) bool {
+	cz, err := s.Connz(&server.ConnzOptions{Limit: 1000})
+	if err != nil {
+		return false
+	}
+	for _, ci := range cz.Conns {
+		if ci.Name == config.DefaultNATSName+"-events" && int(ci.NumSubs) >= len(events.SysSubjects(false)) {
+			return true
+		}
+	}
+	return false
 }

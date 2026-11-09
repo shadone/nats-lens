@@ -1,0 +1,60 @@
+# Looks for known vulnerabilities once a week and on demand: govulncheck on
+# the Go module, built with the Go release the Dockerfile ships, and
+# `npm audit` on the web UI's production dependencies, at high severity and
+# above. A finding fails the run; nothing is fixed or published.
+# docs/operations/verification.md describes it.
+name: Vulnerability check
+
+on:
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GOVULNCHECK_VERSION: v1.9.0
+  NODE_VERSION: 24
+
+jobs:
+  go:
+    name: govulncheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The standard library's findings depend on the Go release, so scan
+      # with the one release.yml builds every binary with.
+      - name: Read the Go version from the Dockerfile
+        id: go
+        run: |
+          v=$(grep -Eo "golang:[0-9]+\.[0-9]+\.[0-9]+" Dockerfile | sort -u | cut -d: -f2)
+          if [ "$(printf "%s\n" "$v" | wc -l)" -ne 1 ]; then echo "::error::want one golang version in the Dockerfile, got: $v"; exit 1; fi
+          if [ -z "$v" ]; then echo "::error::no golang image in the Dockerfile"; exit 1; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ steps.go.outputs.version }}
+      - name: Run govulncheck
+        env:
+          GOTOOLCHAIN: local
+        run: go run "golang.org/x/vuln/cmd/govulncheck@$GOVULNCHECK_VERSION" ./...
+
+  web:
+    name: npm audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # Reads web/package-lock.json; installs nothing.
+      - name: Run npm audit
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: web

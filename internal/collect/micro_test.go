@@ -377,7 +377,7 @@ func TestMicroFailures(t *testing.T) {
 	}
 }
 
-// The README's grants for an account user (testcluster's app-scoped user)
+// The grants in docs/configuration.md for an account user (testcluster's app-scoped user)
 // are enough to ask micro services and look up the account.
 func TestMicroScopedUser(t *testing.T) {
 	if testing.Short() {

@@ -2,12 +2,7 @@
 // range or a time on the browser's clock, which `natslens demo -fixed`
 // refuses. The places that need the browser's own clock are listed here.
 import { describe, expect, it } from "vitest";
-
-const sources = import.meta.glob<string>(["../**/*.ts", "../**/*.tsx", "!../**/*.test.ts", "!../**/*.test.tsx", "!../gen/**", "!../test/**"], {
-  query: "?raw",
-  import: "default",
-  eager: true,
-});
+import { uiSources } from "../test/sources";
 
 /** Files and how many Date.now() or new Date() calls each may hold, with why. */
 const ALLOWED: Record<string, number> = {
@@ -20,6 +15,8 @@ const ALLOWED: Record<string, number> = {
 };
 
 describe("the UI's now", () => {
+  const sources = uiSources();
+
   it("reads the files it checks", () => {
     expect(Object.keys(sources).length).toBeGreaterThan(50);
     expect(Object.keys(sources)).toContain("../api/requests.ts");

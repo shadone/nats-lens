@@ -1,0 +1,30 @@
+# Kubernetes watcher
+
+This page describes the optional Kubernetes watcher, which records what happens to the NATS pods and their nodes. To run natslens itself in Kubernetes, see [Deploy](deploy.md).
+
+With `kubernetes.enabled`, `natslens run` watches the Kubernetes API alongside NATS. It only reads: it lists and watches Events (`events.k8s.io/v1`) in `kubernetes.namespaces`, the NATS server pods there (by `kubernetes.nats_selector`), the nodes, and the node Events in `kubernetes.node_events_namespace`. Inside the cluster it uses the pod's service account; outside, set `kubernetes.kubeconfig` (and `kubernetes.context`). What it records goes through the event capture, in the same batches as the NATS events, with source `k8s`:
+
+| Kind | From | When |
+| --- | --- | --- |
+| `k8s.pod.scheduled` | pod watch | A NATS pod is assigned to a node. |
+| `k8s.pod.ready`, `k8s.pod.not_ready` | pod watch | Its Ready condition changes; timed by the condition. |
+| `k8s.pod.restarted` | pod watch | A container's restart count grows; the reason is the last termination's (for example `OOMKilled`). |
+| `k8s.pod.oom_killed` | pod watch, Event | A NATS pod's restart whose last termination is `OOMKilled`. Client pods are not watched, so for them only an Event with reason `OOMKilled` or `OOMKilling` gives it, which kubelets do not send for pods; it is untested on a real cluster. |
+| `k8s.pod.evicted` | pod watch, Event | The pod gets a `DisruptionTarget` condition (eviction API, preemption, taint manager, kubelet), or an `Evicted` Event; recorded once. |
+| `k8s.pod.terminating` | pod watch | The pod is deleted without an eviction; timed when it was asked to stop. |
+| `k8s.pod.deleted` | pod watch | The pod is gone. |
+| `k8s.pod.killing`, `k8s.pod.started`, `k8s.pod.unhealthy`, `k8s.pod.backoff`, `k8s.pod.failed_scheduling`, `k8s.pod.preempted` | Event | The kubelet's or scheduler's report of the server container, or a warning about another pod (`CrashLoopBackOff` is a back-off). For a pod that is a NATS client the timeline draws a back-off, failed scheduling or OOM kill as a warning. A Kubernetes Event is one row per UID, updated as its count grows. |
+| `k8s.node.added`, `k8s.node.cordoned`, `k8s.node.uncordoned`, `k8s.node.ready`, `k8s.node.not_ready`, `k8s.node.deleted` | node watch | A node changes. A cordon is `spec.unschedulable` or the cluster autoscaler's removal taint. |
+| `k8s.node.drained` | derived | A NATS pod is evicted, terminated or killed on a cordoned node; once per cordon. |
+| `k8s.node.upgrade` | node watch, Event | A node's kubelet version changes, or a node Event's reason names an upgrade. |
+| `k8s.event` | Event | Any other warning, and other reports about a NATS pod. |
+| `collector.k8s_not_watching`, `collector.k8s_gap` | the watcher | A list or watch failed for `kubernetes.gap_after`, and the span until it worked again. |
+
+Pod events of a NATS pod carry its server name (`kubernetes.server_name`), so they appear with the server's own events. Node events are kept for nodes that run or ran a NATS pod in the last hour, and for nodes added within 15 minutes of a drain or upgrade (the surge node that ends it); with `kubernetes.pool_nodes` also for every node of a pool that held a NATS node in the last day, which on GKE Autopilot, where the autoscaler's few pools hold every workload, would record the autoscaler's churn. A node Event whose reason names an upgrade counts only for those nodes. Events of other pods are kept when they are warnings or a `Killing`, `Evicted` or preemption, without a server name. Routine pod Events (`Scheduled`, `Pulling`, `Pulled`, `Created`) and those of the config reloader container are not stored. An Event repeats with a growing count; each count is stored once, also across a relist and a restart of natslens.
+
+Each watch resumes from the last resource version it saw, so the server's periodic close of a watch loses nothing; when the version has expired (410) the watcher lists again and records what changed meanwhile, timed when it noticed. A watch the server ends within a second without an error counts as a failure, so it is not reopened in a loop, and the watcher lists again before the next watch: a GKE API server closes a watch from a version it no longer has that way, without the 410. Lists are paged by 500 objects, at most 20 pages; what is beyond that is left out of the list with a warning in the log, which a NATS namespace never reaches but a cluster with more than 10,000 nodes or a namespace with more than 10,000 Events would.
+
+On start, natslens records a `collector.k8s_gap` from the last stored Kubernetes event or epoch, when that is longer ago than `gap_after`, and compares its first lists with what the stored events last said of each NATS pod (ready or not, present) and node (cordoned or not, present). What changed while it was down is recorded then, marked `observed_at_start` in `raw` and "(observed at start)" in the summary.
+
+The status timeline's Kubernetes lane shows node cordons, drains, readiness, upgrades and deletions, the NATS pods' stops, starts and readiness, and the watcher's gaps; for one server it shows only that server's pods. Windows shade node drains and upgrades: a window opens at a `k8s.node.drained` or `k8s.node.upgrade` and takes in every following node or NATS pod event that comes within 15 minutes of the one before, so it ends at the last node or pod back to ready. A window without a drain or a NATS pod event is not shown. It is labelled "Node upgrade" when it holds an upgrade or nodes of different kubelet versions ("GKE node upgrade" when a node in it carries GKE's `cloud.google.com/gke-nodepool` label), "Node removed by the autoscaler" when every drain in it was the autoscaler's, else "Node drain", with the number of drained nodes and of NATS pods stopped.
+

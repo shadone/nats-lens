@@ -10,8 +10,14 @@ import (
 // filtered consumers whose backlog has waited since before the store
 // began, on a stream with max_age 30d, so the whole history lies in the
 // stream's window. The backlog's start is found without reading each
-// consumer's whole history; 4 seconds stays below checks.timeout (5s) and
-// leaves room for a loaded machine.
+// consumer's whole history.
+//
+// The check's time is compared with one pass over the same history in the
+// same store (see scaleRatio), not with a fixed limit, which failed on
+// loaded machines. The bounded search takes a median of 2.8 to 4.1
+// passes, alone or with two other runs of this test at once; reading each
+// consumer's whole history at the start search takes 14.9, and joining it
+// before the refinement's epoch bound 25 to 28.
 func TestOldestUnreadScale(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds 80 million rows")
@@ -33,15 +39,18 @@ func TestOldestUnreadScale(t *testing.T) {
 	  delivered_stream_seq, ack_floor_stream_seq, num_ack_pending, num_pending)
 	  SELECT e, 'S0', 'APP', 'events', 'c' || i, true, TIMESTAMP '2026-10-02 09:00:00', 1, 1, 0, 10*e - 1
 	  FROM range(1, %d) t(e), range(0, %d) u(i)`, n+1, k))
-	start := time.Now()
+
 	// Lowered thresholds, so that a 14-day backlog on a 30-day stream fires.
-	got := f.eval("consumer-014", n, map[string]string{"warn_ratio": "0.1", "resolve_ratio": "0.05"})
-	took := time.Since(start)
-	t.Logf("%d filtered backlogged consumers, %d collections, max_age 30d: %d findings in %s", k, n, len(got), took)
-	if len(got) != k {
-		t.Errorf("%d findings, want %d", len(got), k)
-	}
-	if took > 4*time.Second {
-		t.Errorf("consumer-014 took %s, want under 4s (checks.timeout is 5s)", took)
-	}
+	over := map[string]string{"warn_ratio": "0.1", "resolve_ratio": "0.05"}
+	// One pass: each consumer's earliest collection with messages waiting
+	// at its delivered sequence, what the check's search finds without
+	// reading every row.
+	f.scaleRatio(fmt.Sprintf("consumer-014 on %d filtered backlogged consumers, %d collections, max_age 30d", k, n),
+		`SELECT count(*) FROM (SELECT consumer, min(epoch) FILTER (WHERE num_pending > 0 AND delivered_stream_seq = 1)
+		  FROM consumer_leader_stats GROUP BY consumer)`, k,
+		func() {
+			if got := f.eval("consumer-014", n, over); len(got) != k {
+				t.Fatalf("%d findings, want %d", len(got), k)
+			}
+		})
 }
