@@ -81,7 +81,7 @@ describe("Overview without findings", () => {
     expect(screen.getByText(/No collection stored in this range yet/)).toBeInTheDocument();
     expect(await screen.findByText(/No consumer in the newest collection/)).toBeInTheDocument();
     expect(await screen.findByText(/No streams in the newest collection/)).toBeInTheDocument();
-    expect(await screen.findByRole("group", { name: /^Findings: ok throughout/ })).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: /^Findings: no observed check state/ })).toBeInTheDocument();
   });
 
   it("shows the error with a retry when the overview fails", async () => {
