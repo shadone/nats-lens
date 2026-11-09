@@ -36,8 +36,9 @@ var uiPredicates = map[string]string{
 var uiDefaultOnly = map[string]string{
 	"ListSystems":      "strip_buckets",
 	"GetStorageChange": "page_token",
-	"ListFindings":     "entity page_token", "ListEvents": "page_token include_facets histogram_buckets",
-	"GetStatusTimeline": "entity include_ok", "ListConnections": "page_token", "ListStreams": "account page_token summary_only",
+	"ListFindings":     "entity page_token", "ListEvents": "page_token include_facets histogram_buckets selected_ids event_read_id",
+	"GetEvent":          "event_read_id",
+	"GetStatusTimeline": "entity include_ok event_read_id", "ListConnections": "page_token", "ListStreams": "account page_token summary_only",
 	"ListConsumers": "page_token", "GetDataHistory": "server", "GetPlacement": "selected_asset selected_server",
 }
 

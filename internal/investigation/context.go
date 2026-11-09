@@ -370,6 +370,10 @@ func (c *Context) infer(path string, q url.Values) {
 				c.Entity.Server = c.Entity.Key
 			case "account":
 				c.Entity.Account = c.Entity.Key
+			case "system", "client", "connection":
+				if q.Get("type") == "connection" && len(parts) == 2 {
+					c.Entity.Server = parts[0]
+				}
 			case "stream", "consumer":
 				if len(parts) >= 2 {
 					c.Entity.Account = parts[0]
@@ -378,6 +382,8 @@ func (c *Context) infer(path string, q url.Values) {
 				if len(parts) == 3 {
 					c.Entity.Consumer = parts[2]
 				}
+			default:
+				c.Entity.Type = "UNSUPPORTED_HISTORY_SCOPE"
 			}
 			request["entity"] = c.Entity
 		}
