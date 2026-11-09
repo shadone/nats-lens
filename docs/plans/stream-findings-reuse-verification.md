@@ -17,8 +17,15 @@ This guarantee applies to the API stream summary and returned firing-findings li
 - The measured query reduction is the cause-event lookup in this controlled fixture, **2 → 1**. It witnesses reuse of the duplicate full finding composition; it is not a measurement of all SQL statements, complete response latency, throughput or every detail-page request.
 - Scoped `go vet ./internal/api/storeprov`, feature-doc audit (46 capabilities) and whitespace checks pass. One intermediate signature-adaptation compile failure was corrected before runtime GREEN and is not counted as RED evidence.
 
-Receipts: `/private/tmp/nats-stream-reuse-{red,green,controls}.log` and `/private/tmp/nats-stream-reuse-proof/{removed.log,published-run-removed.log,restored.log,coverage.out}`. No full Go/check-engine/storeprov suite, frontend build/browser, network/private data, install, push or restart claim. This request-local reuse policy is proposed, not yet confirmed.
+The run logs were written to the temporary folder of the machine that ran them, outside the repository; they are not kept with this record. No full Go/check-engine/storeprov suite, frontend build/browser, network/private data, install, push or restart claim. This request-local reuse policy is proposed, not yet confirmed.
+
+## Consumer detail
+
+`GetConsumer` had the same split: its summary status came from the scoped consumer-status read and its findings from a second, full firing read. It now reads the firing findings once and sets the summary's status from that set, as `GetStream` does. `ListConsumers` and the consumers embedded in `GetStream` keep the scoped status read.
+
+- `TestGetConsumerStatusAndFindingUseSameEvidence` publishes a real later `ApplyCheckRuns` between the status read and the reply. Without the fix it fails: summary Warning beside a Critical/Changed "later evidence" finding. With the fix it passes, and the store confirms the later record exists.
+- This single-read policy for consumer detail is proposed, not yet confirmed.
 
 ## Remaining original acceptance
 
-Detail chart annotations still fetch full Overview; a focused cached read remains to implement. Representative real detail-load/polling network counts remain open. The existing operator-refresh slice is separately documented in [operator refresh verification](operator-refresh-verification.md). Neither slice closes the whole task.
+Detail chart annotations no longer fetch a full Overview: Stream, KV, Object Store and Consumer detail pages read `GetTimeWindows`; see [focused window reads](focused-window-reads-verification.md), which also records the measured detail-page request counts. The existing operator-refresh slice is separately documented in [operator refresh verification](operator-refresh-verification.md).

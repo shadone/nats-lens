@@ -16,7 +16,7 @@ The proposed, not yet confirmed cache policy shares an exact system/range answer
 
 The browser request contract changes one annotation RPC per detail load or live poll from `GetOverview` to `GetTimeWindows`. Primary detail and series reads remain separate. This is a source and controlled-hook/query-count statement, not a deployed network trace, benchmark or universal latency improvement.
 
-Logs: `/private/tmp/nats-detail-windows-{red,green,removed,restored,types}.log`, `/private/tmp/nats-focused-timewindows-{native,race-parity}.log`. The first accidentally root-run web invocation lacked the web environment and is excluded; only the installed web runner's results are counted.
+The run logs were written to the temporary folder of the machine that ran them, outside the repository; they are not kept with this record. The first accidentally root-run web invocation lacked the web environment and is excluded; only the installed web runner's results are counted.
 
 No full web/Go suite, production browser or private-data access is claimed. Combined fresh review remains required before integration.
 
@@ -26,4 +26,12 @@ Four focused tests pass across annotation cache and Connect wire-adapter fixture
 
 The real generated Connect client is exercised with a controlled no-network fetch implementation. It sends only the selected system/range to GetTimeWindows, and the returned view model retains event IDs above 2^53, derivation, supporting IDs, capture range and input-limit notice. The transport fixture initially assumed fetch received a Request object; correcting it to the actual URL/init signature was a fixture correction, not a production defect.
 
-Logs: `/private/tmp/nats-window-poll-{removed,wire-restored}.log`; types `/private/tmp/nats-window-poll-wire-types.log`. Fresh combined review could not start because T3 returned `parent_not_active`; no approval or merge is claimed.
+Their logs, like the ones above, stayed in the temporary folder of the machine that ran them.
+
+## Measured detail-page requests
+
+The reviewer of the merged branch counted the `/api` requests of the Stream and Consumer detail pages before and after the change. Each page sends the same number as before: 11 on load and 29 after 75 seconds with two polls. Each `GetOverview` is replaced one-for-one by `GetTimeWindows`. The saving is server work per call, not request count: in the provider fixture above, Overview makes 28 provider reads and `GetTimeWindows` makes 2.
+
+## Review
+
+The combined review ran on the merged branch `merge/page-reads`. A later round fixed its findings: the web test mocks and keys, generated-code drift, the consumer detail read (see [stream finding reuse](stream-findings-reuse-verification.md#consumer-detail)), a guard on query-key shape, and these records. No approval or merge is claimed.
