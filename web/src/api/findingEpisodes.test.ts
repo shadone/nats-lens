@@ -6,11 +6,11 @@ import {listFindingEpisodes,epoch} from './findingEpisodes';
 import {ListFindingEpisodesResponseSchema} from '../gen/natslens/v1/finding_episodes_pb';
 import {FindingState} from '../gen/natslens/v1/findings_pb';
 vi.mock('./client',()=>({lens:{listFindingEpisodes:vi.fn()}}));
-it('preserves exact epoch identity, known zero boundaries and separate historical/latest states',async()=>{
+it('preserves exact epoch identity and separate historical/latest states',async()=>{
  vi.mocked(lens.listFindingEpisodes).mockResolvedValue(create(ListFindingEpisodesResponseSchema,{readEpoch:9007199254740995n,totalCount:1,episodes:[{firstRetainedEpoch:9007199254740993n,startEpoch:9007199254740993n,finding:{id:'x',state:FindingState.FIRING},latestRetainedState:FindingState.RESOLVED,firstRetainedAt:timestampFromMs(1000),transitions:[{epoch:9007199254740993n}]}]}));
  const signal=new AbortController().signal;
- const r=await listFindingEpisodes('shop',1000,2000,{readEpoch:'0',firstEpoch:'9007199254740993',findingId:'x',includeTransitions:true},signal);
- expect(lens.listFindingEpisodes).toHaveBeenCalledWith(expect.objectContaining({system:'shop',readEpoch:0n,firstRetainedEpoch:9007199254740993n,includeTransitions:true}),{signal});
+ const r=await listFindingEpisodes('shop',1000,2000,{readEpoch:'9007199254740995',firstEpoch:'9007199254740993',findingId:'x',includeTransitions:true},signal);
+ expect(lens.listFindingEpisodes).toHaveBeenCalledWith(expect.objectContaining({system:'shop',readEpoch:9007199254740995n,firstRetainedEpoch:9007199254740993n,includeTransitions:true}),{signal});
  expect(r.readEpoch).toBe('9007199254740995');expect(r.items[0]).toMatchObject({firstEpoch:'9007199254740993',finding:{state:'firing'},latestState:'resolved',transitions:[{epoch:'9007199254740993'}]});
 });
 it('rejects malformed and overflow collection identities rather than rounding them',()=>{
@@ -18,7 +18,15 @@ it('rejects malformed and overflow collection identities rather than rounding th
  expect(epoch('9223372036854775807')).toBe(9223372036854775807n);
 });
 it('rejects a source that ignores the captured occurrence boundary, including known empty capture',async()=>{
- for(const [wanted,returned] of [['0',5n],['5',6n]]){
+ for(const [wanted,returned] of [['0',5n],['5',6n]] as const){
  vi.mocked(lens.listFindingEpisodes).mockResolvedValue(create(ListFindingEpisodesResponseSchema,{readEpoch:returned}));await expect(listFindingEpisodes('shop',1000,2000,{readEpoch:wanted})).rejects.toThrow(/boundary/i);
  }
+});
+
+it('preserves an acknowledged known-empty capture without substituting current occurrences',async()=>{
+ vi.mocked(lens.listFindingEpisodes).mockResolvedValue(create(ListFindingEpisodesResponseSchema,{readEpoch:0n}));const r=await listFindingEpisodes('shop',1000,2000,{readEpoch:'0'});expect(r.items).toEqual([]);expect(r.readEpoch).toBe('0');
+});
+it('uses exact typed range bounds instead of rounding the historical list interval',async()=>{
+ vi.mocked(lens.listFindingEpisodes).mockResolvedValue(create(ListFindingEpisodesResponseSchema,{readEpoch:0n}));await listFindingEpisodes('shop',1000,2000,{readEpoch:'0',range:{start:'2026-10-17T12:00:00.000123Z',end:'2026-10-17T13:00:00.000456Z'}});
+ expect(lens.listFindingEpisodes).toHaveBeenLastCalledWith(expect.objectContaining({range:{start:expect.objectContaining({nanos:123000}),end:expect.objectContaining({nanos:456000})}}),{signal:undefined});
 });

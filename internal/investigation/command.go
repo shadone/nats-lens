@@ -559,6 +559,8 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			if applied {
 				put("foldRepeats", v != "all")
 			}
+		case "readEpoch":
+			applied = put("readEpoch", v)
 		case "eventReadId":
 			applied = put("eventReadId", v)
 		case "id":

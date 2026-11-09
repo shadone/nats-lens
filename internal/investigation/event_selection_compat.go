@@ -8,6 +8,26 @@ import (
 // Require positive acknowledgement of additive exact-selection fields. A prior
 // server can legally ignore unknown protobuf fields; that is not a scoped read.
 func checkEventSelectionReply(method string, in, out protoreflect.Message) error {
+	if method == "ListFindingEpisodes" {
+		requested := in.Descriptor().Fields().ByJSONName("readEpoch")
+		if requested == nil || !in.Has(requested) {
+			return nil
+		}
+		boundary := in.Get(requested).Int()
+		returned := out.Descriptor().Fields().ByJSONName("readEpoch")
+		if returned == nil || out.Get(returned).Int() != boundary {
+			return errors.New("finding history boundary was not honored by this server")
+		}
+		if boundary == 0 {
+			count := out.Descriptor().Fields().ByJSONName("totalCount")
+			rows := out.Descriptor().Fields().ByJSONName("episodes")
+			if count != nil && out.Get(count).Int() != 0 || rows != nil && out.Get(rows).List().Len() != 0 {
+				return errors.New("finding history boundary was not honored by this server")
+			}
+		}
+		return nil
+	}
+
 	if method != "ListEvents" && method != "GetEvent" && method != "GetStatusTimeline" && method != "GetEventBatch" {
 		return nil
 	}
