@@ -154,7 +154,7 @@ function SlowConsumers({ servers, spec, start, end }: { servers: ServerRow[]; sp
           const h = p.value > 0 ? 2 + (p.value / peak) * 18 : 0;
           const from = Math.max(start, p.time);
           const to = Math.min(end, p.time + (q.data?.stepMs ?? (pts.length > 1 ? pts[1].time - pts[0].time : end - start)));
-          return h && to > from ? <a key={p.time} href={investigate(from, to)} aria-label={`Investigate ${fmtInt(p.value)} ${p.value === 1 ? "detection" : "detections"} in bucket starting ${new Date(from).toISOString()}`}><rect x={(i * w).toFixed(1)} y={(23 - h).toFixed(1)} width={Math.max(1, w - 2).toFixed(1)} height={h.toFixed(1)} className="dp-bar" /></a> : null;
+          return h && to > from ? <Link key={p.time} to={investigate(from, to)} aria-label={`Investigate ${fmtInt(p.value)} ${p.value === 1 ? "detection" : "detections"} in bucket starting ${new Date(from).toISOString()}`}><rect x={(i * w).toFixed(1)} y={(23 - h).toFixed(1)} width={Math.max(1, w - 2).toFixed(1)} height={h.toFixed(1)} className="dp-bar" /></Link> : null;
         })}
       </svg>
       <Link className="x" to={investigate()}>Investigate detections</Link>

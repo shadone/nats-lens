@@ -27,7 +27,7 @@ import { entityName } from "./view";
 export interface LogContext {
   /** The system's ID as the page names it; empty for the default system. */
   system: string;
-  /** "https://lens.example.com" */
+  /** The UI's root URL without a trailing slash, which route paths follow: "https://lens.example.com", or "https://example.com/nats-lens" under a base path. */
   origin: string;
   /** The global query of a shared link ("?from=…&to=…&system=…"), which every link carries. */
   global: string;

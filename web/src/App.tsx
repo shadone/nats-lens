@@ -10,6 +10,7 @@ import { DemoNotice } from "./components/HostedDemo";
 import { Sidebar } from "./components/Sidebar";
 import { StaleProvider } from "./components/StaleContext";
 import { Landing, SystemGate } from "./components/SystemGate";
+import { appHref } from "./lib/basePath";
 import { HOSTED_DEMO } from "./lib/hostedDemo";
 import { useRoutePosition } from "./lib/useRoutePosition";
 import { useSidebar } from "./lib/useSidebar";
@@ -70,7 +71,7 @@ export function App() {
           <StaleProvider key={`${pathname}|${system}`}>
             <SystemGate>
               <PageHistoryProvider>
-              <RouteBoundary key={pathname} href={pathname + search + hash}>
+              <RouteBoundary key={pathname} href={appHref(pathname + search + hash)}>
               <Routes>
                 <Route
                   path="/"
