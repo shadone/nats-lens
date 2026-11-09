@@ -47,3 +47,7 @@ it('reads contributor pages only after an explicit action and keeps missing capt
  expect(useSelectedTimelineEvents).toHaveBeenLastCalledWith(range,ids.slice(0,50),'55');
  fireEvent.click(screen.getByRole('button',{name:'Next events'}));expect(screen.getAllByRole('button',{name:'Read event detail'})).toHaveLength(1);expect(useSelectedTimelineEvents).toHaveBeenLastCalledWith(range,['51'],'55');
 });
+it('opens the Findings lane in retained occurrence history with the captured range and transition boundary',()=>{
+ render(<MemoryRouter initialEntries={['/?system=shop&range=1h']}><StoryLanes tl={{...tl,findingReadEpoch:'0'}} end={end} live/></MemoryRouter>);
+ const link=screen.getByRole('link',{name:'Findings'}).getAttribute('href')!;const u=new URL(link,'https://example.com');expect(u.pathname).toBe('/findings/history');expect(u.searchParams.get('readEpoch')).toBe('0');expect(Date.parse(u.searchParams.get('from')!)).toBe(start);expect(u.searchParams.has('range')).toBe(false);
+});
