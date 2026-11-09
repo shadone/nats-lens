@@ -10,9 +10,6 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 
 ## Behavior and rules
 
-- **Focused chart annotations.** Resource detail charts read inferred Kubernetes windows separately from Overview totals and findings. Annotations are shared only for the same system and exact range; live ranges refresh every 30 seconds. Windows retain their supporting-event identities and capture-limit disclosures. They describe system-wide inferred context, not a demonstrated cause for this resource. An empty response does not prove complete event capture or no changes.
-
-
 - Supported history titles open [metric investigations](metric-investigations.md) with the resource identity, system and range. Native observation summaries distinguish peaks from bucket aggregates, and fixed-range findings/events remain accessible. Backing-stream statistics do not measure individual keys, objects or content.
 
 
@@ -26,6 +23,8 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 - **The list.** For each consumer: its status, name and stream, pending messages, unacknowledged messages, redelivered messages, waiting pull requests, leader, how long ago it last delivered, and notes: "missing", "paused", "servers disagree", "ephemeral", and the codes of its firing findings.
 - **Missing consumers are listed.** A consumer the inventory expects that no server reports appears in the list as "missing", with no numbers. Its page says "Missing. The consumer does not exist now: it is expected by the inventory, or it was deleted inside the range."
 - **The consumer page.** The header names the stream, durable or ephemeral, the replicas, and "paused" or "servers disagree" when they apply. Stat cards show pending, ack pending, redelivered, waiting pulls, the leader and the last delivery. Charts show pending, ack pending and redelivered over the range, drawn as on the Overview tiles: line and fill neutral, the change in the accent.
+- **Chart annotations.** The consumer page's charts mark the system's inferred Kubernetes windows, read with `GetTimeWindows` for the page's system and exact range rather than with the whole Overview. Pages showing the same system and range share one answer; a live range reads it again every 30 seconds. Windows keep their supporting-event identities and capture-limit notes. They are system-wide context, not a shown cause for this resource, and an empty answer does not prove complete event capture or that nothing changed. When a refresh of the windows fails, the page keeps the windows it last read and its stale banner says "Showing data from <time> UTC; the last refresh failed", with Retry. When the first read fails, the charts draw without windows and nothing says so.
+- **Consistent finding evidence within a detail response.** `GetConsumer` reads the firing findings once and takes both the consumer's status and its findings list from that read, so a check run during the request cannot make the two disagree. Other facts and separate page requests are not pinned to that set; `ListConsumers` keeps its own scoped status read. This single-read policy is proposed, not yet confirmed.
 - **Servers disagree and per server.** As on the stream page: a table of each server's configuration hash and creation time when they differ, and for each server its replica role, lag, delivered and ack floor sequences, creation time and configuration hash.
 - **Delivery rate in the API.** `delivered_per_second` is delivery-sequence advance per second in the newest comparable run within the 15 minutes before the range’s end. It is not unique messages or acknowledgements; redeliveries can advance the sequence. Adjacent observations require one leader, the same known creation time, nondecreasing sequences and positive elapsed time within three collection intervals (at least three seconds). A leader/incarnation return cannot rejoin an older run. Unknown or conflicting creation, missing/multiple leaders, resets and invalid timing start a new run. Fewer than two comparable reports leaves the rate unset. Entirely absent rows can bridge a short elapsed gap; this does not prove continuous capture. This stricter evidence policy is proposed, not yet confirmed.
 - **Busiest first, in the API.** `ListConsumers` with `sort` set to `CONSUMER_SORT_DELIVERED_RATE` puts the highest delivery rate first and the consumers without a rate last; `limit` keeps only the first ones. The default order stays worst first.
@@ -75,6 +74,14 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 - **When** I call `ListConsumers` with `sort` `CONSUMER_SORT_DELIVERED_RATE` and `limit` 6
 - **Then** I receive the six fastest consumers, fastest first, each with its `delivered_per_second`
 - **And** traversing every page puts the consumer only a follower reports last, with no rate
+
+### Keep consumer status and firing evidence together
+
+- **Surfaces:** `api`
+- **Given** a consumer has a warning finding and a later check run makes it critical while its detail is read
+- **When** the API returns the consumer detail
+- **Then** the summary status and the returned findings come from the same read: a warning status with the warning finding
+- **And** no snapshot is promised for charts, per-server views or independent requests
 
 ## Planned
 

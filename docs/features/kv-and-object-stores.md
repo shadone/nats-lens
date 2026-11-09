@@ -10,9 +10,6 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 
 ## Behavior and rules
 
-- **Focused chart annotations.** Resource detail charts read inferred Kubernetes windows separately from Overview totals and findings. Annotations are shared only for the same system and exact range; live ranges refresh every 30 seconds. Windows retain their supporting-event identities and capture-limit disclosures. They describe system-wide inferred context, not a demonstrated cause for this resource. An empty response does not prove complete event capture or no changes.
-
-
 - Backing-stream diagnostics share the [stream detail response](streams.md) contract: its status and returned firing findings use the same finding set. Separate charts and page requests are not pinned to it.
 
 - Supported history titles open [metric investigations](metric-investigations.md) with the resource identity, system and range. Native observation summaries distinguish peaks from bucket aggregates, and fixed-range findings/events remain accessible. Backing-stream statistics do not measure individual keys, objects or content.
@@ -37,6 +34,7 @@ The Streams list can include storage streams with bounded pages and totals acros
 - **Narrow screens.** The table scrolls sideways inside its card, with a shadow at each edge where it is cut; descriptions wrap and the placement squares stay on one line, so placement shows without scrolling.
 - **Account scope.** Both pages apply the account scope chosen in the header.
 - **Bucket details.** A present bucket opens its own KV or object-store detail route, named by bucket and account, with the corresponding sidebar and breadcrumb. Storage bytes and trends, replica reports, configuration, findings and events use the same stored evidence as the underlying stream. KV details show reported history per key and TTL; absent configuration remains unknown. Stored records include revisions and deletion markers; object-store messages include chunks and metadata, not an object count. Watchers are observed consumers, not a count of clients reading keys.
+- **Chart annotations.** The bucket detail page's charts mark the system's inferred Kubernetes windows, read with `GetTimeWindows` for the page's system and exact range rather than with the whole Overview. Pages showing the same system and range share one answer; a live range reads it again every 30 seconds. Windows keep their supporting-event identities and capture-limit notes. They are system-wide context, not a shown cause for this resource, and an empty answer does not prove complete event capture or that nothing changed. When a refresh of the windows fails, the page keeps the windows it last read and its stale banner says "Showing data from <time> UTC; the last refresh failed", with Retry. When the first read fails, the charts draw without windows and nothing says so.
 - **Consistent navigation.** Search, Capacity, Placement, findings, events and other resource links use bucket routes and readable bucket names. System and time context follow the link; bucket detail routes also preserve account context. Existing `KV_` and `OBJ_` stream links redirect to the resource page. A secondary “Underlying stream diagnostics” action opens the explicit low-level stream view; raw storage names are not needed for the primary workflow.
 
 ## Scenarios
