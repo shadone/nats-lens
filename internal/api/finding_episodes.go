@@ -59,6 +59,7 @@ type EpisodeCursor struct {
 	To         time.Time `json:"t"`
 	Issued     int64     `json:"a,string"`
 	Scope      string    `json:"s"`
+	Pinned     bool      `json:"-"`
 	continued  bool
 }
 
@@ -85,6 +86,7 @@ func decodeEpisodeCursor(token string) (EpisodeCursor, error) {
 		return EpisodeCursor{}, fmt.Errorf("%w: occurrence page expired; restart the list", ErrFailedPrecondition)
 	}
 	c.continued = true
+	c.Pinned = true
 	return c, nil
 }
 
@@ -92,7 +94,7 @@ func decodeEpisodeCursor(token string) (EpisodeCursor, error) {
 // Scope binds the source, system and all selectors; size/offset may change.
 func NormalizeFindingEpisodes(r *v1.ListFindingEpisodesRequest, reference time.Time) (EpisodeCursor, error) {
 	var c EpisodeCursor
-	if r.PageSize < 0 || r.PageSize > 100 || r.FirstRetainedEpoch < 0 || r.TransitionOffset < 0 || r.TransitionOffset > MaxOffset {
+	if r.GetReadEpoch() < 0 || r.PageSize < 0 || r.PageSize > 100 || r.FirstRetainedEpoch < 0 || r.TransitionOffset < 0 || r.TransitionOffset > MaxOffset {
 		return c, invalid("invalid occurrence page bounds")
 	}
 	if r.PageSize == 0 {
@@ -119,6 +121,10 @@ func NormalizeFindingEpisodes(r *v1.ListFindingEpisodesRequest, reference time.T
 		if err != nil {
 			return c, err
 		}
+		if r.ReadEpoch != nil && r.GetReadEpoch() != c.ReadEpoch {
+			return c, invalid("occurrence read boundary changed")
+		}
+		r.ReadEpoch = proto.Int64(c.ReadEpoch)
 		if c.Offset == 0 && !r.IncludeTransitions {
 			return c, invalid("invalid occurrence page offset")
 		}
@@ -133,6 +139,10 @@ func NormalizeFindingEpisodes(r *v1.ListFindingEpisodesRequest, reference time.T
 		if r.Range.End == nil {
 			r.Range.End = timestamppb.New(c.To)
 		}
+	}
+	if r.ReadEpoch != nil {
+		c.ReadEpoch = r.GetReadEpoch()
+		c.Pinned = true
 	}
 	r.Range, err = ResolveRange(r.Range, reference, DefaultRange)
 	if err != nil {
@@ -152,6 +162,7 @@ func (p *EpisodePages) Prepare(r *v1.ListFindingEpisodesRequest, reference time.
 	}
 	canonical := proto.Clone(r).(*v1.ListFindingEpisodesRequest)
 	canonical.PageToken = ""
+	canonical.ReadEpoch = nil
 	canonical.PageSize = 0
 	canonical.TransitionOffset = 0
 	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(canonical)

@@ -224,7 +224,7 @@ type ListFindingEpisodesRequest struct {
 	TransitionOffset int32 `protobuf:"varint,10,opt,name=transition_offset,json=transitionOffset,proto3" json:"transition_offset,omitempty"`
 	// Optional high-water epoch from Timeline. It freezes transition membership,
 	// not all database facts. A continuation must retain the same boundary.
-	ReadEpoch     int64 `protobuf:"varint,11,opt,name=read_epoch,json=readEpoch,proto3" json:"read_epoch,omitempty"`
+	ReadEpoch     *int64 `protobuf:"varint,11,opt,name=read_epoch,json=readEpoch,proto3,oneof" json:"read_epoch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -330,8 +330,8 @@ func (x *ListFindingEpisodesRequest) GetTransitionOffset() int32 {
 }
 
 func (x *ListFindingEpisodesRequest) GetReadEpoch() int64 {
-	if x != nil {
-		return x.ReadEpoch
+	if x != nil && x.ReadEpoch != nil {
+		return *x.ReadEpoch
 	}
 	return 0
 }
@@ -455,7 +455,7 @@ const file_natslens_v1_finding_episodes_proto_rawDesc = "" +
 	"\x15transition_page_token\x18\x0e \x01(\tR\x13transitionPageToken\x12F\n" +
 	"\x11first_retained_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\x0ffirstRetainedAt\x12$\n" +
 	"\x0ecause_event_id\x18\x10 \x01(\x03R\fcauseEventIdB\x0e\n" +
-	"\f_start_epoch\"\xbb\x03\n" +
+	"\f_start_epoch\"\xcf\x03\n" +
 	"\x1aListFindingEpisodesRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x1d\n" +
 	"\n" +
@@ -470,9 +470,10 @@ const file_natslens_v1_finding_episodes_proto_rawDesc = "" +
 	"\x06system\x18\b \x01(\tR\x06system\x12/\n" +
 	"\x13include_transitions\x18\t \x01(\bR\x12includeTransitions\x12+\n" +
 	"\x11transition_offset\x18\n" +
-	" \x01(\x05R\x10transitionOffset\x12\x1d\n" +
+	" \x01(\x05R\x10transitionOffset\x12\"\n" +
 	"\n" +
-	"read_epoch\x18\v \x01(\x03R\treadEpoch\"\xc3\x02\n" +
+	"read_epoch\x18\v \x01(\x03H\x00R\treadEpoch\x88\x01\x01B\r\n" +
+	"\v_read_epoch\"\xc3\x02\n" +
 	"\x1bListFindingEpisodesResponse\x127\n" +
 	"\bepisodes\x18\x01 \x03(\v2\x1b.natslens.v1.FindingEpisodeR\bepisodes\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
@@ -537,6 +538,7 @@ func file_natslens_v1_finding_episodes_proto_init() {
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_findings_proto_init()
 	file_natslens_v1_finding_episodes_proto_msgTypes[0].OneofWrappers = []any{}
+	file_natslens_v1_finding_episodes_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

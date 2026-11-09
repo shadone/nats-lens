@@ -25,7 +25,7 @@ func (p *Provider) ListFindingEpisodes(ctx context.Context, in *v1.ListFindingEp
 	}
 	page, err := p.St.FindingEpisodes(ctx, store.FindingEpisodeQuery{
 		From: r.Range.Start.AsTime(), To: r.Range.End.AsTime(), FindingID: r.FindingId, FirstRetainedEpoch: r.FirstRetainedEpoch,
-		CheckCode: r.CheckCode, EntityType: typ, EntityKey: key, ReadEpoch: cursor.ReadEpoch, Limit: int(r.PageSize), Offset: cursor.Offset,
+		CheckCode: r.CheckCode, EntityType: typ, EntityKey: key, ReadEpoch: cursor.ReadEpoch, ReadEpochKnown: cursor.Pinned, Limit: int(r.PageSize), Offset: cursor.Offset,
 	})
 	if errors.Is(err, store.ErrFindingEpisodeReadLimit) {
 		return nil, fmt.Errorf("%w: occurrence read budget; narrow scope or page size", api.ErrResourceExhausted)

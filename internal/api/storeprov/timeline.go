@@ -3,6 +3,7 @@ package storeprov
 import (
 	"cmp"
 	"context"
+	"database/sql"
 	"fmt"
 	"slices"
 	"time"
@@ -120,10 +121,41 @@ type rowKey struct {
 // the NATS events and finding transitions, and the Kubernetes events; the
 // windows are the node drains and upgrades.
 func (p *Provider) GetStatusTimeline(ctx context.Context, req *v1.GetStatusTimelineRequest) (*v1.GetStatusTimelineResponse, error) {
+	if _, ok := p.readDB.(*sql.Tx); ok {
+		return p.statusTimeline(ctx, req)
+	}
+	beginner, ok := p.db().(interface {
+		BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)
+	})
+	if !ok {
+		return nil, fmt.Errorf("%w: Timeline read transaction unavailable", api.ErrFailedPrecondition)
+	}
+	tx, err := beginner.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	at := p.Now()
+	// Construct the read view explicitly: Provider owns mutex-bearing caches.
+	view := &Provider{St: p.St, Interval: p.Interval, Checks: p.Checks, ClientPods: p.ClientPods, Kubernetes: p.Kubernetes, Clock: func() time.Time { return at }, readDB: tx}
+	res, err := view.statusTimeline(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (p *Provider) statusTimeline(ctx context.Context, req *v1.GetStatusTimelineRequest) (*v1.GetStatusTimelineResponse, error) {
 	start, end := span(req.GetRange())
 	bucket := req.GetBucket().AsDuration()
 	n := api.BucketCount(end.Sub(start), bucket)
 	res := &v1.GetStatusTimelineResponse{Start: req.GetRange().GetStart(), Bucket: req.GetBucket(), BucketCount: int32(n)}
+	if err := p.db().QueryRowContext(ctx, `SELECT coalesce(max(epoch),0) FROM finding_transitions`).Scan(&res.FindingReadEpoch); err != nil {
+		return nil, err
+	}
 	var err error
 	if res.Nats, res.NatsTruncated, res.FindingTruncated, err = p.lanes(ctx, req.GetRange(), req.GetEntity()); err != nil {
 		return nil, err
