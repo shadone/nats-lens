@@ -69,14 +69,16 @@ export function useMutes(includeInactive: boolean, pageToken = "") {
 // state. Unknown same-system families remain conservatively invalidated so a
 // new status-bearing view does not silently retain a stale mute or acknowledgement.
 const operatorIndependent = new Set([
-  "series", "trends", "bandSeries", "metric-ranking", "lensInfo", "data-history", "lastData",
+  "series", "trends", "bandSeries", "metric-ranking", "lensInfo", "data-history",
   "events", "event", "serverEvents", "timeline-events", "timeline-window", "captured-event-selection",
-  "replay", "replayStrip", "topology", "placement",
+  "replay", "topology", "placement",
 ]);
-function operatorStateFilter(system: string) {
+// Acknowledge writes finding.acknowledged to events atomically; a mute/release does not.
+const operatorEventReads = new Set(["events", "serverEvents", "data-history"]);
+function operatorStateFilter(system: string, writesEvent = false) {
   return { predicate: (q: { queryKey: readonly unknown[] }) =>
     q.queryKey[0] === "systemSummaries" ||
-    q.queryKey[1] === system && !operatorIndependent.has(String(q.queryKey[0])) };
+    q.queryKey[1] === system && (writesEvent && operatorEventReads.has(String(q.queryKey[0])) || !operatorIndependent.has(String(q.queryKey[0]))) };
 }
 /** Keep historical/current operator-dependent reads and the global fleet tally coherent. */
 function useInvalidateOperatorState() {
@@ -416,7 +418,7 @@ export function useShellStatus() {
 }
 
 /** A saved acknowledgement appears immediately in both current detail caches.
- * Refetch only this system, including its tallies and acknowledgement event. */
+ * Refetch this system’s operator-dependent evidence and the shared fleet tallies. */
 export function useSaveAcknowledgement() {
   const qc = useQueryClient();
   return useMutation({
@@ -436,7 +438,7 @@ export function useSaveAcknowledgement() {
       return snapshots;
     },
     onSuccess: (a, v, snapshots) => {
-      const filter = operatorStateFilter(v.system);
+      const filter = operatorStateFilter(v.system, v.action === "ack");
       for (const kind of ["finding", "oncall"]) {
         const key = [kind, v.system, a.findingId];
         const q = qc.getQueryCache().find({ queryKey: key, exact: true });
