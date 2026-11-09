@@ -1,0 +1,329 @@
+# Publishes a release when a v* tag is pushed: the container image
+# ghcr.io/shadone/nats-lens for linux/amd64 and linux/arm64, binary archives
+# for Linux and macOS with checksums.txt, build provenance attestations for
+# both, and a GitHub release with generated notes. docs/operations/releasing.md
+# describes how to cut one.
+#
+# A pull request that touches the release inputs, and a manual run, build
+# everything and publish nothing.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - Dockerfile
+      - .dockerignore
+      - Makefile
+      - go.mod
+      - go.sum
+      - scripts/release-archive.sh
+  workflow_dispatch:
+
+permissions: {}
+
+# Tag runs queue one at a time, so two tags do not push `latest` or create
+# releases at once. GitHub keeps one pending run per group: a third tag
+# pushed while one runs and one waits cancels the waiting one, which then
+# needs a re-run. Pull request runs replace their own older runs.
+concurrency:
+  group: ${{ github.event_name == 'push' && 'release-tags' || format('release-{0}', github.ref) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE: ghcr.io/shadone/nats-lens
+  # Lowest macOS the macOS binaries are built for.
+  MACOSX_DEPLOYMENT_TARGET: '13.0'
+
+jobs:
+  meta:
+    name: Version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - name: Work out the version
+        id: version
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT" = push ] && [ "$REF_TYPE" = tag ]; then
+            if ! printf '%s\n' "$REF_NAME" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+              echo "::error::tag $REF_NAME is not vMAJOR.MINOR.PATCH[-PRERELEASE]"
+              exit 1
+            fi
+            version=$REF_NAME
+            publish=true
+          else
+            version="dev-${GITHUB_SHA::7}"
+            publish=false
+          fi
+          case "$version" in
+            *-*) prerelease=true ;;
+            *) prerelease=false ;;
+          esac
+          if [ "$publish" = false ]; then prerelease=true; fi
+          {
+            echo "version=$version"
+            echo "publish=$publish"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+          echo "version $version, publish $publish, prerelease $prerelease"
+
+  linux:
+    name: Web UI and Linux binaries
+    needs: meta
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # The UI for the macOS binaries, built by the Dockerfile's web stage
+      # like the one the image and the Linux binaries embed.
+      - name: Build the web UI
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: webui
+          platforms: linux/amd64
+          outputs: type=local,dest=out/webui
+      # The Linux binaries are the image's own: built in Debian 12 with its
+      # gcc cross toolchain, so they need no newer glibc than the image has.
+      - name: Build the Linux binaries
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: binary
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ env.VERSION }}
+          outputs: type=local,dest=out/bin
+      - name: Check the amd64 binary's version
+        run: |
+          out=$(out/bin/linux_amd64/natslens version)
+          echo "$out"
+          case "$out" in
+            "natslens $VERSION ("*" linux/amd64)") ;;
+            *) echo "::error::unexpected version output"; exit 1 ;;
+          esac
+      - name: Pack the archives
+        run: |
+          for arch in amd64 arm64; do
+            scripts/release-archive.sh "$VERSION" linux "$arch" "out/bin/linux_$arch/natslens" dist
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: webui
+          path: out/webui
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: archives-linux
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  darwin:
+    name: macOS ${{ matrix.arch }} binary
+    needs: [meta, linux]
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: amd64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The Go release of the image's build stage, so every binary of a
+      # release comes from one Go release.
+      - name: Read the Go version from the Dockerfile
+        id: go
+        run: |
+          v=$(grep -Eo "golang:[0-9]+\.[0-9]+\.[0-9]+" Dockerfile | sort -u | cut -d: -f2)
+          if [ "$(printf "%s\n" "$v" | wc -l)" -ne 1 ]; then echo "::error::want one golang version in the Dockerfile, got: $v"; exit 1; fi
+          if [ -z "$v" ]; then echo "::error::no golang image in the Dockerfile"; exit 1; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ steps.go.outputs.version }}
+          cache: false
+      - name: Check the runner's architecture
+        env:
+          WANT: ${{ matrix.arch }}
+        run: |
+          got=$(go env GOARCH)
+          if [ "$got" != "$WANT" ]; then echo "::error::runner builds $got, want $WANT"; exit 1; fi
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: webui
+          path: internal/webui/dist
+      - name: Build
+        run: make build-release VERSION="$VERSION" BIN=out/natslens
+      - name: Check the binary's version
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          out=$(out/natslens version)
+          echo "$out"
+          case "$out" in
+            "natslens $VERSION ("*" darwin/$ARCH)") ;;
+            *) echo "::error::unexpected version output"; exit 1 ;;
+          esac
+      - name: Pack the archive
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: scripts/release-archive.sh "$VERSION" darwin "$ARCH" out/natslens dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: archives-darwin-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  image:
+    name: Container image
+    # After the binaries, so a failed build publishes no image.
+    needs: [meta, linux, darwin]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      PUBLISH: ${{ needs.meta.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image tags and labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern=v{{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ needs.meta.outputs.publish == 'true' && needs.meta.outputs.prerelease == 'false' }}
+            type=ref,event=pr
+            type=sha,enable=${{ github.event_name == 'workflow_dispatch' }}
+          labels: |
+            org.opencontainers.image.title=nats-lens
+            org.opencontainers.image.description=Observes a NATS deployment: snapshots, events, findings and a web UI
+            org.opencontainers.image.licenses=AGPL-3.0-only
+          annotations: |
+            org.opencontainers.image.title=nats-lens
+            org.opencontainers.image.description=Observes a NATS deployment: snapshots, events, findings and a web UI
+            org.opencontainers.image.licenses=AGPL-3.0-only
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ env.VERSION }}
+          push: ${{ env.PUBLISH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          # The provenance is the GitHub attestation below; without
+          # BuildKit's own the image index lists only the two platforms.
+          provenance: false
+      - name: Attest the image
+        if: env.PUBLISH == 'true'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  release:
+    name: GitHub release
+    needs: [meta, linux, darwin, image]
+    if: needs.meta.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      PRERELEASE: ${{ needs.meta.outputs.prerelease }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: archives-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum -- *.tar.gz > checksums.txt
+          cat checksums.txt
+          test "$(wc -l < checksums.txt)" -eq 4
+      - name: Attest the archives
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/*.tar.gz
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cat > notes.md <<EOF
+          ## Install
+
+          Container image for linux/amd64 and linux/arm64:
+
+              docker run -p 8080:8080 ${IMAGE}:${VERSION} demo
+
+          Binaries: download the archive for your platform, compare it with \`checksums.txt\` (\`sha256sum -c checksums.txt --ignore-missing\`) and check its build provenance with \`gh attestation verify <archive> --repo ${REPO}\`.
+
+          - The Linux binaries link glibc 2.34 or later and libstdc++ from GCC 12 or later dynamically: Debian 12, Ubuntu 22.04 or newer.
+          - The macOS binaries are built for macOS ${MACOSX_DEPLOYMENT_TARGET} or later. They are not notarized: a browser download needs \`xattr -d com.apple.quarantine natslens\` before the first run.
+
+          nats-lens is licensed under AGPL-3.0-only.
+
+          EOF
+          args=(--repo "$REPO" --verify-tag --title "$VERSION" --generate-notes --notes "$(cat notes.md)")
+          if [ "$PRERELEASE" = true ]; then args+=(--prerelease); fi
+          gh release create "$VERSION" "${args[@]}" dist/*.tar.gz dist/checksums.txt
