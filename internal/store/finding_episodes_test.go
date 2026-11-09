@@ -200,3 +200,20 @@ func TestFindingEpisodesValidateAndBoundReads(t *testing.T) {
 		t.Fatalf("byte budget accepted: %v", err)
 	}
 }
+
+func TestFindingEpisodesRespectSubMicrosecondExclusiveEnd(t *testing.T) {
+	s := refireStore(t)
+	for _, extra := range []time.Duration{0, time.Nanosecond, time.Microsecond} {
+		p, err := s.FindingEpisodes(context.Background(), FindingEpisodeQuery{From: t0, To: t0.Add(2*time.Minute + extra), Limit: 10})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := 0
+		if extra > 0 {
+			want = 1
+		}
+		if p.Total != want {
+			t.Errorf("exclusive end +%v: %d occurrences, want %d", extra, p.Total, want)
+		}
+	}
+}
