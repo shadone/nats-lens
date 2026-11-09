@@ -16,8 +16,8 @@ Run commands from the repository root:
 
 | Entry point | Checks | Excluded work |
 | --- | --- | --- |
-| `make verify-fast` | Go format, gate/build helper tests, TypeScript, protobuf lint/format/drift, feature docs, scoped Go vet, curated pure Go tests, complete web tests | Database/NATS Go fixtures, scale tests, targeted race tests, production build |
-| `make verify-full` | Shared static checks, all Go vet, complete web tests, uncached full Go suite, targeted API/Kubernetes race tests | Explicit environment-sized scale cases, extended fuzzing, release/container matrix, production build |
+| `make verify-fast` | Go format, Go release agreement (go.mod's `toolchain` line and the Dockerfile's `golang` image), gate/build helper tests, TypeScript, protobuf lint/format/drift, feature docs, scoped Go vet, curated pure Go tests, complete web tests | Database/NATS Go fixtures, scale tests, targeted race tests, production build |
+| `make verify-full` | Shared static checks (Go release agreement included), all Go vet, complete web tests, uncached full Go suite, targeted API/Kubernetes race tests | Explicit environment-sized scale cases, extended fuzzing, release/container matrix, production build |
 | `make verify-web` | TypeScript and complete web tests | Go, protobuf and documentation checks |
 | `make verify-proto` | Protobuf lint, format and isolated generated-code comparison | Other tests |
 | `make verify-race` | Selected API pagination/budget/cancellation and Kubernetes watch recovery races | Broader package or full-repository race coverage |

@@ -43,10 +43,32 @@ class VerificationContracts(unittest.TestCase):
         self.assertEqual(results[-1]['code'], 7)
 
 
+class GoVersionAgreement(unittest.TestCase):
+    GOMOD = 'module x\n\ngo 1.27.1\n\ntoolchain go1.27.3\n'
+    DOCKERFILE = 'FROM node:26 AS web\nFROM --platform=$BUILDPLATFORM golang:1.27.3-bookworm@sha256:ab AS build\n'
+
+    def test_agreeing_versions_pass(self):
+        self.assertIsNone(verify.go_version_mismatch(self.GOMOD, self.DOCKERFILE))
+
+    def test_a_bump_of_one_side_names_both_and_says_what_to_bump(self):
+        reason = verify.go_version_mismatch(self.GOMOD, self.DOCKERFILE.replace('1.27.3', '1.27.4'))
+        self.assertIn('go1.27.3', reason)
+        self.assertIn('golang:1.27.4', reason)
+        self.assertIn('bump the older one', reason)
+
+    def test_a_missing_toolchain_line_or_two_images_fail(self):
+        self.assertIn('toolchain', verify.go_version_mismatch('module x\n\ngo 1.27.1\n', self.DOCKERFILE))
+        self.assertIn('one golang', verify.go_version_mismatch(self.GOMOD, self.DOCKERFILE + 'FROM golang:1.27.2 AS other\n'))
+
+    def test_the_repository_agrees(self):
+        root = Path(__file__).resolve().parent.parent
+        self.assertIsNone(verify.go_version_mismatch((root / 'go.mod').read_text(), (root / 'Dockerfile').read_text()))
+
+
 class TierScopeContracts(unittest.TestCase):
     def test_fast_and_full_keep_expensive_work_explicit(self):
         fast, full = verify.plan('fast'), verify.plan('full')
-        for name in ['format', 'types', 'proto', 'docs', 'web-tests']:
+        for name in ['format', 'go-version', 'types', 'proto', 'docs', 'web-tests']:
             self.assertIn(name, fast)
             self.assertIn(name, full)
         self.assertIn('go-fast', fast)

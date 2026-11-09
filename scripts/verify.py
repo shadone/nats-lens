@@ -30,7 +30,7 @@ COMMANDS = {
 }
 
 def plan(profile):
-    common = ['format', 'gate-tests', 'build-tests', 'types', 'proto', 'docs']
+    common = ['format', 'go-version', 'gate-tests', 'build-tests', 'types', 'proto', 'docs']
     return {
         'fast': common + ['vet-fast', 'go-fast', 'web-tests'],
         'full': common + ['vet-full', 'web-tests', 'go-full', 'race-api', 'race-k8s'],
@@ -95,6 +95,29 @@ def check_format(root, log):
     log.write(result.stdout + result.stderr)
     return 1 if format_failed(result.returncode, result.stdout) else 0
 
+def go_version_mismatch(gomod, dockerfile):
+    """Why go.mod's toolchain line and the Dockerfile's golang image name
+    different Go releases, or None when they agree. CI and Pages take the
+    release from the toolchain line (setup-go's go-version-file); the image,
+    the release binaries and the weekly govulncheck take it from the
+    Dockerfile."""
+    toolchain = re.findall(r'^toolchain\s+go(\S+)\s*$', gomod, re.M)
+    images = sorted(set(re.findall(r'\bgolang:(\d+\.\d+\.\d+)', dockerfile)))
+    if len(toolchain) != 1:
+        return 'go.mod needs one "toolchain goX.Y.Z" line, the Go release CI builds with'
+    if len(images) != 1:
+        return f'the Dockerfile needs one golang:X.Y.Z image, found {images or "none"}'
+    if toolchain[0] != images[0]:
+        return (f'go.mod has toolchain go{toolchain[0]} and the Dockerfile golang:{images[0]}: '
+                'bump the older one to the newer release (go mod edit -toolchain=goX.Y.Z, or the '
+                'Dockerfile image with its digest and cache ids)')
+    return None
+
+def check_go_version(root, log):
+    reason = go_version_mismatch((root / 'go.mod').read_text(), (root / 'Dockerfile').read_text())
+    log.write((reason or 'go.mod toolchain and Dockerfile golang image agree') + '\n')
+    return 1 if reason else 0
+
 def template_outputs(text):
     outputs = [line.strip().removeprefix('-').strip().split(':', 1)[1].split('#', 1)[0].strip().strip('"\'') for line in text.splitlines() if re.match(r'^\s+(?:-\s+)?out:', line)]
     if sorted(outputs) != ['internal/gen', 'internal/gen', 'web/src/gen']:
@@ -151,6 +174,7 @@ def check_docs(root, log, auditor=None):
 
 def execute(step, root, log, auditor=None):
     if step == 'format': return check_format(root, log)
+    if step == 'go-version': return check_go_version(root, log)
     if step == 'proto': return check_proto(root, log)
     if step == 'docs': return check_docs(root, log, auditor)
     argv, directory = COMMANDS[step]
