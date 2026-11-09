@@ -125,7 +125,7 @@ func TestEveryReadBooleanHasAuditedPolicy(t *testing.T) {
 	// TestAddedReadBooleanDefaultsAndRoundTrips: each remains false unless
 	// explicitly requested, and both values survive exact machine replay.
 	audited := map[string]string{
-		"ListFindings": "includeMuted", "ListEvents": "hideRoutine foldRepeats includeFacets",
+		"ListFindings": "includeMuted", "ListFindingEpisodes": "includeTransitions", "ListEvents": "hideRoutine foldRepeats includeFacets",
 		"GetStatusTimeline": "includeOk", "ListConnections": "includeTooling",
 		"ListStreams": "includeKv summaryOnly", "ListConsumers": "includeEphemeral",
 		"GetApplications": "includeTooling", "GetTimeSeries": "includeObservations",
