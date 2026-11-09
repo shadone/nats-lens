@@ -19,6 +19,7 @@ func TestAddedReadBooleanDefaultsAndRoundTrips(t *testing.T) {
 		{"GetTimeSeries", "includeObservations", "/servers/nats-0", `{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"}}`},
 		{"ListMetricContributors", "descending", "/servers", `{"metric":"server.cpu_percent","ranking":"METRIC_RANKING_MAXIMUM"}`},
 		{"GetStorageChange", "resourcesOnly", "/capacity/storage-change", `{}`},
+		{"ListFindingEpisodes", "includeTransitions", "/findings", `{"findingId":"stream-001:APP/orders","firstRetainedEpoch":"9007199254740993","readEpoch":"9007199254740995"}`},
 	} {
 		t.Run(tc.method, func(t *testing.T) {
 			c, err := ContextFromURL("https://lens.example.com"+tc.path+"?system=shop&from=2026-10-17T13:00:00Z&to=2026-10-17T14:00:00Z", "https://lens.example.com", fixtureNow())
