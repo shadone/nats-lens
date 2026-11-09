@@ -24,7 +24,8 @@ function EventFacts({event:e,range,readId,captureLimits}:{event:LensEvent;range:
 }
 
 /** Exact IDs come from the captured mark/window, never from a time-only guess.
- * One explicit page is read; only the chosen row loads its payload. */
+ * One explicit page is read; only the chosen row loads its payload. The owning
+ * mark renders source-limit notices; selected-record prompts retain them too. */
 export function CapturedEventList({ids,range,readId,captured=[],limited=false,captureLimits}:{ids:string[];range:FrozenEvidenceRange;readId?:string;captured?:LaneEvent[];limited?:boolean;captureLimits?:TimelineCaptureLimit[]}){
  const [page,setPage]=useState(0),[selected,setSelected]=useState<string>();const shown=ids.slice(page*50,(page+1)*50);
  const q=useSelectedTimelineEvents(range,shown,readId);const byId=new Map(q.data?.items.map(e=>[e.id,e])??[]);const labels=new Map(captured.map(e=>[e.eventId??e.id,e]));

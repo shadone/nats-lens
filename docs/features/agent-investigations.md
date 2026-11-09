@@ -165,3 +165,10 @@ Ordinary event requests with unset capture fields retain their existing reviewed
 - **When** the CLI imports it
 - **Then** it rejects the URL rather than inventing a preceding-24-hour history request
 - **And** explicit valid fixed bounds remain unchanged, including fractional-second precision
+
+### Retain selected Timeline input limits
+
+- **Given** an event was selected from a Timeline whose source reported an input limit
+- **When** I copy that selected event's prompt
+- **Then** its annotation retains the captured limitation separately from the exact recorded-event request
+- **And** neither a false limit flag nor a successful record read establishes complete capture

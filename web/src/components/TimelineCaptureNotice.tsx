@@ -7,5 +7,5 @@ export function timelineCaptureLimits(tl:Timeline,lane:'events'|'kubernetes'):Ti
  if(lane==='kubernetes')return tl.kubernetesTruncated?['Kubernetes events']:[];
  const out:TimelineCaptureLimit[]=[];if(tl.natsTruncated)out.push('NATS and collector events');if(tl.findingTruncated)out.push('finding transitions');return out;
 }
-export function captureLimitText(limits:TimelineCaptureLimit[]=[]){return limits.length?`Source Timeline capture was truncated: ${limits.join('; ')}. This view may omit other observations.`:''}
+export function captureLimitText(limits:TimelineCaptureLimit[]=[]){return limits.length?`Source Timeline input limit reached: ${limits.join('; ')}. This view may omit other observations.`:''}
 export function TimelineCaptureNotice({limits}:{limits?:TimelineCaptureLimit[]}){const text=captureLimitText(limits);return text?<p role="note">{text}</p>:null}

@@ -63,6 +63,8 @@ The worst-streams table requests one bounded page; its count and totals cover al
 
 - **Historical lane destinations.** The Findings lane opens a dedicated retained-occurrence list, preserving the fixed selected range and captured transition boundary, including known-empty zero. Per-check interval details offer the same all-results route with typed resource/check scope. Repeated firings stay separate after resolution; exact occurrence links keep that identity. The Events lane includes NATS, finding and collector sources; both event lanes show routine records instead of silently hiding or folding marked evidence. Feed destinations retain event membership and are broader source/range context than one overlap group.
 
+- **Capture limits stay with selection.** Event-lane previews, single/group investigations and both zoom layouts retain the source Timeline's known input-limit warnings. Selected warnings stay as captured when the Timeline refreshes. NATS/collector, finding-transition and Kubernetes limits remain distinct; a source-range cut does not prove that a specific group or zoom window lost members. It does not turn a separately derived window input set or a per-check state row into a truncated one. Selected event prompt annotations retain the same warning. False flags do not claim complete capture.
+
 ## Scenarios
 
 ### Understand the two chart sections
@@ -228,3 +230,10 @@ The worst-streams table requests one bounded page; its count and totals cover al
 - **When** I activate its lane label or a per-check interval's all-results link
 - **Then** the destination preserves the fixed range and captured membership rather than opening the live compatibility finding list
 - **And** repeated finding occurrences stay separate, and all displayed event sources remain discoverable without routine hiding
+
+### Keep capture limitations while investigating
+
+- **Given** the source limits event inputs for a Timeline lane
+- **When** I inspect a mark, open its group or zoom detail, and the Timeline later refreshes
+- **Then** the selected evidence keeps the original source warning and names the affected input family
+- **And** a copied event prompt carries that limitation without claiming which observations are missing
