@@ -67,7 +67,7 @@ func startAPI(ctx context.Context, o apiOptions, systems api.Systems, log *slog.
 // example-global and example-staging.
 func runDemo(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("natslens demo", flag.ContinueOnError)
-	listen := fs.String("listen", api.DefaultListen, "address for the API and UI")
+	listen := fs.String("listen", demoListen(), "address for the API and UI (default from $"+demoListenEnv+" when set)")
 	allowed := fs.String("allowed-host", "", "comma-separated Host values the API accepts (default: loopback names when listening on loopback, else any)")
 	fixed := fs.Bool("fixed", false, "keep the scenario at its own time (2026-10-17 14:30 UTC) instead of shifting it to now")
 	if err := fs.Parse(args); err != nil {
@@ -85,4 +85,18 @@ func runDemo(ctx context.Context, args []string) error {
 	}
 	wait()
 	return nil
+}
+
+// demoListenEnv names the variable that sets natslens demo's default
+// address. The container image sets it to 0.0.0.0:8080, as a published
+// port cannot reach a server on the container's loopback.
+const demoListenEnv = "NATSLENS_DEMO_LISTEN"
+
+// demoListen is natslens demo's default address: $NATSLENS_DEMO_LISTEN,
+// else api.DefaultListen.
+func demoListen() string {
+	if v := os.Getenv(demoListenEnv); v != "" {
+		return v
+	}
+	return api.DefaultListen
 }

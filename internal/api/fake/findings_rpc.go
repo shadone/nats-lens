@@ -153,7 +153,7 @@ func (p *Provider) MuteFinding(_ context.Context, req *v1.MuteFindingRequest) (*
 	defer p.mu.Unlock()
 	m.Id = strconv.Itoa(p.nextID)
 	p.nextID++
-	p.mutes = append(p.mutes, &storedMute{m: m})
+	p.mutes = keepNewest(append(p.mutes, &storedMute{m: m}), p.seededMutes)
 	return proto.Clone(m).(*v1.Mute), nil
 }
 
