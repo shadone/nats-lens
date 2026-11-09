@@ -13,7 +13,9 @@ FROM --platform=$BUILDPLATFORM node:24.20.0-bookworm-slim@sha256:ba849c60be29959
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json web/.npmrc ./
 RUN npm ci --no-audit --no-fund
-COPY web/ ./
+# The whole context, not only web/: the type check covers tests that import
+# files from elsewhere in the repository (boundary-sql.json, testdata).
+COPY . /src/
 RUN mkdir -p ../internal/webui/dist && npm run build
 
 FROM --platform=$BUILDPLATFORM golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61 AS build
