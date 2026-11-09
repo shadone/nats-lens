@@ -98,3 +98,11 @@ describe("rows", () => {
     });
   });
 });
+
+describe("event subject", () => {
+  it("names a client's event by the client, not the server that reported it", () => {
+    expect(eventRow(event({ consumer: "", stream: "", server: "nats-2", clientName: "analytics-worker", type: "CLIENT.CONNECT" }), NOW).name).toBe(
+      "analytics-worker",
+    );
+  });
+});

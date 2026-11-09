@@ -93,7 +93,7 @@ export function findingRow(f: Finding, now: number): ResultRow {
 }
 
 export function eventRow(e: LensEvent, now: number): ResultRow {
-  const subject = e.consumer || e.stream || e.server || e.clientName;
+  const subject = e.consumer || e.stream || e.clientName || e.server;
   return {
     key: `event:${e.id}`,
     kind: "event",
