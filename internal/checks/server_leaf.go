@@ -1,3 +1,7 @@
+//go:build !(js && wasm)
+
+// Left out of WebAssembly builds because it reads the store; see engine.go.
+
 package checks
 
 import (
@@ -13,16 +17,7 @@ import (
 	"github.com/shadone/nats-lens/internal/store"
 )
 
-const LeafHealthCode = "server-026"
-
 const leafUnknownSuffix = " Current leaf observation coverage is uncertain; retaining earlier evidence until collection coverage establishes recovery or the last observation leaves the 24h window."
-
-func leafHealthCheck() *Check {
-	return &Check{Code: LeafHealthCode, Name: "Leaf node disconnects or repeated reconnects", Entity: "system", Category: "health", Severity: "warning", Kind: "operational", builtin: true,
-		Description: "Observed leaf sites absent for two consecutive fully observed collections, or with at least three observed connection drops in one hour. Hub handoffs are excluded. A system finding names sites and accounts without blaming a hub. Missing LEAFZ, restarts and gaps break evidence; unobserved expected sites cannot fire.",
-		Remediation: "Read the named sites on Topology. Compare their network paths and remote process logs with the hub logs. Confirm whether the absence or reconnects are expected before changing configuration. NATS provides no leaf disconnect event; these are collection observations.",
-		ValueName:   "affected leaf sites", ValueBasis: "site name (or IP fallback) and account pairs meeting either observed leaf health condition"}
-}
 
 // leafHealth uses one bounded SQL batch over 24 hours, plus one previous-finding
 // read on uncertainty, independent of the site count. Only per-site evidence
