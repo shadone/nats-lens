@@ -39,7 +39,7 @@ func TestTimelineCapturesEventMembership(t *testing.T) {
 	if err != nil || first.GetEventReadId() != 9007199254740995 || !proto.Equal(first.GetRange(), r.Range) {
 		t.Fatalf("Timeline event membership absent: boundary=%d err=%v", first.GetEventReadId(), err)
 	}
-	if len(first.Windows) != 1 || len(first.Windows[0].SupportingEventIds) != 2 || first.Windows[0].GetEventReadId() != first.EventReadId {
+	if len(first.Windows) != 1 || len(first.Windows[0].SupportingEventIds) != 2 || first.Windows[0].GetEventReadId() != first.GetEventReadId() {
 		t.Fatalf("window lost exact capture: %v", first.Windows)
 	}
 	r.EventReadId = proto.Int64(9007199254740993)
@@ -110,7 +110,7 @@ func TestTimelineFindingEventExposesRecordedIdentity(t *testing.T) {
 		if e.FindingId != "stream-001:APP/orders" || e.TransitionEpoch < 1 || e.Entity.GetKey() != "APP/orders" {
 			t.Fatalf("recorded mapping missing: %v", e)
 		}
-		detail, err := p.GetEvent(context.Background(), &v1.GetEventRequest{Id: e.EventId, EventReadId: proto.Int64(tl.EventReadId)})
+		detail, err := p.GetEvent(context.Background(), &v1.GetEventRequest{Id: e.EventId, EventReadId: proto.Int64(tl.GetEventReadId())})
 		if err != nil || detail.GetEvent().GetTransition().GetEpoch() != e.TransitionEpoch {
 			t.Fatalf("mark/detail epoch disagree: %v %v", detail, err)
 		}
