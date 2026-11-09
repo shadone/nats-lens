@@ -35,3 +35,7 @@ it('copies the exact occurrence read as descriptor-validated data without turnin
  expect(c).toMatchObject({query:{method:'ListFindingEpisodes',request:{system:'shop',range:c.range,firstRetainedEpoch:'9007199254740993',readEpoch:'9007199254740995',includeTransitions:true}}});
  expect(c.evidence).toContainEqual({kind:'finding',id:'stream-001:APP/orders'});
 });
+it('infers the exact occurrence read for the page-level copy action',()=>{
+ const c=buildInvestigationContext({origin:'https://lens.example.com',pathname:'/findings/stream-001%3AAPP%2Forders/occurrences/9007199254740993',search:'?readEpoch=9007199254740995',system:'shop',spec:{kind:'fixed',from:now-3600000,to:now}});
+ expect(c).toMatchObject({query:{method:'ListFindingEpisodes',request:{system:'shop',range:c.range,findingId:'stream-001:APP/orders',firstRetainedEpoch:'9007199254740993',readEpoch:'9007199254740995',includeTransitions:true}}});
+});

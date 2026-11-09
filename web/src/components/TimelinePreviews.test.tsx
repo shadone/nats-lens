@@ -1,5 +1,6 @@
 import {fireEvent, render, screen, within, waitFor} from "@testing-library/react";
-import {MemoryRouter} from "react-router";
+import {MemoryRouter,useNavigate} from "react-router";
+function SwitchSystem(){const navigate=useNavigate();return <button onClick={()=>navigate("/?system=other")}>Change test system</button>}
 import {expect, it, vi} from "vitest";
 import type {Timeline} from "../api/model";
 import {StoryLanes} from "./StoryLanes";
@@ -90,4 +91,11 @@ it("keeps a selected finding interval open when refresh replaces its mark",()=>{
  rerender(<MemoryRouter><StoryLanes tl={{...refreshed,rows:refreshed.rows.map(r=>({...r,cells:[...r.cells]}))}} end={start+180_000} live/></MemoryRouter>);
  expect(screen.getByRole("dialog")).toHaveTextContent("2026-10-17 23:59:00 UTC");
  expect(screen.getByRole("dialog")).toHaveClass("dlg-fullscreen");
+});
+
+it('closes a selected historical interval when the system changes instead of reading its bounds from another system',()=>{
+ render(<MemoryRouter initialEntries={['/?system=shop']}><SwitchSystem/><StoryLanes tl={timeline} end={start+120_000} live/></MemoryRouter>);
+ fireEvent.click(screen.getByRole('button',{name:/Finding state: Warning/}));expect(screen.getByRole('dialog')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Change test system'}));
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
