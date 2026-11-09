@@ -1,6 +1,6 @@
 # nats-lens
 
-nats-lens observes a NATS deployment: a Go collector takes snapshots and captures events into an embedded DuckDB, SQL checks turn them into findings, and a Connect API serves them to a React UI embedded in the binary. It is read-only towards NATS. The README describes the behaviour; [docs/design.md](docs/design.md) the decisions.
+nats-lens observes a NATS deployment: a Go collector takes snapshots and captures events into an embedded DuckDB, SQL checks turn them into findings, and a Connect API serves them to a React UI embedded in the binary. It is read-only towards NATS. The README introduces it; the pages indexed in [docs/README.md](docs/README.md) describe the behaviour, and [docs/design.md](docs/design.md) the decisions.
 
 ## Layout
 
