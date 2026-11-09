@@ -129,3 +129,14 @@ A user can activate **Copy as prompt** on a page or chart and paste the complete
 - Removing write powers from a credential authorized on the ordinary API.
 - Table-local filters or selection state absent from the URL, dedicated Timeline-mark handoff actions or drag-and-drop context entry.
 - Whole-database, message-content or log export, and automatic evidence uploads.
+
+### Exact retained occurrence reads
+
+- **Surfaces:** `ui`, `api`, `cli`
+- **Given** an exact retained finding occurrence and fixed UTC interval
+- **When** I copy its page prompt or import its occurrence URL
+- **Then** `ListFindingEpisodes` retains the finding ID, first retained identity and transition boundary as decimal strings
+- **And** the existing read-only allowlist, descriptor validation, response budgets and explicit continuation apply to live and closed datasets
+- **And** an occurrence boundary is not a universal snapshot pin; historical configuration and complete Timeline contributor handoff remain unavailable
+
+This occurrence slice is proposed, not yet confirmed. See the [request and retention contract](../reference/finding-occurrences.md).
