@@ -13,11 +13,15 @@ const maxPasses = 10
 
 // scaleRatio times check against pass, a query that reads the history once
 // and returns a count that must be want, and fails the test when the check
-// takes more than maxPasses passes. Each is timed as the best of three
-// runs, so a burst of load slows neither.
+// takes more than maxPasses passes. Each of five rounds times a pass, the
+// check and another pass, and divides the check's time by the slower pass,
+// so both sides of a round see the same load; the smallest ratio of the
+// rounds counts. Passes timed apart from the checks can land in a quiet
+// moment while the check does not.
 func (f *fx) scaleRatio(what, pass string, want int, check func()) {
 	f.t.Helper()
-	p := best(func() {
+	once := func() time.Duration {
+		start := time.Now()
 		var got int
 		if err := f.st.DB().QueryRowContext(context.Background(), pass).Scan(&got); err != nil {
 			f.t.Fatal(err)
@@ -25,24 +29,22 @@ func (f *fx) scaleRatio(what, pass string, want int, check func()) {
 		if got != want {
 			f.t.Fatalf("one pass counted %d, want %d", got, want)
 		}
-	})
-	took := best(check)
-	ratio := float64(took) / float64(p)
-	f.t.Logf("%s: %s, one pass over the history %s (%.1f passes)", what, took, p, ratio)
-	if ratio > maxPasses {
-		f.t.Errorf("%s took %s, %.1f passes over the history (%s), want at most %d", what, took, ratio, p, maxPasses)
+		return time.Since(start)
 	}
-}
-
-// best runs fn three times and returns the shortest time.
-func best(fn func()) time.Duration {
-	var shortest time.Duration
-	for i := 0; i < 3; i++ {
+	best := -1.0
+	var bestTook, bestPass time.Duration
+	for round := 0; round < 5; round++ {
+		before := once()
 		start := time.Now()
-		fn()
-		if d := time.Since(start); i == 0 || d < shortest {
-			shortest = d
+		check()
+		took := time.Since(start)
+		p := max(before, once())
+		if ratio := float64(took) / float64(p); best < 0 || ratio < best {
+			best, bestTook, bestPass = ratio, took, p
 		}
 	}
-	return shortest
+	f.t.Logf("%s: %s, one pass over the history %s (%.1f passes)", what, bestTook, bestPass, best)
+	if best > maxPasses {
+		f.t.Errorf("%s took %s, %.1f passes over the history (%s), want at most %d", what, bestTook, best, bestPass, maxPasses)
+	}
 }
