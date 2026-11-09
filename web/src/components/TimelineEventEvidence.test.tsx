@@ -66,3 +66,10 @@ it('opens by touch release without hover and keeps its selected event through re
  // jsdom does not synthesize the native dialog cancel event from Escape.
  fireEvent(screen.getByRole('dialog'),new Event('cancel',{bubbles:true,cancelable:true}));expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
+
+it('keeps limited inferred-window selections on their complete window route rather than sharing away the warning',async()=>{
+ const {TimelineWindowEvidence}=await import('./TimelineEventEvidence');
+ vi.mocked(useSelectedTimelineEvents).mockReturnValue(result({items:[],totalCount:0,nextPageToken:''}));
+ render(<MemoryRouter initialEntries={['/?system=shop']}><TimelineWindowEvidence window={{id:'a'.repeat(64),start,end,label:'Captured window',detail:'Observed grouping',supportingEventIds:['1'],unavailable:['window_input_limit'],captureRange:range,eventReadId:'55'}} range={range} readId="55"/></MemoryRouter>);
+ expect(screen.getByRole('link',{name:'Open complete window evidence'})).toBeInTheDocument();expect(screen.getByText(/Timeline input limits may have omitted/)).toBeInTheDocument();expect(screen.queryByRole('link',{name:'Open all captured events'})).not.toBeInTheDocument();
+});
