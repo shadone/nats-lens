@@ -2,7 +2,9 @@ package storeprov_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/shadone/nats-lens/internal/api"
 	"testing"
 	"time"
 
@@ -64,6 +66,9 @@ func TestSelectedTimelineEventsStayExactAcrossFeedModes(t *testing.T) {
 			if err != nil || got.GetTotalCount() != 1 || len(got.GetEvents()) != 1 || got.Events[0].Id != "9007199254740994" {
 				t.Fatalf("selection broadened: %v %v", got, err)
 			}
+			if rich && got.TotalUnfiltered != 1 {
+				t.Fatalf("outside-selection rows entered base total: %d", got.TotalUnfiltered)
+			}
 			r.EventReadId = proto.Int64(9007199254740993)
 			before, err := p.ListEvents(ctx, r)
 			if err != nil || before.GetTotalCount() != 0 || len(before.GetEvents()) != 0 {
@@ -73,5 +78,18 @@ func TestSelectedTimelineEventsStayExactAcrossFeedModes(t *testing.T) {
 	}
 	if _, err := p.GetEvent(ctx, &v1.GetEventRequest{Id: "9007199254740994", EventReadId: proto.Int64(9007199254740993)}); err == nil {
 		t.Fatal("single-event read escaped capture")
+	}
+}
+
+func TestSelectedEventResponsesAreByteBounded(t *testing.T) {
+	p := eventEvidenceProvider(t)
+	if _, err := p.St.DB().Exec(`UPDATE events SET summary=repeat('x',600000) WHERE id=9007199254740993`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.ListEvents(context.Background(), &v1.ListEventsRequest{Range: eventEvidenceRange(), PageSize: 50, SelectedIds: []string{"9007199254740993"}}); !errors.Is(err, api.ErrResourceExhausted) {
+		t.Fatalf("oversized selected page succeeded: %v", err)
+	}
+	if _, err := p.GetEvent(context.Background(), &v1.GetEventRequest{Id: "9007199254740993", EventReadId: proto.Int64(9007199254740995)}); !errors.Is(err, api.ErrResourceExhausted) {
+		t.Fatalf("oversized selected event succeeded: %v", err)
 	}
 }
