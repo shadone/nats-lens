@@ -77,3 +77,7 @@ button.timeline-event-group { min-width: var(--sp-6); height: var(--sp-6); width
 .timeline-event-list > li { min-width:0; }
 .timeline-event-evidence .btns { display:flex; flex-wrap:wrap; gap:var(--sp-3); }
 .timeline-event-evidence .raw { overflow:auto; max-height:50vh; white-space:pre-wrap; overflow-wrap:anywhere; }
+
+/* Text-table actions use their own bounded hit area, not an absolute lane tick. */
+button.timeline-mark.timeline-table-event { position:relative;max-width:100%;min-height:var(--sp-12);background:transparent;text-align:start;white-space:normal;overflow-wrap:anywhere;cursor:pointer; }
+button.timeline-mark.timeline-table-event::after { content:none; }

@@ -1,6 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { render as renderUI, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Timeline } from "../api/model";
+import {MemoryRouter} from "react-router";
+import type {ReactNode} from "react";
+const render=(ui:ReactNode)=>renderUI(<MemoryRouter>{ui}</MemoryRouter>);
 import { StatusTimeline } from "./StatusTimeline";
 
 const START = Date.parse("2026-10-17T09:00:00Z");
@@ -57,6 +60,6 @@ describe("StatusTimeline", () => {
     render(<StatusTimeline tl={tl} end={START + 4 * Q} live asTable />);
     const rows = screen.getAllByRole("row");
     expect(rows).toHaveLength(3);
-    expect(within(rows[1]).getByText("critical 09:30–10:00")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("critical 2026-10-17 09:30:00 UTC–2026-10-17 10:00:00 UTC")).toBeInTheDocument();
   });
 });
