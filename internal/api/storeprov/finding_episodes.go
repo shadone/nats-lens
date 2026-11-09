@@ -64,6 +64,9 @@ func (p *Provider) ListFindingEpisodes(ctx context.Context, in *v1.ListFindingEp
 			LatestStartEpoch: e.LatestStartEpoch, LatestObservedAt: ts(e.LatestObservedAt), TransitionCount: int32(e.TransitionCount), CauseEventId: e.Finding.CauseEventID,
 			Unavailable: []string{"historical_related_configuration", "historical_condition_onset", "historical_operator_state", "historical_flapping", "historical_check_definition"},
 		}
+		if e.EndingUnknown {
+			item.Unavailable = append(item.Unavailable, "occurrence_resolution")
+		}
 		if !e.StartKnown {
 			item.Unavailable = append(item.Unavailable, "occurrence_onset")
 		}

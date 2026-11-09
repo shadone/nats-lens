@@ -72,7 +72,7 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 		readEpoch = newestEpoch
 	}
 	rows, err := tx.QueryContext(ctx, findingEpisodesSQL, readEpoch, q.FindingID, q.FindingID, q.CheckCode, q.CheckCode,
-		q.EntityType, q.EntityType, q.EntityKey, q.EntityType, q.EntityKey, episodeBoundaryMicros(q.To), episodeBoundaryMicros(q.From), episodeBoundaryMicros(q.To), q.StartEpoch, q.StartEpoch, q.FirstRetainedEpoch, q.FirstRetainedEpoch, q.Limit, q.Offset)
+		q.EntityType, q.EntityType, q.EntityKey, q.EntityType, q.EntityKey, episodeBoundaryMicros(q.To), episodeBoundaryMicros(q.From), episodeBoundaryMicros(q.From), episodeBoundaryMicros(q.To), q.StartEpoch, q.StartEpoch, q.FirstRetainedEpoch, q.FirstRetainedEpoch, q.Limit, q.Offset)
 	if err != nil {
 		return FindingEpisodePage{}, fmt.Errorf("finding episodes: %w", err)
 	}
@@ -90,8 +90,8 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 		var resolutionAt, latestAt sql.NullTime
 		var resolutionEpoch, latestStart sql.NullInt64
 		var latestState, latestSeverity, latestTransition sql.NullString
-		var latestFlapping sql.NullBool
-		if err := rows.Scan(&out.Total, &out.Signature, &sqlBytes, &id, &code, &typ, &key, &firstEpoch, &startEpoch, &firstAt, &lastEpoch, &lastAt, &kind, &severity, &detail, &value, &cause, &resolutionAt, &resolutionEpoch, &latestState, &latestSeverity, &latestStart, &latestAt, &lastRetained, &transitionCount, &latestTransition, &latestFlapping); err != nil {
+		var latestFlapping, endingUnknown sql.NullBool
+		if err := rows.Scan(&out.Total, &out.Signature, &sqlBytes, &id, &code, &typ, &key, &firstEpoch, &startEpoch, &firstAt, &lastEpoch, &lastAt, &kind, &severity, &detail, &value, &cause, &resolutionAt, &resolutionEpoch, &latestState, &latestSeverity, &latestStart, &latestAt, &lastRetained, &transitionCount, &latestTransition, &latestFlapping, &endingUnknown); err != nil {
 			return FindingEpisodePage{}, err
 		}
 		if sqlBytes > 8<<20 {
@@ -104,7 +104,7 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 		if bytes > 8<<20 {
 			return FindingEpisodePage{}, ErrFindingEpisodeReadLimit
 		}
-		e := FindingEpisode{LastRetainedEpoch: lastRetained.Int64, TransitionCount: int(transitionCount.Int64), StartKnown: startEpoch.Valid, FirstRetainedEpoch: firstEpoch.Int64, ResolutionEpoch: resolutionEpoch.Int64, LatestState: latestState.String, LatestTransition: latestTransition.String, LatestFlapping: latestFlapping.Bool, LatestSeverity: latestSeverity.String, LatestStartEpoch: latestStart.Int64}
+		e := FindingEpisode{LastRetainedEpoch: lastRetained.Int64, TransitionCount: int(transitionCount.Int64), StartKnown: startEpoch.Valid, EndingUnknown: endingUnknown.Bool, FirstRetainedEpoch: firstEpoch.Int64, ResolutionEpoch: resolutionEpoch.Int64, LatestState: latestState.String, LatestTransition: latestTransition.String, LatestFlapping: latestFlapping.Bool, LatestSeverity: latestSeverity.String, LatestStartEpoch: latestStart.Int64}
 		if resolutionAt.Valid {
 			e.ResolutionAt = resolutionAt.Time.UTC()
 		}
@@ -154,15 +154,17 @@ const findingEpisodesSQL = `WITH ordered AS (
  max(epoch) FILTER(WHERE kind='resolved') AS resolved_epoch,
  arg_max(struct_pack(epoch,time,kind,severity,detail,value,cause_event_id),epoch) FILTER(WHERE time<make_timestamp(?::BIGINT)) AS last
  FROM ordered GROUP BY finding_id,occurrence
+) , sequenced AS (
+ SELECT *,lead(first_at) OVER(PARTITION BY finding_id ORDER BY first_epoch) AS next_first_at FROM episodes
 ), matching AS (
- SELECT * FROM episodes WHERE (resolved_at IS NULL OR resolved_at>make_timestamp(?::BIGINT)) AND first_at<make_timestamp(?::BIGINT) AND last IS NOT NULL
+ SELECT * FROM sequenced WHERE (resolved_at IS NULL OR resolved_at>make_timestamp(?::BIGINT)) AND (next_first_at IS NULL OR next_first_at<first_at OR next_first_at>make_timestamp(?::BIGINT)) AND first_at<make_timestamp(?::BIGINT) AND last IS NOT NULL
  AND (?=0 OR start_epoch=?) AND (?=0 OR first_epoch=?)
 ), page AS (
  SELECT * FROM matching ORDER BY first_epoch DESC,finding_id LIMIT ? OFFSET ?
 )
 SELECT totals.n,totals.membership,budget.n,p.finding_id,p.check_code,p.entity_type,p.entity_key,p.first_epoch,p.start_epoch,p.first_at,
  p.last.epoch,p.last.time,p.last.kind,p.last.severity,p.last.detail,p.last.value,p.last.cause_event_id,
- p.resolved_at,p.resolved_epoch,f.state,f.severity,f.since_epoch,latest.started_at,p.last_epoch,p.transition_count,f.last_transition,f.flapping
+ p.resolved_at,p.resolved_epoch,f.state,f.severity,f.since_epoch,latest.started_at,p.last_epoch,p.transition_count,f.last_transition,f.flapping,(p.resolved_at IS NULL AND p.next_first_at IS NOT NULL)
 FROM (SELECT count(*) AS n,
  coalesce(bit_xor(hash(finding_id,first_epoch,start_epoch,last_epoch,transition_count)),0)::VARCHAR || ':' ||
  coalesce(sum(hash(finding_id,first_epoch,start_epoch,last_epoch,transition_count))::VARCHAR,'0') AS membership
