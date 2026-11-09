@@ -12,9 +12,10 @@ import (
 // FindingID and StartEpoch select a known occurrence without substituting a
 // later recurrence. Limits are validated independently of public API callers.
 type FindingEpisodeQuery struct {
-	From, To   time.Time
-	FindingID  string
-	StartEpoch int64
+	From, To           time.Time
+	FindingID          string
+	StartEpoch         int64
+	FirstRetainedEpoch int64
 	// ReadEpoch freezes transition membership across pages, not the entire database.
 	ReadEpoch                        int64
 	CheckCode, EntityType, EntityKey string
