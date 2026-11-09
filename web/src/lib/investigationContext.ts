@@ -34,7 +34,7 @@ function occurrenceRequest(pathname:string,params:URLSearchParams):BoundInvestig
  const readEpoch=params.get('readEpoch');if(readEpoch!==null&&!valid(readEpoch))return undefined;
  try{return {method:'ListFindingEpisodes',request:{findingId:decodeURIComponent(p[2]),firstRetainedEpoch:p[4],...(readEpoch!==null?{readEpoch}:{}),includeTransitions:true,pageSize:1}}}catch{return undefined}
 }
-export function buildInvestigationContext(input:{origin:string;pathname:string;search:string;system:string;spec:RangeSpec;selection?:InvestigationSelection}):InvestigationContext {
+export function buildInvestigationContext(input:{origin:string;pathname:string;search:string;hash?:string;system:string;spec:RangeSpec;selection?:InvestigationSelection}):InvestigationContext {
  const {origin,pathname,search,system,spec,selection:selection}=input;
  const params=new URLSearchParams(search);
  const occurrence=occurrenceRequest(pathname,params);
