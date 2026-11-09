@@ -31,6 +31,14 @@ export function useTimelineWindow(windowId:string,range:FrozenEvidenceRange,boun
  },staleTime:Infinity,refetchOnWindowFocus:false,refetchOnReconnect:false});
 }
 
-export function useCapturedSelectionPage(_selection:import('../lib/capturedEventSelection').CapturedSelection,_offset:number,_pageSize:number){
- return useQuery({queryKey:['captured-selection-stub'],queryFn:async()=>({items:[] as import('./model').LensEvent[],totalCount:0})});
+export async function capturedSelectionPage(system:string,selection:import('../lib/capturedEventSelection').CapturedSelection,offset:number,pageSize:number,signal?:AbortSignal){
+ const ids=selection.ids,readId=selection.eventReadId;
+ const r=await lens.listEventSelection({...systemInit(system),ids,eventReadId:eventReadId(readId),offset,pageSize},{signal});
+ verifyEventSelection(r,ids,readId);
+ const page=ids.slice(offset,offset+pageSize),next=offset+page.length<ids.length?offset+page.length:0;
+ if(r.selectedTotalCount!==ids.length||r.offset!==offset||r.pageSize!==pageSize||r.nextOffset!==next||r.totalCount!==r.events.length||r.events.some(e=>!page.includes(e.id)))throw new Error('The source did not acknowledge the exact captured event page.');
+ return {items:r.events.map(event),totalCount:r.totalCount};
+}
+export function useCapturedSelectionPage(selection:import('../lib/capturedEventSelection').CapturedSelection,offset:number,pageSize:number){
+ const system=useSystem();return useQuery({queryKey:['captured-event-selection',system,selection,offset,pageSize],queryFn:({signal})=>capturedSelectionPage(system,selection,offset,pageSize,signal),staleTime:Infinity,refetchOnWindowFocus:false,refetchOnReconnect:false});
 }
