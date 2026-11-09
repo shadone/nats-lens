@@ -94,7 +94,7 @@ func TestOfflineLiveParity(t *testing.T) {
 	}
 	cases := []struct{ method, request string }{
 		{"GetLensInfo", `{}`}, {"ListSystems", `{"stripBuckets":2}`}, {"ListMetrics", `{}`}, {"ListCheckDefinitions", `{}`},
-		{"GetOverview", `{}`}, {"GetTimeSeries", `{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"maxPoints":10}`},
+		{"GetOverview", `{}`}, {"GetTimeWindows", `{}`}, {"GetTimeSeries", `{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"maxPoints":10}`},
 		{"GetTimeSeries", `{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"maxPoints":1,"includeObservations":true}`},
 		{"GetTimeSeries", `{"metric":"server.in_msgs_rate","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"includeObservations":true,"maxPoints":1}`},
 		{"GetTimeSeries", `{"metric":"cluster.in_msgs_rate","includeObservations":true,"maxPoints":1}`},

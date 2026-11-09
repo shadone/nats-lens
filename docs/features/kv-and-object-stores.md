@@ -10,6 +10,9 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 
 ## Behavior and rules
 
+- **Focused chart annotations.** Resource detail charts read inferred Kubernetes windows separately from Overview totals and findings. Annotations are shared only for the same system and exact range; live ranges refresh every 30 seconds. Windows retain their supporting-event identities and capture-limit disclosures. They describe system-wide inferred context, not a demonstrated cause for this resource. An empty response does not prove complete event capture or no changes.
+
+
 - Backing-stream diagnostics share the [stream detail response](streams.md) contract: its status and returned firing findings use the same finding set. Separate charts and page requests are not pinned to it.
 
 - Supported history titles open [metric investigations](metric-investigations.md) with the resource identity, system and range. Native observation summaries distinguish peaks from bucket aggregates, and fixed-range findings/events remain accessible. Backing-stream statistics do not measure individual keys, objects or content.

@@ -10,6 +10,9 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 
 ## Behavior and rules
 
+- **Focused chart annotations.** Resource detail charts read inferred Kubernetes windows separately from Overview totals and findings. Annotations are shared only for the same system and exact range; live ranges refresh every 30 seconds. Windows retain their supporting-event identities and capture-limit disclosures. They describe system-wide inferred context, not a demonstrated cause for this resource. An empty response does not prove complete event capture or no changes.
+
+
 - **Consistent finding evidence within a detail response.** The API's stream status and associated firing-findings list use the same finding set. An update arriving during the response cannot make those two fields disagree solely because the findings were read twice. Other facts and separate page requests are not pinned to that set.
 
 - Supported history titles open [metric investigations](metric-investigations.md) with the resource identity, system and range. Native observation summaries distinguish peaks from bucket aggregates, and fixed-range findings/events remain accessible. Backing-stream statistics do not measure individual keys, objects or content.

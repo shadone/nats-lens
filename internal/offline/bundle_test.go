@@ -45,7 +45,7 @@ func TestOfflineCanonicalBundleParity(t *testing.T) {
 	}
 	defer captured.Close()
 	for _, c := range []struct{ method, request string }{
-		{"ListSystems", `{"stripBuckets":2}`}, {"ListMetrics", `{}`}, {"ListCheckDefinitions", `{}`}, {"GetOverview", `{}`},
+		{"ListSystems", `{"stripBuckets":2}`}, {"ListMetrics", `{}`}, {"ListCheckDefinitions", `{}`}, {"GetOverview", `{}`}, {"GetTimeWindows", `{}`},
 		{"GetTimeSeries", `{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"}}`},
 		{"ListEvents", `{"pageSize":1}`}, {"GetEvent", `{"id":"9007199254740993"}`}, {"ListFindings", `{}`}, {"GetFinding", `{"id":"server-001:nats-0"}`},
 		{"GetCapacity", `{}`}, {"GetPlacement", `{}`}, {"GetDataHistory", `{}`},

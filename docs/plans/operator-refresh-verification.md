@@ -24,4 +24,4 @@ Logs: `/private/tmp/nats-operator-{cache-red,cache-green,dependencies-red,depend
 
 ## Remaining original task acceptance
 
-Stream/consumer detail pages still use full Overview solely for chart windows; a focused cached annotation read or suitable existing response remains to implement. Request-local firing-findings reuse in GetStream remains open. Before/after network/query counts for representative detail loads and polling are also pending. This slice does not close the broader task or assert those refactors happened.
+Subsequent commits implement request-local firing-findings reuse and a focused annotation endpoint; see [stream finding reuse](stream-findings-reuse-verification.md) and [focused window reads](focused-window-reads-verification.md). The 73-query receipt above remains the original fixture; the later fixture adds an independent annotation family. Fresh combined review and representative load/polling acceptance remain separate.
