@@ -21,7 +21,11 @@ func TestReviewOnCallStaleDelivery(t *testing.T) {
 	if _, err := st.ApplyCheckRuns(ctx, int64(confEpochs)+18, []store.CheckRun{{Code: "review-gap", EntityType: "consumer", Status: store.RunOK, Rows: []store.FindingRow{{EntityKey: "APP/orders/fast", Severity: "critical", Detail: "missing now"}}}}); err != nil {
 		t.Fatal(err)
 	}
-	p := &storeprov.Provider{St: st, Checks: set, Interval: 30 * time.Second, Clock: func() time.Time { return confAt(confEpochs).Add(9*time.Minute + time.Second) }}
+	// Historical reports in conformanceStore are five minutes apart. Newer
+	// empty collections are deliberately closer together, leaving those old
+	// reports inside the fifteen-minute lookback: current presence must still
+	// be required, independently of whether a historical rate is comparable.
+	p := &storeprov.Provider{St: st, Checks: set, Interval: confStep, Clock: func() time.Time { return confAt(confEpochs).Add(9*time.Minute + time.Second) }}
 	f, err := p.OnCall(ctx, &v1.GetOnCallRequest{FindingId: "review-gap:APP/orders/fast"})
 	if err != nil {
 		t.Fatal(err)
