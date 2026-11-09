@@ -217,3 +217,20 @@ func TestFindingEpisodesRespectSubMicrosecondExclusiveEnd(t *testing.T) {
 		}
 	}
 }
+
+func TestFindingEpisodesMissingResolutionDoesNotExtendPastRecurrence(t *testing.T) {
+	s := refireStore(t)
+	// A retained hole is unknown evidence, not proof that the old occurrence
+	// remained active after a separately recorded new firing.
+	if _, err := s.db.Exec(`DELETE FROM finding_transitions WHERE epoch=3`); err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.FindingEpisodes(context.Background(), FindingEpisodeQuery{From: t0.Add(5 * time.Minute), To: t0.Add(6 * time.Minute), Limit: 50})
+	if err != nil || len(p.Items) != 1 || p.Items[0].Finding.SinceEpoch != 5 {
+		t.Fatalf("old occurrence borrowed a later recurrence: %+v %v", p, err)
+	}
+	earlier, err := s.FindingEpisodes(context.Background(), FindingEpisodeQuery{From: t0.Add(2 * time.Minute), To: t0.Add(3 * time.Minute), Limit: 50})
+	if err != nil || len(earlier.Items) != 1 || !earlier.Items[0].ResolutionAt.IsZero() || !earlier.Items[0].EndingUnknown {
+		t.Fatalf("missing resolution was invented or not disclosed: %+v %v", earlier, err)
+	}
+}
