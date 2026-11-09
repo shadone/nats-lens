@@ -11,4 +11,7 @@ The `natslens` binary has these subcommands. `-h` after a command, such as `nats
 | natslens checks list [-config FILE]  | Lists every check with its entity, severity, kind, lookback and thresholds after the file's overrides, and whether it is disabled. |
 | natslens checks run [-config FILE] [-system ID] [-data-dir DIR] [-epoch N] | Evaluates every check for the newest (or the given) epoch of a database no collector has open, read-only, and prints what fails; stores nothing. The database is chosen as for `natslens sql`. |
 | natslens demo [-listen ADDR] [-allowed-host H] [-fixed] | Serves the API with the three demo systems, shifted to now unless `-fixed`. |
+| natslens investigate methods         | Lists the bounded remote read commands; the [investigation command reference](reference/agent-investigations.md) describes them. |
+| natslens acquire -socket PATH -system ID | Acquires a consistent offline dataset of one system from a running collector; see [Acquire an offline dataset](operations/acquire-offline-dataset.md). |
+| natslens version                     | Prints the version. |
 

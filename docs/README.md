@@ -43,6 +43,7 @@ This folder holds the documentation for running, configuring and developing nats
 | --- | --- |
 | [Recover a database](operations/database-recovery.md) | The procedure after a database index failure |
 | [Acquire an offline dataset](operations/acquire-offline-dataset.md) | Copying one system to a private dataset while collection continues |
+| [Release nats-lens](operations/releasing.md) | How a release publishes the binaries and the image |
 | [Investigate with an agent](agents/investigate.md) | A playbook for agents gathering evidence through the API |
 
 ## Development

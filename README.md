@@ -15,32 +15,43 @@ nats-lens answers the questions that come after an incident: what failed, when, 
 
 ## Try it
 
-Run the demo. It serves three made-up NATS systems with a recorded incident, and needs no NATS server:
+Run the demo. It serves three made-up NATS systems, one of them after a Kubernetes node upgrade during which a consumer was deleted, and needs no NATS server:
 
 ```sh
-docker run --rm -p 127.0.0.1:8080:8080 ghcr.io/shadone/nats-lens demo -listen :8080
+docker run --rm -p 127.0.0.1:8080:8080 ghcr.io/shadone/nats-lens demo
 ```
 
-Open http://127.0.0.1:8080. Inside a container the demo must listen on all interfaces (`-listen :8080`), because its default address, 127.0.0.1:8080, cannot be reached through a published port.
+Open http://127.0.0.1:8080. Keep the port bound to 127.0.0.1: the demo accepts changes such as mutes from anyone who reaches it.
 
 ### Watch your own NATS system
 
 nats-lens connects as a user of the system account. Create a scoped user with the grants in [NATS permissions](docs/configuration.md#nats-permissions) instead of using the account's full user, which may also reload servers or put them into lame duck mode.
 
-1. Download the archive for your platform (Linux amd64 or arm64, macOS arm64) from the [latest release](https://github.com/shadone/nats-lens/releases/latest) and unpack it.
-2. Start the collector with the system account user:
+1. Download the archive for your platform from the [latest release](https://github.com/shadone/nats-lens/releases/latest): `natslens_<version>_<os>_<arch>.tar.gz` for Linux (amd64, arm64) and macOS (arm64, amd64), where `<version>` has no leading `v`. Linux binaries need glibc 2.34 and libstdc++ from GCC 12 or later (Debian 12, Ubuntu 22.04, RHEL 10 or newer); macOS binaries need macOS 13 or later.
+2. Unpack it and change into its directory, which holds `natslens`, `LICENSE`, `NOTICE` and `README.md`:
+
+   ```sh
+   tar -xzf natslens_<version>_<os>_<arch>.tar.gz
+   cd natslens_<version>_<os>_<arch>
+   ```
+
+   On macOS, run `xattr -d com.apple.quarantine natslens` once before the first start, because the binary is not signed. `./natslens version` prints the version.
+
+3. Start the collector with the system account user:
 
    ```sh
    NATSLENS_NATS_PASSWORD=<password> ./natslens run -nats-url nats://nats.example.com:4222 -nats-user natslens
    ```
 
+   `<password>` is the password of the scoped user you created.
+
    With a credentials file, pass `-nats-creds ./sys.creds` instead of the user.
 
-3. Open http://127.0.0.1:8080. nats-lens stores its data in `./data`.
+4. Open http://127.0.0.1:8080. The Overview shows your servers after the first collection; nats-lens stores its data in `./data`.
 
 To capture the stream and consumer advisories of a JetStream account, and for every other setting, use a configuration file: [natslens.example.yaml](natslens.example.yaml) lists every key, and [Configuration](docs/configuration.md) describes them.
 
-The container image `ghcr.io/shadone/nats-lens` runs `natslens run -config /etc/natslens/natslens.yaml` by default, so mount your configuration file there. In a container, set `listen: ":8080"` with `iap_audience` or `allow_unauthenticated: true` (natslens refuses an API beyond loopback without one of them), and point `data_dir` at a writable volume. With `allow_unauthenticated: true`, anyone who reaches the port can mute findings, so publish it on 127.0.0.1 only.
+To run the container image against your own system, see [Image](docs/deploy.md#image).
 
 ### Run it in Kubernetes
 
@@ -61,7 +72,7 @@ bin/natslens demo
 
 ## Why nats-lens
 
-NATS servers answer monitoring requests about the present moment, and they publish advisories that nobody keeps. The usual tools work with that present moment. The `nats` CLI and nats-top show what the servers report now. prometheus-nats-exporter and NATS Surveyor turn the reports into Prometheus metrics, which a Grafana dashboard then shows over time.
+NATS servers answer monitoring requests about the present moment, and they publish advisories that are lost unless something subscribes and stores them. The usual tools work with that present moment. The `nats` CLI and nats-top show what the servers report now. prometheus-nats-exporter and NATS Surveyor turn the reports into Prometheus metrics, which a Grafana dashboard then shows over time.
 
 nats-lens keeps the reports themselves, and adds what a metric does not carry:
 
@@ -121,4 +132,4 @@ Bug reports, ideas and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING
 
 ## License
 
-nats-lens is licensed under the GNU Affero General Public License v3.0 only (AGPL-3.0-only), see [LICENSE](LICENSE).
+nats-lens is licensed under the GNU Affero General Public License v3.0 only (AGPL-3.0-only). The license text is in [LICENSE](LICENSE).

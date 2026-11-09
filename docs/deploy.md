@@ -4,7 +4,9 @@ This page describes the container image, the Kubernetes manifests in [k8s/](../k
 
 ## Image
 
-[Dockerfile](../Dockerfile) builds the web UI and the binary (cgo, for DuckDB) into `gcr.io/distroless/cc-debian12:nonroot`, running as user 65532, with the base images pinned by digest. The Node and Go stages run on the build machine's platform and the Go stage cross-compiles for the target with Debian's gcc cross toolchain, so an amd64 image builds on an arm64 Mac without emulation (`make image` runs buildx for linux/amd64):
+Releases publish the image `ghcr.io/shadone/nats-lens` for linux/amd64 and linux/arm64. It runs `natslens run -config /etc/natslens/natslens.yaml` by default, so mount your configuration file there. In a container, set `listen: ":8080"` with `iap_audience` or `allow_unauthenticated: true` (natslens refuses an API beyond loopback without one of them), and point `data_dir` at a writable volume. With `allow_unauthenticated: true`, anyone who reaches the port can mute findings, so publish the port on 127.0.0.1 only.
+
+To build your own image, use the [Dockerfile](../Dockerfile). It builds the web UI and the binary (cgo, for DuckDB) into `gcr.io/distroless/cc-debian12:nonroot`, running as user 65532, with the base images pinned by digest. The Node and Go stages run on the build machine's platform and the Go stage cross-compiles for the target with Debian's gcc cross toolchain, so an amd64 image builds on an arm64 Mac without emulation (`make image` runs buildx for linux/amd64):
 
 ```sh
 docker buildx build --platform linux/amd64 --build-arg VERSION=$(git rev-parse --short HEAD) -t natslens .
