@@ -10,6 +10,8 @@ The Findings page lists the findings of the time range, filtered by severity, st
 
 ## Behavior and rules
 
+- **Scoped refresh after an operator write.** Mute, unmute and acknowledgement saves refresh operator-dependent views for the system captured when the action opened, plus the shared fleet summaries. Known raw series, unrelated systems and immutable captured-event selections do not refetch for a mute. Acknowledgement creation additionally refreshes event feeds and event-history coverage because it writes a captured event. Stopped-collector server status and Replay status strips remain dependencies. Unknown same-system view families refresh conservatively. Mute/unmute dialogs retain their existing wait for affected active refreshes; acceptance saves keep their explicit nonwaiting refresh behavior, and all writes remain pending until the write itself completes. Frozen list traversals retain their existing snapshot contract; Refresh list starts a new capture.
+
 - **Finding prompt.** Desktop finding details and the phone on-call card offer a labeled **Copy as prompt** action for firing, resolved, and muted findings. The prompt includes the loaded finding and check IDs, its typed entity, selected UTC window, and a bounded observed summary. It leaves acknowledgement and mute state untouched. Context, untrusted evidence, and clipboard fallback follow [agent investigations](agent-investigations.md).
 
 - **Replay finding context.** Desktop details offer "Replay this window" around the latest recorded transition, first sighting or resolution in the selected range, with explicit fixed times. This is surrounding observation context, not a claimed episode duration. Missing timing has an explanation instead of a link; the newest 100 transitions can omit older episodes. [Replay](replay.md) gives the context, historical-range, retention and missing-evidence rules.
@@ -156,6 +158,14 @@ The Findings page lists the findings of the time range, filtered by severity, st
 - **When** a client calls `AcknowledgeFinding`
 - **Then** the API refuses it with failed_precondition
 - **And** an unknown finding is refused with not_found
+
+### Refresh only relevant operator evidence
+
+- **Surfaces:** `ui`
+- **Given** current or historical findings for one system and unrelated series or another system remain cached
+- **When** I mute, unmute or acknowledge a finding
+- **Then** operator-dependent reads for the captured system and shared fleet summaries refresh, while raw series and the other system remain cached
+- **And** acknowledgement creation refreshes captured-event feeds, while an acceptance save does not wait for its background refresh
 
 ## Not supported / out of scope
 
