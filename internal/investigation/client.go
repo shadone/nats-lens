@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/shadone/nats-lens/internal/eventselection"
 	"io"
 	"net"
 	"net/http"
@@ -181,6 +182,10 @@ func (p Profile) ValidateURL(raw string) error {
 	t, err := origin(p.Deployment)
 	if err != nil || u.Scheme != t.Scheme || u.Host != t.Host {
 		return errors.New("page URL does not match trusted deployment")
+	}
+	if u.Path == "/timeline/events" {
+		_, _, err := eventselection.FromURL(u)
+		return err
 	}
 	return validateSource(u.RequestURI())
 }
