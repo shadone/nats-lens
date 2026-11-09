@@ -1,6 +1,7 @@
 package api
 
 import (
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"strconv"
 )
 
@@ -24,4 +25,22 @@ func EventSelection(ids []string, boundary *int64) ([]int64, error) {
 		out = append(out, n)
 	}
 	return out, nil
+}
+
+// EventEntity reports only identities the event actually names. Kubernetes node
+// identities have no NATS entity route; they stay in the recorded event payload.
+func EventEntity(e *v1.Event) *v1.EntityRef {
+	switch {
+	case e.GetAccount() != "" && e.GetStream() != "" && e.GetConsumer() != "":
+		return EntityRefOf(v1.EntityType_ENTITY_TYPE_CONSUMER, e.GetAccount()+"/"+e.GetStream()+"/"+e.GetConsumer())
+	case e.GetAccount() != "" && e.GetStream() != "":
+		return EntityRefOf(v1.EntityType_ENTITY_TYPE_STREAM, e.GetAccount()+"/"+e.GetStream())
+	case e.GetAccount() != "":
+		return EntityRefOf(v1.EntityType_ENTITY_TYPE_ACCOUNT, e.GetAccount())
+	case e.GetServer() != "":
+		return EntityRefOf(v1.EntityType_ENTITY_TYPE_SERVER, e.GetServer())
+	case e.GetClientName() != "":
+		return EntityRefOf(v1.EntityType_ENTITY_TYPE_CLIENT, e.GetClientName())
+	}
+	return nil
 }
