@@ -1,3 +1,6 @@
+import {Link} from "react-router";
+import {useSystem} from "../lib/useSystem";
+import {findingHistoryPath} from "../lib/findingHistory";
 import {timelineCaptureLimits} from "./TimelineCaptureNotice";
 // The status timeline of the reference: a label column, a cell track that
 // scrolls sideways on narrow screens and opens at now, and a now column. A
@@ -11,10 +14,10 @@ import { axisTicks, cellRuns, isDeployment, laneAnnotations, runsText } from "..
 import { useWidth } from "../lib/useWidth";
 import { LEVEL_LABEL } from "../lib/view";
 import {TimelineFindingRange} from "./TimelineInvestigation";
-import {TimelineMark, CheckDetails, WindowPreview, timelineTime} from "./TimelineMark";
+import {TimelineMark, CheckDetails, WindowPreview, EventPreview, EventDetails, timelineTime} from "./TimelineMark";
 import {TimelineEventTicks} from "./TimelineEventTicks";
 import {TimelineWindowEvidence} from "./TimelineEventEvidence";
-import {evidenceRange} from "../lib/timelineEvidence";
+import {evidenceRange,evidenceQuery} from "../lib/timelineEvidence";
 import { Glyph, Sev } from "./Severity";
 
 export const CELL_FILL: Record<Level, string> = {
@@ -80,7 +83,7 @@ function K8sLane({ tl, scroller, end }: { tl: Timeline; scroller: RefObject<HTML
   );
 }
 
-function TimelineTable({ tl }: { tl: Timeline }) {
+function TimelineTable({ tl,history }: { tl: Timeline;history:(row:TimelineRow)=>string }) {
   return (
     <div className="table-wrap">
       <table className="tbl">
@@ -96,19 +99,20 @@ function TimelineTable({ tl }: { tl: Timeline }) {
         <tbody>
           {tl.rows.map((r) => (
             <tr key={r.key}>
-              <td className="mono">{r.checkCode}</td>
+              <td className="mono"><Link className="x" aria-label={`${r.checkCode} occurrence history`} to={history(r)}>{r.checkCode}</Link></td>
               <td>{r.checkName}</td>
               <td>{LEVEL_LABEL[r.now]}</td>
-              <td className="mono">{runsText(cellRuns(r.cells, tl.start, tl.bucketMs))}</td>
+              <td className="mono">{runsText(cellRuns(r.cells, tl.start, tl.bucketMs),timelineTime)}</td>
             </tr>
           ))}
           {tl.kubernetes.map((e) => (
             <tr key={e.id}>
               <td className="mono">K8s</td>
-              <td colSpan={2}>{e.label}</td>
-              <td className="mono">{hm(e.time)}</td>
+              <td colSpan={2}><TimelineMark className="timeline-table-event x" label={`Kubernetes event: ${e.label}`} captureLimits={timelineCaptureLimits(tl,"kubernetes")} preview={<EventPreview event={e}/>} details={<EventDetails event={e} range={tl.evidenceRange??evidenceRange(tl.start,tl.start+tl.bucketCount*tl.bucketMs)} readId={tl.eventReadId} captureLimits={timelineCaptureLimits(tl,"kubernetes")}/>}>{e.label}</TimelineMark></td>
+              <td className="mono">{timelineTime(e.time)}</td>
             </tr>
           ))}
+          {tl.windows.map((w,i)=><tr key={w.id??`${w.start}:${i}`}><td>Window</td><td colSpan={2}><TimelineMark className="timeline-table-event x" label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>} details={<TimelineWindowEvidence window={w} range={tl.evidenceRange??evidenceRange(tl.start,tl.start+tl.bucketCount*tl.bucketMs)} readId={tl.eventReadId}/>}>{w.label}</TimelineMark></td><td className="mono">{timelineTime(w.start)} – {timelineTime(w.end)}</td></tr>)}
         </tbody>
       </table>
     </div>
@@ -116,10 +120,14 @@ function TimelineTable({ tl }: { tl: Timeline }) {
 }
 
 export function StatusTimeline({ tl, end, live, asTable }: { tl: Timeline; end: number; live: boolean; asTable: boolean }) {
+  const system=useSystem();
   const scroller = useRef<HTMLDivElement>(null);
   const [, redraw] = useState(0);
   const span = trackSpan(tl, end);
   const frac = (t: number) => (t - tl.start) / span;
+  const fixed=tl.evidenceRange??evidenceRange(tl.start,tl.start+span);
+  const history=(row:TimelineRow)=>findingHistoryPath(tl.start,tl.start+span,tl.findingReadEpoch,system,row.checkCode,row.entity,fixed);
+  const events=evidenceQuery(system,fixed);events.set("src","kubernetes");events.set("show","all");if(tl.eventReadId!==undefined)events.set("eventReadId",tl.eventReadId);
   const hasLane = tl.kubernetes.length > 0;
   const win = tl.windows[tl.windows.length - 1];
 
@@ -130,7 +138,7 @@ export function StatusTimeline({ tl, end, live, asTable }: { tl: Timeline; end: 
     redraw((n) => n + 1);
   }, [tl.bucketCount, asTable]);
 
-  if (asTable) return <TimelineTable tl={tl} />;
+  if (asTable) return <TimelineTable tl={tl} history={history} />;
   const style = { "--buckets": tl.bucketCount } as CSSProperties;
   return (
     <div className="tlx" style={style}>
@@ -140,7 +148,7 @@ export function StatusTimeline({ tl, end, live, asTable }: { tl: Timeline; end: 
             <div className="lane">
               <span className="code">K8s</span>
               <span className="nm">
-                Kubernetes
+                <Link className="x" aria-label="Kubernetes event history" to={`/events?${events}`}>Kubernetes</Link>
                 <small className="wide">GKE events, {tl.kubernetes.length} in range</small>
                 <small className="narrow">{win ? `${win.label.split(" ").pop()} ${hm(win.start)}–${hm(win.end)}` : `${tl.kubernetes.length} events`}</small>
               </span>
@@ -150,7 +158,7 @@ export function StatusTimeline({ tl, end, live, asTable }: { tl: Timeline; end: 
         )}
         {tl.rows.map((r) => (
           <div className="lab" key={r.key}>
-            <span className="code">{r.checkCode}</span>
+            <Link className="code x" aria-label={`${r.checkCode} occurrence history`} to={history(r)}>{r.checkCode}</Link>
             <span className="nm" title={r.checkName}>
               {r.checkName}
             </span>
