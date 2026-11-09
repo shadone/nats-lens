@@ -85,3 +85,62 @@ func TestOfflineCLITwoProcessesContinue(t *testing.T) {
 		t.Fatalf("wrong second page: %s", second)
 	}
 }
+
+func TestOfflineOccurrenceCLITwoProcessesContinue(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "closed.duckdb")
+	st, err := store.OpenPath(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO epochs (epoch,started_at,finished_at,duration_ms,expected_servers,observed_servers,expected_names,observed_names,missing_names,endpoint_failures,partial,errors) SELECT n, TIMESTAMP '2026-10-17 14:23:00'+n*INTERVAL 1 MINUTE,TIMESTAMP '2026-10-17 14:23:01'+n*INTERVAL 1 MINUTE,1000,0,0,[],[],[],0,false,[] FROM range(1,4) t(n)`,
+		`INSERT INTO finding_transitions(finding_id,check_code,entity_type,entity_key,epoch,time,kind,severity,detail) SELECT 'server-001:nats-0','server-001','server','nats-0',n,TIMESTAMP '2026-10-17 14:23:00'+n*INTERVAL 1 MINUTE,CASE WHEN n=2 THEN 'resolved' ELSE 'firing' END,'warning','Generic recorded occurrence' FROM range(1,4) t(n)`,
+	} {
+		if _, err = st.DB().Exec(q); err != nil {
+			st.Close()
+			t.Fatal(err)
+		}
+	}
+	if err = st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	invoke := func(token string) []byte {
+		t.Helper()
+		args := []string{"-test.run=^TestOfflineCLIHelperProcess$", "--", "investigate", "query", "ListFindingEpisodes", "-db", path, "-system", "shop", "-collection-interval", "30s", "-page-size", "1"}
+		if token != "" {
+			args = append(args, "-page-token", token)
+		}
+		cmd := exec.Command(executable, args...)
+		cmd.Env = append(os.Environ(), "NATSLENS_TEST_OFFLINE_CLI=1")
+		out, e := cmd.CombinedOutput()
+		if e != nil {
+			t.Fatalf("occurrence CLI process: %v %s", e, out)
+		}
+		return out
+	}
+	type output struct {
+		Response struct {
+			Next     string `json:"nextPageToken"`
+			Episodes []struct {
+				First string `json:"firstRetainedEpoch"`
+			} `json:"episodes"`
+		} `json:"response"`
+	}
+	var a, b output
+	if err = json.Unmarshal(invoke(""), &a); err != nil {
+		t.Fatal(err)
+	}
+	if a.Response.Next == "" || len(a.Response.Episodes) != 1 || a.Response.Episodes[0].First != "3" {
+		t.Fatalf("first occurrence: %+v", a)
+	}
+	if err = json.Unmarshal(invoke(a.Response.Next), &b); err != nil {
+		t.Fatal(err)
+	}
+	if len(b.Response.Episodes) != 1 || b.Response.Episodes[0].First != "1" || b.Response.Next != "" {
+		t.Fatalf("reopened occurrence traversal: %+v", b)
+	}
+}
