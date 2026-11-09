@@ -16,7 +16,7 @@ beforeEach(()=>vi.resetAllMocks());
 it("shows pinned windows, signed known contributions and unknown evidence distinctly",async()=>{
  vi.mocked(lens.getStorageChange).mockResolvedValue(response());renderApp(<StorageChange/>,route);
  expect(await screen.findByText(/9007199254740993/)).toBeInTheDocument();
- expect(screen.getByText(/2026-10-17T13:00:00.000123Z/)).toBeInTheDocument();
+ expect(screen.getByText(/^Requested: 2026-10-17T13:00:00\.000123Z to 2026-10-17T14:00:00\.000456Z\./)).toBeInTheDocument();
  expect(screen.getAllByText("−50 bytes").length).toBeGreaterThan(0);
  expect(screen.getAllByText(/Unknown/).length).toBeGreaterThan(0);
  expect(screen.getByText(/Missing JSZ evidence/)).toBeInTheDocument();

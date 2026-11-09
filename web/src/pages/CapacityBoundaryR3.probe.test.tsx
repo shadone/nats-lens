@@ -2,7 +2,7 @@ import {expect,it} from 'vitest';
 import {fireEvent,screen} from '@testing-library/react';
 import {CapacityHistoryChart} from '../components/CapacityHistory';
 import {renderApp} from '../test/render';
-import fixture from '../../../boundary-sql.json';
+import fixture from '../test/fixtures/capacity-boundary-sql.json';
 const route='/capacity?from=2026-10-17T12:00:15Z&to=2026-10-17T12:00:25Z';
 for(const compact of [false,true]) it(`shows the actual SQL single partial bucket within ${compact?'compact':'expanded'} chart domain`,()=>{
  const q={isPending:false,error:undefined,data:{...fixture.series['stream.bytes'],unit:'bytes' as const}};

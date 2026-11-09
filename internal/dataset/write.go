@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -100,20 +99,7 @@ func Acquire(ctx context.Context, st *store.Store, destination string, system Sy
 			case <-work.Done():
 				return
 			case <-tick.C:
-				var size int64
-				e := filepath.WalkDir(stage, func(p string, d fs.DirEntry, e error) error {
-					if e != nil {
-						return e
-					}
-					if !d.IsDir() {
-						i, e := d.Info()
-						if e != nil {
-							return e
-						}
-						size += i.Size()
-					}
-					return nil
-				})
+				size, e := stageSize(os.DirFS(stage))
 				if e != nil {
 					cancelWork(e)
 					return

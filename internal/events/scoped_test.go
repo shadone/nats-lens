@@ -11,7 +11,7 @@ import (
 	"github.com/shadone/nats-lens/internal/testcluster"
 )
 
-// The scoped system and account users of the README subscribe to every
+// The scoped system and account users of docs/configuration.md subscribe to every
 // subject the capture needs and resolve the account name.
 func TestCaptureWithScopedUsers(t *testing.T) {
 	if testing.Short() {

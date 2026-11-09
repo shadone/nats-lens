@@ -16,6 +16,8 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 
 - **Remote investigation.** `natslens investigate` uses configured API profiles without opening a database or connecting to NATS. Its separate read-only route needs the existing authenticated access perimeter and a restricted proxy policy for least privilege ([agent-investigations.md](agent-investigations.md)).
 - **Commands.** `natslens run` (also `natslens` alone) runs until SIGTERM or SIGINT. `natslens once` stores one collection of every system, or of the one `-system ID` names, runs the checks on it and exits, without events, archive or API. `natslens sql`, `natslens checks` and `natslens demo` are described in [sql-access.md](sql-access.md), [checks.md](checks.md) and [demo-mode.md](demo-mode.md).
+- **Published builds.** Each release publishes the container image `ghcr.io/shadone/nats-lens` for linux/amd64 and linux/arm64 and binary archives for Linux and macOS on amd64 and arm64, with `checksums.txt` and build provenance attestations. The Linux binaries need glibc 2.34 and libstdc++ from GCC 12 or later; the macOS binaries need macOS 13 or later. See [releasing.md](../operations/releasing.md).
+- **Version.** `natslens version` prints the version the binary was built with, the Go release and the platform, for example `natslens v0.1.0 (go1.27.2 linux/amd64)`, without reading a configuration. Release binaries and images carry their release tag; a binary built from a checkout prints `dev`. The same version appears in the start log line.
 - **Test notifications.** `natslens notify test` reads the configured channels and sends test messages without opening a database or connecting to NATS ([notifications.md](notifications.md)). Only `run` schedules finding delivery; `once`, `checks run` and `demo` send no finding notifications.
 - **Receiver access.** Notification delivery needs DNS and outbound HTTPS to configured receivers. A NetworkPolicy that restricts egress must allow those destinations, including when copying the GKE component.
 - **Where settings come from.** Defaults first, then the file named by `-config`, then flags. The project's `natslens.example.yaml` lists every key. nats-lens checks the whole configuration at start and stops with every error it found, for example "timeout must be less than a third of interval: an epoch can take three collect windows".
@@ -33,7 +35,7 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **Memory.** DuckDB may use `duckdb_memory_limit`, by default 60% of the container's memory limit, or 1 GiB outside a container. Several systems share it, each with its own database.
 - **The Kubernetes manifests.** `k8s/base` creates the namespace `nats-lens`, a service account with read-only roles, a volume, the Deployment and the Service, and expects two Secrets with the NATS credentials. `k8s/components/gke-iap` adds IAP, a load balancer health check on `/healthz`, a NetworkPolicy and a Managed Prometheus scrape of `/metrics`. Two overlays to copy: `k8s/examples/basic`, reached by `kubectl port-forward` only, and `k8s/examples/gke-iap`, behind IAP on an existing Gateway.
 - **One replica.** DuckDB has one writer, so the Deployment runs one replica with the `Recreate` strategy, and the database and the archive share a volume. The pod prefers a node without a NATS server, so draining a NATS node does not also take nats-lens away. It runs as non-root on a read-only root filesystem.
-- **Out-of-the-box limits.** The base asks for 100m CPU and 512 MiB of memory with a 5 GiB volume (a laptop cluster or a small system); the `gke-iap` example asks for 500m, 2 GiB and 20 GiB as a starting point for production. Reading the Topology of a system with 1,000 leaf node sites takes up to about 450 MB in the process, more when servers' LEAFZ answers failed during the day, so a system with hundreds of leaf node sites is estimated to need more, and several systems in one process need more. The README's [Memory size](../../README.md#memory-size) table gives a memory limit per size of system; its figures are proposed, not yet confirmed.
+- **Out-of-the-box limits.** The base asks for 100m CPU and 512 MiB of memory with a 5 GiB volume (a laptop cluster or a small system); the `gke-iap` example asks for 500m, 2 GiB and 20 GiB as a starting point for production. Reading the Topology of a system with 1,000 leaf node sites takes up to about 450 MB in the process, more when servers' LEAFZ answers failed during the day, so a system with hundreds of leaf node sites is estimated to need more, and several systems in one process need more. The [Memory size](../deploy.md#memory-size) table in the deploy docs gives a memory limit per size of system; its figures are proposed, not yet confirmed.
 
 - **Offline acquisition.** The [offline dataset channel](offline-datasets.md) creates a full-system artifact at one database read boundary. Hourly recovery archives retain their own publication boundaries and are not exact-time investigation snapshots.
 
@@ -45,6 +47,13 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **Given** a system account user with the grants of [monitoring-snapshots.md](monitoring-snapshots.md)
 - **When** I run `NATSLENS_NATS_PASSWORD=... natslens run -nats-url nats://nats.example.com:4222 -nats-user natslens`
 - **Then** nats-lens collects every 30 seconds into `./data` and serves the UI at http://127.0.0.1:8080
+
+### Print the version
+
+- **Surfaces:** `cli`
+- **Given** a binary from the `v0.1.0` release for linux/amd64
+- **When** I run `natslens version`
+- **Then** it prints `natslens v0.1.0 (go1.27.2 linux/amd64)` and exits, with the Go release it was built with
 
 ### Refuse to serve openly by mistake
 

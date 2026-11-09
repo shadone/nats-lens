@@ -11,11 +11,15 @@ import "@fontsource/ibm-plex-mono/latin-600.css";
 import "./styles/index.css";
 import { App } from "./App";
 import { ClockGate } from "./components/ClockGate";
+import { DemoStarting } from "./components/HostedDemo";
+import { routerBasename, slashBaseAddress } from "./lib/basePath";
+import { HOSTED_DEMO } from "./lib/hostedDemo";
 import { GlobalQueryProvider } from "./lib/useGlobalQuery";
 import { shouldRetry } from "./api/errors";
 import { clearLegacyIdentityFlag } from "./api/identity";
 
 clearLegacyIdentityFlag();
+slashBaseAddress();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,8 +31,8 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <ClockGate>
+      <BrowserRouter basename={routerBasename()}>
+        <ClockGate fallback={HOSTED_DEMO ? <DemoStarting /> : null}>
           <GlobalQueryProvider>
             <App />
           </GlobalQueryProvider>

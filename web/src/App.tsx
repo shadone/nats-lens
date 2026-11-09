@@ -6,9 +6,12 @@ import { RouteBoundary } from "./components/RouteBoundary";
 import { Route, Routes, useLocation } from "react-router";
 import { PageHistoryProvider } from "./components/HistoryNote";
 import { Header } from "./components/Header";
+import { DemoNotice } from "./components/HostedDemo";
 import { Sidebar } from "./components/Sidebar";
 import { StaleProvider } from "./components/StaleContext";
 import { Landing, SystemGate } from "./components/SystemGate";
+import { appHref } from "./lib/basePath";
+import { HOSTED_DEMO } from "./lib/hostedDemo";
 import { useRoutePosition } from "./lib/useRoutePosition";
 import { useSidebar } from "./lib/useSidebar";
 import { useSystem } from "./lib/useSystem";
@@ -60,6 +63,7 @@ export function App() {
       {drawerOpen && <div className="side-backdrop" aria-hidden="true" onClick={() => setDrawerOpen(false)} />}
       {/* While the drawer is shown the page behind it is inert, so Tab stays in the drawer. */}
       <div className="main-col" inert={drawerShown}>
+        {HOSTED_DEMO && <DemoNotice />}
         <Header menuOpen={drawerOpen} onMenu={() => setDrawerOpen(!drawerOpen)} />
         <main className="wrap" id="main" tabIndex={-1} ref={main}>
           {/* Keyed by system too: a page of another system starts afresh, with
@@ -67,7 +71,7 @@ export function App() {
           <StaleProvider key={`${pathname}|${system}`}>
             <SystemGate>
               <PageHistoryProvider>
-              <RouteBoundary key={pathname} href={pathname + search + hash}>
+              <RouteBoundary key={pathname} href={appHref(pathname + search + hash)}>
               <Routes>
                 <Route
                   path="/"

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/shadone/nats-lens/discussions
+    about: Ask how to set up or use nats-lens, or talk through an idea before you open an issue.
+  - name: Security issue
+    url: https://github.com/shadone/nats-lens/security/advisories/new
+    about: Report a vulnerability privately, not in a public issue.

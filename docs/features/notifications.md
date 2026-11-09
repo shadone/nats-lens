@@ -6,7 +6,7 @@
 
 ## What it does
 
-nats-lens sends findings to configured webhook and Slack-compatible channels. Acknowledgements carry the actor, note, and quiet time to the channel where the finding appears. Delivery is read-only towards NATS: only the configured HTTP receivers receive requests. The [README](../../README.md#notifications) documents configuration and the webhook contract.
+nats-lens sends findings to configured webhook and Slack-compatible channels. Acknowledgements carry the actor, note, and quiet time to the channel where the finding appears. Delivery is read-only towards NATS: only the configured HTTP receivers receive requests. [docs/notifications.md](../notifications.md) documents configuration and the webhook contract.
 
 ## Behavior and rules
 
@@ -108,4 +108,4 @@ nats-lens sends findings to configured webhook and Slack-compatible channels. Ac
 - **No templates, e-mail or paging-service API.** Receivers can transform the documented webhook JSON. Slack-compatible delivery sends plain text.
 - **No notification UI or quiet hours.** Channels are configured in YAML; there is no channel status page or per-channel quiet schedule.
 - **No exactly-once delivery or archive recovery of the queue.** Receivers must deduplicate retries. A rebuilt database starts a baseline instead of restoring pending deliveries.
-- **Separate Prometheus quiet rules.** Notification quiet applies to channels. The README's finding rules explicitly exclude quiet acknowledgements through their metric; notification delivery does not alter a deployment's Prometheus rules ([metrics-and-alerting.md](metrics-and-alerting.md)).
+- **Separate Prometheus quiet rules.** Notification quiet applies to channels. The finding rules in [docs/metrics.md](../metrics.md) explicitly exclude quiet acknowledgements through their metric; notification delivery does not alter a deployment's Prometheus rules ([metrics-and-alerting.md](metrics-and-alerting.md)).

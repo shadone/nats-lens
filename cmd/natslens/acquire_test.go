@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -39,11 +38,7 @@ func TestAcquireUsesOnlyExplicitLocalAdminChannel(t *testing.T) {
 		t.Fatal(err)
 	}
 	stop()
-	root, err := os.MkdirTemp("/private/tmp", "nlc-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	root := shortSocketDir(t, "nlc-")
 	st, err := store.Open(ctx, t.TempDir())
 	if err != nil {
 		t.Fatal(err)

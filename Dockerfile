@@ -9,11 +9,13 @@
 # stage cross-compiles for TARGETARCH with Debian's gcc cross toolchain, so
 # an amd64 image builds on an arm64 Mac without emulation.
 
-FROM --platform=$BUILDPLATFORM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS web
+FROM --platform=$BUILDPLATFORM node:26.12.1-bookworm-slim@sha256:88e480776c6149ff1d098cd304f44bf18057fb5d284a3329b78162d29821e28c AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json web/.npmrc ./
 RUN npm ci --no-audit --no-fund
-COPY web/ ./
+# The whole context, not only web/: the type check covers tests that import
+# files from elsewhere in the repository (boundary-sql.json, testdata).
+COPY . /src/
 RUN mkdir -p ../internal/webui/dist && npm run build
 
 FROM --platform=$BUILDPLATFORM golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61 AS build
@@ -54,7 +56,23 @@ RUN --mount=type=cache,id=natslens-go-mod-1.27.2,target=/go/pkg/mod,sharing=shar
     CGO_ENABLED=1 GOOS=linux GOARCH="$TARGETARCH" CC="$triple-gcc" CXX="$triple-g++" \
       go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/natslens ./cmd/natslens
 
+# Stages the release workflow exports with --output type=local: the built UI
+# for the macOS binaries, and the Linux binaries the image ships.
+FROM scratch AS webui
+COPY --from=web /src/internal/webui/dist/ /
+
+FROM scratch AS binary
+COPY --from=build /out/natslens /natslens
+
+# The runtime image; the last stage, so the default target.
 FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+LABEL org.opencontainers.image.title="nats-lens" \
+      org.opencontainers.image.description="Observes a NATS deployment: snapshots, events, findings and a web UI" \
+      org.opencontainers.image.source="https://github.com/shadone/nats-lens" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
+# natslens demo listens here unless -listen says otherwise: a published
+# port cannot reach the container's loopback.
+ENV NATSLENS_DEMO_LISTEN=0.0.0.0:8080
 COPY --from=build /out/natslens /usr/local/bin/natslens
 USER 65532:65532
 EXPOSE 8080

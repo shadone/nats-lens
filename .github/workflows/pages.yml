@@ -1,0 +1,76 @@
+# Publishes the demo site to GitHub Pages (https://shadone.github.io/nats-lens/):
+# the web UI with the demo's API compiled to WebAssembly, built by
+# `make demo-site`. docs/features/demo-mode.md describes it.
+#
+# The paths are everything the site is built from: Go embeds checks/*.sql
+# and, through docs/*.go, docs/features/*.md into the API.
+name: Pages
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - .github/workflows/pages.yml
+      - Makefile
+      - go.mod
+      - go.sum
+      - cmd/natslens-wasm/**
+      - internal/**
+      - checks/**
+      - docs/*.go
+      - docs/features/**
+      - web/**
+  workflow_dispatch:
+
+permissions: {}
+
+# One deployment at a time; a newer push waits rather than cancelling one
+# that is publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 24
+
+jobs:
+  build:
+    name: Build the demo site
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build
+        run: make demo-site VERSION="$(git rev-parse --short HEAD)"
+      - name: Run one call through the WebAssembly
+        run: node cmd/natslens-wasm/smoke.mjs bin/demo-site
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: bin/demo-site
+          # .nojekyll
+          include-hidden-files: true
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

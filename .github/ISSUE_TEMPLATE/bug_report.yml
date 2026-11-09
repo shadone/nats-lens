@@ -1,0 +1,60 @@
+name: Bug report
+description: nats-lens does something wrong or fails.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Report a security issue privately instead, as [the security policy](https://github.com/shadone/nats-lens/security/policy) describes. Remove credentials, host names and other private data from logs and screenshots before you post them.
+  - type: input
+    id: version
+    attributes:
+      label: nats-lens version
+      description: The release, image tag or commit. The first `starting` log line names it.
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: input
+    id: nats-version
+    attributes:
+      label: NATS server version
+      placeholder: "2.12.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: how-it-runs
+    attributes:
+      label: How nats-lens runs
+      options:
+        - Release binary
+        - Container image
+        - Kubernetes manifests from k8s/
+        - Built from source
+        - natslens demo
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup
+      description: The NATS topology (single server, cluster, supercluster, leaf nodes), how many systems nats-lens watches, and the relevant parts of the configuration file.
+      render: yaml
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what nats-lens did instead. Name the page, finding or command.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Steps that show the problem, in `natslens demo` if it happens there.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The natslens log lines around the problem.
+      render: text
