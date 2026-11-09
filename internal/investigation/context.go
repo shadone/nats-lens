@@ -61,7 +61,7 @@ const MaxInputBytes = 64 << 10
 const MaxRange = 30 * 24 * time.Hour
 
 var metricPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$`)
-var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId")
+var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId readEpoch")
 
 func validText(s string, n int) bool {
 	if !utf8.ValidString(s) || len(s) > n {
@@ -161,7 +161,7 @@ func validateSource(raw string) error {
 		return errors.New("invalid UI query")
 	}
 	for k, v := range q {
-		occurrenceBoundary := k == "readEpoch" && occurrenceRoute(pathSegments(u.EscapedPath())) || k == "eventReadId" && (u.Path == "/events" || strings.HasPrefix(u.Path, "/timeline/windows/"))
+		occurrenceBoundary := k == "readEpoch" && (occurrenceRoute(pathSegments(u.EscapedPath())) || u.Path == "/findings/history") || k == "eventReadId" && (u.Path == "/events" || strings.HasPrefix(u.Path, "/timeline/windows/"))
 		if occurrenceBoundary {
 			n, e := strconv.ParseInt(v[0], 10, 64)
 			if e != nil || n < 0 || strconv.FormatInt(n, 10) != v[0] {
@@ -354,6 +354,36 @@ func (c *Context) infer(path string, q url.Values) {
 		raw, _ := json.Marshal(request)
 		c.Query = &BoundQuery{Method: "GetStatusTimeline", Request: raw}
 	}
+	if len(p) == 2 && p[0] == "findings" && p[1] == "history" {
+		request := map[string]any{"system": c.System, "range": c.Range, "pageSize": 50}
+		if q.Has("readEpoch") {
+			request["readEpoch"] = q.Get("readEpoch")
+		}
+		if q.Get("check") != "" {
+			request["checkCode"] = q.Get("check")
+		}
+		if q.Has("type") || q.Has("key") {
+			c.Entity = &Entity{Type: "ENTITY_TYPE_" + strings.ToUpper(q.Get("type")), Key: q.Get("key")}
+			parts := strings.Split(c.Entity.Key, "/")
+			switch q.Get("type") {
+			case "server":
+				c.Entity.Server = c.Entity.Key
+			case "account":
+				c.Entity.Account = c.Entity.Key
+			case "stream", "consumer":
+				if len(parts) >= 2 {
+					c.Entity.Account = parts[0]
+					c.Entity.Stream = parts[1]
+				}
+				if len(parts) == 3 {
+					c.Entity.Consumer = parts[2]
+				}
+			}
+			request["entity"] = c.Entity
+		}
+		raw, _ := json.Marshal(request)
+		c.Query = &BoundQuery{Method: "ListFindingEpisodes", Request: raw}
+	}
 	if occurrenceRoute(p) {
 		c.Evidence = []Evidence{{"finding", p[1]}}
 		request := map[string]any{"system": c.System, "range": c.Range, "findingId": p[1], "firstRetainedEpoch": p[3], "includeTransitions": true, "pageSize": 1}
@@ -370,6 +400,9 @@ func (c *Context) infer(path string, q url.Values) {
 				c.Entity = &Entity{Type: "ENTITY_TYPE_SERVER", Key: p[1], Server: p[1]}
 			}
 		case "findings":
+			if p[1] == "history" {
+				break
+			}
 			c.Evidence = []Evidence{{"finding", p[1]}}
 		}
 	}

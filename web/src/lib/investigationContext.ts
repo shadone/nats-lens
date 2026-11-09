@@ -1,3 +1,4 @@
+import {findingHistoryRange,findingHistoryRequest} from "./findingHistory";
 import {aggregateMetric} from "./aggregateMetrics";
 import {resourceMetric,resourceSelection} from "./resourceMetrics";
 import {metricFamily} from "./metricNavigation";
@@ -17,7 +18,7 @@ export interface InvestigationContext {
  filters:Record<string,string>;entity?:InvestigationEntity;metric?:string;point?:string;evidence?:{kind:string;id:string}[];
  provenance:{status:"unavailable";reason:string};annotation?:string;
 }
-const FILTERS="sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId".split(" ");
+const FILTERS="sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId readEpoch".split(" ");
 function routeEntity(pathname:string):InvestigationEntity|undefined{
  let p:string[];try{p=pathname.split("/").slice(1).map(decodeURIComponent)}catch{return undefined}
  if(p[0]==="servers"&&p.length===2&&p[1]!=="slow-consumers")return {type:"ENTITY_TYPE_SERVER",key:p[1],server:p[1]};
@@ -37,13 +38,15 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  const {origin,pathname,search,system,spec,selection:selection}=input;
  const params=new URLSearchParams(search);
  const occurrence=occurrenceRequest(pathname,params);
+ let history:ReturnType<typeof findingHistoryRange>|undefined;try{if(pathname==='/findings/history')history=findingHistoryRange(params)}catch{/* Invalid scope remains untrusted and never becomes a broader explicit query. */}
+
  const boundary=params.get('eventReadId');
  const windowQuery:BoundInvestigationQuery|undefined=/^\/timeline\/windows\/[a-f0-9]{64}$/.test(pathname)&&boundary!==null&&/^(0|[1-9]\d{0,18})$/.test(boundary)&&BigInt(boundary)<=9223372036854775807n?{method:'GetStatusTimeline',request:{eventReadId:boundary}}:undefined;
  const family=pathname.startsWith("/metrics/")?metricFamily(pathname.slice("/metrics/".length)):undefined;
  const server=new URLSearchParams(search).get("server");const serverIdentity=server?{kind:"server" as const,key:server,server,name:server,account:"",stream:"",consumer:""}:undefined;
  const resource=pathname.startsWith("/metrics/")?resourceMetric(pathname.slice("/metrics/".length)):undefined;let selectedResource:Entity|undefined;try{if(resource)selectedResource=resourceSelection(resource,new URLSearchParams(search))}catch{/* Invalid route selectors remain untrusted filters, not invented identities. */}
  const aggregate=pathname.startsWith("/metrics/")?aggregateMetric(pathname.slice("/metrics/".length)):undefined;
- const s:InvestigationSelection|undefined=selection??(occurrence?{query:occurrence}:undefined)??(windowQuery?{query:windowQuery,annotation:`Captured inferred window ${pathname.split('/').pop()}; supporting IDs describe recorded input, not causation.`}:undefined)??(aggregate?{label:aggregate.title,series:aggregate.metrics.map((metric,i)=>({label:aggregate.labels[i],metric}))}:undefined)??(resource?{label:resource.title,metric:resource.metric,entity:selectedResource}:undefined)??(family?{label:family.title,series:(server?family.metrics:family.fleetMetrics).map((metric,i)=>({label:family.labels[i],metric,entity:serverIdentity}))}:undefined);
+ const s:InvestigationSelection|undefined=selection??(occurrence?{query:occurrence}:undefined)??(history?{range:history.range,entity:history.entity,check:history.checkCode,query:{method:'ListFindingEpisodes',request:findingHistoryRequest(history)}}:undefined)??(windowQuery?{query:windowQuery,annotation:`Captured inferred window ${pathname.split('/').pop()}; supporting IDs describe recorded input, not causation.`}:undefined)??(aggregate?{label:aggregate.title,series:aggregate.metrics.map((metric,i)=>({label:aggregate.labels[i],metric}))}:undefined)??(resource?{label:resource.title,metric:resource.metric,entity:selectedResource}:undefined)??(family?{label:family.title,series:(server?family.metrics:family.fleetMetrics).map((metric,i)=>({label:family.labels[i],metric,entity:serverIdentity}))}:undefined);
  // ASVS 14.2.1: copy only known navigation fields; unknown query parameters,
  // credentials, cookies and browser storage never enter portable context.
  const filters:Record<string,string>={};for(const k of FILTERS){const v=params.get(k);if(v!==null&&v.length<=1024)filters[k]=v}
@@ -66,7 +69,7 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  if(!entity&&["/events","/consumers"].includes(pathname)&&params.get("stream")){const key=params.get("stream")!,p=key.split("/");if(p.length===2)entity={type:"ENTITY_TYPE_STREAM",key,account:p[0],stream:p[1]}}
  if(!entity&&["/events","/connections","/servers/slow-consumers","/placement"].includes(pathname)&&params.get("server"))entity={type:"ENTITY_TYPE_SERVER",key:params.get("server")!,server:params.get("server")!};
  const evidence:{kind:string;id:string}[]=[...(s?.evidence??[])];
- if(pathname.startsWith("/findings/")&&pathname!=="/findings/by-labels"&&!evidence.some(e=>e.kind==="finding"))evidence.push({kind:"finding",id:decodeURIComponent(pathname.split("/")[2])});
+ if(pathname.startsWith("/findings/")&&pathname!=="/findings/by-labels"&&pathname!=="/findings/history"&&!evidence.some(e=>e.kind==="finding"))evidence.push({kind:"finding",id:decodeURIComponent(pathname.split("/")[2])});
  if(pathname==="/events"&&params.get("id"))evidence.push({kind:"event",id:params.get("id")!});
  return {query:s?.query?{method:s.query.method,request:{...s.query.request,system,...(["GetEvent","GetEventBatch"].includes(s.query.method)?{}:{range:portableRange})}}:undefined,version:1,deployment:origin,system,account:entity?.account||params.get("account")||undefined,range:portableRange,sourcePath:pathname,filters,entity,chartLabel:s?.label,series,metric:s?.metric??primary?.metric,point:s?.point!==undefined&&s.point>=start&&s.point<end?new Date(s.point).toISOString():undefined,evidence:evidence.length?evidence.filter((e,i)=>evidence.findIndex(other=>other.kind===e.kind&&other.id===e.id)===i):undefined,annotation:s?.annotation,provenance:{status:"unavailable",reason:"API does not provide a cross-query collection pin. Follow Data history and response evidence IDs; this context records URL-backed filters only."}};
 }

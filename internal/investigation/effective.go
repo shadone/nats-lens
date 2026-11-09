@@ -35,6 +35,8 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		Name                string            `json:"name"`
 		Server              string            `json:"server"`
 		FindingID           string            `json:"findingId"`
+		ReadEpoch           *string           `json:"readEpoch"`
+		FirstRetainedEpoch  string            `json:"firstRetainedEpoch"`
 		ID                  string            `json:"id"`
 		Stream              string            `json:"stream"`
 		Consumer            string            `json:"consumer"`
@@ -174,6 +176,22 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 			limitations = append(limitations, "Events UI couples hideRoutine and foldRepeats; inspect exact request")
 		}
 		entityFilter(&c)
+	case "ListFindingEpisodes":
+		c.SourcePath = "/findings/history"
+		if r.FindingID != "" && r.FirstRetainedEpoch != "" && r.FirstRetainedEpoch != "0" {
+			c.SourcePath = "/findings/" + url.PathEscape(r.FindingID) + "/occurrences/" + r.FirstRetainedEpoch
+			c.Evidence = []Evidence{{Kind: "finding", ID: r.FindingID}}
+		}
+		if r.ReadEpoch != nil {
+			c.Filters["readEpoch"] = *r.ReadEpoch
+		}
+		if r.CheckCode != "" {
+			c.Filters["check"] = r.CheckCode
+		}
+		if c.Entity != nil {
+			c.Filters["type"] = strings.ToLower(strings.TrimPrefix(c.Entity.Type, "ENTITY_TYPE_"))
+			c.Filters["key"] = c.Entity.Key
+		}
 	case "ListFindings":
 		c.SourcePath = "/findings"
 		if r.CheckCode != "" {

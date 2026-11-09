@@ -17,6 +17,7 @@ import {TimelineMark, WindowPreview, timelineTime} from "./TimelineMark";
 import {LEVEL_LABEL} from "../lib/view";
 import {TimelineEventTicks} from "./TimelineEventTicks";
 import {TimelineWindowEvidence} from "./TimelineEventEvidence";
+import {findingHistoryPath} from "../lib/findingHistory";
 import {evidenceRange,evidenceQuery} from "../lib/timelineEvidence";
 import { ZoomStrip } from "./ZoomStrip";
 
@@ -94,7 +95,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
           <TimelineEventTicks events={tl.kubernetes} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={(e) => `sl-tick k8s${isDeployment(e) ? " deploy" : ""}`} />
         </>
       ),
-      more: "/events?src=kubernetes",
+      more: "/events?src=kubernetes&show=all",
     },
     {
       id: "findings",
@@ -108,7 +109,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
           ))}
         </>
       ),
-      more: "/findings",
+      more: findingHistoryPath(tl.start,tl.start+span,tl.findingReadEpoch,system,undefined,undefined,fixed),
     },
     {
       id: "nats",
@@ -116,7 +117,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
       note: tl.nats.length ? `${tl.nats.length} NATS${natsWarn ? `, ${natsWarn} warnings` : ""}` : "no NATS events",
       label: `NATS events: ${tl.nats.length}${natsWarn ? `, ${natsWarn} warnings` : ""}`,
       marks: <TimelineEventTicks events={tl.nats} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={e=>`sl-tick ${natsClass(e)}`} />,
-      more: "/events?src=nats",
+      more: "/events?src=nats,findings,collector&show=all",
     },
   ];
   const style = { "--buckets": tl.bucketCount } as CSSProperties;
