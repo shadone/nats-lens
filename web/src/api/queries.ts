@@ -27,6 +27,17 @@ function entityKey(e: Entity | undefined) {
   return e ? `${e.kind}:${e.key}` : "";
 }
 
+/** Share annotations only within the exact system/range; never borrow another range. */
+export function useTimeWindows(spec: RangeSpec) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["time-windows", sys, rangeKey(spec)],
+    queryFn: ({ signal }) => api.getTimeWindows(sys, spec, signal),
+    refetchInterval: refetch(spec),
+    staleTime: spec.kind === "live" ? LIVE_REFRESH_MS : Infinity,
+  });
+}
+
 export function useOverview(spec: RangeSpec) {
   const sys = useSystem();
   return useQuery({
@@ -69,7 +80,7 @@ export function useMutes(includeInactive: boolean, pageToken = "") {
 // state. Unknown same-system families remain conservatively invalidated so a
 // new status-bearing view does not silently retain a stale mute or acknowledgement.
 const operatorIndependent = new Set([
-  "series", "trends", "bandSeries", "metric-ranking", "lensInfo", "data-history",
+  "time-windows", "series", "trends", "bandSeries", "metric-ranking", "lensInfo", "data-history",
   "events", "event", "serverEvents", "timeline-events", "timeline-window", "captured-event-selection",
   "replay", "topology", "placement",
 ]);

@@ -1,8 +1,9 @@
 // One consumer: backlog numbers and series, findings, each server's view and
 // where they disagree, configuration and events.
+import { useReportStale } from "../components/StaleContext";
 import { useParams } from "react-router";
-import type { Entity } from "../api/model";
-import { useConsumer, useOverview, useSeries } from "../api/queries";
+import type { Entity, Window } from "../api/model";
+import { useConsumer, useTimeWindows, useSeries } from "../api/queries";
 import { QuerySeriesChart } from "../charts/SeriesChart";
 import { Dash, Empty, KV, QueryView, RLink, Section, Num } from "../components/common";
 import { Disagreements, EntityEvents, EntityFindings, Stat } from "../components/EntityParts";
@@ -18,10 +19,9 @@ const SERIES: [string, string][] = [
   ["consumer.num_redelivered", "Redelivered"],
 ];
 
-function Chart({ metric, title, entity, start, end }: { metric: string; title: string; entity: Entity; start: number; end: number }) {
+function Chart({ metric, title, entity, start, end, windows }: { metric: string; title: string; entity: Entity; start: number; end: number; windows: Window[] }) {
   const { spec } = useTimeRange();
   const q = useSeries(spec, metric, entity);
-  const windows = useOverview(spec).data?.windows ?? [];
   return <QuerySeriesChart q={q} title={title} start={start} end={end} windows={windows} />;
 }
 
@@ -34,6 +34,9 @@ export function ConsumerDetail() {
   const { spec } = useTimeRange();
   const { start, end } = useResolvedRange(spec);
   const q = useConsumer(spec, account, stream, name);
+  const windowQuery = useTimeWindows(spec);
+  useReportStale(windowQuery);
+  const windows = windowQuery.data ?? [];
   const entity: Entity = withAccountName({ kind: "consumer", key: `${account}/${stream}/${name}`, name, account, stream, consumer: name, server: "" },
     [q.data?.consumer?.entity]);
   return (
@@ -73,7 +76,7 @@ export function ConsumerDetail() {
               </div>
               <section className="sec grid3">
                 {SERIES.map(([m, t]) => (
-                  <Chart key={m} metric={m} title={t} entity={entity} start={start} end={end} />
+                  <Chart key={m} metric={m} title={t} entity={entity} start={start} end={end} windows={windows} />
                 ))}
               </section>
               <EntityFindings entity={entity} />

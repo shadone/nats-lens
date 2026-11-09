@@ -7,7 +7,7 @@ import { durationFromMs, timestampFromMs } from "@bufbuild/protobuf/wkt";
 import type { TimeRangeSchema } from "../gen/natslens/v1/common_pb";
 import { serverNow, setServerNow } from "../lib/clock";
 import { bucketFor, presetMs, resolveRange, type RangeSpec } from "../lib/timeRange";
-import { entityKindEnum, ms, n, series, severityEnum, sourceEnum } from "./adapt-common";
+import { entityKindEnum, ms, n, series, window, severityEnum, sourceEnum } from "./adapt-common";
 import { consumer, consumerDetail, connection, overview, server, stream, streamDetail } from "./adapt-entities";
 import { acknowledgement, event, finding, findingStateEnum, mute, timeline, transition } from "./adapt-findings";
 import { lensInfo } from "./adapt-info";
@@ -61,6 +61,12 @@ export function entityInit(e: Entity | undefined) {
     consumer: e.consumer,
     server: e.server,
   };
+}
+
+/** System-wide chart annotations, without Overview tiles or finding summaries. */
+export async function getTimeWindows(sys: string, spec: RangeSpec, signal?: AbortSignal) {
+  const result = await lens.getTimeWindows({ ...systemInit(sys), range: rangeInit(spec) }, { signal });
+  return result.windows.map(window);
 }
 
 export async function getOverview(sys: string, spec: RangeSpec, signal?: AbortSignal) {

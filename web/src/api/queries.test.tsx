@@ -13,6 +13,7 @@ vi.mock("./client", () => {
   return {
     lens: {
       getOverview: ok(),
+      getTimeWindows: vi.fn(async () => ({ windows: [] })),
       listFindings: ok(),
       getFinding: ok(),
       listMutes: ok(),
@@ -45,6 +46,7 @@ let navigate: (to: string) => void = () => {};
 function AllHooks() {
   navigate = useNavigate();
   q.useOverview(live);
+  q.useTimeWindows(live);
   q.useFindings(live, {});
   q.useFinding(live, "f1");
   q.useMutes(false);
@@ -69,6 +71,7 @@ function AllHooks() {
 /** Lens methods behind the hooks above; each must have sent the system. */
 const METHODS = [
   "getOverview",
+  "getTimeWindows",
   "listFindings",
   "getFinding",
   "listMutes",
@@ -112,7 +115,7 @@ describe("query keys and the system", () => {
     const qc = setup("/?system=sys-a");
     await waitFor(() => METHODS.forEach((m) => expect(lens[m]).toHaveBeenCalled()));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.length).toBe(20);
+    expect(keys.length).toBe(21);
     for (const k of keys) expect(k, JSON.stringify(k)).toContain("sys-a");
     for (const m of METHODS) expect(lastSystem(m), m).toBe("sys-a");
   });
@@ -124,7 +127,7 @@ describe("query keys and the system", () => {
     act(() => navigate("/?system=sys-b"));
     await waitFor(() => METHODS.forEach((m) => expect(lastSystem(m), m).toBe("sys-b")));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(20);
+    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(21);
   });
 
   it("keys a page without ?system= on the empty system and sends none", async () => {

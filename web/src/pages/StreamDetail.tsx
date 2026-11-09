@@ -1,9 +1,10 @@
+import { useReportStale } from "../components/StaleContext";
 import { ConsumersTable } from "../components/ConsumersTable";
 // One stream: numbers, series over the range and 7 days, findings, each
 // server's view and where they disagree, configuration, consumers, events.
 import { Navigate, useLocation, useParams } from "react-router";
 import type { Entity } from "../api/model";
-import { useOverview, useSeries, useStream } from "../api/queries";
+import { useTimeWindows, useSeries, useStream } from "../api/queries";
 import { QuerySeriesChart, SeriesChart } from "../charts/SeriesChart";
 import { Dash, Empty, KV, QueryView, RLink, Section, errorText, Num } from "../components/common";
 import { Disagreements, EntityEvents, EntityFindings, Stat } from "../components/EntityParts";
@@ -34,7 +35,9 @@ function StreamDetailContent({ account, name, bucket }: { account: string; name:
   const { spec } = useTimeRange();
   const { start, end } = useResolvedRange(spec);
   const q = useStream(spec, account, name);
-  const windows = useOverview(spec).data?.windows ?? [];
+  const windowQuery = useTimeWindows(spec);
+  useReportStale(windowQuery);
+  const windows = windowQuery.data ?? [];
   const entity: Entity = withAccountName({ kind: "stream", key: `${account}/${name}`, name, account, stream: name, consumer: "", server: "" },
     [q.data?.stream?.entity]);
   const msgs = useSeries(spec, "stream.messages", entity);
