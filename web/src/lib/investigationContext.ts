@@ -9,7 +9,7 @@ import {serverNow} from "./clock";
 import {resolveRange,type RangeSpec} from "./timeRange";
 export interface InvestigationSeries {label:string;metric?:string;entity?:Entity}
 export interface BoundInvestigationQuery {method:string;request:Record<string,unknown>}
-export interface InvestigationSelection {query?:BoundInvestigationQuery;check?:string;annotation?:string;metric?:string;entity?:Entity;series?:InvestigationSeries[];evidence?:{kind:string;id:string}[];start?:number;end?:number;point?:number;label?:string}
+export interface InvestigationSelection {range?:{start:string;end:string};query?:BoundInvestigationQuery;check?:string;annotation?:string;metric?:string;entity?:Entity;series?:InvestigationSeries[];evidence?:{kind:string;id:string}[];start?:number;end?:number;point?:number;label?:string}
 export interface InvestigationEntity {type:string;key:string;account?:string;stream?:string;consumer?:string;server?:string}
 export interface InvestigationContext {
  query?:BoundInvestigationQuery;version:1;deployment:string;system:string;account?:string;range:{start:string;end:string};sourcePath:string;
@@ -17,7 +17,7 @@ export interface InvestigationContext {
  filters:Record<string,string>;entity?:InvestigationEntity;metric?:string;point?:string;evidence?:{kind:string;id:string}[];
  provenance:{status:"unavailable";reason:string};annotation?:string;
 }
-const FILTERS="sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors".split(" ");
+const FILTERS="sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors eventReadId".split(" ");
 function routeEntity(pathname:string):InvestigationEntity|undefined{
  let p:string[];try{p=pathname.split("/").slice(1).map(decodeURIComponent)}catch{return undefined}
  if(p[0]==="servers"&&p.length===2&&p[1]!=="slow-consumers")return {type:"ENTITY_TYPE_SERVER",key:p[1],server:p[1]};
@@ -53,6 +53,7 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  if(pathname==="/capacity/storage-change"&&s?.start===undefined&&s?.end===undefined){
   try{const from=params.get("from")!,to=params.get("to")!,a=fromJson(TimestampSchema,from),b=fromJson(TimestampSchema,to);if(a.seconds<b.seconds||a.seconds===b.seconds&&a.nanos<b.nanos)portableRange={start:from,end:to}}catch{/* Invalid links keep the existing resolved range and cannot invent pins. */}
  }
+ if(s?.range){try{const a=fromJson(TimestampSchema,s.range.start),b=fromJson(TimestampSchema,s.range.end);if(a.seconds<b.seconds||a.seconds===b.seconds&&a.nanos<b.nanos)portableRange={...s.range}}catch{/* Invalid copied bounds cannot replace the resolved range. */}}
  const refs=s?.series??(s&&(s.metric||s.label)?[{label:s.label??"Chart",metric:s.metric,entity:s.entity}]:undefined);
  const series=refs?.map(ref=>({label:ref.label,metric:ref.metric,entity:portableEntity(ref.entity),...(ref.metric?{}:{unavailableReason:"Metric identity is unavailable from this chart data"})}));
  const primary=series?.find(ref=>ref.metric);
@@ -65,5 +66,5 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  const evidence:{kind:string;id:string}[]=[...(s?.evidence??[])];
  if(pathname.startsWith("/findings/")&&pathname!=="/findings/by-labels"&&!evidence.some(e=>e.kind==="finding"))evidence.push({kind:"finding",id:decodeURIComponent(pathname.split("/")[2])});
  if(pathname==="/events"&&params.get("id"))evidence.push({kind:"event",id:params.get("id")!});
- return {query:s?.query?{method:s.query.method,request:{...s.query.request,system,range:portableRange}}:undefined,version:1,deployment:origin,system,account:entity?.account||params.get("account")||undefined,range:portableRange,sourcePath:pathname,filters,entity,chartLabel:s?.label,series,metric:s?.metric??primary?.metric,point:s?.point!==undefined&&s.point>=start&&s.point<end?new Date(s.point).toISOString():undefined,evidence:evidence.length?evidence.filter((e,i)=>evidence.findIndex(other=>other.kind===e.kind&&other.id===e.id)===i):undefined,annotation:s?.annotation,provenance:{status:"unavailable",reason:"API does not provide a cross-query collection pin. Follow Data history and response evidence IDs; this context records URL-backed filters only."}};
+ return {query:s?.query?{method:s.query.method,request:{...s.query.request,system,...(["GetEvent","GetEventBatch"].includes(s.query.method)?{}:{range:portableRange})}}:undefined,version:1,deployment:origin,system,account:entity?.account||params.get("account")||undefined,range:portableRange,sourcePath:pathname,filters,entity,chartLabel:s?.label,series,metric:s?.metric??primary?.metric,point:s?.point!==undefined&&s.point>=start&&s.point<end?new Date(s.point).toISOString():undefined,evidence:evidence.length?evidence.filter((e,i)=>evidence.findIndex(other=>other.kind===e.kind&&other.id===e.id)===i):undefined,annotation:s?.annotation,provenance:{status:"unavailable",reason:"API does not provide a cross-query collection pin. Follow Data history and response evidence IDs; this context records URL-backed filters only."}};
 }

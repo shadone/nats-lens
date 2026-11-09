@@ -56,6 +56,7 @@ export function visibleNav(items: NavItem[] = NAV): NavItem[] {
 /** The sidebar page a path belongs to: "/streams/APP/order-jobs" belongs to Streams. */
 export function navFor(pathname: string, items: NavItem[] = NAV): NavItem | undefined {
   if(pathname==="/metrics"||pathname.startsWith("/metrics/")){const parent=items.find(i=>i.path==="/servers");return parent?{...parent,label:"Metric investigations"}:undefined}
+  if(pathname.startsWith("/timeline/"))return items.find(i=>i.path==="/");
   if (pathname === "/") return items.find((i) => i.path === "/");
   return items.find((i) => i.path !== "/" && (pathname === i.path || pathname.startsWith(`${i.path}/`)));
 }

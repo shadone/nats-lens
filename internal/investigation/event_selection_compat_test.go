@@ -10,6 +10,7 @@ import (
 
 func TestExactEventReadsRejectIgnoredSelectionFields(t *testing.T) {
 	for _, tc := range []struct{ name, method, request, response string }{
+		{"legacy batch", "GetEventBatch", `{"ids":["1"],"eventReadId":"3"}`, `{"events":[{"id":"2"}],"totalCount":1}`},
 		{"legacy selection", "ListEvents", `{"selectedIds":["1"],"pageSize":1}`, `{"events":[{"id":"2"}],"totalCount":1}`},
 		{"legacy detail boundary", "GetEvent", `{"id":"1","eventReadId":"0"}`, `{"event":{"id":"1"}}`},
 		{"legacy Timeline boundary", "GetStatusTimeline", `{"eventReadId":"0"}`, `{}`},
@@ -37,6 +38,7 @@ func TestExactEventReadsRejectIgnoredSelectionFields(t *testing.T) {
 func TestExactEventReadsAcceptAcknowledgedSelection(t *testing.T) {
 	for _, tc := range []struct{ method, request, response string }{
 		{"ListEvents", `{"selectedIds":["9007199254740993"],"eventReadId":"9007199254740995"}`, `{"selectedIds":["9007199254740993"],"eventReadId":"9007199254740995","events":[{"id":"9007199254740993"}],"totalCount":1}`},
+		{"GetEventBatch", `{"ids":["1"],"eventReadId":"3"}`, `{"selectedIds":["1"],"eventReadId":"3","events":[],"totalCount":0}`},
 		{"ListEvents", `{"selectedIds":["1"]}`, `{"selectedIds":["1"],"events":[],"totalCount":0}`},
 		{"ListEvents", `{"eventReadId":"0"}`, `{"eventReadId":"0","events":[],"totalCount":0}`},
 		{"GetStatusTimeline", `{"eventReadId":"0"}`, `{"eventReadId":"0"}`},

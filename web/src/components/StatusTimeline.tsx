@@ -10,7 +10,10 @@ import { axisTicks, cellRuns, isDeployment, laneAnnotations, runsText } from "..
 import { useWidth } from "../lib/useWidth";
 import { LEVEL_LABEL } from "../lib/view";
 import {TimelineFindingRange} from "./TimelineInvestigation";
-import {TimelineMark, EventPreview, EventDetails, CheckDetails, WindowPreview, timelineTime} from "./TimelineMark";
+import {TimelineMark, CheckDetails, WindowPreview, timelineTime} from "./TimelineMark";
+import {TimelineEventTicks} from "./TimelineEventTicks";
+import {TimelineWindowEvidence} from "./TimelineEventEvidence";
+import {evidenceRange} from "../lib/timelineEvidence";
 import { Glyph, Sev } from "./Severity";
 
 export const CELL_FILL: Record<Level, string> = {
@@ -63,11 +66,9 @@ function K8sLane({ tl, scroller, end }: { tl: Timeline; scroller: RefObject<HTML
     <div className="lane k8slane" ref={lane}>
       <div className="base" />
       {tl.windows.map((w) => (
-        <TimelineMark key={w.start} className="brk" style={{left:`${frac(w.start)*100}%`,width:`${(frac(w.end)-frac(w.start))*100}%`}} label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>}/>
+        <TimelineMark key={w.start} className="brk" style={{left:`${frac(w.start)*100}%`,width:`${(frac(w.end)-frac(w.start))*100}%`}} label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>} details={<TimelineWindowEvidence window={w} range={tl.evidenceRange??evidenceRange(tl.start,tl.start+span)} readId={tl.eventReadId}/>}/>
       ))}
-      {tl.kubernetes.map((e) => (
-        <TimelineMark key={e.id} className={`tick${isDeployment(e) ? " deploy" : ""}`} style={{left:`${frac(e.time)*100}%`}} label={`Kubernetes event: ${e.label}`} preview={<EventPreview event={e}/>} details={<EventDetails event={e}/>}/>
-      ))}
+      <TimelineEventTicks events={tl.kubernetes} from={tl.start} end={tl.start+span} width={W} range={tl.evidenceRange??evidenceRange(tl.start,tl.start+span)} readId={tl.eventReadId} className={e=>`tick${isDeployment(e)?' deploy':''}`}/>
       {placed.map((p) => (
         <span key={p.a} className="ann" style={{ left: `${p.l.toFixed(1)}px`, width: `${(p.r - p.l).toFixed(1)}px`, textAlign: p.align, [p.align === "right" ? "paddingRight" : "paddingLeft"]: 6 }}>
           {p.a}

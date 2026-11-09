@@ -70,3 +70,10 @@ button.timeline-mark::after { content: ""; position: absolute; inset: -4px; }
 @media(min-width:761px){.occurrence-facts.kv{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .finding-occurrence{padding:var(--sp-4);min-width:0}
 .finding-occurrence .btns{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-3)}
+
+/* Counts replace colliding hit targets; the track keeps its full width. */
+button.timeline-event-group { min-width: var(--sp-6); height: var(--sp-6); width:auto; transform:translateX(-50%); border-radius:var(--r-sm); background:var(--surface-2); color:var(--text); z-index:2; border:1px solid var(--border); font-size:var(--fs-xs); line-height:1; }
+.timeline-event-list { display:grid; gap:var(--sp-4); padding-inline-start:var(--sp-5); }
+.timeline-event-list > li { min-width:0; }
+.timeline-event-evidence .btns { display:flex; flex-wrap:wrap; gap:var(--sp-3); }
+.timeline-event-evidence .raw { overflow:auto; max-height:50vh; white-space:pre-wrap; overflow-wrap:anywhere; }
