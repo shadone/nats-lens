@@ -14,10 +14,10 @@ import (
 //
 // The check's time is compared with one pass over the same history in the
 // same store (see scaleRatio), not with a fixed limit, which failed on
-// loaded machines. The bounded search takes 2 to 5 passes, depending on
-// the threads DuckDB has; reading each consumer's whole history at the
-// start search, or joining it before the refinement's epoch bound, takes
-// 14 to 37.
+// loaded machines. The bounded search takes a median of 2.8 to 4.1
+// passes, alone or with two other runs of this test at once; reading each
+// consumer's whole history at the start search takes 14.9, and joining it
+// before the refinement's epoch bound 25 to 28.
 func TestOldestUnreadScale(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds 80 million rows")

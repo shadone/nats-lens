@@ -1,7 +1,11 @@
 package checks
 
 import (
+	"cmp"
 	"context"
+	"fmt"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -15,9 +19,10 @@ const maxPasses = 10
 // and returns a count that must be want, and fails the test when the check
 // takes more than maxPasses passes. Each of five rounds times a pass, the
 // check and another pass, and divides the check's time by the slower pass,
-// so both sides of a round see the same load; the smallest ratio of the
-// rounds counts. Passes timed apart from the checks can land in a quiet
-// moment while the check does not.
+// so both sides of a round see the same load; the median of the rounds'
+// ratios counts. Passes timed apart from the checks can land in a quiet
+// moment while the check does not, and the smallest ratio of the rounds
+// can sit at half the typical one under load.
 func (f *fx) scaleRatio(what, pass string, want int, check func()) {
 	f.t.Helper()
 	once := func() time.Duration {
@@ -31,20 +36,28 @@ func (f *fx) scaleRatio(what, pass string, want int, check func()) {
 		}
 		return time.Since(start)
 	}
-	best := -1.0
-	var bestTook, bestPass time.Duration
-	for round := 0; round < 5; round++ {
+	type round struct {
+		ratio      float64
+		took, pass time.Duration
+	}
+	rounds := make([]round, 5)
+	for i := range rounds {
 		before := once()
 		start := time.Now()
 		check()
 		took := time.Since(start)
 		p := max(before, once())
-		if ratio := float64(took) / float64(p); best < 0 || ratio < best {
-			best, bestTook, bestPass = ratio, took, p
-		}
+		rounds[i] = round{float64(took) / float64(p), took, p}
 	}
-	f.t.Logf("%s: %s, one pass over the history %s (%.1f passes)", what, bestTook, bestPass, best)
-	if best > maxPasses {
-		f.t.Errorf("%s took %s, %.1f passes over the history (%s), want at most %d", what, bestTook, best, bestPass, maxPasses)
+	slices.SortFunc(rounds, func(a, b round) int { return cmp.Compare(a.ratio, b.ratio) })
+	ratios := make([]string, len(rounds))
+	for i, r := range rounds {
+		ratios[i] = fmt.Sprintf("%.1f", r.ratio)
+	}
+	m := rounds[len(rounds)/2]
+	f.t.Logf("%s: median round %s, one pass over the history %s (%.1f passes; rounds %s)",
+		what, m.took, m.pass, m.ratio, strings.Join(ratios, " "))
+	if m.ratio > maxPasses {
+		f.t.Errorf("%s took %s, a median of %.1f passes over the history (%s), want at most %d", what, m.took, m.ratio, m.pass, maxPasses)
 	}
 }
