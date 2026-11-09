@@ -44,3 +44,12 @@ func EventEntity(e *v1.Event) *v1.EntityRef {
 	}
 	return nil
 }
+
+// EventBatchSelection bounds identity-only lookup before any database read.
+func EventBatchSelection(ids []string, boundary *int64) error {
+	if len(ids) == 0 || len(ids) > 50 {
+		return invalid("select between 1 and 50 event identities")
+	}
+	_, err := EventSelection(ids, boundary)
+	return err
+}

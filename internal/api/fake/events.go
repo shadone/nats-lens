@@ -288,7 +288,7 @@ func prodPending(s scen) []*v1.Event {
 }
 
 func keepEvent(e *v1.Event, req *v1.ListEventsRequest) bool {
-	if !inRange(e.GetTime().AsTime(), req.GetRange()) {
+	if req.Range != nil && !inRange(e.GetTime().AsTime(), req.GetRange()) {
 		return false
 	}
 	if len(req.GetSources()) > 0 && !slices.Contains(req.GetSources(), e.GetSource()) {

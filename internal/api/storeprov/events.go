@@ -71,9 +71,13 @@ func severityOf(kind, reason, consumer string) v1.Severity {
 
 // eventFilter builds the WHERE clause of a ListEvents request.
 func eventFilter(req *v1.ListEventsRequest) (string, []any) {
-	start, end := span(req.GetRange())
-	where := []string{"e.time >= ?", "e.time < ?"}
-	args := []any{start, end}
+	where := []string{"true"}
+	var args []any
+	if req.Range != nil {
+		start, end := span(req.Range)
+		where = append(where, "e.time >= ?", "e.time < ?")
+		args = append(args, start, end)
+	}
 	if req.EventReadId != nil {
 		where = append(where, "e.id<=?")
 		args = append(args, *req.EventReadId)
