@@ -1,6 +1,8 @@
 package storeprov_test
 
 import (
+	"errors"
+	"github.com/shadone/nats-lens/internal/api"
 	"testing"
 	"time"
 
@@ -79,5 +81,23 @@ func TestFindingEpisodeAPIPagingFreezesMembershipAndScope(t *testing.T) {
 	req.CheckCode = "stream-002"
 	if _, err := p.ListFindingEpisodes(ctx, req); err == nil {
 		t.Fatal("changed scope accepted frozen cursor")
+	}
+}
+
+func TestFindingEpisodeAPIRetentionRequiresTraversalReset(t *testing.T) {
+	p := episodeProvider(t)
+	req := &v1.ListFindingEpisodesRequest{Range: &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(t0.Add(10 * time.Minute))}, PageSize: 1}
+	first, err := p.ListFindingEpisodes(ctx, req)
+	if err != nil || first.GetNextPageToken() == "" {
+		t.Fatalf("first: %v %v", first, err)
+	}
+	// Removing the old firing leaves a resolution fragment: the occurrence
+	// count stays two, so a count-only guard cannot detect substitution.
+	if _, err := p.St.DB().Exec(`DELETE FROM finding_transitions WHERE epoch=1`); err != nil {
+		t.Fatal(err)
+	}
+	req.PageToken = first.NextPageToken
+	if _, err := p.ListFindingEpisodes(ctx, req); !errors.Is(err, api.ErrFailedPrecondition) {
+		t.Fatalf("retention changed identities without reset: %v", err)
 	}
 }
