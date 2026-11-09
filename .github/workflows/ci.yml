@@ -1,5 +1,6 @@
 # Runs the repository's verification profiles (docs/operations/verification.md)
-# on every pull request and on pushes to develop.
+# on every pull request and on pushes to develop. The go-full stage is split
+# across parallel jobs by scripts/ci-go-test.sh.
 #
 # The feature-docs audit stage is left out: its auditor is not in this
 # repository, and verify.py never downloads it. Run it locally.
@@ -57,16 +58,41 @@ jobs:
           retention-days: 7
 
   go-full:
-    name: Full Go suite and race checks
+    name: Full Go suite (${{ matrix.share }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { share: "checks 1 of 4", args: "checks 0 4" }
+          - { share: "checks 2 of 4", args: "checks 1 4" }
+          - { share: "checks 3 of 4", args: "checks 2 4" }
+          - { share: "checks 4 of 4", args: "checks 3 4" }
+          - { share: "other packages", args: "rest" }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - name: Verify (full Go stages)
-        run: python3 -B scripts/verify.py full --only vet-full,go-full,race-api,race-k8s --log-dir "$RUNNER_TEMP/verify"
+      - name: Test
+        env:
+          SHARE_ARGS: ${{ matrix.args }}
+        run: |
+          # shellcheck disable=SC2086 # SHARE_ARGS holds several arguments
+          scripts/ci-go-test.sh $SHARE_ARGS
+
+  go-vet-race:
+    name: Go vet and race checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Verify (vet and race stages)
+        run: python3 -B scripts/verify.py full --only vet-full,race-api,race-k8s --log-dir "$RUNNER_TEMP/verify"
       - name: Show failed stage logs
         if: failure()
         run: tail -n 200 "$RUNNER_TEMP"/verify/*.log
@@ -74,6 +100,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: verify-go-full-logs
+          name: verify-go-vet-race-logs
           path: ${{ runner.temp }}/verify
           retention-days: 7
