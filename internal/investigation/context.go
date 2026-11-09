@@ -3,6 +3,7 @@ package investigation
 import (
 	"encoding/json"
 	"errors"
+	"github.com/shadone/nats-lens/internal/eventselection"
 	"io"
 	"net/url"
 	"regexp"
@@ -133,7 +134,7 @@ func supportedPath(p string) bool {
 	case "servers", "checks":
 		return len(parts) <= 2
 	case "timeline":
-		return len(parts) == 3 && parts[1] == "windows" && len(parts[2]) == 64
+		return len(parts) == 2 && parts[1] == "events" || len(parts) == 3 && parts[1] == "windows" && len(parts[2]) == 64
 	case "events":
 		return len(parts) == 1
 	case "streams", "kv-stores", "object-stores":
@@ -281,6 +282,26 @@ func ContextFromURL(raw, trusted string, now time.Time) (*Context, error) {
 	u, err := url.Parse(raw)
 	if err != nil || u.User != nil || u.Scheme != t.Scheme || u.Host != t.Host {
 		return nil, errors.New("page URL must match the configured trusted deployment")
+	}
+	if u.Path == "/timeline/events" {
+		selected, page, e := eventselection.FromURL(u)
+		if e != nil {
+			return nil, e
+		}
+		request := map[string]any{"ids": selected.IDs, "system": selected.System, "offset": page.Offset, "pageSize": page.Size}
+		if selected.EventReadID != nil {
+			request["eventReadId"] = *selected.EventReadID
+		}
+		raw, _ := json.Marshal(request)
+		annotation := "Explicit captured Timeline membership; one summary page. No complete-capture or causal claim."
+		if len(selected.Limits) > 0 {
+			annotation += " Source Timeline input limit reached: " + strings.Join(selected.Limits, "; ") + ". This view may omit other observations."
+		}
+		c := &Context{Version: 1, Deployment: t.String(), System: selected.System, Range: Bounds{selected.From, selected.To}, SourcePath: "/timeline/events", Filters: map[string]string{}, Query: &BoundQuery{Method: "ListEventSelection", Request: raw}, Annotation: annotation, Provenance: Availability{"unavailable", "Event membership excludes later IDs, but does not pin updates, deletions or cross-query collections"}}
+		if e = c.Validate(trusted); e != nil {
+			return nil, e
+		}
+		return c, nil
 	}
 	source := u.RequestURI()
 	if err = validateSource(source); err != nil {
