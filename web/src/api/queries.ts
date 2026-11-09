@@ -65,33 +65,46 @@ export function useMutes(includeInactive: boolean, pageToken = "") {
   });
 }
 
-/** Mute and unmute change findings, tallies, streams and the timeline. */
-function useInvalidateAll() {
+// These families read stored observations or metadata, not current operator
+// state. Unknown same-system families remain conservatively invalidated so a
+// new status-bearing view does not silently retain a stale mute or acknowledgement.
+const operatorIndependent = new Set([
+  "series", "trends", "bandSeries", "metric-ranking", "lensInfo", "data-history", "lastData",
+  "events", "event", "serverEvents", "timeline-events", "timeline-window", "captured-event-selection",
+  "replay", "replayStrip", "topology", "placement",
+]);
+function operatorStateFilter(system: string) {
+  return { predicate: (q: { queryKey: readonly unknown[] }) =>
+    q.queryKey[0] === "systemSummaries" ||
+    q.queryKey[1] === system && !operatorIndependent.has(String(q.queryKey[0])) };
+}
+/** Keep historical/current operator-dependent reads and the global fleet tally coherent. */
+function useInvalidateOperatorState() {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries();
+  return (system: string) => qc.invalidateQueries(operatorStateFilter(system));
 }
 
 /**
  * A mute names its system in the call, the one the dialog captured when it
  * opened, so a URL that changes meanwhile cannot send it elsewhere. The
- * mutation stays pending until every query has refetched, so a dialog
+ * mutation stays pending until affected active queries have refetched, so a dialog
  * stays busy and its opener's button cannot mute twice; awaitRefetch false
  * ends it once the mute is saved, for the accept dialog, whose page shows
  * the saved acceptance until the refetch lands.
  */
 export function useMuteFinding({ awaitRefetch = true }: { awaitRefetch?: boolean } = {}) {
-  const invalidate = useInvalidateAll();
+  const invalidate = useInvalidateOperatorState();
   return useMutation({
     mutationFn: (m: api.MuteInput & { system: string }) => api.muteFinding(m.system, m),
-    onSuccess: () => (awaitRefetch ? invalidate() : void invalidate()),
+    onSuccess: (_data, variables) => (awaitRefetch ? invalidate(variables.system) : void invalidate(variables.system)),
   });
 }
 
 export function useUnmuteFinding() {
-  const invalidate = useInvalidateAll();
+  const invalidate = useInvalidateOperatorState();
   return useMutation({
     mutationFn: (v: { system: string; muteId: string; unmutedBy: string }) => api.unmuteFinding(v.system, v.muteId, v.unmutedBy),
-    onSuccess: invalidate,
+    onSuccess: (_data, variables) => invalidate(variables.system),
   });
 }
 
@@ -423,7 +436,7 @@ export function useSaveAcknowledgement() {
       return snapshots;
     },
     onSuccess: (a, v, snapshots) => {
-      const filter = { predicate: (q: { queryKey: readonly unknown[] }) => q.queryKey[1] === v.system };
+      const filter = operatorStateFilter(v.system);
       for (const kind of ["finding", "oncall"]) {
         const key = [kind, v.system, a.findingId];
         const q = qc.getQueryCache().find({ queryKey: key, exact: true });
