@@ -26,7 +26,16 @@ export interface Range {
   end: number;
 }
 
+export interface FrozenEvidenceRange { start:string;end:string }
+
 export interface Window {
+  id?:string;
+  supportingEventIds?:string[];
+  derivation?:string;
+  unavailable?:string[];
+  evidenceTotal?:number;
+  eventReadId?:string;
+  captureRange?:FrozenEvidenceRange;
   start: number;
   end: number;
   label: string;
@@ -104,6 +113,8 @@ export interface Finding {
 }
 
 export interface Transition {
+  epoch?:string;
+  findingId?:string;
   time?: number;
   state: FindingState;
   severity: SeverityLevel;
@@ -266,6 +277,9 @@ export interface Overview {
 export type EventSourceName = "nats" | "kubernetes" | "finding" | "collector" | "other";
 
 export interface LaneEvent {
+  entity?:Entity;
+  findingId?:string;
+  transitionEpoch?:string;
   id: string;
   time: number;
   source: EventSourceName;
@@ -287,6 +301,8 @@ export interface TimelineRow {
 }
 
 export interface Timeline {
+  eventReadId?:string;
+  evidenceRange?:FrozenEvidenceRange;
   /** Exact transition high-water mark; zero is a known empty capture. */
   findingReadEpoch?: string;
   start: number;
