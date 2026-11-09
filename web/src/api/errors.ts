@@ -55,11 +55,19 @@ const FETCH_FAILURE = new RegExp(
   "i",
 );
 
-function isFetchFailure(e: unknown): boolean {
-  return e instanceof TypeError && FETCH_FAILURE.test(e.message);
+/**
+ * A file the page could not download outside fetch, such as a script whose
+ * error event gives no reason: a network failure, as a failed fetch is.
+ */
+export class DownloadError extends Error {
+  override name = "DownloadError";
 }
 
-/** A failed fetch, bare or wrapped by Connect as unknown or unavailable. */
+function isFetchFailure(e: unknown): boolean {
+  return (e instanceof TypeError && FETCH_FAILURE.test(e.message)) || e instanceof DownloadError;
+}
+
+/** A failed fetch or download, bare or wrapped by Connect as unknown or unavailable. */
 function isNetwork(e: unknown): boolean {
   if (isFetchFailure(e)) return true;
   return e instanceof ConnectError && (e.code === Code.Unknown || e.code === Code.Unavailable) && isFetchFailure(e.cause);

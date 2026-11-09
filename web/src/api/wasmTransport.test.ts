@@ -1,7 +1,9 @@
 // The demo site's transport, with a fake Go program: a start that cannot
 // finish must fail the call, so the page shows an error, not a spinner.
+import { ConnectError } from "@connectrpc/connect";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { abortable, makeDemoFetch, once, runProgram, type GoRuntime } from "./wasmTransport";
+import { errorInfo } from "./errors";
+import { abortable, loadGo, makeDemoFetch, once, runProgram, type GoRuntime } from "./wasmTransport";
 
 const URL_ = "http://127.0.0.1/api/natslens.v1.LensService/GetLensInfo";
 const instance = {} as WebAssembly.Instance;
@@ -9,6 +11,23 @@ const instance = {} as WebAssembly.Instance;
 afterEach(() => {
   globalThis.natslensOnReady = undefined;
   globalThis.natslensFetch = undefined;
+});
+
+describe("loadGo", () => {
+  it("fails a loader script that does not download as a download, so the page points to the connection", async () => {
+    const loading = loadGo("/nats-lens/wasm_exec.js");
+    const script = document.head.querySelector('script[src="/nats-lens/wasm_exec.js"]');
+    expect(script).not.toBeNull();
+    script!.dispatchEvent(new Event("error"));
+    const e: unknown = await loading.catch((x: unknown) => x);
+    expect(document.head.contains(script)).toBe(false);
+    // As the Connect client passes it on: a ConnectError with it as the cause.
+    for (const shown of [e, ConnectError.from(e)]) {
+      const info = errorInfo(shown, true);
+      expect(info.code).toBe("network");
+      expect(info.hint).toMatch(/could not download the demo/);
+    }
+  });
 });
 
 describe("runProgram", () => {

@@ -3,6 +3,7 @@
 // for the Connect transport's fetch, so a call never reaches the network.
 // Only the demo site's build imports this module (see demoFetch.ts); the
 // first call downloads and starts the program.
+import { DownloadError } from "./errors";
 
 export interface GoRuntime {
   importObject: WebAssembly.Imports;
@@ -26,8 +27,12 @@ declare global {
 
 let loader: Promise<void> | undefined;
 
-/** Loads wasm_exec.js once; a failed load removes its tag, so a retry adds a fresh one. */
-function loadGo(src: string): Promise<void> {
+/**
+ * Loads wasm_exec.js once; a failed load removes its tag, so a retry adds a
+ * fresh one, and rejects with a DownloadError, so the error shown points to
+ * the connection.
+ */
+export function loadGo(src: string): Promise<void> {
   if (globalThis.Go) return Promise.resolve();
   loader ??= new Promise<void>((resolve, reject) => {
     const s = document.createElement("script");
@@ -36,7 +41,7 @@ function loadGo(src: string): Promise<void> {
     s.onerror = () => {
       s.remove();
       loader = undefined;
-      reject(new Error(`could not load ${src}`));
+      reject(new DownloadError(`could not load ${src}`));
     };
     document.head.appendChild(s);
   });
