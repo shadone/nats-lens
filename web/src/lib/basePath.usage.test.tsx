@@ -19,9 +19,15 @@ const BYPASS =
 
 /**
  * The global location, unqualified. A file that declares its own `location`
- * (const location = useLocation(), or { location } destructured) reads that
- * one; there only the qualified forms above count. An object key or an
- * argument named location declares nothing.
+ * (const location = useLocation(), or { location } destructured, a
+ * destructured parameter included) reads that one, and the bare-location
+ * check is off for that whole file: only the qualified forms above count
+ * there. An object key or an argument named location declares nothing.
+ *
+ * Known limits, as these are line patterns and not a parser: a history
+ * object under another name (const h = window.history; h.pushState(...)),
+ * bracket access (window["location"]) and top.location or parent.location
+ * are not caught.
  */
 const BARE_LOCATION = /(?<![\w.$])location\s*(?:\.\s*(?:href|pathname|origin|search|hash|host|assign|replace|reload)\b|=(?!=))/;
 const LOCAL_LOCATION =
