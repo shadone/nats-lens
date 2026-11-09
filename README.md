@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/shadone/nats-lens/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/shadone/nats-lens/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/shadone/nats-lens?sort=semver)](https://github.com/shadone/nats-lens/releases/latest)
-[![License](https://img.shields.io/github/license/shadone/nats-lens)](LICENSE)
+[![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](LICENSE)
 
 nats-lens records what every server of your NATS system reports, turns it into findings with their own history, and shows it all in a web UI that ships in one binary.
 
