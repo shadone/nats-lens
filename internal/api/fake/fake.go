@@ -23,6 +23,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // FixedNow is the scenario's present in fixed mode.
@@ -126,6 +127,15 @@ func (s scen) lastEpoch() time.Time { return s.dataEnd().Add(-4 * time.Second) }
 // windows are the Kubernetes windows that overlap the range, derived from
 // the scenario's Kubernetes events as the store derives them.
 func (p *Provider) windows(s scen, r *v1.TimeRange) []*v1.TimeWindow {
+	events := p.events(s)
+	var highest int64
+	for _, e := range events {
+		highest = max(highest, num(e.Id))
+	}
+	return p.windowsFromEvents(s, r, events, s.now.Unix()*storageFrameScale+highest)
+}
+
+func (p *Provider) windowsFromEvents(s scen, r *v1.TimeRange, events []*v1.Event, boundary int64) []*v1.TimeWindow {
 	if !s.sc.kubernetes {
 		return nil
 	}
@@ -133,7 +143,7 @@ func (p *Provider) windows(s scen, r *v1.TimeRange) []*v1.TimeWindow {
 	// window gap after it.
 	from, to := r.GetStart().AsTime().Add(-12*time.Hour), r.GetEnd().AsTime().Add(api.K8sUpgradeGap)
 	var evs []api.K8sWindowEvent
-	for _, e := range p.events(s) {
+	for _, e := range events {
 		if at := e.GetTime().AsTime(); at.Before(from) || !at.Before(to) {
 			continue
 		}
@@ -148,13 +158,15 @@ func (p *Provider) windows(s scen, r *v1.TimeRange) []*v1.TimeWindow {
 			Cause   string `json:"cause"`
 		}
 		_ = json.Unmarshal([]byte(e.GetRaw()), &raw)
-		evs = append(evs, api.K8sWindowEvent{At: e.GetTime().AsTime(), Kind: e.GetKind(), Server: e.GetServer(), Node: raw.Node,
+		evs = append(evs, api.K8sWindowEvent{ID: e.Id, At: e.GetTime().AsTime(), Kind: e.GetKind(), Server: e.GetServer(), Node: raw.Node,
 			Version: raw.Kubelet, Cause: raw.Cause, Pool: raw.Pool})
 	}
 	slices.Reverse(evs) // oldest first
 	var out []*v1.TimeWindow
 	for _, w := range api.DeriveK8sWindows(evs, api.K8sUpgradeGap) {
 		if w.GetStart().AsTime().Before(r.GetEnd().AsTime()) && !w.GetEnd().AsTime().Before(r.GetStart().AsTime()) {
+			w.EventReadId = proto.Int64(boundary)
+			w.CaptureRange = proto.Clone(r).(*v1.TimeRange)
 			out = append(out, w)
 		}
 	}
