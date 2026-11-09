@@ -31,10 +31,11 @@ var FixedNow = time.Date(2026, 10, 17, 14, 30, 0, 0, time.UTC)
 // Provider is the fake api.Provider for one scenario. Mutes and
 // acknowledgements created through the API are kept in memory.
 type Provider struct {
-	listPages api.EntityPages
-	sc        *scenario
-	live      bool
-	clock     func() time.Time
+	listPages    api.EntityPages
+	episodePages api.EpisodePages
+	sc           *scenario
+	live         bool
+	clock        func() time.Time
 
 	mu     sync.Mutex
 	mutes  []*storedMute

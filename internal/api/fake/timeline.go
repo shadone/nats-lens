@@ -68,6 +68,11 @@ func (p *Provider) GetStatusTimeline(_ context.Context, req *v1.GetStatusTimelin
 	n := api.BucketCount(r.GetEnd().AsTime().Sub(r.GetStart().AsTime()), req.GetBucket().AsDuration())
 	res := &v1.GetStatusTimelineResponse{Start: r.GetStart(), Bucket: req.GetBucket(), BucketCount: int32(n), Windows: p.windows(s, r),
 		Rows: s.timelineRows(r, req.GetBucket().AsDuration(), req.GetEntity(), req.GetIncludeOk())}
+	_, boundary, err := p.demoEpisodeHistory(s)
+	if err != nil {
+		return nil, err
+	}
+	res.FindingReadEpoch = boundary
 	res.Kubernetes, res.Nats = p.lanes(s, r)
 	return res, nil
 }
