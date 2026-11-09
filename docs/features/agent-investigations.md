@@ -181,3 +181,5 @@ Ordinary event requests with unset capture fields retain their existing reviewed
 - **And** the source must acknowledge the exact page and boundary; broader Events links remain labeled partial context
 
 Proposed, not yet confirmed: selected pages contain at most 50 summaries within up to 2,000 captured IDs. The unsigned selection is navigation data, not authentication or a universal collection pin.
+
+Timeline `includeOk` row-selection choices remain exact in machine requests but are not encoded by UI links. Overview includes OK rows while other Timeline consumers retain their existing defaults; link scope is conservatively partial for this unencoded option rather than assuming a universal false default.
