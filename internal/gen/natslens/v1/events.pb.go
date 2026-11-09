@@ -975,6 +975,137 @@ func (x *GetEventResponse) GetEventReadId() int64 {
 	return 0
 }
 
+// Bounded identity lookup without a temporal filter. It is used for captured
+// window inputs, which can lie outside the original Timeline range.
+type GetEventBatchRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	EventReadId   *int64                 `protobuf:"varint,2,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
+	System        string                 `protobuf:"bytes,3,opt,name=system,proto3" json:"system,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEventBatchRequest) Reset() {
+	*x = GetEventBatchRequest{}
+	mi := &file_natslens_v1_events_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEventBatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEventBatchRequest) ProtoMessage() {}
+
+func (x *GetEventBatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_events_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEventBatchRequest.ProtoReflect.Descriptor instead.
+func (*GetEventBatchRequest) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetEventBatchRequest) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *GetEventBatchRequest) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
+}
+
+func (x *GetEventBatchRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
+type GetEventBatchResponse struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Events      []*Event               `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	SelectedIds []string               `protobuf:"bytes,2,rep,name=selected_ids,json=selectedIds,proto3" json:"selected_ids,omitempty"`
+	EventReadId *int64                 `protobuf:"varint,3,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
+	// Number of requested identities still available at this boundary.
+	TotalCount    int32 `protobuf:"varint,4,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEventBatchResponse) Reset() {
+	*x = GetEventBatchResponse{}
+	mi := &file_natslens_v1_events_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEventBatchResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEventBatchResponse) ProtoMessage() {}
+
+func (x *GetEventBatchResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_events_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEventBatchResponse.ProtoReflect.Descriptor instead.
+func (*GetEventBatchResponse) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetEventBatchResponse) GetEvents() []*Event {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *GetEventBatchResponse) GetSelectedIds() []string {
+	if x != nil {
+		return x.SelectedIds
+	}
+	return nil
+}
+
+func (x *GetEventBatchResponse) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
+}
+
+func (x *GetEventBatchResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
 var File_natslens_v1_events_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_events_proto_rawDesc = "" +
@@ -1068,6 +1199,18 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\x10GetEventResponse\x12(\n" +
 	"\x05event\x18\x01 \x01(\v2\x12.natslens.v1.EventR\x05event\x12'\n" +
 	"\revent_read_id\x18\x02 \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
+	"\x0e_event_read_id\"{\n" +
+	"\x14GetEventBatchRequest\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12'\n" +
+	"\revent_read_id\x18\x02 \x01(\x03H\x00R\veventReadId\x88\x01\x01\x12\x16\n" +
+	"\x06system\x18\x03 \x01(\tR\x06systemB\x10\n" +
+	"\x0e_event_read_id\"\xc2\x01\n" +
+	"\x15GetEventBatchResponse\x12*\n" +
+	"\x06events\x18\x01 \x03(\v2\x12.natslens.v1.EventR\x06events\x12!\n" +
+	"\fselected_ids\x18\x02 \x03(\tR\vselectedIds\x12'\n" +
+	"\revent_read_id\x18\x03 \x01(\x03H\x00R\veventReadId\x88\x01\x01\x12\x1f\n" +
+	"\vtotal_count\x18\x04 \x01(\x05R\n" +
+	"totalCountB\x10\n" +
 	"\x0e_event_read_id*\x95\x01\n" +
 	"\vEventSource\x12\x1c\n" +
 	"\x18EVENT_SOURCE_UNSPECIFIED\x10\x00\x12\x15\n" +
@@ -1089,7 +1232,7 @@ func file_natslens_v1_events_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_events_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_natslens_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_natslens_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_natslens_v1_events_proto_goTypes = []any{
 	(EventSource)(0),              // 0: natslens.v1.EventSource
 	(*Event)(nil),                 // 1: natslens.v1.Event
@@ -1100,36 +1243,39 @@ var file_natslens_v1_events_proto_goTypes = []any{
 	(*ListEventsResponse)(nil),    // 6: natslens.v1.ListEventsResponse
 	(*GetEventRequest)(nil),       // 7: natslens.v1.GetEventRequest
 	(*GetEventResponse)(nil),      // 8: natslens.v1.GetEventResponse
-	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
-	(Severity)(0),                 // 10: natslens.v1.Severity
-	(*FindingTransition)(nil),     // 11: natslens.v1.FindingTransition
-	(*Finding)(nil),               // 12: natslens.v1.Finding
-	(*TimeRange)(nil),             // 13: natslens.v1.TimeRange
-	(*EntityRef)(nil),             // 14: natslens.v1.EntityRef
+	(*GetEventBatchRequest)(nil),  // 9: natslens.v1.GetEventBatchRequest
+	(*GetEventBatchResponse)(nil), // 10: natslens.v1.GetEventBatchResponse
+	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
+	(Severity)(0),                 // 12: natslens.v1.Severity
+	(*FindingTransition)(nil),     // 13: natslens.v1.FindingTransition
+	(*Finding)(nil),               // 14: natslens.v1.Finding
+	(*TimeRange)(nil),             // 15: natslens.v1.TimeRange
+	(*EntityRef)(nil),             // 16: natslens.v1.EntityRef
 }
 var file_natslens_v1_events_proto_depIdxs = []int32{
-	9,  // 0: natslens.v1.Event.time:type_name -> google.protobuf.Timestamp
-	9,  // 1: natslens.v1.Event.received_at:type_name -> google.protobuf.Timestamp
+	11, // 0: natslens.v1.Event.time:type_name -> google.protobuf.Timestamp
+	11, // 1: natslens.v1.Event.received_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: natslens.v1.Event.source:type_name -> natslens.v1.EventSource
-	10, // 3: natslens.v1.Event.severity:type_name -> natslens.v1.Severity
-	11, // 4: natslens.v1.Event.transition:type_name -> natslens.v1.FindingTransition
-	12, // 5: natslens.v1.Event.finding:type_name -> natslens.v1.Finding
-	12, // 6: natslens.v1.Event.raised:type_name -> natslens.v1.Finding
-	9,  // 7: natslens.v1.Event.first_time:type_name -> google.protobuf.Timestamp
-	13, // 8: natslens.v1.ListEventsRequest.range:type_name -> natslens.v1.TimeRange
+	12, // 3: natslens.v1.Event.severity:type_name -> natslens.v1.Severity
+	13, // 4: natslens.v1.Event.transition:type_name -> natslens.v1.FindingTransition
+	14, // 5: natslens.v1.Event.finding:type_name -> natslens.v1.Finding
+	14, // 6: natslens.v1.Event.raised:type_name -> natslens.v1.Finding
+	11, // 7: natslens.v1.Event.first_time:type_name -> google.protobuf.Timestamp
+	15, // 8: natslens.v1.ListEventsRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 9: natslens.v1.ListEventsRequest.sources:type_name -> natslens.v1.EventSource
-	14, // 10: natslens.v1.ListEventsRequest.entity:type_name -> natslens.v1.EntityRef
-	9,  // 11: natslens.v1.EventBucket.start:type_name -> google.protobuf.Timestamp
+	16, // 10: natslens.v1.ListEventsRequest.entity:type_name -> natslens.v1.EntityRef
+	11, // 11: natslens.v1.EventBucket.start:type_name -> google.protobuf.Timestamp
 	1,  // 12: natslens.v1.ListEventsResponse.events:type_name -> natslens.v1.Event
 	3,  // 13: natslens.v1.ListEventsResponse.facets:type_name -> natslens.v1.EventFacet
 	4,  // 14: natslens.v1.ListEventsResponse.routine_groups:type_name -> natslens.v1.RoutineGroup
 	5,  // 15: natslens.v1.ListEventsResponse.histogram:type_name -> natslens.v1.EventBucket
 	1,  // 16: natslens.v1.GetEventResponse.event:type_name -> natslens.v1.Event
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	1,  // 17: natslens.v1.GetEventBatchResponse.events:type_name -> natslens.v1.Event
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_events_proto_init() }
@@ -1143,13 +1289,15 @@ func file_natslens_v1_events_proto_init() {
 	file_natslens_v1_events_proto_msgTypes[5].OneofWrappers = []any{}
 	file_natslens_v1_events_proto_msgTypes[6].OneofWrappers = []any{}
 	file_natslens_v1_events_proto_msgTypes[7].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[8].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_events_proto_rawDesc), len(file_natslens_v1_events_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

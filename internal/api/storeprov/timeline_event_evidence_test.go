@@ -119,3 +119,22 @@ func TestTimelineFindingEventExposesRecordedIdentity(t *testing.T) {
 		t.Fatal("fixture had no finding events")
 	}
 }
+
+func TestWindowEventBatchIsExactWithoutTimeFiltering(t *testing.T) {
+	p := eventEvidenceProvider(t)
+	req := &v1.GetEventBatchRequest{Ids: []string{"9007199254740993", "9007199254740995"}, EventReadId: proto.Int64(9007199254740995)}
+	got, err := p.GetEventBatch(context.Background(), req)
+	if err != nil || len(got.GetEvents()) != 2 || got.TotalCount != 2 {
+		t.Fatalf("identity lookup missing/broadened: count=%d err=%v", len(got.GetEvents()), err)
+	}
+	req.EventReadId = proto.Int64(9007199254740993)
+	before, err := p.GetEventBatch(context.Background(), req)
+	if err != nil || len(before.GetEvents()) != 1 || before.Events[0].Id != "9007199254740993" {
+		t.Fatalf("identity lookup escaped capture: %v", err)
+	}
+	for _, ids := range [][]string{nil, {}, make([]string, 51)} {
+		if _, err := p.GetEventBatch(context.Background(), &v1.GetEventBatchRequest{Ids: ids}); err == nil {
+			t.Fatal("empty/oversized lookup was admitted")
+		}
+	}
+}
