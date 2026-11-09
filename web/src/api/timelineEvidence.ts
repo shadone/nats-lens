@@ -30,3 +30,7 @@ export function useTimelineWindow(windowId:string,range:FrozenEvidenceRange,boun
   return {window:r.windows.find(w=>w.id===windowId)?adaptWindow(r.windows.find(w=>w.id===windowId)!):undefined,timeline:timeline(r)};
  },staleTime:Infinity,refetchOnWindowFocus:false,refetchOnReconnect:false});
 }
+
+export function useCapturedSelectionPage(_selection:import('../lib/capturedEventSelection').CapturedSelection,_offset:number,_pageSize:number){
+ return useQuery({queryKey:['captured-selection-stub'],queryFn:async()=>({items:[] as import('./model').LensEvent[],totalCount:0})});
+}
