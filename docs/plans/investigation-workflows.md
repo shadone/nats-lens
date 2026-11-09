@@ -13,6 +13,11 @@ Status: proposed, not yet confirmed. Implementation is tracked on the NATS Lens 
 
 The implemented live and closed-dataset subset is documented under [Agent investigations](../features/agent-investigations.md). Live cross-query collection pinning and dedicated Timeline-mark entry points remain proposed. Dataset acquisition is described in its [capability](../features/offline-datasets.md).
 
+## Implementation checks
+
+- Keep investigation selection above refreshed marks and query branches. Test that it survives a refresh removing every selected row; clear it when the system or finding identity changes.
+- Preserve original timestamp strings through historical reads, pagination, links and copied context. Millisecond values from Date.parse are for display; they must not replace precise evidence bounds.
+
 ## Agent and offline access
 
 - Agent clients reuse API semantics and provide bounded, read-only access.
