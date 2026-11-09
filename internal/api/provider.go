@@ -45,6 +45,7 @@ type Provider interface {
 	// range, as GetOverview reads them; the handler adds the systems.
 	ShellStatus(ctx context.Context, req *v1.GetShellStatusRequest) (*v1.GetShellStatusResponse, error)
 	ListFindings(ctx context.Context, req *v1.ListFindingsRequest) (*v1.ListFindingsResponse, error)
+	ListFindingEpisodes(ctx context.Context, req *v1.ListFindingEpisodesRequest) (*v1.ListFindingEpisodesResponse, error)
 	GetFinding(ctx context.Context, req *v1.GetFindingRequest) (*v1.GetFindingResponse, error)
 	// OnCall reads the card's present facts. The handler reads and finishes Replay.
 	OnCall(ctx context.Context, req *v1.GetOnCallRequest) (*OnCallFacts, error)

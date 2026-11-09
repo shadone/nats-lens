@@ -24,7 +24,7 @@ var File_natslens_v1_service_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_service_proto_rawDesc = "" +
 	"\n" +
-	"\x19natslens/v1/service.proto\x12\vnatslens.v1\x1a\x1anatslens/v1/accounts.proto\x1a\"natslens/v1/acknowledgements.proto\x1a\x1enatslens/v1/applications.proto\x1a\x19natslens/v1/buckets.proto\x1a\x1anatslens/v1/capacity.proto\x1a\x18natslens/v1/checks.proto\x1a\x1bnatslens/v1/consumers.proto\x1a\x18natslens/v1/events.proto\x1a\x1anatslens/v1/findings.proto\x1a\x19natslens/v1/history.proto\x1a\x16natslens/v1/info.proto\x1a%natslens/v1/metric_contributors.proto\x1a\x17natslens/v1/micro.proto\x1a\x18natslens/v1/oncall.proto\x1a\x1anatslens/v1/overview.proto\x1a\x1bnatslens/v1/placement.proto\x1a\x18natslens/v1/replay.proto\x1a\x19natslens/v1/servers.proto\x1a natslens/v1/slow_consumers.proto\x1a natslens/v1/storage_change.proto\x1a\x19natslens/v1/streams.proto\x1a\x1anatslens/v1/subjects.proto\x1a\x19natslens/v1/systems.proto\x1a\x1anatslens/v1/timeline.proto\x1a\x1cnatslens/v1/timeseries.proto\x1a\x1anatslens/v1/topology.proto2\xf2\x1e\n" +
+	"\x19natslens/v1/service.proto\x12\vnatslens.v1\x1a\x1anatslens/v1/accounts.proto\x1a\"natslens/v1/acknowledgements.proto\x1a\x1enatslens/v1/applications.proto\x1a\x19natslens/v1/buckets.proto\x1a\x1anatslens/v1/capacity.proto\x1a\x18natslens/v1/checks.proto\x1a\x1bnatslens/v1/consumers.proto\x1a\x18natslens/v1/events.proto\x1a\"natslens/v1/finding_episodes.proto\x1a\x1anatslens/v1/findings.proto\x1a\x19natslens/v1/history.proto\x1a\x16natslens/v1/info.proto\x1a%natslens/v1/metric_contributors.proto\x1a\x17natslens/v1/micro.proto\x1a\x18natslens/v1/oncall.proto\x1a\x1anatslens/v1/overview.proto\x1a\x1bnatslens/v1/placement.proto\x1a\x18natslens/v1/replay.proto\x1a\x19natslens/v1/servers.proto\x1a natslens/v1/slow_consumers.proto\x1a natslens/v1/storage_change.proto\x1a\x19natslens/v1/streams.proto\x1a\x1anatslens/v1/subjects.proto\x1a\x19natslens/v1/systems.proto\x1a\x1anatslens/v1/timeline.proto\x1a\x1cnatslens/v1/timeseries.proto\x1a\x1anatslens/v1/topology.proto2\xde\x1f\n" +
 	"\vLensService\x12p\n" +
 	"\x14ListCheckDefinitions\x12(.natslens.v1.ListCheckDefinitionsRequest\x1a).natslens.v1.ListCheckDefinitionsResponse\"\x03\x90\x02\x01\x12U\n" +
 	"\vGetLensInfo\x12\x1f.natslens.v1.GetLensInfoRequest\x1a .natslens.v1.GetLensInfoResponse\"\x03\x90\x02\x01\x12U\n" +
@@ -69,7 +69,8 @@ const file_natslens_v1_service_proto_rawDesc = "" +
 	"\vListMetrics\x12\x1f.natslens.v1.ListMetricsRequest\x1a .natslens.v1.ListMetricsResponse\"\x03\x90\x02\x01\x12[\n" +
 	"\rGetTimeSeries\x12!.natslens.v1.GetTimeSeriesRequest\x1a\".natslens.v1.GetTimeSeriesResponse\"\x03\x90\x02\x01\x12j\n" +
 	"\x12GetTimeSeriesBatch\x12&.natslens.v1.GetTimeSeriesBatchRequest\x1a'.natslens.v1.GetTimeSeriesBatchResponse\"\x03\x90\x02\x01\x12v\n" +
-	"\x16ListMetricContributors\x12*.natslens.v1.ListMetricContributorsRequest\x1a+.natslens.v1.ListMetricContributorsResponse\"\x03\x90\x02\x01BBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\x16ListMetricContributors\x12*.natslens.v1.ListMetricContributorsRequest\x1a+.natslens.v1.ListMetricContributorsResponse\"\x03\x90\x02\x01\x12j\n" +
+	"\x13ListFindingEpisodes\x12'.natslens.v1.ListFindingEpisodesRequest\x1a(.natslens.v1.ListFindingEpisodesResponse\"\x00BBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var file_natslens_v1_service_proto_goTypes = []any{
 	(*ListCheckDefinitionsRequest)(nil),          // 0: natslens.v1.ListCheckDefinitionsRequest
@@ -114,48 +115,50 @@ var file_natslens_v1_service_proto_goTypes = []any{
 	(*GetTimeSeriesRequest)(nil),                 // 39: natslens.v1.GetTimeSeriesRequest
 	(*GetTimeSeriesBatchRequest)(nil),            // 40: natslens.v1.GetTimeSeriesBatchRequest
 	(*ListMetricContributorsRequest)(nil),        // 41: natslens.v1.ListMetricContributorsRequest
-	(*ListCheckDefinitionsResponse)(nil),         // 42: natslens.v1.ListCheckDefinitionsResponse
-	(*GetLensInfoResponse)(nil),                  // 43: natslens.v1.GetLensInfoResponse
-	(*GetOverviewResponse)(nil),                  // 44: natslens.v1.GetOverviewResponse
-	(*ListFindingsResponse)(nil),                 // 45: natslens.v1.ListFindingsResponse
-	(*GetFindingResponse)(nil),                   // 46: natslens.v1.GetFindingResponse
-	(*GetOnCallResponse)(nil),                    // 47: natslens.v1.GetOnCallResponse
-	(*MuteFindingResponse)(nil),                  // 48: natslens.v1.MuteFindingResponse
-	(*UnmuteFindingResponse)(nil),                // 49: natslens.v1.UnmuteFindingResponse
-	(*AcknowledgeFindingResponse)(nil),           // 50: natslens.v1.AcknowledgeFindingResponse
-	(*EndAcknowledgementResponse)(nil),           // 51: natslens.v1.EndAcknowledgementResponse
-	(*ListMutesResponse)(nil),                    // 52: natslens.v1.ListMutesResponse
-	(*GetStatusTimelineResponse)(nil),            // 53: natslens.v1.GetStatusTimelineResponse
-	(*ListEventsResponse)(nil),                   // 54: natslens.v1.ListEventsResponse
-	(*GetEventResponse)(nil),                     // 55: natslens.v1.GetEventResponse
-	(*ListStreamsResponse)(nil),                  // 56: natslens.v1.ListStreamsResponse
-	(*GetStreamResponse)(nil),                    // 57: natslens.v1.GetStreamResponse
-	(*ListConsumersResponse)(nil),                // 58: natslens.v1.ListConsumersResponse
-	(*GetConsumerResponse)(nil),                  // 59: natslens.v1.GetConsumerResponse
-	(*GetPlacementResponse)(nil),                 // 60: natslens.v1.GetPlacementResponse
-	(*GetReplayResponse)(nil),                    // 61: natslens.v1.GetReplayResponse
-	(*GetTopologyResponse)(nil),                  // 62: natslens.v1.GetTopologyResponse
-	(*GetAccountsAndAuthResponse)(nil),           // 63: natslens.v1.GetAccountsAndAuthResponse
-	(*GetCapacityResponse)(nil),                  // 64: natslens.v1.GetCapacityResponse
-	(*GetStorageChangeResponse)(nil),             // 65: natslens.v1.GetStorageChangeResponse
-	(*GetDataHistoryResponse)(nil),               // 66: natslens.v1.GetDataHistoryResponse
-	(*GetSubjectsResponse)(nil),                  // 67: natslens.v1.GetSubjectsResponse
-	(*MatchSubjectResponse)(nil),                 // 68: natslens.v1.MatchSubjectResponse
-	(*GetMicroServicesResponse)(nil),             // 69: natslens.v1.GetMicroServicesResponse
-	(*GetApplicationsResponse)(nil),              // 70: natslens.v1.GetApplicationsResponse
-	(*GetSlowConsumerInvestigationResponse)(nil), // 71: natslens.v1.GetSlowConsumerInvestigationResponse
-	(*ListServersResponse)(nil),                  // 72: natslens.v1.ListServersResponse
-	(*GetServerResponse)(nil),                    // 73: natslens.v1.GetServerResponse
-	(*ListConnectionsResponse)(nil),              // 74: natslens.v1.ListConnectionsResponse
-	(*ListSystemsResponse)(nil),                  // 75: natslens.v1.ListSystemsResponse
-	(*GetShellStatusResponse)(nil),               // 76: natslens.v1.GetShellStatusResponse
-	(*ListAccountsResponse)(nil),                 // 77: natslens.v1.ListAccountsResponse
-	(*ListKeyValueStoresResponse)(nil),           // 78: natslens.v1.ListKeyValueStoresResponse
-	(*ListObjectStoresResponse)(nil),             // 79: natslens.v1.ListObjectStoresResponse
-	(*ListMetricsResponse)(nil),                  // 80: natslens.v1.ListMetricsResponse
-	(*GetTimeSeriesResponse)(nil),                // 81: natslens.v1.GetTimeSeriesResponse
-	(*GetTimeSeriesBatchResponse)(nil),           // 82: natslens.v1.GetTimeSeriesBatchResponse
-	(*ListMetricContributorsResponse)(nil),       // 83: natslens.v1.ListMetricContributorsResponse
+	(*ListFindingEpisodesRequest)(nil),           // 42: natslens.v1.ListFindingEpisodesRequest
+	(*ListCheckDefinitionsResponse)(nil),         // 43: natslens.v1.ListCheckDefinitionsResponse
+	(*GetLensInfoResponse)(nil),                  // 44: natslens.v1.GetLensInfoResponse
+	(*GetOverviewResponse)(nil),                  // 45: natslens.v1.GetOverviewResponse
+	(*ListFindingsResponse)(nil),                 // 46: natslens.v1.ListFindingsResponse
+	(*GetFindingResponse)(nil),                   // 47: natslens.v1.GetFindingResponse
+	(*GetOnCallResponse)(nil),                    // 48: natslens.v1.GetOnCallResponse
+	(*MuteFindingResponse)(nil),                  // 49: natslens.v1.MuteFindingResponse
+	(*UnmuteFindingResponse)(nil),                // 50: natslens.v1.UnmuteFindingResponse
+	(*AcknowledgeFindingResponse)(nil),           // 51: natslens.v1.AcknowledgeFindingResponse
+	(*EndAcknowledgementResponse)(nil),           // 52: natslens.v1.EndAcknowledgementResponse
+	(*ListMutesResponse)(nil),                    // 53: natslens.v1.ListMutesResponse
+	(*GetStatusTimelineResponse)(nil),            // 54: natslens.v1.GetStatusTimelineResponse
+	(*ListEventsResponse)(nil),                   // 55: natslens.v1.ListEventsResponse
+	(*GetEventResponse)(nil),                     // 56: natslens.v1.GetEventResponse
+	(*ListStreamsResponse)(nil),                  // 57: natslens.v1.ListStreamsResponse
+	(*GetStreamResponse)(nil),                    // 58: natslens.v1.GetStreamResponse
+	(*ListConsumersResponse)(nil),                // 59: natslens.v1.ListConsumersResponse
+	(*GetConsumerResponse)(nil),                  // 60: natslens.v1.GetConsumerResponse
+	(*GetPlacementResponse)(nil),                 // 61: natslens.v1.GetPlacementResponse
+	(*GetReplayResponse)(nil),                    // 62: natslens.v1.GetReplayResponse
+	(*GetTopologyResponse)(nil),                  // 63: natslens.v1.GetTopologyResponse
+	(*GetAccountsAndAuthResponse)(nil),           // 64: natslens.v1.GetAccountsAndAuthResponse
+	(*GetCapacityResponse)(nil),                  // 65: natslens.v1.GetCapacityResponse
+	(*GetStorageChangeResponse)(nil),             // 66: natslens.v1.GetStorageChangeResponse
+	(*GetDataHistoryResponse)(nil),               // 67: natslens.v1.GetDataHistoryResponse
+	(*GetSubjectsResponse)(nil),                  // 68: natslens.v1.GetSubjectsResponse
+	(*MatchSubjectResponse)(nil),                 // 69: natslens.v1.MatchSubjectResponse
+	(*GetMicroServicesResponse)(nil),             // 70: natslens.v1.GetMicroServicesResponse
+	(*GetApplicationsResponse)(nil),              // 71: natslens.v1.GetApplicationsResponse
+	(*GetSlowConsumerInvestigationResponse)(nil), // 72: natslens.v1.GetSlowConsumerInvestigationResponse
+	(*ListServersResponse)(nil),                  // 73: natslens.v1.ListServersResponse
+	(*GetServerResponse)(nil),                    // 74: natslens.v1.GetServerResponse
+	(*ListConnectionsResponse)(nil),              // 75: natslens.v1.ListConnectionsResponse
+	(*ListSystemsResponse)(nil),                  // 76: natslens.v1.ListSystemsResponse
+	(*GetShellStatusResponse)(nil),               // 77: natslens.v1.GetShellStatusResponse
+	(*ListAccountsResponse)(nil),                 // 78: natslens.v1.ListAccountsResponse
+	(*ListKeyValueStoresResponse)(nil),           // 79: natslens.v1.ListKeyValueStoresResponse
+	(*ListObjectStoresResponse)(nil),             // 80: natslens.v1.ListObjectStoresResponse
+	(*ListMetricsResponse)(nil),                  // 81: natslens.v1.ListMetricsResponse
+	(*GetTimeSeriesResponse)(nil),                // 82: natslens.v1.GetTimeSeriesResponse
+	(*GetTimeSeriesBatchResponse)(nil),           // 83: natslens.v1.GetTimeSeriesBatchResponse
+	(*ListMetricContributorsResponse)(nil),       // 84: natslens.v1.ListMetricContributorsResponse
+	(*ListFindingEpisodesResponse)(nil),          // 85: natslens.v1.ListFindingEpisodesResponse
 }
 var file_natslens_v1_service_proto_depIdxs = []int32{
 	0,  // 0: natslens.v1.LensService.ListCheckDefinitions:input_type -> natslens.v1.ListCheckDefinitionsRequest
@@ -200,50 +203,52 @@ var file_natslens_v1_service_proto_depIdxs = []int32{
 	39, // 39: natslens.v1.LensService.GetTimeSeries:input_type -> natslens.v1.GetTimeSeriesRequest
 	40, // 40: natslens.v1.LensService.GetTimeSeriesBatch:input_type -> natslens.v1.GetTimeSeriesBatchRequest
 	41, // 41: natslens.v1.LensService.ListMetricContributors:input_type -> natslens.v1.ListMetricContributorsRequest
-	42, // 42: natslens.v1.LensService.ListCheckDefinitions:output_type -> natslens.v1.ListCheckDefinitionsResponse
-	43, // 43: natslens.v1.LensService.GetLensInfo:output_type -> natslens.v1.GetLensInfoResponse
-	44, // 44: natslens.v1.LensService.GetOverview:output_type -> natslens.v1.GetOverviewResponse
-	45, // 45: natslens.v1.LensService.ListFindings:output_type -> natslens.v1.ListFindingsResponse
-	46, // 46: natslens.v1.LensService.GetFinding:output_type -> natslens.v1.GetFindingResponse
-	47, // 47: natslens.v1.LensService.GetOnCall:output_type -> natslens.v1.GetOnCallResponse
-	48, // 48: natslens.v1.LensService.MuteFinding:output_type -> natslens.v1.MuteFindingResponse
-	49, // 49: natslens.v1.LensService.UnmuteFinding:output_type -> natslens.v1.UnmuteFindingResponse
-	50, // 50: natslens.v1.LensService.AcknowledgeFinding:output_type -> natslens.v1.AcknowledgeFindingResponse
-	51, // 51: natslens.v1.LensService.EndAcknowledgement:output_type -> natslens.v1.EndAcknowledgementResponse
-	52, // 52: natslens.v1.LensService.ListMutes:output_type -> natslens.v1.ListMutesResponse
-	53, // 53: natslens.v1.LensService.GetStatusTimeline:output_type -> natslens.v1.GetStatusTimelineResponse
-	54, // 54: natslens.v1.LensService.ListEvents:output_type -> natslens.v1.ListEventsResponse
-	55, // 55: natslens.v1.LensService.GetEvent:output_type -> natslens.v1.GetEventResponse
-	56, // 56: natslens.v1.LensService.ListStreams:output_type -> natslens.v1.ListStreamsResponse
-	57, // 57: natslens.v1.LensService.GetStream:output_type -> natslens.v1.GetStreamResponse
-	58, // 58: natslens.v1.LensService.ListConsumers:output_type -> natslens.v1.ListConsumersResponse
-	59, // 59: natslens.v1.LensService.GetConsumer:output_type -> natslens.v1.GetConsumerResponse
-	60, // 60: natslens.v1.LensService.GetPlacement:output_type -> natslens.v1.GetPlacementResponse
-	61, // 61: natslens.v1.LensService.GetReplay:output_type -> natslens.v1.GetReplayResponse
-	62, // 62: natslens.v1.LensService.GetTopology:output_type -> natslens.v1.GetTopologyResponse
-	63, // 63: natslens.v1.LensService.GetAccountsAndAuth:output_type -> natslens.v1.GetAccountsAndAuthResponse
-	64, // 64: natslens.v1.LensService.GetCapacity:output_type -> natslens.v1.GetCapacityResponse
-	65, // 65: natslens.v1.LensService.GetStorageChange:output_type -> natslens.v1.GetStorageChangeResponse
-	66, // 66: natslens.v1.LensService.GetDataHistory:output_type -> natslens.v1.GetDataHistoryResponse
-	67, // 67: natslens.v1.LensService.GetSubjects:output_type -> natslens.v1.GetSubjectsResponse
-	68, // 68: natslens.v1.LensService.MatchSubject:output_type -> natslens.v1.MatchSubjectResponse
-	69, // 69: natslens.v1.LensService.GetMicroServices:output_type -> natslens.v1.GetMicroServicesResponse
-	70, // 70: natslens.v1.LensService.GetApplications:output_type -> natslens.v1.GetApplicationsResponse
-	71, // 71: natslens.v1.LensService.GetSlowConsumerInvestigation:output_type -> natslens.v1.GetSlowConsumerInvestigationResponse
-	72, // 72: natslens.v1.LensService.ListServers:output_type -> natslens.v1.ListServersResponse
-	73, // 73: natslens.v1.LensService.GetServer:output_type -> natslens.v1.GetServerResponse
-	74, // 74: natslens.v1.LensService.ListConnections:output_type -> natslens.v1.ListConnectionsResponse
-	75, // 75: natslens.v1.LensService.ListSystems:output_type -> natslens.v1.ListSystemsResponse
-	76, // 76: natslens.v1.LensService.GetShellStatus:output_type -> natslens.v1.GetShellStatusResponse
-	77, // 77: natslens.v1.LensService.ListAccounts:output_type -> natslens.v1.ListAccountsResponse
-	78, // 78: natslens.v1.LensService.ListKeyValueStores:output_type -> natslens.v1.ListKeyValueStoresResponse
-	79, // 79: natslens.v1.LensService.ListObjectStores:output_type -> natslens.v1.ListObjectStoresResponse
-	80, // 80: natslens.v1.LensService.ListMetrics:output_type -> natslens.v1.ListMetricsResponse
-	81, // 81: natslens.v1.LensService.GetTimeSeries:output_type -> natslens.v1.GetTimeSeriesResponse
-	82, // 82: natslens.v1.LensService.GetTimeSeriesBatch:output_type -> natslens.v1.GetTimeSeriesBatchResponse
-	83, // 83: natslens.v1.LensService.ListMetricContributors:output_type -> natslens.v1.ListMetricContributorsResponse
-	42, // [42:84] is the sub-list for method output_type
-	0,  // [0:42] is the sub-list for method input_type
+	42, // 42: natslens.v1.LensService.ListFindingEpisodes:input_type -> natslens.v1.ListFindingEpisodesRequest
+	43, // 43: natslens.v1.LensService.ListCheckDefinitions:output_type -> natslens.v1.ListCheckDefinitionsResponse
+	44, // 44: natslens.v1.LensService.GetLensInfo:output_type -> natslens.v1.GetLensInfoResponse
+	45, // 45: natslens.v1.LensService.GetOverview:output_type -> natslens.v1.GetOverviewResponse
+	46, // 46: natslens.v1.LensService.ListFindings:output_type -> natslens.v1.ListFindingsResponse
+	47, // 47: natslens.v1.LensService.GetFinding:output_type -> natslens.v1.GetFindingResponse
+	48, // 48: natslens.v1.LensService.GetOnCall:output_type -> natslens.v1.GetOnCallResponse
+	49, // 49: natslens.v1.LensService.MuteFinding:output_type -> natslens.v1.MuteFindingResponse
+	50, // 50: natslens.v1.LensService.UnmuteFinding:output_type -> natslens.v1.UnmuteFindingResponse
+	51, // 51: natslens.v1.LensService.AcknowledgeFinding:output_type -> natslens.v1.AcknowledgeFindingResponse
+	52, // 52: natslens.v1.LensService.EndAcknowledgement:output_type -> natslens.v1.EndAcknowledgementResponse
+	53, // 53: natslens.v1.LensService.ListMutes:output_type -> natslens.v1.ListMutesResponse
+	54, // 54: natslens.v1.LensService.GetStatusTimeline:output_type -> natslens.v1.GetStatusTimelineResponse
+	55, // 55: natslens.v1.LensService.ListEvents:output_type -> natslens.v1.ListEventsResponse
+	56, // 56: natslens.v1.LensService.GetEvent:output_type -> natslens.v1.GetEventResponse
+	57, // 57: natslens.v1.LensService.ListStreams:output_type -> natslens.v1.ListStreamsResponse
+	58, // 58: natslens.v1.LensService.GetStream:output_type -> natslens.v1.GetStreamResponse
+	59, // 59: natslens.v1.LensService.ListConsumers:output_type -> natslens.v1.ListConsumersResponse
+	60, // 60: natslens.v1.LensService.GetConsumer:output_type -> natslens.v1.GetConsumerResponse
+	61, // 61: natslens.v1.LensService.GetPlacement:output_type -> natslens.v1.GetPlacementResponse
+	62, // 62: natslens.v1.LensService.GetReplay:output_type -> natslens.v1.GetReplayResponse
+	63, // 63: natslens.v1.LensService.GetTopology:output_type -> natslens.v1.GetTopologyResponse
+	64, // 64: natslens.v1.LensService.GetAccountsAndAuth:output_type -> natslens.v1.GetAccountsAndAuthResponse
+	65, // 65: natslens.v1.LensService.GetCapacity:output_type -> natslens.v1.GetCapacityResponse
+	66, // 66: natslens.v1.LensService.GetStorageChange:output_type -> natslens.v1.GetStorageChangeResponse
+	67, // 67: natslens.v1.LensService.GetDataHistory:output_type -> natslens.v1.GetDataHistoryResponse
+	68, // 68: natslens.v1.LensService.GetSubjects:output_type -> natslens.v1.GetSubjectsResponse
+	69, // 69: natslens.v1.LensService.MatchSubject:output_type -> natslens.v1.MatchSubjectResponse
+	70, // 70: natslens.v1.LensService.GetMicroServices:output_type -> natslens.v1.GetMicroServicesResponse
+	71, // 71: natslens.v1.LensService.GetApplications:output_type -> natslens.v1.GetApplicationsResponse
+	72, // 72: natslens.v1.LensService.GetSlowConsumerInvestigation:output_type -> natslens.v1.GetSlowConsumerInvestigationResponse
+	73, // 73: natslens.v1.LensService.ListServers:output_type -> natslens.v1.ListServersResponse
+	74, // 74: natslens.v1.LensService.GetServer:output_type -> natslens.v1.GetServerResponse
+	75, // 75: natslens.v1.LensService.ListConnections:output_type -> natslens.v1.ListConnectionsResponse
+	76, // 76: natslens.v1.LensService.ListSystems:output_type -> natslens.v1.ListSystemsResponse
+	77, // 77: natslens.v1.LensService.GetShellStatus:output_type -> natslens.v1.GetShellStatusResponse
+	78, // 78: natslens.v1.LensService.ListAccounts:output_type -> natslens.v1.ListAccountsResponse
+	79, // 79: natslens.v1.LensService.ListKeyValueStores:output_type -> natslens.v1.ListKeyValueStoresResponse
+	80, // 80: natslens.v1.LensService.ListObjectStores:output_type -> natslens.v1.ListObjectStoresResponse
+	81, // 81: natslens.v1.LensService.ListMetrics:output_type -> natslens.v1.ListMetricsResponse
+	82, // 82: natslens.v1.LensService.GetTimeSeries:output_type -> natslens.v1.GetTimeSeriesResponse
+	83, // 83: natslens.v1.LensService.GetTimeSeriesBatch:output_type -> natslens.v1.GetTimeSeriesBatchResponse
+	84, // 84: natslens.v1.LensService.ListMetricContributors:output_type -> natslens.v1.ListMetricContributorsResponse
+	85, // 85: natslens.v1.LensService.ListFindingEpisodes:output_type -> natslens.v1.ListFindingEpisodesResponse
+	43, // [43:86] is the sub-list for method output_type
+	0,  // [0:43] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name
@@ -262,6 +267,7 @@ func file_natslens_v1_service_proto_init() {
 	file_natslens_v1_checks_proto_init()
 	file_natslens_v1_consumers_proto_init()
 	file_natslens_v1_events_proto_init()
+	file_natslens_v1_finding_episodes_proto_init()
 	file_natslens_v1_findings_proto_init()
 	file_natslens_v1_history_proto_init()
 	file_natslens_v1_info_proto_init()
