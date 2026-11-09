@@ -56,7 +56,23 @@ RUN --mount=type=cache,id=natslens-go-mod-1.27.2,target=/go/pkg/mod,sharing=shar
     CGO_ENABLED=1 GOOS=linux GOARCH="$TARGETARCH" CC="$triple-gcc" CXX="$triple-g++" \
       go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/natslens ./cmd/natslens
 
+# Stages the release workflow exports with --output type=local: the built UI
+# for the macOS binaries, and the Linux binaries the image ships.
+FROM scratch AS webui
+COPY --from=web /src/internal/webui/dist/ /
+
+FROM scratch AS binary
+COPY --from=build /out/natslens /natslens
+
+# The runtime image; the last stage, so the default target.
 FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+LABEL org.opencontainers.image.title="nats-lens" \
+      org.opencontainers.image.description="Observes a NATS deployment: snapshots, events, findings and a web UI" \
+      org.opencontainers.image.source="https://github.com/shadone/nats-lens" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
+# natslens demo listens here unless -listen says otherwise: a published
+# port cannot reach the container's loopback.
+ENV NATSLENS_DEMO_LISTEN=0.0.0.0:8080
 COPY --from=build /out/natslens /usr/local/bin/natslens
 USER 65532:65532
 EXPOSE 8080
