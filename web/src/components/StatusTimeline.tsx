@@ -93,7 +93,7 @@ function TimelineTable({ tl,history,range }: { tl: Timeline;history:(row:Timelin
             <th scope="col">Check</th>
             <th scope="col">Name</th>
             <th scope="col">Now</th>
-            <th scope="col">Not ok, UTC</th>
+            <th scope="col">Time, UTC</th>
           </tr>
         </thead>
         <tbody>

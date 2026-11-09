@@ -79,5 +79,6 @@ button.timeline-event-group { min-width: var(--sp-6); height: var(--sp-6); width
 .timeline-event-evidence .raw { overflow:auto; max-height:50vh; white-space:pre-wrap; overflow-wrap:anywhere; }
 
 /* Text-table actions use their own bounded hit area, not an absolute lane tick. */
-button.timeline-mark.timeline-table-event { position:relative;max-width:100%;min-height:var(--sp-12);background:transparent;text-align:start;white-space:normal;overflow-wrap:anywhere;cursor:pointer; }
+button.timeline-mark.timeline-table-event { text-decoration:underline dotted var(--text-faint);text-underline-offset:var(--sp-1);position:relative;max-width:100%;min-height:var(--sp-12);background:transparent;text-align:start;white-space:normal;overflow-wrap:anywhere;cursor:pointer; }
 button.timeline-mark.timeline-table-event::after { content:none; }
+button.timeline-mark.timeline-table-event:hover { color:var(--accent-text);text-decoration-color:var(--accent); }
