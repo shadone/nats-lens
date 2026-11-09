@@ -10,7 +10,7 @@ import {
   type Mute as PMute,
 } from "../gen/natslens/v1/findings_pb";
 import type { GetStatusTimelineResponse, LaneEvent as PLaneEvent } from "../gen/natslens/v1/timeline_pb";
-import { dur, entity, id, level, ms, optSeverity, severity, source, window } from "./adapt-common";
+import { dur, entity, id, level, ms, optSeverity, severity, source, window, frozenRange } from "./adapt-common";
 import type { Finding, FindingState, LaneEvent, LensEvent, Mute, Tally, Timeline, Transition } from "./model";
 
 const STATE: Record<PState, FindingState> = {
@@ -82,7 +82,7 @@ export function optFinding(f: PFinding | undefined): Finding | undefined {
 }
 
 export function transition(t: FindingTransition): Transition {
-  return { time: ms(t.time), state: STATE[t.state] ?? "unknown", severity: severity(t.severity), detail: t.detail };
+  return {epoch:t.epoch>0n?t.epoch.toString():undefined,findingId:t.findingId||undefined, time: ms(t.time), state: STATE[t.state] ?? "unknown", severity: severity(t.severity), detail: t.detail };
 }
 
 export function tally(t: FindingTally | undefined): Tally {
@@ -125,6 +125,7 @@ export function event(e: PEvent): LensEvent {
 export function laneEvent(e: PLaneEvent): LaneEvent {
   return {
     id: e.id,
+    ...(e.entity?{entity:entity(e.entity)}:{}),...(e.findingId?{findingId:e.findingId}:{}),...(e.transitionEpoch>0n?{transitionEpoch:e.transitionEpoch.toString()}:{}),
     time: ms(e.time) ?? 0,
     source: source(e.source),
     kind: e.kind,
@@ -154,6 +155,8 @@ export function timeline(r: GetStatusTimelineResponse): Timeline {
     windows: r.windows.map(window),
     natsTruncated: r.natsTruncated,
     findingTruncated: r.findingTruncated,
+    findingReadEpoch:r.findingReadEpoch.toString(),
+    eventReadId:r.eventReadId?.toString(),evidenceRange:frozenRange(r.range),
     kubernetesTruncated: r.kubernetesTruncated,
   };
 }

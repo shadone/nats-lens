@@ -19,6 +19,7 @@ export interface TrendQuery {
   entity?: Entity;
   /** Points of this series; unset means TREND_POINTS. */
   maxPoints?: number;
+  includeObservations?:boolean;
 }
 
 /** A series, or why the server did not serve it. */
@@ -32,7 +33,7 @@ export type TrendResults = Record<string, TrendResult>;
 
 /** Identity of a query: metric, entity and points; unset and 0 points are one query, as on the wire. */
 export function trendKey(q: TrendQuery): string {
-  return `${q.metric}|${q.entity?.key ?? ""}|${q.maxPoints || ""}`;
+  return `${q.metric}|${q.entity?.key ?? ""}|${q.maxPoints || ""}${q.includeObservations?"|observations":""}`;
 }
 
 /** The queries without repeats, in key order, so that the same set is the same request. */
@@ -48,7 +49,7 @@ export async function getTrends(sys: string, spec: RangeSpec, queries: TrendQuer
       ...systemInit(sys),
       range: rangeInit(spec),
       maxPoints: TREND_POINTS,
-      queries: qs.map((q) => ({ metric: q.metric, entity: entityInit(q.entity), maxPoints: q.maxPoints ?? 0 })),
+      queries: qs.map((q) => ({ metric: q.metric, entity: entityInit(q.entity), maxPoints: q.maxPoints ?? 0,includeObservations:q.includeObservations??false })),
     },
     { signal },
   );
@@ -76,6 +77,8 @@ export function useTrends(spec: RangeSpec, queries: TrendQuery[]) {
 
 /** One series of a batch, shaped like a single query's result. */
 export interface TrendSlice {
+  /** Requested identity remains known while samples are missing or loading. */
+  metric?: string;
   data: TrendSeries | undefined;
   error: unknown;
   isPending: boolean;
@@ -91,10 +94,10 @@ export interface TrendSlice {
  */
 export function pickTrend(q: Pick<UseQueryResult<TrendResults>, "data" | "error" | "isPending">, queries: TrendQuery[], want: TrendQuery): TrendSlice {
   const key = trendKey(want);
-  if (!queries.some((x) => trendKey(x) === key)) return { data: undefined, error: new Error(`${want.metric} is not in the batch`), isPending: false };
+  if (!queries.some((x) => trendKey(x) === key)) return { metric: want.metric, data: undefined, error: new Error(`${want.metric} is not in the batch`), isPending: false };
   const err = q.error ?? undefined;
   const r = q.data?.[key];
-  if (!r) return { data: undefined, error: err, isPending: !err };
-  if (r.error) return { data: undefined, error: new Error(r.error), isPending: false };
-  return { data: r.series, error: err, isPending: q.isPending };
+  if (!r) return { metric: want.metric, data: undefined, error: err, isPending: !err };
+  if (r.error) return { metric: want.metric, data: undefined, error: new Error(r.error), isPending: false };
+  return { metric: want.metric, data: r.series, error: err, isPending: q.isPending };
 }

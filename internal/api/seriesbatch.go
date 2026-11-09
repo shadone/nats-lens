@@ -55,7 +55,7 @@ func normalizeTimeSeriesBatch(req *v1.GetTimeSeriesBatchRequest, p Provider) err
 	case n > MaxBatchQueries:
 		return invalid("queries has %d entries, at most %d", n, MaxBatchQueries)
 	}
-	r, err := ResolveRange(req.GetRange(), p.Now(), DefaultRange)
+	r, err := ResolveRange(req.GetRange(), rangeReference(p), DefaultRange)
 	if err != nil {
 		return err
 	}
@@ -125,8 +125,8 @@ func readQuery(ctx context.Context, p Provider, batch *v1.GetTimeSeriesBatchRequ
 		Metric:    q.GetMetric(),
 		Entity:    q.GetEntity(),
 		Range:     batch.GetRange(),
-		MaxPoints: q.GetMaxPoints(),
-		System:    batch.GetSystem(),
+		MaxPoints: q.GetMaxPoints(), IncludeObservations: q.GetIncludeObservations(),
+		System: batch.GetSystem(),
 	}
 	if sub.MaxPoints == 0 {
 		sub.MaxPoints = batch.GetMaxPoints()

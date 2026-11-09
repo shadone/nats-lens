@@ -39,18 +39,18 @@ func busyStore(t *testing.T) func(*v1.ListConsumersRequest) []*v1.ConsumerSummar
 		secs := int64(at.Sub(t0).Seconds())
 		for i := 1; i <= 8; i++ {
 			r.add("consumer_stats", map[string]any{"epoch": e, "server_id": "S0", "account": "APP", "stream": "order-jobs",
-				"consumer": fmt.Sprintf("c%d", i), "is_leader": true, "delivered_consumer_seq": 100 + int64(i)*secs})
+				"consumer": fmt.Sprintf("c%d", i), "is_leader": true, "created": t0.Add(-time.Hour), "delivered_consumer_seq": 100 + int64(i)*secs})
 		}
 		r.add("consumer_stats", map[string]any{"epoch": e, "server_id": "S0", "account": "APP", "stream": "order-jobs",
-			"consumer": "quiet", "is_leader": true, "delivered_consumer_seq": 500})
+			"consumer": "quiet", "is_leader": true, "created": t0.Add(-time.Hour), "delivered_consumer_seq": 500})
 		slowed := 20 * secs
 		if secs > 300 {
 			slowed = 6000 + secs - 300
 		}
 		r.add("consumer_stats", map[string]any{"epoch": e, "server_id": "S0", "account": "APP", "stream": "order-jobs",
-			"consumer": "slowed", "is_leader": true, "delivered_consumer_seq": slowed})
+			"consumer": "slowed", "is_leader": true, "created": t0.Add(-time.Hour), "delivered_consumer_seq": slowed})
 		r.add("consumer_stats", map[string]any{"epoch": e, "server_id": "S1", "account": "APP", "stream": "order-jobs",
-			"consumer": "follower-only", "is_leader": false, "delivered_consumer_seq": 900 + 50*secs})
+			"consumer": "follower-only", "is_leader": false, "created": t0.Add(-time.Hour), "delivered_consumer_seq": 900 + 50*secs})
 	}
 	end := t0.Add(n * 30 * time.Second)
 	cl := serveSeries(t, st, end)

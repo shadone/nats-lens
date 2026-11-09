@@ -118,7 +118,8 @@ type Event struct {
 	Reason string `protobuf:"bytes,15,opt,name=reason,proto3" json:"reason,omitempty"`
 	// For a finding event: the finding and the transition.
 	Transition *FindingTransition `protobuf:"bytes,16,opt,name=transition,proto3" json:"transition,omitempty"`
-	// For a finding event: the finding as it is now.
+	// Latest finding row returned by the source, separate from the recorded
+	// transition. A synthetic reference-frame read can return frame-relative state.
 	Finding *Finding `protobuf:"bytes,17,opt,name=finding,proto3" json:"finding,omitempty"`
 	// Findings this event most likely caused, for example the missing
 	// durable a consumer.deleted raised.
@@ -373,6 +374,11 @@ type ListEventsRequest struct {
 	HistogramBuckets int32 `protobuf:"varint,11,opt,name=histogram_buckets,json=histogramBuckets,proto3" json:"histogram_buckets,omitempty"`
 	// Return the facets and total_unfiltered.
 	IncludeFacets bool `protobuf:"varint,12,opt,name=include_facets,json=includeFacets,proto3" json:"include_facets,omitempty"`
+	// Exact retained event selection, at most 1000 unique positive decimal IDs.
+	// It intersects the other predicates; missing IDs remain missing.
+	SelectedIds []string `protobuf:"bytes,13,rep,name=selected_ids,json=selectedIds,proto3" json:"selected_ids,omitempty"`
+	// Captured event membership. A known zero excludes all events.
+	EventReadId   *int64 `protobuf:"varint,14,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -489,6 +495,20 @@ func (x *ListEventsRequest) GetIncludeFacets() bool {
 		return x.IncludeFacets
 	}
 	return false
+}
+
+func (x *ListEventsRequest) GetSelectedIds() []string {
+	if x != nil {
+		return x.SelectedIds
+	}
+	return nil
+}
+
+func (x *ListEventsRequest) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
 }
 
 // The count of events with one value of a dimension.
@@ -727,10 +747,14 @@ type ListEventsResponse struct {
 	// first, from every filter except hide_routine.
 	Histogram []*EventBucket `protobuf:"bytes,7,rep,name=histogram,proto3" json:"histogram,omitempty"`
 	// With include_facets: number of events in the range, with no other
-	// filter.
+	// UI filter. Explicit selected IDs and event membership remain in force.
 	TotalUnfiltered int32 `protobuf:"varint,8,opt,name=total_unfiltered,json=totalUnfiltered,proto3" json:"total_unfiltered,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Acknowledged exact selection; preserves input order. Older servers lacking
+	// these fields must not be treated as honoring the selection or boundary.
+	SelectedIds   []string `protobuf:"bytes,9,rep,name=selected_ids,json=selectedIds,proto3" json:"selected_ids,omitempty"`
+	EventReadId   *int64   `protobuf:"varint,10,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListEventsResponse) Reset() {
@@ -819,6 +843,20 @@ func (x *ListEventsResponse) GetTotalUnfiltered() int32 {
 	return 0
 }
 
+func (x *ListEventsResponse) GetSelectedIds() []string {
+	if x != nil {
+		return x.SelectedIds
+	}
+	return nil
+}
+
+func (x *ListEventsResponse) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
+}
+
 // Request for one event.
 type GetEventRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -826,6 +864,7 @@ type GetEventRequest struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// System ID, as ListSystems returns it. Empty means the default system.
 	System        string `protobuf:"bytes,2,opt,name=system,proto3" json:"system,omitempty"`
+	EventReadId   *int64 `protobuf:"varint,3,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -874,11 +913,20 @@ func (x *GetEventRequest) GetSystem() string {
 	return ""
 }
 
+func (x *GetEventRequest) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
+}
+
 // One event with its payload.
 type GetEventResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The event, with raw set.
-	Event         *Event `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	Event *Event `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	// Acknowledged event membership; absence means unsupported/unrequested.
+	EventReadId   *int64 `protobuf:"varint,2,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -920,6 +968,327 @@ func (x *GetEventResponse) GetEvent() *Event {
 	return nil
 }
 
+func (x *GetEventResponse) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
+}
+
+// Bounded identity lookup without a temporal filter. It is used for captured
+// window inputs, which can lie outside the original Timeline range.
+type GetEventBatchRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	EventReadId   *int64                 `protobuf:"varint,2,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
+	System        string                 `protobuf:"bytes,3,opt,name=system,proto3" json:"system,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEventBatchRequest) Reset() {
+	*x = GetEventBatchRequest{}
+	mi := &file_natslens_v1_events_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEventBatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEventBatchRequest) ProtoMessage() {}
+
+func (x *GetEventBatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_events_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEventBatchRequest.ProtoReflect.Descriptor instead.
+func (*GetEventBatchRequest) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetEventBatchRequest) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *GetEventBatchRequest) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
+}
+
+func (x *GetEventBatchRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
+type GetEventBatchResponse struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Events      []*Event               `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	SelectedIds []string               `protobuf:"bytes,2,rep,name=selected_ids,json=selectedIds,proto3" json:"selected_ids,omitempty"`
+	EventReadId *int64                 `protobuf:"varint,3,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
+	// Number of requested identities still available at this boundary.
+	TotalCount    int32 `protobuf:"varint,4,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEventBatchResponse) Reset() {
+	*x = GetEventBatchResponse{}
+	mi := &file_natslens_v1_events_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEventBatchResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEventBatchResponse) ProtoMessage() {}
+
+func (x *GetEventBatchResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_events_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEventBatchResponse.ProtoReflect.Descriptor instead.
+func (*GetEventBatchResponse) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetEventBatchResponse) GetEvents() []*Event {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *GetEventBatchResponse) GetSelectedIds() []string {
+	if x != nil {
+		return x.SelectedIds
+	}
+	return nil
+}
+
+func (x *GetEventBatchResponse) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
+}
+
+func (x *GetEventBatchResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+// Explicit captured membership, independent of a time filter. At most 2000
+// unique IDs; page_size defaults to 50 and never exceeds 50. Offsets select
+// the supplied order, not an evolving database ranking. No payloads are read.
+type ListEventSelectionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	EventReadId   *int64                 `protobuf:"varint,2,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
+	System        string                 `protobuf:"bytes,3,opt,name=system,proto3" json:"system,omitempty"`
+	Offset        int32                  `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	PageSize      int32                  `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEventSelectionRequest) Reset() {
+	*x = ListEventSelectionRequest{}
+	mi := &file_natslens_v1_events_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEventSelectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEventSelectionRequest) ProtoMessage() {}
+
+func (x *ListEventSelectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_events_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEventSelectionRequest.ProtoReflect.Descriptor instead.
+func (*ListEventSelectionRequest) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ListEventSelectionRequest) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *ListEventSelectionRequest) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
+}
+
+func (x *ListEventSelectionRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
+func (x *ListEventSelectionRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *ListEventSelectionRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListEventSelectionResponse struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Events []*Event               `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	// Acknowledges the entire supplied selection, not only the visible page.
+	SelectedIds []string `protobuf:"bytes,2,rep,name=selected_ids,json=selectedIds,proto3" json:"selected_ids,omitempty"`
+	EventReadId *int64   `protobuf:"varint,3,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
+	// Retained matching records on this page; missing IDs are never substituted.
+	TotalCount int32 `protobuf:"varint,4,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// Number of supplied identities; not a count of currently retained records.
+	SelectedTotalCount int32 `protobuf:"varint,5,opt,name=selected_total_count,json=selectedTotalCount,proto3" json:"selected_total_count,omitempty"`
+	Offset             int32 `protobuf:"varint,6,opt,name=offset,proto3" json:"offset,omitempty"`
+	// Zero means no later supplied identities. This is not an authorization token.
+	NextOffset    int32 `protobuf:"varint,7,opt,name=next_offset,json=nextOffset,proto3" json:"next_offset,omitempty"`
+	PageSize      int32 `protobuf:"varint,8,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEventSelectionResponse) Reset() {
+	*x = ListEventSelectionResponse{}
+	mi := &file_natslens_v1_events_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEventSelectionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEventSelectionResponse) ProtoMessage() {}
+
+func (x *ListEventSelectionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_events_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEventSelectionResponse.ProtoReflect.Descriptor instead.
+func (*ListEventSelectionResponse) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListEventSelectionResponse) GetEvents() []*Event {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *ListEventSelectionResponse) GetSelectedIds() []string {
+	if x != nil {
+		return x.SelectedIds
+	}
+	return nil
+}
+
+func (x *ListEventSelectionResponse) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
+}
+
+func (x *ListEventSelectionResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *ListEventSelectionResponse) GetSelectedTotalCount() int32 {
+	if x != nil {
+		return x.SelectedTotalCount
+	}
+	return 0
+}
+
+func (x *ListEventSelectionResponse) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *ListEventSelectionResponse) GetNextOffset() int32 {
+	if x != nil {
+		return x.NextOffset
+	}
+	return 0
+}
+
+func (x *ListEventSelectionResponse) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
 var File_natslens_v1_events_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_events_proto_rawDesc = "" +
@@ -955,7 +1324,7 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\arepeats\x18\x15 \x01(\x05R\arepeats\x129\n" +
 	"\n" +
 	"first_time\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampR\tfirstTime\x12\x18\n" +
-	"\aroutine\x18\x17 \x01(\bR\aroutine\"\xca\x03\n" +
+	"\aroutine\x18\x17 \x01(\bR\aroutine\"\xa8\x04\n" +
 	"\x11ListEventsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x122\n" +
 	"\asources\x18\x02 \x03(\x0e2\x18.natslens.v1.EventSourceR\asources\x12\x14\n" +
@@ -971,7 +1340,10 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\ffold_repeats\x18\n" +
 	" \x01(\bR\vfoldRepeats\x12+\n" +
 	"\x11histogram_buckets\x18\v \x01(\x05R\x10histogramBuckets\x12%\n" +
-	"\x0einclude_facets\x18\f \x01(\bR\rincludeFacets\"V\n" +
+	"\x0einclude_facets\x18\f \x01(\bR\rincludeFacets\x12!\n" +
+	"\fselected_ids\x18\r \x03(\tR\vselectedIds\x12'\n" +
+	"\revent_read_id\x18\x0e \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
+	"\x0e_event_read_id\"V\n" +
 	"\n" +
 	"EventFacet\x12\x1c\n" +
 	"\tdimension\x18\x01 \x01(\tR\tdimension\x12\x14\n" +
@@ -987,7 +1359,7 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x12\x18\n" +
 	"\awarning\x18\x02 \x01(\x05R\awarning\x12\x18\n" +
 	"\anotable\x18\x03 \x01(\x05R\anotable\x12\x18\n" +
-	"\aroutine\x18\x04 \x01(\x05R\aroutine\"\x86\x03\n" +
+	"\aroutine\x18\x04 \x01(\x05R\aroutine\"\xe4\x03\n" +
 	"\x12ListEventsResponse\x12*\n" +
 	"\x06events\x18\x01 \x03(\v2\x12.natslens.v1.EventR\x06events\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
@@ -997,12 +1369,51 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\x06facets\x18\x05 \x03(\v2\x17.natslens.v1.EventFacetR\x06facets\x12@\n" +
 	"\x0eroutine_groups\x18\x06 \x03(\v2\x19.natslens.v1.RoutineGroupR\rroutineGroups\x126\n" +
 	"\thistogram\x18\a \x03(\v2\x18.natslens.v1.EventBucketR\thistogram\x12)\n" +
-	"\x10total_unfiltered\x18\b \x01(\x05R\x0ftotalUnfiltered\"9\n" +
+	"\x10total_unfiltered\x18\b \x01(\x05R\x0ftotalUnfiltered\x12!\n" +
+	"\fselected_ids\x18\t \x03(\tR\vselectedIds\x12'\n" +
+	"\revent_read_id\x18\n" +
+	" \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
+	"\x0e_event_read_id\"t\n" +
 	"\x0fGetEventRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
-	"\x06system\x18\x02 \x01(\tR\x06system\"<\n" +
+	"\x06system\x18\x02 \x01(\tR\x06system\x12'\n" +
+	"\revent_read_id\x18\x03 \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
+	"\x0e_event_read_id\"w\n" +
 	"\x10GetEventResponse\x12(\n" +
-	"\x05event\x18\x01 \x01(\v2\x12.natslens.v1.EventR\x05event*\x95\x01\n" +
+	"\x05event\x18\x01 \x01(\v2\x12.natslens.v1.EventR\x05event\x12'\n" +
+	"\revent_read_id\x18\x02 \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
+	"\x0e_event_read_id\"{\n" +
+	"\x14GetEventBatchRequest\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12'\n" +
+	"\revent_read_id\x18\x02 \x01(\x03H\x00R\veventReadId\x88\x01\x01\x12\x16\n" +
+	"\x06system\x18\x03 \x01(\tR\x06systemB\x10\n" +
+	"\x0e_event_read_id\"\xc2\x01\n" +
+	"\x15GetEventBatchResponse\x12*\n" +
+	"\x06events\x18\x01 \x03(\v2\x12.natslens.v1.EventR\x06events\x12!\n" +
+	"\fselected_ids\x18\x02 \x03(\tR\vselectedIds\x12'\n" +
+	"\revent_read_id\x18\x03 \x01(\x03H\x00R\veventReadId\x88\x01\x01\x12\x1f\n" +
+	"\vtotal_count\x18\x04 \x01(\x05R\n" +
+	"totalCountB\x10\n" +
+	"\x0e_event_read_id\"\xb5\x01\n" +
+	"\x19ListEventSelectionRequest\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12'\n" +
+	"\revent_read_id\x18\x02 \x01(\x03H\x00R\veventReadId\x88\x01\x01\x12\x16\n" +
+	"\x06system\x18\x03 \x01(\tR\x06system\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset\x12\x1b\n" +
+	"\tpage_size\x18\x05 \x01(\x05R\bpageSizeB\x10\n" +
+	"\x0e_event_read_id\"\xcf\x02\n" +
+	"\x1aListEventSelectionResponse\x12*\n" +
+	"\x06events\x18\x01 \x03(\v2\x12.natslens.v1.EventR\x06events\x12!\n" +
+	"\fselected_ids\x18\x02 \x03(\tR\vselectedIds\x12'\n" +
+	"\revent_read_id\x18\x03 \x01(\x03H\x00R\veventReadId\x88\x01\x01\x12\x1f\n" +
+	"\vtotal_count\x18\x04 \x01(\x05R\n" +
+	"totalCount\x120\n" +
+	"\x14selected_total_count\x18\x05 \x01(\x05R\x12selectedTotalCount\x12\x16\n" +
+	"\x06offset\x18\x06 \x01(\x05R\x06offset\x12\x1f\n" +
+	"\vnext_offset\x18\a \x01(\x05R\n" +
+	"nextOffset\x12\x1b\n" +
+	"\tpage_size\x18\b \x01(\x05R\bpageSizeB\x10\n" +
+	"\x0e_event_read_id*\x95\x01\n" +
 	"\vEventSource\x12\x1c\n" +
 	"\x18EVENT_SOURCE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11EVENT_SOURCE_NATS\x10\x01\x12\x1b\n" +
@@ -1023,47 +1434,53 @@ func file_natslens_v1_events_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_events_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_natslens_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_natslens_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_natslens_v1_events_proto_goTypes = []any{
-	(EventSource)(0),              // 0: natslens.v1.EventSource
-	(*Event)(nil),                 // 1: natslens.v1.Event
-	(*ListEventsRequest)(nil),     // 2: natslens.v1.ListEventsRequest
-	(*EventFacet)(nil),            // 3: natslens.v1.EventFacet
-	(*RoutineGroup)(nil),          // 4: natslens.v1.RoutineGroup
-	(*EventBucket)(nil),           // 5: natslens.v1.EventBucket
-	(*ListEventsResponse)(nil),    // 6: natslens.v1.ListEventsResponse
-	(*GetEventRequest)(nil),       // 7: natslens.v1.GetEventRequest
-	(*GetEventResponse)(nil),      // 8: natslens.v1.GetEventResponse
-	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
-	(Severity)(0),                 // 10: natslens.v1.Severity
-	(*FindingTransition)(nil),     // 11: natslens.v1.FindingTransition
-	(*Finding)(nil),               // 12: natslens.v1.Finding
-	(*TimeRange)(nil),             // 13: natslens.v1.TimeRange
-	(*EntityRef)(nil),             // 14: natslens.v1.EntityRef
+	(EventSource)(0),                   // 0: natslens.v1.EventSource
+	(*Event)(nil),                      // 1: natslens.v1.Event
+	(*ListEventsRequest)(nil),          // 2: natslens.v1.ListEventsRequest
+	(*EventFacet)(nil),                 // 3: natslens.v1.EventFacet
+	(*RoutineGroup)(nil),               // 4: natslens.v1.RoutineGroup
+	(*EventBucket)(nil),                // 5: natslens.v1.EventBucket
+	(*ListEventsResponse)(nil),         // 6: natslens.v1.ListEventsResponse
+	(*GetEventRequest)(nil),            // 7: natslens.v1.GetEventRequest
+	(*GetEventResponse)(nil),           // 8: natslens.v1.GetEventResponse
+	(*GetEventBatchRequest)(nil),       // 9: natslens.v1.GetEventBatchRequest
+	(*GetEventBatchResponse)(nil),      // 10: natslens.v1.GetEventBatchResponse
+	(*ListEventSelectionRequest)(nil),  // 11: natslens.v1.ListEventSelectionRequest
+	(*ListEventSelectionResponse)(nil), // 12: natslens.v1.ListEventSelectionResponse
+	(*timestamppb.Timestamp)(nil),      // 13: google.protobuf.Timestamp
+	(Severity)(0),                      // 14: natslens.v1.Severity
+	(*FindingTransition)(nil),          // 15: natslens.v1.FindingTransition
+	(*Finding)(nil),                    // 16: natslens.v1.Finding
+	(*TimeRange)(nil),                  // 17: natslens.v1.TimeRange
+	(*EntityRef)(nil),                  // 18: natslens.v1.EntityRef
 }
 var file_natslens_v1_events_proto_depIdxs = []int32{
-	9,  // 0: natslens.v1.Event.time:type_name -> google.protobuf.Timestamp
-	9,  // 1: natslens.v1.Event.received_at:type_name -> google.protobuf.Timestamp
+	13, // 0: natslens.v1.Event.time:type_name -> google.protobuf.Timestamp
+	13, // 1: natslens.v1.Event.received_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: natslens.v1.Event.source:type_name -> natslens.v1.EventSource
-	10, // 3: natslens.v1.Event.severity:type_name -> natslens.v1.Severity
-	11, // 4: natslens.v1.Event.transition:type_name -> natslens.v1.FindingTransition
-	12, // 5: natslens.v1.Event.finding:type_name -> natslens.v1.Finding
-	12, // 6: natslens.v1.Event.raised:type_name -> natslens.v1.Finding
-	9,  // 7: natslens.v1.Event.first_time:type_name -> google.protobuf.Timestamp
-	13, // 8: natslens.v1.ListEventsRequest.range:type_name -> natslens.v1.TimeRange
+	14, // 3: natslens.v1.Event.severity:type_name -> natslens.v1.Severity
+	15, // 4: natslens.v1.Event.transition:type_name -> natslens.v1.FindingTransition
+	16, // 5: natslens.v1.Event.finding:type_name -> natslens.v1.Finding
+	16, // 6: natslens.v1.Event.raised:type_name -> natslens.v1.Finding
+	13, // 7: natslens.v1.Event.first_time:type_name -> google.protobuf.Timestamp
+	17, // 8: natslens.v1.ListEventsRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 9: natslens.v1.ListEventsRequest.sources:type_name -> natslens.v1.EventSource
-	14, // 10: natslens.v1.ListEventsRequest.entity:type_name -> natslens.v1.EntityRef
-	9,  // 11: natslens.v1.EventBucket.start:type_name -> google.protobuf.Timestamp
+	18, // 10: natslens.v1.ListEventsRequest.entity:type_name -> natslens.v1.EntityRef
+	13, // 11: natslens.v1.EventBucket.start:type_name -> google.protobuf.Timestamp
 	1,  // 12: natslens.v1.ListEventsResponse.events:type_name -> natslens.v1.Event
 	3,  // 13: natslens.v1.ListEventsResponse.facets:type_name -> natslens.v1.EventFacet
 	4,  // 14: natslens.v1.ListEventsResponse.routine_groups:type_name -> natslens.v1.RoutineGroup
 	5,  // 15: natslens.v1.ListEventsResponse.histogram:type_name -> natslens.v1.EventBucket
 	1,  // 16: natslens.v1.GetEventResponse.event:type_name -> natslens.v1.Event
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	1,  // 17: natslens.v1.GetEventBatchResponse.events:type_name -> natslens.v1.Event
+	1,  // 18: natslens.v1.ListEventSelectionResponse.events:type_name -> natslens.v1.Event
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_events_proto_init() }
@@ -1073,13 +1490,21 @@ func file_natslens_v1_events_proto_init() {
 	}
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_findings_proto_init()
+	file_natslens_v1_events_proto_msgTypes[1].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[5].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[6].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[7].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[8].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[9].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[10].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_events_proto_rawDesc), len(file_natslens_v1_events_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

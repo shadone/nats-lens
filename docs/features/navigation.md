@@ -8,9 +8,14 @@
 
 Every page of the web UI sits in one shell. A sidebar on the left lists the pages in groups and shows which system the pages read. A header above the page names it, limits a list to one account where the list supports it, searches the system's servers, streams, consumers and buckets, holds the one time range that every page reads, says how fresh the data is, and switches the theme. The range, the system and the account live in the page address, so a link shows the next person exactly what you saw.
 
-A page or shared chart can hand its scope and frozen UTC interval to a terminal agent through [agent investigations](agent-investigations.md).
+A compact **Copy as prompt** action in the top bar or beside a shared chart copies its scope, frozen UTC interval, and agent read instructions through [agent investigations](agent-investigations.md).
 
 ## Behavior and rules
+
+- Supported server metric titles and selected intervals lead to [metric investigations](metric-investigations.md), preserving system, range and reported server scope. Storage and detections reuse specialist pages.
+
+
+- [Chart interval selection](chart-interval-selection.md) adds explicit storage-time selection and actions. Selection alone leaves navigation and the page range unchanged.
 
 - **Page loading and recovery.** Accounts, Applications, Connections, Data history, Micro services, Placement, Replay and Topology load their views when needed. Their scoped primary data reads start while the view code loads; other pages are available with the shell. While a view loads, the sidebar and header remain available, and a polite status announces “Loading page…”. If the view code fails, the page shows an alert and a **Reload page** link. The link reloads the full current address, including its range, system, account, and fragment. Navigating to another page clears the error for that destination.
 
@@ -50,6 +55,10 @@ A page or shared chart can hand its scope and frozen UTC interval to a terminal 
 - **Phone width.** The sidebar becomes a drawer that the menu button in the header opens. While it is open, Tab stays inside it. It closes when a link opens, on its close button, on Escape (outside an open menu), or on a tap beside it. Navigation gives focus to the destination heading or explicit fragment after the drawer closes. Closing without navigation returns focus to the menu button. The range and the search take a line each. Tables scroll sideways inside their own box, so the page itself never scrolls sideways.
 
 - **Finding links from alerts.** `/findings/by-labels` reads URL-encoded `system`, `code`, and `entity_key`, then replaces the route with `/findings/<id>?system=<id>`. A missing finding opens Findings filtered to its check, with an explanation that it may have resolved and been swept. Both destinations retain the global time range, system, and account, dropping label-routing and unknown parameters. Other API failures remain errors. The same canonical finding URL shows the [phone card](mobile.md) at 760 px and below.
+- Captured Timeline window routes belong to Overview. Their fixed range and event boundary reconstruct the exact inferred input identity or show unavailable evidence; they never fall back to a current window. Event-detail and lane links retain fixed system/range context and acknowledged event membership. Resource links provide historical context without promising pinned metadata.
+
+- `/findings/history` belongs to Findings and requires fixed valid bounds. Optional check, typed resource and captured transition boundary survive shared links, prompt copies and URL imports. Invalid typed scope shows an error rather than reading system-wide history. The existing `/findings` compatibility page remains separate.
+
 ## Scenarios
 
 ### Continue navigating while a view loads
@@ -225,3 +234,27 @@ A page or shared chart can hand its scope and frozen UTC interval to a terminal 
 - **No saved views.** The address is the only way to keep a page with its range and filters.
 - **No sign-in.** The UI has no accounts of its own; an identity-aware proxy in front of it decides who may open it.
 - **No search across systems.** The search reads the current system only.
+
+### Modal scrolling
+
+Native modal dialogs lock the background page at its existing scroll position. Long dialog content scrolls within the viewport without scrolling the page underneath. Closing or unmounting the last open modal restores the page position and its prior inline scroll styles; closing a nested modal keeps its parent’s lock. Focus returns to the opener without scrolling it into a new position.
+
+### Reopen captured Timeline membership
+
+- **Given** a valid `/timeline/events` link with its full selection fragment
+- **When** I reopen it or navigate Back/Forward between its explicit pages
+- **Then** its original system, fixed context, IDs, source-limit notices and page remain selected
+- **And** changed or missing selection data shows an error instead of falling back to a current event feed
+
+The proposed, not yet confirmed link format carries at most 2,000 IDs outside the HTTP query; it does not authorize reads or pin row updates/deletions.
+
+Captured event and inferred-window pages name their destination in the phone header while retaining Overview as their navigation parent.
+
+### Follow expanded Timeline labels
+
+- **Given** an expanded per-check Timeline or its text table
+- **When** I follow its check label/code
+- **Then** retained occurrence history keeps the captured interval, transition boundary and known typed resource
+- **And** the expanded Kubernetes label keeps the fixed event interval and event membership boundary with routine-event hiding disabled
+
+These proposed, not yet confirmed label destinations reuse the existing historical routes; they do not make historical configuration or source updates immutable.

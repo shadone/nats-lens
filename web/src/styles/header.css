@@ -78,7 +78,15 @@
   .search{width:210px}
 }
 
-.investigation-entry { display:flex; justify-content:flex-end; padding:var(--sp-2) var(--sp-4); }
+.investigation-copy.btn{display:inline-flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;padding:var(--sp-2);color:var(--text-muted)}
+.investigation-copy:hover{color:var(--text)}
+.investigation-status{position:fixed;bottom:var(--sp-4);right:var(--sp-4);z-index:30;padding:var(--sp-2) var(--sp-3);border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text);font-size:var(--fs-sm)}
 .investigation-field { display:grid; gap:var(--sp-2); margin-block:var(--sp-3); }
 .investigation-field textarea { width:100%; max-width:100%; box-sizing:border-box; font-size:var(--fs-sm); }
-.chart-inspection + .investigation-copy { max-width:100%; white-space:normal; font-size:var(--fs-xs); margin-top:var(--sp-1); }
+.chart-inspection-wrap{position:relative;min-width:0}
+.investigation-copy.investigation-floating{position:absolute;right:var(--sp-1);top:0;transform:translateY(-100%);z-index:3;opacity:0;pointer-events:none}
+.chart-inspection-wrap:hover > .investigation-floating,.chart-inspection-wrap:focus-within > .investigation-floating,.investigation-action-host:hover .investigation-floating,.investigation-action-host:focus-within .investigation-floating,.investigation-floating:focus-visible{opacity:1;pointer-events:auto}
+@media (hover:none),(pointer:coarse){.investigation-copy.investigation-floating{opacity:1;pointer-events:auto}}
+.investigation-copy.investigation-labelled{width:auto;gap:var(--sp-2);max-width:100%;font-size:var(--fs-sm);white-space:normal}
+.bc-consumer{position:relative}
+.bc-consumer > .investigation-floating{top:var(--sp-1);transform:none}

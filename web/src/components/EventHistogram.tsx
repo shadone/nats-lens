@@ -1,6 +1,7 @@
 // Events over the range as stacked bars: warnings on top, other notable
 // events below them, routine events at the bottom. The legend draws each
 // bar style.
+import {InfoTip} from "./MetricBox";
 import type { HistogramBucket } from "../api/events";
 import { eventWhen, fmtInt } from "../lib/format";
 
@@ -69,6 +70,7 @@ export function EventHistogram({ buckets, start, end, live, worthReading }: {
         <span>{eventWhen(start, end)}</span>
         <span>{live ? "now" : eventWhen(end, end)}</span>
       </div>
+      <div className="chart-help-legend"><InfoTip label="Events over time" text="Recorded events per time bucket in the selected range, split into warnings, notable events and routine events. With routine events hidden, faint routine bars are capped and do not determine the scale. Counts describe captured events, not messages or distinct affected resources."/></div>
       <ul className="ev-hist-legend" aria-label="Histogram legend">
         {KINDS.map(({ k, label: l }) => (
           <li key={k}>

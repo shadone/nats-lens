@@ -70,7 +70,7 @@ describe("Applications", () => {
     getApps.mockResolvedValue(prod());
     renderApp(<Applications />, "/applications");
     await screen.findByRole("table");
-    expect(table().getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+    expect(table().getAllByRole("columnheader").map((h) => h.querySelector(".sort-btn")?.textContent)).toEqual([
       "Application",
       "Pods",
       "Instances",

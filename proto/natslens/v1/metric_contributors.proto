@@ -1,0 +1,55 @@
+syntax = "proto3";
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+import "natslens/v1/timeseries.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Statistic used to order all matching observed entities, not one loaded page.
+enum MetricRanking {
+  METRIC_RANKING_UNSPECIFIED = 0;
+  METRIC_RANKING_NAME = 1;
+  METRIC_RANKING_LATEST = 2;
+  METRIC_RANKING_MEAN = 3;
+  METRIC_RANKING_MAXIMUM = 4;
+  METRIC_RANKING_MINIMUM = 5;
+  METRIC_RANKING_OBSERVED_TOTAL = 6;
+  METRIC_RANKING_COUNTER_INCREASE = 7;
+}
+message ListMetricContributorsRequest {
+  string system = 1;
+  // One server, stream or consumer metric from ListMetrics.
+  string metric = 2;
+  TimeRange range = 3;
+  MetricRanking ranking = 4;
+  bool descending = 5;
+  string account = 6;
+  string stream = 7;
+  string server = 8;
+  // Case-insensitive substring of the entity key.
+  string query = 9;
+  int32 limit = 10;
+  string page_token = 11;
+}
+message MetricContributor {
+  EntityRef entity = 1;
+  ObservationSummary observations = 2;
+  // Server metrics only: distinct stored IDs observed in the selected range.
+  uint64 observed_server_ids = 3;
+  // Server metrics only: observed IDs whose first recorded start is in range.
+  // Includes initial starts, not only restarts. Not inferred process lifetimes.
+  uint64 process_starts = 4;
+}
+message ListMetricContributorsResponse {
+  repeated MetricContributor contributors = 1;
+  TimeRange range = 2;
+  string next_page_token = 3;
+  uint32 total_count = 4;
+  string metric = 5;
+  Unit unit = 6;
+  MetricRanking ranking = 7;
+  bool descending = 8;
+  google.protobuf.Timestamp read_at = 9;
+}
