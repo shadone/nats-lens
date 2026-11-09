@@ -10,6 +10,8 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 
 ## Behavior and rules
 
+- **Consistent finding evidence within a detail response.** The API's stream status and associated firing-findings list use the same finding set. An update arriving during the response cannot make those two fields disagree solely because the findings were read twice. Other facts and separate page requests are not pinned to that set.
+
 - Supported history titles open [metric investigations](metric-investigations.md) with the resource identity, system and range. Native observation summaries distinguish peaks from bucket aggregates, and fixed-range findings/events remain accessible. Backing-stream statistics do not measure individual keys, objects or content.
 
 
@@ -109,6 +111,14 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 - **Published per hour.** Seven days of the publish rate from the growth of the last sequence; what was published at an hour last week expires now.
 - **Limits ahead.** A table of each limit (maximum age, maximum messages, the server store, the account's disk), its current value, and when the stream reaches it at the current rate.
 - **Consumers against expiry.** For each consumer: its filter, backlog, unacknowledged messages, how far it is behind the head, and when its oldest unread message expires, marked when it drains slower than its messages age out ([capacity.md](capacity.md)).
+
+### Keep detail status and firing evidence together
+
+- **Surfaces:** `api`
+- **Given** a stream has a warning finding and another evaluation updates that finding while its detail is read
+- **When** the API returns the stream detail
+- **Then** the summary status and returned firing-findings list use the same finding set from that request
+- **And** no universal snapshot is promised for charts, consumer summaries or independent requests
 
 ## Not supported / out of scope
 

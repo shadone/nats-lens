@@ -10,6 +10,8 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 
 ## Behavior and rules
 
+- Backing-stream diagnostics share the [stream detail response](streams.md) contract: its status and returned firing findings use the same finding set. Separate charts and page requests are not pinned to it.
+
 - Supported history titles open [metric investigations](metric-investigations.md) with the resource identity, system and range. Native observation summaries distinguish peaks from bucket aggregates, and fixed-range findings/events remain accessible. Backing-stream statistics do not measure individual keys, objects or content.
 
 
