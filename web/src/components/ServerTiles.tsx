@@ -24,7 +24,7 @@ const rate = (v: number) => `${fmtCount(v)}/s`;
 function useTileSeries(spec: RangeSpec, metric: string, name: string) {
   const q = useBandSeries(spec, metric, name);
   useReportStale(q);
-  return { series: q.data, loading: q.isPending, error: q.error ? errorText(q.error) : undefined };
+  return { metricIds:[metric],metricEntity:{kind:"server" as const,key:name,name,server:name,account:"",stream:"",consumer:""},series: q.data, loading: q.isPending, error: q.error ? errorText(q.error) : undefined };
 }
 
 function newest(points: { value: number }[] | undefined): number | undefined {
@@ -60,7 +60,6 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
     <div className="sd-tiles">
       <MetricBox
         title="CPU"
-        description="CPU use of the server process, percent of one core; averaged per bucket."
         {...cpu}
         value={cpuNow}
         fmt={pct}
@@ -73,7 +72,6 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
       />
       <MetricBox
         title="Memory"
-        description="Resident memory of the server process; averaged per bucket."
         {...mem}
         value={down ? null : (s.memBytes ?? null)}
         fmt={fmtBytes}
@@ -97,7 +95,6 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
       />
       <MetricBox
         title="Connections"
-        description="Client connections on the server; the last value of each bucket."
         {...conns}
         value={connNow}
         fmt={(v) => fmtInt(v)}
@@ -111,6 +108,8 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
       <MetricBox
         title="Messages"
         description="Messages the server received (in, solid line) and sent (out, dashed line) per second; averaged per bucket. The value and the track are for in; the note gives out."
+        metricIds={["server.in_msgs_rate","server.out_msgs_rate"]}
+        metricEntity={msgIn.metricEntity}
         series={msgIn.series}
         series2={msgOut.series}
         loading={msgIn.loading}

@@ -26,6 +26,7 @@ var (
 // defaults are already filled in (see normalize.go), so a provider reads
 // them as given: every TimeRange has both start and end set.
 type Provider interface {
+	ListMetricContributors(context.Context, *v1.ListMetricContributorsRequest) (*v1.ListMetricContributorsResponse, error)
 	// Now is the provider's present: the wall clock for the store, the
 	// scenario's fixed time for the fake. Ranges without an end end here.
 	Now() time.Time
@@ -44,6 +45,7 @@ type Provider interface {
 	// range, as GetOverview reads them; the handler adds the systems.
 	ShellStatus(ctx context.Context, req *v1.GetShellStatusRequest) (*v1.GetShellStatusResponse, error)
 	ListFindings(ctx context.Context, req *v1.ListFindingsRequest) (*v1.ListFindingsResponse, error)
+	ListFindingEpisodes(ctx context.Context, req *v1.ListFindingEpisodesRequest) (*v1.ListFindingEpisodesResponse, error)
 	GetFinding(ctx context.Context, req *v1.GetFindingRequest) (*v1.GetFindingResponse, error)
 	// OnCall reads the card's present facts. The handler reads and finishes Replay.
 	OnCall(ctx context.Context, req *v1.GetOnCallRequest) (*OnCallFacts, error)
@@ -65,6 +67,8 @@ type Provider interface {
 	GetStatusTimeline(ctx context.Context, req *v1.GetStatusTimelineRequest) (*v1.GetStatusTimelineResponse, error)
 	ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error)
 	GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error)
+	ListEventSelection(ctx context.Context, req *v1.ListEventSelectionRequest) (*v1.ListEventSelectionResponse, error)
+	GetEventBatch(ctx context.Context, req *v1.GetEventBatchRequest) (*v1.GetEventBatchResponse, error)
 	ListStreams(ctx context.Context, req *v1.ListStreamsRequest) (*v1.ListStreamsResponse, error)
 	GetStream(ctx context.Context, req *v1.GetStreamRequest) (*v1.GetStreamResponse, error)
 	ListConsumers(ctx context.Context, req *v1.ListConsumersRequest) (*v1.ListConsumersResponse, error)
@@ -92,6 +96,8 @@ type Provider interface {
 	// the epoch; the handler words, orders and cuts them with
 	// FinishCapacity. A range without an epoch gives facts with Epoch 0.
 	Capacity(ctx context.Context, req *v1.GetCapacityRequest) (*CapacityFacts, error)
+	// StorageChange reads one transaction-pinned comparison; the handler ranks and pages it.
+	StorageChange(ctx context.Context, req *v1.GetStorageChangeRequest) (*StorageChangeFacts, error)
 	// Subjects reads the streams and consumers of the range's newest
 	// epoch, the JetStream API rates of the accounts that use JetStream,
 	// and the newest subscription collection at or before the epoch within

@@ -1,0 +1,104 @@
+{
+  "baseline": "0d52576f",
+  "candidate_local_build": "0a0b69ea",
+  "candidate_container_recipe": "4daf3551",
+  "host": "darwin/arm64",
+  "go": "1.27.3",
+  "node": "22.21.1",
+  "npm": "11.7.0",
+  "dependency_installation_included": false,
+  "samples_per_scenario": 1,
+  "before": [
+    {
+      "scenario": "clean",
+      "seconds": 17.201173915993422,
+      "exit": 0
+    },
+    {
+      "scenario": "noop",
+      "seconds": 5.723199124913663,
+      "exit": 0
+    },
+    {
+      "scenario": "go-only",
+      "seconds": 10.500594791024923,
+      "exit": 0
+    },
+    {
+      "scenario": "frontend-only",
+      "seconds": 9.91342341573909,
+      "exit": 0
+    },
+    {
+      "scenario": "dependency-input",
+      "seconds": 5.630084207747132,
+      "exit": 0
+    },
+    {
+      "scenario": "generated-proto",
+      "seconds": 5.626856416929513,
+      "exit": 0
+    }
+  ],
+  "after": [
+    {
+      "scenario": "clean",
+      "seconds": 12.618521874770522,
+      "exit": 0,
+      "frontend_rebuilt": true
+    },
+    {
+      "scenario": "noop",
+      "seconds": 0.4127027918584645,
+      "exit": 0,
+      "frontend_rebuilt": false
+    },
+    {
+      "scenario": "go-only",
+      "seconds": 4.40236929198727,
+      "exit": 0,
+      "frontend_rebuilt": false
+    },
+    {
+      "scenario": "frontend-only",
+      "seconds": 9.698908959049731,
+      "exit": 0,
+      "frontend_rebuilt": true
+    },
+    {
+      "scenario": "dependency-input",
+      "seconds": 6.012725124601275,
+      "exit": 0,
+      "frontend_rebuilt": true
+    },
+    {
+      "scenario": "generated-proto",
+      "seconds": 5.941904916893691,
+      "exit": 0,
+      "frontend_rebuilt": true
+    }
+  ],
+  "artifacts": [
+    {
+      "binary": "natslens",
+      "production_ui": true,
+      "exact_files": 24
+    },
+    {
+      "binary": "natslens-existing-ui",
+      "production_ui": true,
+      "exact_files": 24
+    },
+    {
+      "binary": "natslens-placeholder",
+      "placeholder": true
+    }
+  ],
+  "limits": [
+    "Sequential synthetic private checkout; not a host-uncontended benchmark.",
+    "Existing compiler cache reused; clean means absent output assets/binary, not a purged compiler cache.",
+    "Dependency-input case changes package.json whitespace; no install/download timing.",
+    "Generated-proto case changes generated TypeScript; no proto regeneration timing.",
+    "Docker daemon unavailable; target builds/execution and BuildKit disk use remain unverified."
+  ]
+}

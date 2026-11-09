@@ -1,12 +1,14 @@
 // Label layout of the zoom strip, ported from the reference's drawZoomH and
 // drawZoomV. Kubernetes events sit above the time axis (side -1), NATS
 // advisories and finding transitions below it (side 1).
+import type {LaneEvent} from "../api/model";
 import { hm } from "./format";
 import { monoWidth, type Measure } from "./laneLayout";
 
 export type ZoomKind = "k8s" | "nats" | "lens";
 
 export interface ZoomItem {
+  events?: LaneEvent[];
   id: string;
   side: -1 | 1;
   kind: ZoomKind;

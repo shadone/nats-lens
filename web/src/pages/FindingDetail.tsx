@@ -1,3 +1,4 @@
+import {FindingInvestigationButton} from "../components/FindingInvestigationButton";
 import { Remediation } from "../components/Remediation";
 import { ReplayEntry } from "../components/ReplayEntry";
 import { serverNow } from "../lib/clock";
@@ -63,7 +64,7 @@ function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyS
   );
 }
 
-function Head({ f, spec, start, end, onMute, onUnmute, onAck }: { f: Finding; spec: RangeSpec; start: number; end: number; onMute: () => void; onUnmute: () => void; onAck?: () => void }) {
+function Head({ f, spec, start, end, onMute, onUnmute, onAck, copyAction=true }: { f: Finding; spec: RangeSpec; start: number; end: number; onMute: () => void; onUnmute: () => void; onAck?: () => void; copyAction?:boolean }) {
   const since = f.since ?? end;
   const historyStart = useLensInfo().data?.historyStart;
   const name = entityName(f.entity);
@@ -120,6 +121,7 @@ function Head({ f, spec, start, end, onMute, onUnmute, onAck }: { f: Finding; sp
           </div>
         )}
         <div className="btns">
+          {copyAction && <FindingInvestigationButton finding={f} />}
           {onAck && f.state !== "resolved" && <button type="button" className="btn" onClick={onAck}>{f.acknowledgement ? "Update acknowledgement…" : "Acknowledge…"}</button>}
           {f.mute ? (
             <button type="button" className="btn" onClick={onUnmute}>
@@ -268,10 +270,10 @@ function MuteSection({ m }: { m: Mute }) {
 }
 
 export function FindingDetail() {
-  return usePhone() ? <OnCallFinding allDetails={<DesktopFindingDetail acknowledgements={false} />} /> : <DesktopFindingDetail />;
+  return usePhone() ? <OnCallFinding allDetails={<DesktopFindingDetail acknowledgements={false} copyAction={false} />} /> : <DesktopFindingDetail />;
 }
 
-export function DesktopFindingDetail({ acknowledgements = true }: { acknowledgements?: boolean }) {
+export function DesktopFindingDetail({ acknowledgements = true, copyAction=true }: { acknowledgements?: boolean; copyAction?:boolean }) {
   const id = useParams().id ?? "";
   usePageTitle(id);
   const { spec } = useTimeRange();
@@ -305,8 +307,8 @@ export function DesktopFindingDetail({ acknowledgements = true }: { acknowledgem
           ) : (
             <>
               {acknowledgements ? <FindingAcknowledgement key={d.finding.id} finding={d.finding} renderHead={open =>
-                <section className="sec"><Head f={d.finding!} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} onAck={open} /></section>
-              } /> : <section className="sec"><Head f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} /></section>}
+                <section className="sec"><Head copyAction={copyAction} f={d.finding!} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} onAck={open} /></section>
+              } /> : <section className="sec"><Head copyAction={copyAction} f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} /></section>}
               <ReplayEntry finding={d.finding} transitions={d.transitions} start={start} end={end} now={serverNow()} minGapMs={info?.collectIntervalMs || 30_000} />
               {d.finding.mute && <MuteSection m={d.finding.mute} />}
               <div className="sec fd-cols">

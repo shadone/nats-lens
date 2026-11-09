@@ -59,7 +59,7 @@ describe("pickTrend", () => {
 
   it("gives each query its own series", () => {
     const q = { data, error: null, isPending: false };
-    expect(pickTrend(q, queries, { metric: "cluster.connections" })).toEqual({ data: s("cluster.connections"), error: undefined, isPending: false });
+    expect(pickTrend(q, queries, { metric: "cluster.connections" })).toEqual({ metric: "cluster.connections", data: s("cluster.connections"), error: undefined, isPending: false });
     expect(pickTrend(q, queries, { metric: "consumer.delivered_rate", entity: consumer }).data).toEqual(s("consumer.delivered_rate"));
   });
 
@@ -80,16 +80,16 @@ describe("pickTrend", () => {
   it("a failed call is every query's error, with the data it had", () => {
     const err = new Error("unavailable");
     const q = { data, error: err, isPending: false };
-    expect(pickTrend(q, queries, { metric: "cluster.connections" })).toEqual({ data: s("cluster.connections"), error: err, isPending: false });
-    expect(pickTrend({ data: undefined, error: err, isPending: false }, queries, { metric: "cluster.connections" })).toEqual({ data: undefined, error: err, isPending: false });
+    expect(pickTrend(q, queries, { metric: "cluster.connections" })).toEqual({ metric: "cluster.connections", data: s("cluster.connections"), error: err, isPending: false });
+    expect(pickTrend({ data: undefined, error: err, isPending: false }, queries, { metric: "cluster.connections" })).toEqual({ metric: "cluster.connections", data: undefined, error: err, isPending: false });
   });
 
   it("a query the data does not hold yet is pending without data, or has the call's error", () => {
     const other: TrendQuery = { metric: "consumer.delivered_rate", entity: { ...consumer, key: "APP/order-jobs/thumb-worker", consumer: "thumb-worker" } };
     const qs = [...queries, other];
-    expect(pickTrend({ data, error: null, isPending: false }, qs, other)).toEqual({ data: undefined, error: undefined, isPending: true });
+    expect(pickTrend({ data, error: null, isPending: false }, qs, other)).toEqual({ metric: other.metric, data: undefined, error: undefined, isPending: true });
     const err = new Error("unavailable");
-    expect(pickTrend({ data, error: err, isPending: false }, qs, other)).toEqual({ data: undefined, error: err, isPending: false });
+    expect(pickTrend({ data, error: err, isPending: false }, qs, other)).toEqual({ metric: other.metric, data: undefined, error: err, isPending: false });
   });
 
   it("is pending while the call is", () => {

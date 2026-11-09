@@ -1,0 +1,188 @@
+{
+  "fast": {
+    "profile": "fast",
+    "complete_profile": true,
+    "planned": [
+      "format",
+      "gate-tests",
+      "build-tests",
+      "types",
+      "proto",
+      "docs",
+      "vet-fast",
+      "go-fast",
+      "web-tests"
+    ],
+    "started": "2026-11-08T15:14:55.690882+00:00",
+    "results": [
+      {
+        "name": "format",
+        "code": 0,
+        "seconds": 0.11243079230189323
+      },
+      {
+        "name": "gate-tests",
+        "code": 0,
+        "seconds": 0.08623570809140801
+      },
+      {
+        "name": "build-tests",
+        "code": 0,
+        "seconds": 0.3713854579254985
+      },
+      {
+        "name": "types",
+        "code": 0,
+        "seconds": 5.7049379157833755
+      },
+      {
+        "name": "proto",
+        "code": 0,
+        "seconds": 0.5010997909121215
+      },
+      {
+        "name": "docs",
+        "code": 0,
+        "seconds": 0.04954425012692809
+      },
+      {
+        "name": "vet-fast",
+        "code": 0,
+        "seconds": 0.526788666844368
+      },
+      {
+        "name": "go-fast",
+        "code": 0,
+        "seconds": 10.170710583683103
+      },
+      {
+        "name": "web-tests",
+        "code": 0,
+        "seconds": 68.77049829112366
+      }
+    ],
+    "tools": {
+      "go": "go version go1.27.3 darwin/arm64",
+      "node": "v22.21.1",
+      "npm": "11.7.0",
+      "buf": "1.75.0",
+      "python": "Python 3.15.2"
+    },
+    "revision": "c58d30b0d9d6666f9beaf7462473214429251529",
+    "dirty": true,
+    "module_hashes": {
+      "go.mod": "0d4c627cf7e8b0a023a29ca57878cc14f74a8611f9330748d6b7e611df664e19",
+      "go.sum": "4c932a8a8c30709fd24b795d69b4639d798d32e023bce3482fe5b85ded16767e"
+    },
+    "go_proxy_off": true,
+    "finished": "2026-11-08T15:16:22.438027+00:00",
+    "success": true
+  },
+  "race": {
+    "profile": "race",
+    "complete_profile": true,
+    "planned": [
+      "race-api",
+      "race-k8s"
+    ],
+    "started": "2026-11-08T15:12:33.083576+00:00",
+    "results": [
+      {
+        "name": "race-api",
+        "code": 0,
+        "seconds": 15.745040166657418
+      },
+      {
+        "name": "race-k8s",
+        "code": 0,
+        "seconds": 23.136144999880344
+      }
+    ],
+    "tools": {
+      "go": "go version go1.27.3 darwin/arm64",
+      "node": "v22.21.1",
+      "npm": "11.7.0",
+      "buf": "1.75.0",
+      "python": "Python 3.15.2"
+    },
+    "revision": "2af04e1b39bc51a5e6f087124f4b94617a326c52",
+    "dirty": true,
+    "module_hashes": {
+      "go.mod": "0d4c627cf7e8b0a023a29ca57878cc14f74a8611f9330748d6b7e611df664e19",
+      "go.sum": "4c932a8a8c30709fd24b795d69b4639d798d32e023bce3482fe5b85ded16767e"
+    },
+    "go_proxy_off": true,
+    "finished": "2026-11-08T15:13:12.219139+00:00",
+    "success": true
+  },
+  "failure_controls": [
+    {
+      "control": "format",
+      "code": 1,
+      "results": [
+        {
+          "name": "format",
+          "code": 1,
+          "seconds": 0.31437274999916553
+        }
+      ]
+    },
+    {
+      "control": "types",
+      "code": 2,
+      "results": [
+        {
+          "name": "types",
+          "code": 2,
+          "seconds": 6.71011483296752
+        }
+      ]
+    },
+    {
+      "control": "test",
+      "code": 1,
+      "results": [
+        {
+          "name": "go-fast",
+          "code": 1,
+          "seconds": 1.0940977092832327
+        }
+      ]
+    },
+    {
+      "control": "generated",
+      "code": 1,
+      "local_edit_preserved": true
+    }
+  ],
+  "removal_controls": [
+    {
+      "removed": "format",
+      "code": 1,
+      "runtime_assertion": true
+    },
+    {
+      "removed": "drift",
+      "code": 1,
+      "runtime_assertion": true
+    },
+    {
+      "removed": "fail-fast",
+      "code": 1,
+      "runtime_assertion": true
+    },
+    {
+      "removed": "warnings",
+      "code": 1,
+      "runtime_assertion": true
+    },
+    {
+      "restored_all": true,
+      "code": 0
+    }
+  ],
+  "format_only": {
+    "files": 14,
+    "exact_gofmt_of_committed_preimage": true
+  }
+}

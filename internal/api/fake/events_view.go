@@ -67,8 +67,7 @@ func richRequest(req *v1.ListEventsRequest) bool {
 
 // listEventsRich answers a request with routine events, folding, facets
 // or a histogram, by the same rules as storeprov.
-func (p *Provider) listEventsRich(req *v1.ListEventsRequest, cur api.Cursor) *v1.ListEventsResponse {
-	all := p.events(p.scen())
+func (p *Provider) listEventsRich(req *v1.ListEventsRequest, cur api.Cursor, all []*v1.Event) *v1.ListEventsResponse {
 	hide := req.GetHideRoutine()
 	// A folded list keeps to the events of its first page; IDs grow with
 	// time, so the newest has the highest.

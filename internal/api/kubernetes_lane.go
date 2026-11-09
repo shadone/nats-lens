@@ -2,7 +2,11 @@ package api
 
 import (
 	"cmp"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -49,6 +53,7 @@ var (
 
 // K8sWindowEvent is a Kubernetes event as the windows need it.
 type K8sWindowEvent struct {
+	ID   string
 	At   time.Time
 	Kind string
 	// Server is a NATS pod's server; Node, Version, Cause and Pool come
@@ -83,7 +88,7 @@ func DeriveK8sWindows(evs []K8sWindowEvent, gap time.Duration) []*v1.TimeWindow 
 	var cur []K8sWindowEvent
 	closeWindow := func() {
 		if touchesNATS(cur) {
-			out = append(out, describeWindow(cur))
+			out = append(out, describeWindow(cur, gap))
 		}
 		cur = nil
 	}
@@ -100,7 +105,7 @@ func DeriveK8sWindows(evs []K8sWindowEvent, gap time.Duration) []*v1.TimeWindow 
 	return out
 }
 
-func describeWindow(evs []K8sWindowEvent) *v1.TimeWindow {
+func describeWindow(evs []K8sWindowEvent, gap time.Duration) *v1.TimeWindow {
 	drained, stopped, versions := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	upgrade, gke := false, false
 	autoscaler := 0
@@ -130,7 +135,35 @@ func describeWindow(evs []K8sWindowEvent) *v1.TimeWindow {
 	case len(drained) > 0 && autoscaler == countKind(evs, "k8s.node.drained"):
 		label = "Node removed by the autoscaler"
 	}
-	return &v1.TimeWindow{Start: ts(evs[0].At), End: ts(evs[len(evs)-1].At), Label: label,
+	ids := []string{}
+	seen := map[string]bool{}
+	unavailable := []string{"continuous_capture"}
+	canonical := make([]K8sWindowEvent, len(evs))
+	for i, e := range evs {
+		canonical[i] = e
+		canonical[i].At = e.At.UTC()
+		if e.ID == "" {
+			if !slices.Contains(unavailable, "supporting_event_identity") {
+				unavailable = append(unavailable, "supporting_event_identity")
+			}
+			continue
+		}
+		if seen[e.ID] {
+			if !slices.Contains(unavailable, "duplicate_supporting_event_identity") {
+				unavailable = append(unavailable, "duplicate_supporting_event_identity")
+			}
+			continue
+		}
+		seen[e.ID] = true
+		ids = append(ids, e.ID)
+	}
+	raw, _ := json.Marshal(struct {
+		Events []K8sWindowEvent
+		Gap    int64
+	}{canonical, int64(gap)})
+	hash := sha256.Sum256(raw)
+	return &v1.TimeWindow{Id: hex.EncodeToString(hash[:]), SupportingEventIds: ids, EvidenceTotal: int32(len(evs)), Unavailable: unavailable,
+		Derivation: fmt.Sprintf("Starts at a recorded node drain or upgrade and groups eligible node and NATS pod events with successive observed gaps of at most %g minutes. Bounds are the first and last included observations, not an exact maintenance duration or proof of causation.", gap.Minutes()), Start: ts(evs[0].At), End: ts(evs[len(evs)-1].At), Label: label,
 		Detail: fmt.Sprintf("%s, %s", Plural(len(drained), "drain"), Plural(len(stopped), "pod restart"))}
 }
 

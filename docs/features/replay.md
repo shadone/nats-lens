@@ -10,6 +10,8 @@ The Replay page, under Cluster in the sidebar, answers "what changed between the
 
 ## Behavior and rules
 
+- **Chart descriptions.** The Replay time selector has [chart help](chart-help.md) describing snapshot comparisons, state buckets and inferred windows.
+
 - **First visit.** The page reads data for the current scope while its view loads. The shell stays available, with loading and reload recovery described in [navigation](navigation.md).
 
 - **Observed client libraries.** Replay compares the client-library sets in the collections near A and B, grouped by the application name before `@` and account. A changed set produces a step spanning the two observation times, with both version mixes and connection counts. Mixed rolling versions remain visible. Count changes within the same library set do not make a change step. These are endpoint observations: an intermediate change can be missed, and the span does not date a deployment. Client library metadata does not establish an application release version, build SHA or deployment.

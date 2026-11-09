@@ -14,6 +14,7 @@ import { tileValue, fmtValue } from "../lib/units";
 import { MetricBox } from "./MetricBox";
 
 const destinations: Record<string, string> = { servers: "/servers", meta_leader: "/servers", streams: "/streams", kv: "/kv-stores", object_stores: "/object-stores", consumers: "/consumers", accounts: "/accounts", clients: "/connections", storage: "/capacity" };
+const metricIds:Record<string,string[]>={servers:['cluster.servers_up'],meta_leader:['cluster.meta_leader_changes'],streams:['cluster.streams'],kv:['cluster.kv_buckets'],object_stores:['cluster.object_stores'],consumers:['cluster.durable_consumers'],accounts:['cluster.accounts'],clients:['cluster.connections'],storage:['cluster.js_storage_bytes']};
 
 function join(...parts: string[]): string {
   return parts.filter(Boolean).join(" ");
@@ -88,6 +89,7 @@ function TileGrid({ tiles, windows, start, end, gaps }: TilesProps & { gaps?: re
         return <MetricBox
           key={t.id}
           title={t.label}
+          metricIds={metricIds[t.id]}
           to={destinations[t.id]}
           // The leader's chart counts changes, not the name above it.
           valueLabel={leader && chart ? "Leader changes per bucket" : undefined}

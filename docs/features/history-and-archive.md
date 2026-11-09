@@ -2,7 +2,7 @@
 
 - **Surfaces:** `ui`, `cli`
 - **Status:** shipped
-- **Related:** [monitoring-snapshots.md](monitoring-snapshots.md), [event-capture.md](event-capture.md), [data-history.md](data-history.md), [sql-access.md](sql-access.md), [running-nats-lens.md](running-nats-lens.md), [design.md](../design.md)
+- **Related:** [offline-datasets.md](offline-datasets.md), [monitoring-snapshots.md](monitoring-snapshots.md), [event-capture.md](event-capture.md), [data-history.md](data-history.md), [sql-access.md](sql-access.md), [running-nats-lens.md](running-nats-lens.md), [design.md](../design.md)
 
 ## What it does
 
@@ -26,6 +26,8 @@ nats-lens keeps its collections, events and findings in an embedded DuckDB datab
 - **A damaged database is kept.** When DuckDB cannot replay the database's write-ahead log, nats-lens renames the file and its log to `<name>.corrupt-<UTC time>`, rebuilds from the archive, logs an error and records a `collector.database_recovered` event that names the kept files. It never deletes them.
 - **Past ranges show the past.** When the UI's time range ends in the past, the findings and statuses are rebuilt from the stored transitions as they stood at the end of the range, with the mutes in force then.
 - **Where history begins.** An unresolved finding whose condition predates history, or which was first seen within a minute after history starts, says "already true when nats-lens started".
+
+- **Offline acquisition.** The [offline dataset channel](offline-datasets.md) creates a full-system artifact at one database read boundary. Hourly recovery archives retain their own publication boundaries and are not exact-time investigation snapshots.
 
 ## Scenarios
 

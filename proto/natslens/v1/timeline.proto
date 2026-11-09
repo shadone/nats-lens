@@ -64,6 +64,11 @@ message LaneEvent {
   // ID of the stored event; empty when the lane item is not a stored
   // event.
   string event_id = 7;
+  EntityRef entity = 9;
+  // For finding transitions, the recorded finding identity and collection.
+  // Zero/empty means the mapping is unavailable, not current-only evidence.
+  string finding_id = 10;
+  int64 transition_epoch = 11;
 }
 
 // Request for the status timeline.
@@ -85,6 +90,9 @@ message GetStatusTimelineRequest {
 
   // System ID, as ListSystems returns it. Empty means the default system.
   string system = 5;
+  // Optional captured event membership boundary, including a known empty zero.
+  // It does not pin check/configuration state or restore expired events.
+  optional int64 event_read_id = 6;
 }
 
 // Per check, per bucket, the worst state, and the events to draw with it.
@@ -122,4 +130,10 @@ message GetStatusTimelineResponse {
   // Whether the range held more Kubernetes events than the 1000 in
   // kubernetes.
   bool kubernetes_truncated = 10;
+  // Boundary for ListFindingEpisodes after selecting this Timeline. Later
+  // finding transitions are excluded; this is not a persistent database pin.
+  int64 finding_read_epoch = 11;
+  optional int64 event_read_id = 12;
+  // Resolved query bounds, separate from the possibly partial last bucket.
+  TimeRange range = 13;
 }

@@ -88,6 +88,9 @@ const (
 	LensServiceGetAccountsAndAuthProcedure = "/natslens.v1.LensService/GetAccountsAndAuth"
 	// LensServiceGetCapacityProcedure is the fully-qualified name of the LensService's GetCapacity RPC.
 	LensServiceGetCapacityProcedure = "/natslens.v1.LensService/GetCapacity"
+	// LensServiceGetStorageChangeProcedure is the fully-qualified name of the LensService's
+	// GetStorageChange RPC.
+	LensServiceGetStorageChangeProcedure = "/natslens.v1.LensService/GetStorageChange"
 	// LensServiceGetDataHistoryProcedure is the fully-qualified name of the LensService's
 	// GetDataHistory RPC.
 	LensServiceGetDataHistoryProcedure = "/natslens.v1.LensService/GetDataHistory"
@@ -134,6 +137,18 @@ const (
 	// LensServiceGetTimeSeriesBatchProcedure is the fully-qualified name of the LensService's
 	// GetTimeSeriesBatch RPC.
 	LensServiceGetTimeSeriesBatchProcedure = "/natslens.v1.LensService/GetTimeSeriesBatch"
+	// LensServiceListMetricContributorsProcedure is the fully-qualified name of the LensService's
+	// ListMetricContributors RPC.
+	LensServiceListMetricContributorsProcedure = "/natslens.v1.LensService/ListMetricContributors"
+	// LensServiceListFindingEpisodesProcedure is the fully-qualified name of the LensService's
+	// ListFindingEpisodes RPC.
+	LensServiceListFindingEpisodesProcedure = "/natslens.v1.LensService/ListFindingEpisodes"
+	// LensServiceGetEventBatchProcedure is the fully-qualified name of the LensService's GetEventBatch
+	// RPC.
+	LensServiceGetEventBatchProcedure = "/natslens.v1.LensService/GetEventBatch"
+	// LensServiceListEventSelectionProcedure is the fully-qualified name of the LensService's
+	// ListEventSelection RPC.
+	LensServiceListEventSelectionProcedure = "/natslens.v1.LensService/ListEventSelection"
 )
 
 // LensServiceClient is a client for the natslens.v1.LensService service.
@@ -198,6 +213,9 @@ type LensServiceClient interface {
 	// JetStream file store is and when it fills at its growth over the
 	// range.
 	GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error)
+	// Compare pinned completed collections with separate logical, replica and
+	// system-wide server storage quantities; missing observations stay unknown.
+	GetStorageChange(context.Context, *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error)
 	// What nats-lens holds of the system: where the history starts, the
 	// collections and gaps of the range, the retention, the archive's state,
 	// and how much history each use has.
@@ -251,6 +269,14 @@ type LensServiceClient interface {
 	// would refuse as invalid_argument or not_found gets the error in its
 	// result and the others are served; any other failure fails the call.
 	GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error)
+	// Bounded frozen metric summaries, ranked across matching observed entities.
+	ListMetricContributors(context.Context, *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error)
+	// Retained historical occurrences, without collapsing later recurrences.
+	ListFindingEpisodes(context.Context, *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error)
+	// At most 50 exact retained event identities; payloads are read separately.
+	GetEventBatch(context.Context, *connect.Request[v1.GetEventBatchRequest]) (*connect.Response[v1.GetEventBatchResponse], error)
+	// One bounded page of an explicit captured event selection.
+	ListEventSelection(context.Context, *connect.Request[v1.ListEventSelectionRequest]) (*connect.Response[v1.ListEventSelectionResponse], error)
 }
 
 // NewLensServiceClient constructs a client for the natslens.v1.LensService service. By default, it
@@ -421,6 +447,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getStorageChange: connect.NewClient[v1.GetStorageChangeRequest, v1.GetStorageChangeResponse](
+			httpClient,
+			baseURL+LensServiceGetStorageChangeProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetStorageChange")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		getDataHistory: connect.NewClient[v1.GetDataHistoryRequest, v1.GetDataHistoryResponse](
 			httpClient,
 			baseURL+LensServiceGetDataHistoryProcedure,
@@ -540,6 +573,32 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		listMetricContributors: connect.NewClient[v1.ListMetricContributorsRequest, v1.ListMetricContributorsResponse](
+			httpClient,
+			baseURL+LensServiceListMetricContributorsProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListMetricContributors")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		listFindingEpisodes: connect.NewClient[v1.ListFindingEpisodesRequest, v1.ListFindingEpisodesResponse](
+			httpClient,
+			baseURL+LensServiceListFindingEpisodesProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListFindingEpisodes")),
+			connect.WithClientOptions(opts...),
+		),
+		getEventBatch: connect.NewClient[v1.GetEventBatchRequest, v1.GetEventBatchResponse](
+			httpClient,
+			baseURL+LensServiceGetEventBatchProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetEventBatch")),
+			connect.WithClientOptions(opts...),
+		),
+		listEventSelection: connect.NewClient[v1.ListEventSelectionRequest, v1.ListEventSelectionResponse](
+			httpClient,
+			baseURL+LensServiceListEventSelectionProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListEventSelection")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -568,6 +627,7 @@ type lensServiceClient struct {
 	getTopology                  *connect.Client[v1.GetTopologyRequest, v1.GetTopologyResponse]
 	getAccountsAndAuth           *connect.Client[v1.GetAccountsAndAuthRequest, v1.GetAccountsAndAuthResponse]
 	getCapacity                  *connect.Client[v1.GetCapacityRequest, v1.GetCapacityResponse]
+	getStorageChange             *connect.Client[v1.GetStorageChangeRequest, v1.GetStorageChangeResponse]
 	getDataHistory               *connect.Client[v1.GetDataHistoryRequest, v1.GetDataHistoryResponse]
 	getSubjects                  *connect.Client[v1.GetSubjectsRequest, v1.GetSubjectsResponse]
 	matchSubject                 *connect.Client[v1.MatchSubjectRequest, v1.MatchSubjectResponse]
@@ -585,6 +645,10 @@ type lensServiceClient struct {
 	listMetrics                  *connect.Client[v1.ListMetricsRequest, v1.ListMetricsResponse]
 	getTimeSeries                *connect.Client[v1.GetTimeSeriesRequest, v1.GetTimeSeriesResponse]
 	getTimeSeriesBatch           *connect.Client[v1.GetTimeSeriesBatchRequest, v1.GetTimeSeriesBatchResponse]
+	listMetricContributors       *connect.Client[v1.ListMetricContributorsRequest, v1.ListMetricContributorsResponse]
+	listFindingEpisodes          *connect.Client[v1.ListFindingEpisodesRequest, v1.ListFindingEpisodesResponse]
+	getEventBatch                *connect.Client[v1.GetEventBatchRequest, v1.GetEventBatchResponse]
+	listEventSelection           *connect.Client[v1.ListEventSelectionRequest, v1.ListEventSelectionResponse]
 }
 
 // ListCheckDefinitions calls natslens.v1.LensService.ListCheckDefinitions.
@@ -702,6 +766,11 @@ func (c *lensServiceClient) GetCapacity(ctx context.Context, req *connect.Reques
 	return c.getCapacity.CallUnary(ctx, req)
 }
 
+// GetStorageChange calls natslens.v1.LensService.GetStorageChange.
+func (c *lensServiceClient) GetStorageChange(ctx context.Context, req *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error) {
+	return c.getStorageChange.CallUnary(ctx, req)
+}
+
 // GetDataHistory calls natslens.v1.LensService.GetDataHistory.
 func (c *lensServiceClient) GetDataHistory(ctx context.Context, req *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error) {
 	return c.getDataHistory.CallUnary(ctx, req)
@@ -787,6 +856,26 @@ func (c *lensServiceClient) GetTimeSeriesBatch(ctx context.Context, req *connect
 	return c.getTimeSeriesBatch.CallUnary(ctx, req)
 }
 
+// ListMetricContributors calls natslens.v1.LensService.ListMetricContributors.
+func (c *lensServiceClient) ListMetricContributors(ctx context.Context, req *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error) {
+	return c.listMetricContributors.CallUnary(ctx, req)
+}
+
+// ListFindingEpisodes calls natslens.v1.LensService.ListFindingEpisodes.
+func (c *lensServiceClient) ListFindingEpisodes(ctx context.Context, req *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error) {
+	return c.listFindingEpisodes.CallUnary(ctx, req)
+}
+
+// GetEventBatch calls natslens.v1.LensService.GetEventBatch.
+func (c *lensServiceClient) GetEventBatch(ctx context.Context, req *connect.Request[v1.GetEventBatchRequest]) (*connect.Response[v1.GetEventBatchResponse], error) {
+	return c.getEventBatch.CallUnary(ctx, req)
+}
+
+// ListEventSelection calls natslens.v1.LensService.ListEventSelection.
+func (c *lensServiceClient) ListEventSelection(ctx context.Context, req *connect.Request[v1.ListEventSelectionRequest]) (*connect.Response[v1.ListEventSelectionResponse], error) {
+	return c.listEventSelection.CallUnary(ctx, req)
+}
+
 // LensServiceHandler is an implementation of the natslens.v1.LensService service.
 type LensServiceHandler interface {
 	// All shipped check references with configuration from the selected system.
@@ -849,6 +938,9 @@ type LensServiceHandler interface {
 	// JetStream file store is and when it fills at its growth over the
 	// range.
 	GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error)
+	// Compare pinned completed collections with separate logical, replica and
+	// system-wide server storage quantities; missing observations stay unknown.
+	GetStorageChange(context.Context, *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error)
 	// What nats-lens holds of the system: where the history starts, the
 	// collections and gaps of the range, the retention, the archive's state,
 	// and how much history each use has.
@@ -902,6 +994,14 @@ type LensServiceHandler interface {
 	// would refuse as invalid_argument or not_found gets the error in its
 	// result and the others are served; any other failure fails the call.
 	GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error)
+	// Bounded frozen metric summaries, ranked across matching observed entities.
+	ListMetricContributors(context.Context, *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error)
+	// Retained historical occurrences, without collapsing later recurrences.
+	ListFindingEpisodes(context.Context, *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error)
+	// At most 50 exact retained event identities; payloads are read separately.
+	GetEventBatch(context.Context, *connect.Request[v1.GetEventBatchRequest]) (*connect.Response[v1.GetEventBatchResponse], error)
+	// One bounded page of an explicit captured event selection.
+	ListEventSelection(context.Context, *connect.Request[v1.ListEventSelectionRequest]) (*connect.Response[v1.ListEventSelectionResponse], error)
 }
 
 // NewLensServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -1068,6 +1168,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetStorageChangeHandler := connect.NewUnaryHandler(
+		LensServiceGetStorageChangeProcedure,
+		svc.GetStorageChange,
+		connect.WithSchema(lensServiceMethods.ByName("GetStorageChange")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceGetDataHistoryHandler := connect.NewUnaryHandler(
 		LensServiceGetDataHistoryProcedure,
 		svc.GetDataHistory,
@@ -1187,6 +1294,32 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceListMetricContributorsHandler := connect.NewUnaryHandler(
+		LensServiceListMetricContributorsProcedure,
+		svc.ListMetricContributors,
+		connect.WithSchema(lensServiceMethods.ByName("ListMetricContributors")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceListFindingEpisodesHandler := connect.NewUnaryHandler(
+		LensServiceListFindingEpisodesProcedure,
+		svc.ListFindingEpisodes,
+		connect.WithSchema(lensServiceMethods.ByName("ListFindingEpisodes")),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetEventBatchHandler := connect.NewUnaryHandler(
+		LensServiceGetEventBatchProcedure,
+		svc.GetEventBatch,
+		connect.WithSchema(lensServiceMethods.ByName("GetEventBatch")),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceListEventSelectionHandler := connect.NewUnaryHandler(
+		LensServiceListEventSelectionProcedure,
+		svc.ListEventSelection,
+		connect.WithSchema(lensServiceMethods.ByName("ListEventSelection")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/natslens.v1.LensService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case LensServiceListCheckDefinitionsProcedure:
@@ -1235,6 +1368,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetAccountsAndAuthHandler.ServeHTTP(w, r)
 		case LensServiceGetCapacityProcedure:
 			lensServiceGetCapacityHandler.ServeHTTP(w, r)
+		case LensServiceGetStorageChangeProcedure:
+			lensServiceGetStorageChangeHandler.ServeHTTP(w, r)
 		case LensServiceGetDataHistoryProcedure:
 			lensServiceGetDataHistoryHandler.ServeHTTP(w, r)
 		case LensServiceGetSubjectsProcedure:
@@ -1269,6 +1404,14 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetTimeSeriesHandler.ServeHTTP(w, r)
 		case LensServiceGetTimeSeriesBatchProcedure:
 			lensServiceGetTimeSeriesBatchHandler.ServeHTTP(w, r)
+		case LensServiceListMetricContributorsProcedure:
+			lensServiceListMetricContributorsHandler.ServeHTTP(w, r)
+		case LensServiceListFindingEpisodesProcedure:
+			lensServiceListFindingEpisodesHandler.ServeHTTP(w, r)
+		case LensServiceGetEventBatchProcedure:
+			lensServiceGetEventBatchHandler.ServeHTTP(w, r)
+		case LensServiceListEventSelectionProcedure:
+			lensServiceListEventSelectionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1370,6 +1513,10 @@ func (UnimplementedLensServiceHandler) GetCapacity(context.Context, *connect.Req
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetCapacity is not implemented"))
 }
 
+func (UnimplementedLensServiceHandler) GetStorageChange(context.Context, *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetStorageChange is not implemented"))
+}
+
 func (UnimplementedLensServiceHandler) GetDataHistory(context.Context, *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetDataHistory is not implemented"))
 }
@@ -1436,4 +1583,20 @@ func (UnimplementedLensServiceHandler) GetTimeSeries(context.Context, *connect.R
 
 func (UnimplementedLensServiceHandler) GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetTimeSeriesBatch is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) ListMetricContributors(context.Context, *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListMetricContributors is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) ListFindingEpisodes(context.Context, *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListFindingEpisodes is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetEventBatch(context.Context, *connect.Request[v1.GetEventBatchRequest]) (*connect.Response[v1.GetEventBatchResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetEventBatch is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) ListEventSelection(context.Context, *connect.Request[v1.ListEventSelectionRequest]) (*connect.Response[v1.ListEventSelectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListEventSelection is not implemented"))
 }

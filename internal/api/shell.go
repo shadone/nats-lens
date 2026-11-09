@@ -53,7 +53,7 @@ func (h *Handler) GetShellStatus(ctx context.Context, req *connect.Request[v1.Ge
 	known := err == nil
 	if known {
 		def := shellIntervals * cmp.Or(sys.Provider.CollectInterval(), defaultInterval)
-		r, err := ResolveRange(m.GetRange(), sys.Provider.Now(), def)
+		r, err := ResolveRange(m.GetRange(), rangeReference(sys.Provider), def)
 		if err != nil {
 			return nil, h.codeOf(procedure, err)
 		}
@@ -100,7 +100,7 @@ func (h *Handler) GetShellStatus(ctx context.Context, req *connect.Request[v1.Ge
 // most badgeWait: past that its badge is pending. The runtime's collection
 // status is applied afresh on every call.
 func (h *Handler) badges(ctx context.Context, d System) []*v1.SystemStatus {
-	now := d.Provider.Now()
+	now := rangeReference(d.Provider)
 	m := &v1.ListSystemsRequest{StripBuckets: 1, Range: &v1.TimeRange{Start: timestamppb.New(now.Add(-badgeRange)), End: timestamppb.New(now)}}
 	key := summaryKey(m, true)
 	timeout := cmp.Or(h.SummaryTimeout, DefaultSummaryTimeout)

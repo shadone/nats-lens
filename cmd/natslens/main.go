@@ -12,6 +12,7 @@
 //	natslens checks run [-config FILE] [-system ID] [-data-dir DIR]
 //	                                            evaluate the checks on a database no collector has open
 //	natslens investigate methods              discover bounded remote read commands
+//	natslens acquire -socket PATH -system ID    acquire a consistent full-system offline dataset
 //	natslens demo [-listen ADDR]                serve the API with a fixed scenario, without NATS
 //	natslens notify test -config FILE [-channel NAME] [-system ID]
 //	                                            send a test message to each notification channel, or one
@@ -22,6 +23,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -37,7 +39,9 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/config"
+	"github.com/shadone/nats-lens/internal/dataset"
 	"github.com/shadone/nats-lens/internal/investigation"
+	"github.com/shadone/nats-lens/internal/offline"
 	"github.com/shadone/nats-lens/internal/sqlcli"
 	"github.com/shadone/nats-lens/internal/store"
 )
@@ -61,11 +65,14 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	cmd := "run"
-	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks" || args[0] == "notify" || args[0] == "investigate") {
+	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks" || args[0] == "notify" || args[0] == "investigate" || args[0] == "acquire") {
 		cmd, args = args[0], args[1:]
 	}
+	if cmd == "acquire" {
+		return runAcquire(ctx, args, os.Stdout)
+	}
 	if cmd == "investigate" {
-		return investigation.Run(ctx, args, os.Stdin, os.Stdout, os.Stderr)
+		return investigation.RunWithOffline(ctx, args, os.Stdin, os.Stdout, os.Stderr, offline.Open)
 	}
 	if cmd == "sql" {
 		return runSQL(ctx, args)
@@ -81,7 +88,13 @@ func run(ctx context.Context, args []string) error {
 	}
 
 	var only string
+	var acquisition acquisitionOptions
 	cfg, err := config.ParseWith("natslens "+cmd, args, func(fs *flag.FlagSet) {
+		if cmd == "run" {
+			fs.StringVar(&acquisition.socket, "acquisition-socket", "", "opt in to a same-user local admin Unix socket (requires acquisition-dir)")
+			fs.StringVar(&acquisition.directory, "acquisition-dir", "", "existing private export directory; hard disk isolation requires filesystem quota; native cancellation is cooperative")
+			fs.Int64Var(&acquisition.maxBytes, "acquisition-max-bytes", 1<<30, "successful artifact byte budget, monitored cooperatively; source MVCC/WAL retention is separate")
+		}
 		if cmd == "once" {
 			fs.StringVar(&only, "system", "", "collect only the system with this id (default: every system)")
 		}
@@ -91,7 +104,7 @@ func run(ctx context.Context, args []string) error {
 	}
 	level, _ := config.ParseLevel(cfg.LogLevel)
 	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
-	return runConfig(ctx, cmd, cfg, only, log, nil)
+	return runConfig(ctx, cmd, cfg, only, log, nil, acquisition)
 }
 
 // apiOptionsFor are the API settings of the configuration.
@@ -103,7 +116,7 @@ func apiOptionsFor(cfg config.Config, ready func() bool) apiOptions {
 // runConfig serves natslens run and once for the configured systems, or
 // only the system with the id only. observe, when set, is told the API's
 // systems once they are open; for tests.
-func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, log *slog.Logger, observe func(api.Systems)) error {
+func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, log *slog.Logger, observe func(api.Systems), acquisition ...acquisitionOptions) error {
 	log.Info("starting", "command", cmd, "version", version, "config", cfg)
 	if cfg.AllowUnauthenticated && cfg.IAPAudience == "" && cmd == "run" && cfg.Listen != "" {
 		log.Warn("the API is served without IAP verification: anyone who reaches it can mute findings", "listen", cfg.Listen)
@@ -141,6 +154,13 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	// the systems run there is no deadline and every close is waited for.
 	closeBy := func() time.Time { return time.Time{} }
 	defer func() { closeSystems(rts, closeBy()) }()
+	if len(acquisition) > 0 {
+		stop, err := startAcquisition(ctx, acquisition[0], rts)
+		if err != nil {
+			return err
+		}
+		defer stop()
+	}
 	reg := registry(rts, set)
 	if observe != nil {
 		observe(reg)
@@ -258,13 +278,14 @@ func runSQL(ctx context.Context, args []string) error {
 
 // runSQLTo serves natslens sql, printing to out.
 func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
-	const usage = "usage: natslens sql [-db FILE | -config FILE -system ID -data-dir DIR] [-format table|json] [-output FILE] [-max-rows N] [-max-output-bytes N] [-timeout 45s] QUERY"
+	const usage = "usage: natslens sql [-db FILE | -bundle DIR | -config FILE -system ID -data-dir DIR] [-format table|json] [-output FILE] [-max-rows N] [-max-output-bytes N] [-timeout 45s] QUERY"
 	fs := flag.NewFlagSet("natslens sql", flag.ContinueOnError)
 	// Failed flag parsing must produce only the structured diagnostic in main.
 	fs.SetOutput(io.Discard)
 	fs.Usage = func() {}
 	db := oneDatabaseFlags(fs)
-	source := fs.String("db", "", "existing offline DuckDB file; exclusive with config/system/data-dir")
+	source := fs.String("db", "", "existing offline DuckDB file; exclusive with bundle/config/system/data-dir")
+	bundle := fs.String("bundle", "", "validated trusted offline dataset directory; exclusive with db/config/system/data-dir")
 	format := fs.String("format", "table", "table or json")
 	output := fs.String("output", "", "publish to a new file instead of stdout")
 	maxRows := fs.Int("max-rows", sqlcli.DefaultMaxRows, "maximum returned rows, 1–100000")
@@ -283,15 +304,15 @@ func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
 		return sqlcli.Invalid(usage)
 	}
 	path := *source
-	if path != "" {
-		conflict := false
+	if path != "" || *bundle != "" {
+		conflict := path != "" && *bundle != ""
 		fs.Visit(func(f *flag.Flag) {
 			if f.Name == "config" || f.Name == "system" || f.Name == "data-dir" {
 				conflict = true
 			}
 		})
 		if conflict {
-			return sqlcli.Invalid("-db is exclusive with -config, -system and -data-dir")
+			return sqlcli.Invalid("-db and -bundle are exclusive with each other and with -config, -system and -data-dir")
 		}
 	} else {
 		_, _, dir, err := db.resolve()
@@ -300,7 +321,27 @@ func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
 		}
 		path = filepath.Join(dir, store.FileName)
 	}
-	b, err := sqlcli.Execute(ctx, path, fs.Arg(0), sqlcli.Options{Format: *format, MaxRows: *maxRows, MaxBytes: *maxBytes, Timeout: *timeout})
+	var manifest json.RawMessage
+	if *bundle != "" {
+		// Shared validation owns the artifact format. Raw SQL remains its separate
+		// trusted advanced interface; this is not a semantic investigation method.
+		if *timeout <= 0 || *timeout > sqlcli.DefaultTimeout {
+			return sqlcli.Invalid("timeout must be greater than zero and at most 45s")
+		}
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, *timeout)
+		defer cancel()
+		d, err := dataset.Open(ctx, *bundle)
+		if err != nil {
+			return sqlcli.Invalid("Cannot validate bundle; select a trusted closed compatible dataset")
+		}
+		path = d.DBPath
+		manifest, _ = json.Marshal(d.Manifest)
+		if err = d.Close(); err != nil {
+			return sqlcli.Invalid("Cannot close validated bundle")
+		}
+	}
+	b, err := sqlcli.Execute(ctx, path, fs.Arg(0), sqlcli.Options{Format: *format, MaxRows: *maxRows, MaxBytes: *maxBytes, Timeout: *timeout, Manifest: manifest})
 	if err != nil {
 		return err
 	}

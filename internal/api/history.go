@@ -112,7 +112,9 @@ func HistoryUseWindows(f *HistoryFacts) []HistoryWindow {
 // turns them into the response, so that the store and the demo apply the
 // same rules.
 type HistoryFacts struct {
-	ServerGaps []*v1.ServerHistoryGap
+	// RuntimeUnavailable means live archiver state was not captured.
+	RuntimeUnavailable bool
+	ServerGaps         []*v1.ServerHistoryGap
 	// Start and End are the range; Now the provider's present.
 	Start, End, Now time.Time
 	// Interval is the collect interval; Retention how long collections
@@ -167,6 +169,9 @@ func FinishDataHistory(f *HistoryFacts) *v1.GetDataHistoryResponse {
 	res := &v1.GetDataHistoryResponse{
 		ServerGaps: f.ServerGaps, HistoryStart: tsOrNil(f.HistoryStart), NewestEpochAt: tsOrNil(f.NewestEpochAt), EventsStart: tsOrNil(f.EventsStart),
 		CollectInterval: durationpb.New(f.Interval), Archive: archiveState(f.Archive), FindingsAtStart: f.FindingsAtStart,
+	}
+	if f.RuntimeUnavailable {
+		res.Archive = nil
 	}
 	if f.Retention > 0 {
 		res.Retention, res.RetentionFrom = durationpb.New(f.Retention), timestamppb.New(f.Now.Add(-f.Retention))

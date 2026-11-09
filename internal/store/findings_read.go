@@ -302,8 +302,10 @@ func (s *Store) Tally(ctx context.Context, now time.Time) (FindingTally, error) 
 
 // TransitionQuery selects finding transitions. Zero fields do not filter.
 type TransitionQuery struct {
-	FindingID string
-	CheckCode string
+	MinEpoch, MaxEpoch int64
+	Offset             int
+	FindingID          string
+	CheckCode          string
 	// From and To bound the transition time: From <= time < To.
 	From, To time.Time
 	// Limit caps the rows; 0 means no cap.
@@ -322,6 +324,14 @@ func (s *Store) FindingTransitions(ctx context.Context, q TransitionQuery) ([]Fi
 		where = append(where, `check_code = ?`)
 		args = append(args, q.CheckCode)
 	}
+	if q.MinEpoch > 0 {
+		where = append(where, `epoch>=?`)
+		args = append(args, q.MinEpoch)
+	}
+	if q.MaxEpoch > 0 {
+		where = append(where, `epoch<=?`)
+		args = append(args, q.MaxEpoch)
+	}
 	if !q.From.IsZero() {
 		where = append(where, `time >= ?`)
 		args = append(args, q.From.UTC())
@@ -338,6 +348,12 @@ FROM finding_transitions`
 	query += ` ORDER BY epoch DESC, finding_id`
 	if q.Limit > 0 {
 		query += fmt.Sprintf(` LIMIT %d`, q.Limit)
+	}
+	if q.Offset < 0 || q.Offset > 1<<20 {
+		return nil, ErrInvalidFindingEpisodeQuery
+	}
+	if q.Offset > 0 {
+		query += fmt.Sprintf(` OFFSET %d`, q.Offset)
 	}
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {

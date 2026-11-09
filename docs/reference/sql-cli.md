@@ -1,20 +1,20 @@
 # Offline SQL CLI
 
-`natslens sql` is an advanced local tool for trusted SQL against an existing offline DuckDB file. It needs no collector, NATS connection, credentials or network connection for database-only queries. The proposed semantic investigation interface provides domain commands without requiring SQL or schema knowledge.
+`natslens sql` is an advanced local tool for trusted SQL against an existing offline DuckDB file. It needs no collector, NATS connection, credentials or network connection for database-only queries. The semantic investigation interface provides domain commands without requiring SQL or schema knowledge.
 
-The command choices below are proposed, not yet confirmed as the shared investigation/offline CLI contract. The general investigation candidate is remote-only and under review. Bundle acquisition and an interchangeable offline semantic backend are separate work; this command implements neither.
+The command choices below are proposed, not yet confirmed as the shared investigation/offline CLI contract. The semantic [investigation interface](agent-investigations.md) shares commands across live APIs and closed datasets. Acquisition belongs to its [separate administrative workflow](../operations/acquire-offline-dataset.md).
 
 ## Source selection
 
-`-db FILE` selects one existing database file. It is exclusive with `-config`, `-system` and `-data-dir`. Legacy directory and configured-system selection remain available: `-data-dir` overrides the configured directory, otherwise `-config FILE -system ID` selects a system, otherwise the directory is `./data`. A multi-system configuration requires `-system`.
+`-db FILE` selects one existing database file. `-bundle DIR` validates a published local dataset through the shared reader and selects its closed database. These flags are exclusive with each other and with `-config`, `-system` and `-data-dir`. Legacy directory and configured-system selection remain available: `-data-dir` overrides the configured directory, otherwise `-config FILE -system ID` selects a system, otherwise the directory is `./data`. A multi-system configuration requires `-system`.
 
 The source resolves to an absolute path with symlinks resolved. It must be a regular file. The pinned Go driver takes its database filename directly from the DSN before `?`, without URL decoding. Filenames containing `?`, `#` or `%` are rejected rather than interpreted as connection settings or silently selecting another file. Spaces, quotes, Unicode and `&` are literal filename characters. Use a safely named, validated offline copy when a source name is unsupported.
 
-SQL opens the file with `access_mode=read_only`. It does not call the store initializer, run migrations, change schema checksums, checkpoint the database or remove a WAL. A missing file is an error, never a request to create a database. An arbitrary DuckDB database can be inspected; a nats-lens schema is not required.
+SQL opens the file with `access_mode=read_only`. It does not call the store initializer, run migrations, change schema checksums, checkpoint the database or remove a WAL. A missing file is an error, never a request to create a database. With `-db`, an arbitrary DuckDB database can be inspected; a nats-lens schema is not required. Bundle selection requires compatible nats-lens schema/engine metadata, integrity and publication checks.
 
 A live collector holds a writer lock, so a separate SQL process cannot inspect that live file. A lock, incompatible DuckDB storage version or invalid file produces `source_unavailable`. The error omits backend text and does not distinguish those causes reliably. Select a snapshot validated by the acquisition workflow; do not try repairs on the source.
 
-Consistent snapshot acquisition is pending in [Investigation workflows](../plans/investigation-workflows.md). Its requirements include user-approved acquisition, a consistent database/WAL generation, compatible engine/storage versions, integrity checks on a disposable copy and provenance identifying the selected generation. Copying an actively written database file alone is not a validated snapshot. This command does not obtain a snapshot, stop a collector or certify the consistency of a supplied file.
+Use the [dataset acquisition workflow](../operations/acquire-offline-dataset.md) for a consistent snapshot. Copying an actively written database file alone is not a validated snapshot. SQL does not obtain a snapshot, stop a collector or certify an arbitrary supplied file. Bundle validation establishes integrity and compatibility, not authenticity or safety for untrusted SQL.
 
 ## Output selection
 
@@ -26,7 +26,7 @@ For a selected offline file, a schema-independent query is:
 natslens sql -db snapshot.duckdb -format json 'SELECT 9223372036854775807::BIGINT AS id, NULL::VARCHAR AS label'
 ```
 
-The document has `version: 1`, `source`, `columns`, `rows`, `truncated` and `limits`. `source` records `kind: "database"`, the canonical `path`, `readOnly: true` for the selected database and `snapshot: "unverified; caller-selected offline file"`. It does not claim an acquisition identity, collection pin, system, observed interval, coverage, retention, freshness or redaction. SQL can bypass semantic response redaction; only query trusted data with authorization to read every selected value.
+The document has `version: 1`, `source`, `columns`, `rows`, `truncated` and `limits`. `source` records `kind: "database"`, the canonical `path`, `readOnly: true` for the selected database and `snapshot: "unverified; caller-selected offline file"`. With `-bundle`, `source.kind` is `bundle`, `source.manifest` preserves the validated metadata, and `source.snapshot` labels validation at selection. The manifest counts toward the same output byte budget. This does not sandbox trusted SQL's external effects. Bare-file output does not claim an acquisition identity, collection pin, system, observed interval, coverage, retention, freshness or redaction. SQL can bypass semantic response redaction; only query trusted data with authorization to read every selected value.
 
 `columns` is an ordered array of `{ "name": "…", "type": "…" }`. `type` is the pinned driver's DuckDB logical type name, including decimal width/scale and nested element types where exposed. `rows` is an array of arrays in exactly that column order. Duplicate labels remain unchanged and occupy separate positions. Empty results have `rows: []` and retain the column metadata. JSON objects keyed by column label would lose duplicate columns and are not used.
 
@@ -108,4 +108,4 @@ Disposable synthetic fixtures against `github.com/duckdb/duckdb-go/v2 v2.20000.0
 
 No extension was installed, no extension worker changed, and no network query was executed in this assessment. Signed extension installation/loading and supported remote file access remain part of the trusted SQL threat boundary. The exact outcome depends on available extensions, filesystem permissions and network access; read-only mode does not deny those capabilities. DuckDB's [security model](https://duckdb.org/docs/2.0/operations_manual/securing_duckdb/overview) treats untrusted SQL as code, and its [extension security reference](https://duckdb.org/docs/2.0/operations_manual/securing_duckdb/securing_extensions) describes extension privileges. Configuration restrictions alone are not an OS sandbox.
 
-Only execute SQL whose complete behavior is trusted, under the operating-system permissions appropriate for the selected data. Raw SQL is not exposed by the remote investigation interface, the default agent surface or MCP. Offline bundles, semantic backend parity, acquisition manifests, untrusted execution and automatic anonymization are out of scope.
+Only execute SQL whose complete behavior is trusted, under the operating-system permissions appropriate for the selected data. Raw SQL is not exposed by the remote investigation interface, the default agent surface or MCP. Untrusted execution and automatic anonymization are out of scope.

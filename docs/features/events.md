@@ -12,6 +12,8 @@ Slow-consumer investigations separate recorded disconnects from aggregate counte
 
 ## Behavior and rules
 
+- **Chart descriptions.** The histogram legend has [chart help](chart-help.md) explaining captured event counts and the scale when routine events are hidden.
+
 - **Worth reading first.** The page opens on "Worth reading": routine events are hidden and repeats are folded. "Everything" shows every event, one row each. Each choice shows its number of events, which follows the source and server filters.
 - **Hidden as routine.** While routine events are hidden, a line above the list reads "Hidden as routine:" with their number and the groups the API names (at most 10, largest first, each with its count), and "Show them" switches to "Everything".
 - **Empty results.** An empty feed explains the selected system, range, client and other active event filters before the facets. It distinguishes hidden routine events, no filter matches, and no captured events in the selected system and range. It offers "Show routine events" when routine events are hidden, and "Clear client filter" when a client is selected. Clearing the client preserves the system, account, range and other filters, synchronizes the visible client field, and returns to page one. Connections describes snapshots; Events describes captured history. A connection may predate capture, or its events may fall outside the range; an empty feed does not establish either cause. Loading, failed requests and previous-filter placeholders do not claim an empty result. A failed refresh of an empty result shows the error and Retry.
@@ -35,6 +37,23 @@ Slow-consumer investigations separate recorded disconnects from aggregate counte
 - **Old requests unchanged.** A request without these flags gets the same response as before they existed.
 
 - **Acknowledgement events.** Saving an acknowledgement writes a non-routine `finding.acknowledged` event in the same transaction. Events and the finding timeline can show its author and note. Acknowledgement events are records of saves, not a list of release or replacement receipts; those receipts in finding details last only for the current visit.
+- Timeline event links carry a captured event boundary. The selected record and fixed-range feed honor it; an incompatible server that cannot acknowledge it is rejected. Exact window/overlap batches use the separate bounded, summary-only `GetEventBatch` read in native and demo providers; payloads require an explicit detail read; the ordinary feed remains broader time/filter context. Event membership is not an immutable snapshot or a guarantee of retained payloads.
+
+## Captured Timeline selections
+
+Proposed, not yet confirmed: an overlapping Timeline group offers **Open all captured events**. The separate `/timeline/events` page retains up to 2,000 explicit IDs in a bounded URL fragment, outside the HTTP query. The link binds its system, fixed interval, optional event boundary, original source-limit notices and selected page. Changing those query fields invalidates the selection instead of reading the current feed. Share the full URL only with intended recipients: IDs and context are data, not credentials or authorization.
+
+The page requests at most 50 summaries per explicit action through `ListEventSelection`. Captured membership and available records on the current page have separate counts. Missing rows remain named unavailable slots; records are not replaced or silently removed from membership. An opened row retrieves its payload separately. The interval describes context and does not filter these exact identity reads. Source limits do not establish omissions from any particular group, and the event boundary does not pin updates, deletion or latest finding state. Without an explicit system the in-place list remains available, but no share link is offered. Inferred-window selections above 2,000 IDs, or with their separate window-input limit, retain the complete-window route; no secondary link drops that disclosure.
+
+Copy as prompt preserves the full selection and current offset/page size. Both copied contexts and full browser URLs can be imported by the same live/offline investigation command. A source response must acknowledge membership, page and boundary. The existing `GetEventBatch` contract stays at 1–50 IDs.
+
+### Reopen an overlapping group
+
+- **Given** a Timeline group has captured event IDs and an explicit system
+- **When** I open all captured events, move to another page and reopen its full URL
+- **Then** the same supplied membership, fixed context and page are selected
+- **And** missing records and original source-limit notices remain explicit, payloads load only on request, and no current event feed is substituted
+
 ## Scenarios
 
 ### Copy text from an event
@@ -162,3 +181,5 @@ Slow-consumer investigations separate recorded disconnects from aggregate counte
 - **No export.** Events can be read through the API or with `natslens sql`, but the page has no download.
 - **No events older than `retention`.** Older events are in the archive only ([history-and-archive.md](history-and-archive.md)).
 - **At most 10 sources and 50 kinds** in one filter.
+
+Timeline text-table Kubernetes records use the same application preview and persistent recorded-event detail as lane ticks. Observed UTC dates, source-limit notices and optional membership boundaries remain explicit; missing recorded IDs show the captured summary without inventing a record lookup. Inferred-window rows retain their separate derivation/evidence path.

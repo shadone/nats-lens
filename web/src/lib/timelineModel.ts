@@ -125,12 +125,13 @@ function finding(e: LaneEvent): string {
 function zoomItem(e: LaneEvent): ZoomItem {
   if (e.source === "kubernetes") {
     const labels = [...new Set([kubeMedium(e), e.shortLabel])];
-    return { id: e.id, side: -1, kind: "k8s", t: e.time, labels, col: "var(--k8s)", tcol: "var(--text-2)", title: e.label };
+    return { events:[e], id: e.id, side: -1, kind: "k8s", t: e.time, labels, col: "var(--k8s)", tcol: "var(--text-2)", title: e.label };
   }
   if (e.source === "finding") {
     const resolved = e.kind.endsWith("resolved");
     const crit = e.severity === "critical";
     return {
+      events:[e],
       id: e.id,
       side: 1,
       kind: "lens",
@@ -144,7 +145,7 @@ function zoomItem(e: LaneEvent): ZoomItem {
   const crit = e.severity === "critical";
   const labels = [...new Set([mediumLabel(e.label), e.shortLabel])];
   const col = crit ? "var(--sev-critical)" : "var(--text-2)";
-  return { id: e.id, side: 1, kind: "nats", t: e.time, labels, col, tcol: col, title: e.label };
+  return { events:[e], id: e.id, side: 1, kind: "nats", t: e.time, labels, col, tcol: col, title: e.label };
 }
 
 /** Items inside the domain, oldest first. */

@@ -9,7 +9,7 @@ const api = process.env.NATSLENS_API ?? "http://127.0.0.1:8080";
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: "../internal/webui/dist",
+    outDir: process.env.NATSLENS_WEB_OUT_DIR ?? "../internal/webui/dist",
     emptyOutDir: true,
     assetsDir: "assets",
     sourcemap: false,

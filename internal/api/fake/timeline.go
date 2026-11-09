@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
@@ -62,13 +64,25 @@ func prodRows(*scenario) []rowSpec {
 var open = FixedNow.Add(365 * 24 * time.Hour)
 
 // GetStatusTimeline draws the scenario's timeline at the requested buckets.
-func (p *Provider) GetStatusTimeline(_ context.Context, req *v1.GetStatusTimelineRequest) (*v1.GetStatusTimelineResponse, error) {
-	s := p.scen()
+func (p *Provider) GetStatusTimeline(ctx context.Context, req *v1.GetStatusTimelineRequest) (*v1.GetStatusTimelineResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	capture, err := p.captureEvents(req.EventReadId)
+	if err != nil {
+		return nil, err
+	}
+	s := capture.scen
 	r := req.GetRange()
 	n := api.BucketCount(r.GetEnd().AsTime().Sub(r.GetStart().AsTime()), req.GetBucket().AsDuration())
-	res := &v1.GetStatusTimelineResponse{Start: r.GetStart(), Bucket: req.GetBucket(), BucketCount: int32(n), Windows: p.windows(s, r),
+	res := &v1.GetStatusTimelineResponse{Range: proto.Clone(r).(*v1.TimeRange), Start: r.GetStart(), Bucket: req.GetBucket(), BucketCount: int32(n), EventReadId: proto.Int64(capture.boundary), Windows: p.windowsFromEvents(s, r, capture.events, capture.boundary),
 		Rows: s.timelineRows(r, req.GetBucket().AsDuration(), req.GetEntity(), req.GetIncludeOk())}
-	res.Kubernetes, res.Nats = p.lanes(s, r)
+	_, boundary, err := p.demoEpisodeHistory(s)
+	if err != nil {
+		return nil, err
+	}
+	res.FindingReadEpoch = boundary
+	res.Kubernetes, res.Nats = p.lanesFromEvents(capture.events, r)
 	return res, nil
 }
 
@@ -132,22 +146,26 @@ func (s scen) timelineRows(r *v1.TimeRange, bucket time.Duration, entity *v1.Ent
 // NATS pod events) and the NATS advisories and finding transitions in the
 // range, oldest first.
 func (p *Provider) lanes(s scen, r *v1.TimeRange) (k8s, nats []*v1.LaneEvent) {
-	for _, e := range p.events(s) {
-		if s.sc.kubernetes && e.GetSource() == srcK8s && inRange(e.GetTime().AsTime(), r) && slices.Contains(api.K8sLaneKinds, e.GetKind()) &&
+	return p.lanesFromEvents(p.events(s), r)
+}
+
+func (p *Provider) lanesFromEvents(events []*v1.Event, r *v1.TimeRange) (k8s, nats []*v1.LaneEvent) {
+	for _, e := range events {
+		if p.sc.kubernetes && e.GetSource() == srcK8s && inRange(e.GetTime().AsTime(), r) && slices.Contains(api.K8sLaneKinds, e.GetKind()) &&
 			(!strings.HasPrefix(e.GetKind(), "k8s.pod.") || e.GetServer() != "") {
 			var raw struct {
 				Node string `json:"node"`
 			}
 			_ = json.Unmarshal([]byte(e.GetRaw()), &raw)
 			k8s = append(k8s, &v1.LaneEvent{Id: e.GetId(), Time: e.GetTime(), Source: srcK8s, Kind: e.GetKind(),
-				ShortLabel: api.K8sShortLabel(e, e.GetType(), raw.Node), Label: e.GetSummary(), Severity: e.GetSeverity(), EventId: e.GetId()})
+				ShortLabel: api.K8sShortLabel(e, e.GetType(), raw.Node), Label: e.GetSummary(), Severity: e.GetSeverity(), EventId: e.GetId(), Entity: api.EventEntity(e)})
 		}
 		// The kinds the store draws on the NATS lane.
 		if (e.GetSource() == srcNATS && slices.Contains(api.NATSLaneKinds, e.GetKind())) || e.GetSource() == srcFinding {
 			if inRange(e.GetTime().AsTime(), r) {
 				nats = append(nats, &v1.LaneEvent{Time: e.GetTime(), Source: e.GetSource(), Kind: e.GetKind(),
 					ShortLabel: e.GetType(), Label: e.GetType() + " " + e.GetSummary(), Severity: e.GetSeverity(),
-					Id: e.GetId(), EventId: e.GetId()})
+					Id: e.GetId(), EventId: e.GetId(), Entity: api.EventEntity(e), FindingId: e.GetTransition().GetFindingId(), TransitionEpoch: e.GetTransition().GetEpoch()})
 			}
 		}
 	}

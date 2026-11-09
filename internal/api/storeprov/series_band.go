@@ -27,14 +27,10 @@ var bandMetrics = map[string]string{
 func (p *Provider) bandSeries(ctx context.Context, metric, col string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) (*v1.Series, error) {
 	step := api.Step(r, maxPoints, max(p.Interval, time.Second))
 	start, end := span(r)
-	q := fmt.Sprintf(`WITH per_epoch AS (
-  SELECT e.started_at AS t, quantile_cont(ss.%[1]s, 0.5) AS v, min(ss.%[1]s) AS lo, max(ss.%[1]s) AS hi
-  FROM server_stats ss JOIN epochs e USING (epoch)
-  WHERE e.started_at >= ? AND e.started_at < ? AND ss.%[1]s IS NOT NULL
-  GROUP BY e.epoch, e.started_at)
+	q := `WITH per_epoch AS (` + bandObservationSQL(col, true) + `)
 SELECT time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00') AS b,
   avg(v)::DOUBLE, min(lo)::DOUBLE, max(hi)::DOUBLE
-FROM per_epoch GROUP BY b ORDER BY b`, col)
+FROM per_epoch GROUP BY b ORDER BY b`
 	rows, err := p.db().QueryContext(ctx, q, start, end, step.Microseconds())
 	if err != nil {
 		return nil, fmt.Errorf("series %s: %w", metric, err)
@@ -83,4 +79,16 @@ GROUP BY s.server_name ORDER BY avg(ss.%[1]s) DESC, s.server_name LIMIT 1`, col)
 	}
 	out.Top, out.TopPoints = top, s.GetPoints()
 	return nil
+}
+
+// bandObservationSQL is the shared pre-bucket metric definition. NULL-only
+// collections remain available to observation metadata; charts omit them.
+func bandObservationSQL(col string, knownOnly bool) string {
+	filter := ""
+	if knownOnly {
+		filter = fmt.Sprintf(" AND ss.%s IS NOT NULL", col)
+	}
+	return fmt.Sprintf(`SELECT e.started_at AS t, quantile_cont(ss.%[1]s,0.5) AS v, min(ss.%[1]s) AS lo, max(ss.%[1]s) AS hi
+ FROM server_stats ss JOIN epochs e USING(epoch)
+ WHERE e.started_at >= ? AND e.started_at < ? %[2]s GROUP BY e.epoch,e.started_at`, col, filter)
 }

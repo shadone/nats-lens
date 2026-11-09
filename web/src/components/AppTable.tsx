@@ -2,6 +2,7 @@
 // instances, servers, library, round trip, subscriptions, pending bytes,
 // reconnects and 24-hour traffic. Every column sorts; the order is kept
 // in the address.
+import {InfoTip} from "./MetricBox";
 import type { ReactNode } from "react";
 import type { Application } from "../api/applications";
 import { TrafficSpark } from "../charts/TrafficSpark";
@@ -245,7 +246,7 @@ export function AppTable({
             <SortTh id="subs" label="Subs" num {...th} />
             <SortTh id="pending" label="Pending" num {...th} />
             <SortTh id="reconnects" label="Reconnects 24 h" num {...th} />
-            <SortTh id="traffic" label="Msgs in / out 24 h" {...th} />
+            <SortTh id="traffic" label="Msgs in / out 24 h" {...th} help={<InfoTip label="Application traffic" text="Messages sent to the servers (solid) and delivered to the application (dashed), per complete hour over the 24 whole hours before the collection’s hour. Each row has its own scale. Missing hours are gaps, not zero; the partial current hour is excluded. Traffic after a connection’s final observed collection can be lost."/>}/>
           </tr>
         </thead>
         <tbody>

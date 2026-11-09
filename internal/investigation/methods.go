@@ -17,14 +17,14 @@ const Service = "natslens.v1.LensService"
 // ASVS 8.3.1: the HTTP service uses the same allowlist at its trusted boundary.
 var methods = []string{
 	"GetLensInfo", "ListSystems", "ListMetrics", "ListCheckDefinitions",
-	"GetOverview", "GetShellStatus", "GetTimeSeries", "GetTimeSeriesBatch",
-	"ListFindings", "GetFinding", "GetOnCall", "ListEvents", "GetEvent",
+	"ListMetricContributors", "GetOverview", "GetShellStatus", "GetTimeSeries", "GetTimeSeriesBatch",
+	"ListFindings", "ListFindingEpisodes", "GetFinding", "GetOnCall", "ListEvents", "GetEvent", "GetEventBatch", "ListEventSelection",
 	"GetStatusTimeline", "ListServers", "GetServer", "ListAccounts",
 	"ListConnections", "ListStreams", "GetStream", "ListConsumers", "GetConsumer",
 	"ListKeyValueStores", "ListObjectStores", "GetCapacity", "GetDataHistory",
 	"GetPlacement", "GetReplay", "GetTopology", "GetAccountsAndAuth",
 	"GetSubjects", "MatchSubject", "GetMicroServices", "GetApplications",
-	"GetSlowConsumerInvestigation",
+	"GetSlowConsumerInvestigation", "GetStorageChange",
 }
 
 func Methods() []string { return slices.Clone(methods) }
