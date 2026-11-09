@@ -98,7 +98,7 @@ describe("command bar", () => {
     expect(m.listFindings).toHaveBeenCalledTimes(1);
     expect(m.listEvents).toHaveBeenCalledTimes(1);
     expect(m.listFindings.mock.calls[0][2]).toEqual({ text: "analytics-", includeMuted: true, pageSize: 5 });
-    expect(m.listEvents.mock.calls[0][2]).toEqual({ text: "analytics-", pageSize: 5 });
+    expect(m.listEvents.mock.calls[0][2]).toEqual({ text: "analytics-", hideRoutine: true, pageSize: 5 });
   });
 
   it("groups names, findings and events in order, and moves across the groups with the arrow keys", async () => {
@@ -145,7 +145,7 @@ describe("command bar", () => {
     expect(groupLabels()).toEqual(["Events"]);
     expect(m.listFindings).not.toHaveBeenCalled();
     const [, spec, filter] = m.listEvents.mock.calls.at(-1)!;
-    expect(filter).toEqual({ text: "", pageSize: 10 });
+    expect(filter).toEqual({ text: "", hideRoutine: true, pageSize: 10 });
     expect(spec.kind === "fixed" && spec.to - spec.from).toBe(2 * 3_600_000);
     expect(screen.getByText("Events", { selector: ".search-chip" })).toBeInTheDocument();
     expect(screen.getByText("Since 2h", { selector: ".search-chip" })).toBeInTheDocument();

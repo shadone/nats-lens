@@ -46,8 +46,8 @@ export function useFindingMatches(spec: RangeSpec, s: RemoteSearch, enabled: boo
     listFindings(sys, range, { text: s.text, includeMuted: true, pageSize: s.limit }, signal));
 }
 
-/** Events of the range whose kind or names contain the text, newest first. */
+/** Events of the range whose kind or names contain the text, newest first, routine ones left out as on the Events page. */
 export function useEventMatches(spec: RangeSpec, s: RemoteSearch, enabled: boolean) {
   return useRemote<LensEvent>("command-events", spec, s, enabled, (sys, range, signal) =>
-    listEvents(sys, range, { text: s.text, pageSize: s.limit }, signal));
+    listEvents(sys, range, { text: s.text, hideRoutine: true, pageSize: s.limit }, signal));
 }
