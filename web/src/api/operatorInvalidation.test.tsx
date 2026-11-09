@@ -7,7 +7,7 @@ afterEach(()=>vi.clearAllMocks());
 import {useMuteFinding,useUnmuteFinding,useSaveAcknowledgement} from './queries';
 vi.mock('./requests',()=>({muteFinding:vi.fn(async()=>({})),unmuteFinding:vi.fn(async()=>({})),acknowledgeFinding:vi.fn(async()=>({findingId:'f1'})),endAcknowledgement:vi.fn(async()=>({findingId:'f1'}))}));
 const dependent=['overview','shell','finding','findings','mutes','timeline','finding-episodes','stream','streams','consumer','consumers','serverInfo','serverList','applications','capacity','oncall','accounts','kvStores','objectStores','busiestConsumers','streamPlacement','currentFindings','server','streamNames','resource-metric-comparison','metric-comparison','future-status-view','lastData','replayStrip'];
-const independent=['series','trends','bandSeries','metric-ranking','lensInfo','data-history','event','events','serverEvents','timeline-events','captured-event-selection','replay','topology','placement'];
+const independent=['time-windows','series','trends','bandSeries','metric-ranking','lensInfo','data-history','event','events','serverEvents','timeline-events','captured-event-selection','replay','topology','placement'];
 const input={system:'shop',checkCode:'stream-005',reason:'reviewed',expiresAt:Date.now()+3600000,mutedBy:'operator'};
 function setup(awaitRefetch=true,holdFamily=''){
  const client=new QueryClient({defaultOptions:{queries:{retry:false,staleTime:Infinity}}});
