@@ -53,3 +53,22 @@ func TestDemoRecordedEventReadSurvivesClockAdvance(t *testing.T) {
 		}
 	}
 }
+
+func TestDemoWindowEvidenceKeepsOriginalPayload(t *testing.T) {
+	p := New(false)
+	events := p.events(p.scen())
+	var chosen *v1.Event
+	for _, e := range events {
+		if e.Source == srcK8s && e.Raw != "" {
+			chosen = e
+			break
+		}
+	}
+	if chosen == nil {
+		t.Fatal("fixture has no original Kubernetes payload")
+	}
+	got, err := p.GetEvent(context.Background(), &v1.GetEventRequest{Id: chosen.Id})
+	if err != nil || got.GetEvent().GetRaw() != chosen.Raw {
+		t.Fatalf("derivation payload replaced by generic fields: %v", err)
+	}
+}

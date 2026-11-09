@@ -134,4 +134,6 @@ message GetStatusTimelineResponse {
   // finding transitions are excluded; this is not a persistent database pin.
   int64 finding_read_epoch = 11;
   int64 event_read_id = 12;
+  // Resolved query bounds, separate from the possibly partial last bucket.
+  TimeRange range = 13;
 }
