@@ -18,6 +18,7 @@ func TestEpisodeCursorKeepsFullTimestampPrecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	c.Membership = "1:2"
 	next := &v1.ListFindingEpisodesRequest{System: "shop", PageToken: c.Next(9007199254740993, 3, 1)}
 	got, err := pages.Prepare(next, now.Add(time.Minute))
 	if err != nil || !proto.Equal(first.Range, next.Range) || got.ReadEpoch != 9007199254740993 {
@@ -36,6 +37,7 @@ func TestEpisodeCursorSourceScopeAndExpiry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	c.Membership = "1:2"
 	token := c.Next(9007199254740993, 3, 1)
 	var reopened EpisodePages
 	if err := reopened.InitImmutable(strings.Repeat("a", 64)); err != nil {

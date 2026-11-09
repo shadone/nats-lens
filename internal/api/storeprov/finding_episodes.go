@@ -39,9 +39,10 @@ func (p *Provider) ListFindingEpisodes(ctx context.Context, in *v1.ListFindingEp
 	if page.Total > math.MaxInt32 {
 		return nil, fmt.Errorf("%w: too many occurrences; narrow scope", api.ErrResourceExhausted)
 	}
-	if err = cursor.CheckTotal(int32(page.Total)); err != nil {
+	if err = cursor.CheckTotal(int32(page.Total), page.Signature); err != nil {
 		return nil, err
 	}
+	cursor.Membership = page.Signature
 	fs := make([]store.Finding, len(page.Items))
 	for i, e := range page.Items {
 		fs[i] = e.Finding

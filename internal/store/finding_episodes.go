@@ -39,6 +39,7 @@ type FindingEpisode struct {
 }
 
 type FindingEpisodePage struct {
+	Signature string
 	Items     []FindingEpisode
 	Total     int
 	ReadEpoch int64
@@ -85,7 +86,7 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 		var resolutionAt, latestAt sql.NullTime
 		var resolutionEpoch, latestStart sql.NullInt64
 		var latestState, latestSeverity sql.NullString
-		if err := rows.Scan(&out.Total, &sqlBytes, &id, &code, &typ, &key, &firstEpoch, &startEpoch, &firstAt, &lastEpoch, &lastAt, &kind, &severity, &detail, &value, &cause, &resolutionAt, &resolutionEpoch, &latestState, &latestSeverity, &latestStart, &latestAt, &lastRetained, &transitionCount); err != nil {
+		if err := rows.Scan(&out.Total, &out.Signature, &sqlBytes, &id, &code, &typ, &key, &firstEpoch, &startEpoch, &firstAt, &lastEpoch, &lastAt, &kind, &severity, &detail, &value, &cause, &resolutionAt, &resolutionEpoch, &latestState, &latestSeverity, &latestStart, &latestAt, &lastRetained, &transitionCount); err != nil {
 			return FindingEpisodePage{}, err
 		}
 		if sqlBytes > 8<<20 {
@@ -154,10 +155,13 @@ const findingEpisodesSQL = `WITH ordered AS (
 ), page AS (
  SELECT * FROM matching ORDER BY first_epoch DESC,finding_id LIMIT ? OFFSET ?
 )
-SELECT totals.n,budget.n,p.finding_id,p.check_code,p.entity_type,p.entity_key,p.first_epoch,p.start_epoch,p.first_at,
+SELECT totals.n,totals.membership,budget.n,p.finding_id,p.check_code,p.entity_type,p.entity_key,p.first_epoch,p.start_epoch,p.first_at,
  p.last.epoch,p.last.time,p.last.kind,p.last.severity,p.last.detail,p.last.value,p.last.cause_event_id,
  p.resolved_at,p.resolved_epoch,f.state,f.severity,f.since_epoch,latest.started_at,p.last_epoch,p.transition_count
-FROM (SELECT count(*) AS n FROM matching) totals
+FROM (SELECT count(*) AS n,
+ coalesce(bit_xor(hash(finding_id,first_epoch,start_epoch,last_epoch,transition_count)),0)::VARCHAR || ':' ||
+ coalesce(sum(hash(finding_id,first_epoch,start_epoch,last_epoch,transition_count))::VARCHAR,'0') AS membership
+ FROM matching) totals
 CROSS JOIN (SELECT coalesce(sum(octet_length(encode(finding_id))+octet_length(encode(check_code))+
  octet_length(encode(entity_type))+octet_length(encode(entity_key))+octet_length(encode(last.detail))),0) AS n FROM page) budget
 LEFT JOIN page p ON budget.n<=8388608
