@@ -1,10 +1,10 @@
 // The demo site's API: the fake systems of `natslens demo`, compiled to
-// WebAssembly (cmd/natslens-wasm) and run in this page. wasmFetch stands in
+// WebAssembly (cmd/natslens-wasm) and run in this page. demoFetch stands in
 // for the Connect transport's fetch, so a call never reaches the network.
-// Only the demo site's build imports this module; the first call downloads
-// and starts the program.
+// Only the demo site's build imports this module (see demoFetch.ts); the
+// first call downloads and starts the program.
 
-interface GoRuntime {
+export interface GoRuntime {
   importObject: WebAssembly.Imports;
   run(instance: WebAssembly.Instance): Promise<void>;
 }
@@ -24,18 +24,27 @@ declare global {
   var natslensLive: boolean | undefined;
 }
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
+let loader: Promise<void> | undefined;
+
+/** Loads wasm_exec.js once; a failed load removes its tag, so a retry adds a fresh one. */
+function loadGo(src: string): Promise<void> {
+  if (globalThis.Go) return Promise.resolve();
+  loader ??= new Promise<void>((resolve, reject) => {
     const s = document.createElement("script");
     s.src = src;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`could not load ${src}`));
+    s.onerror = () => {
+      s.remove();
+      loader = undefined;
+      reject(new Error(`could not load ${src}`));
+    };
     document.head.appendChild(s);
   });
+  return loader;
 }
 
-async function instantiate(url: string, imports: WebAssembly.Imports): Promise<WebAssembly.Instance> {
-  const res = await fetch(url);
+async function instantiate(url: string, imports: WebAssembly.Imports, signal?: AbortSignal): Promise<WebAssembly.Instance> {
+  const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`could not load ${url}: HTTP ${res.status}`);
   // Streaming compiles while the file downloads, but needs the
   // application/wasm type; a server that sends another falls back.
@@ -45,44 +54,75 @@ async function instantiate(url: string, imports: WebAssembly.Imports): Promise<W
   return (await WebAssembly.instantiate(await res.arrayBuffer(), imports)).instance;
 }
 
+/**
+ * Runs the program until it says it is ready. A program that stops first
+ * (a panic in main, for one) never will, so its end fails the start.
+ */
+export function runProgram(go: GoRuntime, instance: WebAssembly.Instance): Promise<void> {
+  const ready = new Promise<void>((resolve) => {
+    globalThis.natslensOnReady = resolve;
+  });
+  const stopped = go.run(instance).then(() => {
+    throw new Error("The demo stopped before it started.");
+  });
+  return Promise.race([ready, stopped]);
+}
+
 async function start(): Promise<void> {
   const base = import.meta.env.BASE_URL;
   // ?fixed in the page's address keeps the scenario at its own time, as
   // `natslens demo -fixed` does; it is read once, when the program starts.
   globalThis.natslensLive = !new URLSearchParams(window.location.search).has("fixed");
-  await loadScript(`${base}wasm_exec.js`);
+  await loadGo(`${base}wasm_exec.js`);
   if (!globalThis.Go) throw new Error("wasm_exec.js did not define Go");
   const go = new globalThis.Go();
-  const ready = new Promise<void>((resolve) => {
-    globalThis.natslensOnReady = resolve;
-  });
-  const instance = await instantiate(`${base}natslens.wasm`, go.importObject);
-  void go.run(instance);
-  await ready;
+  await runProgram(go, await instantiate(`${base}natslens.wasm`, go.importObject));
 }
 
-let started: Promise<void> | undefined;
-
-/** Starts the program once; a failed start is tried again on the next call. */
-function ready(): Promise<void> {
-  started ??= start().catch((e: unknown) => {
-    started = undefined;
-    throw e;
+/** Rejects with the signal's reason once it aborts, whatever p does. */
+export function abortable<T>(p: Promise<T>, signal: AbortSignal | null | undefined): Promise<T> {
+  if (!signal) return p;
+  signal.throwIfAborted();
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason);
+    signal.addEventListener("abort", abort, { once: true });
+    p.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
   });
-  return started;
 }
 
-/** fetch for the Connect transport: runs the request in the page's program. */
-export async function demoFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  await ready();
-  const req = new Request(input, init);
-  const headers: Record<string, string> = {};
-  req.headers.forEach((v, k) => {
-    headers[k] = v;
-  });
-  const body = req.method === "GET" || req.method === "HEAD" ? null : new Uint8Array(await req.arrayBuffer());
-  const url = new URL(req.url);
-  const res = await globalThis.natslensFetch!(req.method, url.pathname + url.search, headers, body);
-  const empty = res.status === 204 || res.status === 304;
-  return new Response(empty ? null : res.body, { status: res.status, headers: res.headers });
+/** Starts once; a failed start is tried again by the next call. */
+export function once(fn: () => Promise<void>): () => Promise<void> {
+  let started: Promise<void> | undefined;
+  return () => {
+    started ??= fn().catch((e: unknown) => {
+      started = undefined;
+      throw e;
+    });
+    return started;
+  };
 }
+
+/**
+ * fetch for the Connect transport, given how to start the program: runs the
+ * request in the page's program. The call's signal (Connect's timeout)
+ * ends the wait for a start or an answer.
+ */
+export function makeDemoFetch(ready: () => Promise<void>): typeof globalThis.fetch {
+  return async (input, init) => {
+    const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
+    await abortable(ready(), signal);
+    const { signal: _, ...rest } = init ?? {};
+    const req = new Request(input, rest);
+    const headers: Record<string, string> = {};
+    req.headers.forEach((v, k) => {
+      headers[k] = v;
+    });
+    const body = req.method === "GET" || req.method === "HEAD" ? null : new Uint8Array(await req.arrayBuffer());
+    const url = new URL(req.url);
+    const res = await abortable(globalThis.natslensFetch!(req.method, url.pathname + url.search, headers, body), signal);
+    const empty = res.status === 204 || res.status === 304;
+    return new Response(empty ? null : res.body, { status: res.status, headers: res.headers });
+  };
+}
+
+export const demoFetch = makeDemoFetch(once(start));
