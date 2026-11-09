@@ -1,7 +1,7 @@
 BIN := bin/natslens
 DEV_DATA := .dev/natslens
 
-.PHONY: build build-full build-go web-full web web-test web-dev proto test test-short test-fast verify-fast verify-full verify-web verify-proto verify-race lint fmt demo dev-cluster dev-cluster-stop load churn run-dev image vuln clean
+.PHONY: build build-full build-go build-release web-full web web-test web-dev proto test test-short test-fast verify-fast verify-full verify-web verify-proto verify-race lint fmt demo dev-cluster dev-cluster-stop load churn run-dev image vuln clean
 
 # Verifies/rebuilds production assets, then builds the binary that embeds them.
 build: web/node_modules/.package-lock.json
@@ -15,6 +15,15 @@ build-full: web/node_modules/.package-lock.json
 # It does not verify that existing assets match current frontend sources.
 build-go:
 	go build -o $(BIN) ./cmd/natslens
+
+# The release build of the host platform: cgo, paths trimmed, symbols
+# stripped and VERSION stamped (natslens version prints it). It embeds the
+# assets already in internal/webui/dist, like build-go; the release workflow
+# runs it for the macOS binaries.
+VERSION ?= dev
+build-release:
+	@test -f internal/webui/dist/index.html || { echo "internal/webui/dist holds no built UI: run make web first"; exit 1; }
+	CGO_ENABLED=1 go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o $(BIN) ./cmd/natslens
 
 # npm ci runs when package/lock/config inputs are newer than the installed marker.
 web/node_modules/.package-lock.json: web/package.json web/package-lock.json web/.npmrc
@@ -91,7 +100,8 @@ churn:
 run-dev: build
 	NATSLENS_NATS_PASSWORD=sys NATSLENS_ACCOUNT_APP_PASSWORD=app $(BIN) -config scripts/natslens.dev.yaml
 
-# Builds the container image for GKE (amd64) with buildx; IMAGE names it.
+# Builds the amd64 container image with buildx; IMAGE names it. The release
+# workflow builds linux/amd64 and linux/arm64 from the same Dockerfile.
 IMAGE ?= natslens:dev
 image:
 	docker buildx build --platform linux/amd64 --build-arg VERSION=$$(git rev-parse --short HEAD) -t $(IMAGE) .

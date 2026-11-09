@@ -42,6 +42,9 @@ type Provider struct {
 	mutes  []*storedMute
 	nextID int
 	acks   []*storedAck
+	// seededMutes and seededAcks count the scenario's own records at the
+	// start of mutes and acks, which keepNewest never drops.
+	seededMutes, seededAcks int
 	// nextAckID is the ID the next acknowledgement gets.
 	nextAckID int
 }
@@ -56,11 +59,13 @@ func newProvider(sc *scenario, live bool) *Provider {
 	p := &Provider{sc: sc, live: live, clock: time.Now, nextID: 1, nextAckID: 1}
 	if sc.mutes != nil {
 		p.mutes = sc.mutes()
-		p.nextID += len(p.mutes)
+		p.seededMutes = len(p.mutes)
+		p.nextID += p.seededMutes
 	}
 	if sc.acks != nil {
 		p.acks = sc.acks()
-		p.nextAckID += len(p.acks)
+		p.seededAcks = len(p.acks)
+		p.nextAckID += p.seededAcks
 	}
 	return p
 }

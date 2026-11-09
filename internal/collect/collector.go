@@ -96,7 +96,7 @@ func (c *Collector) conn() *nats.Conn { return c.nc.Load() }
 // Collect takes one snapshot. It always returns a snapshot; failures are
 // recorded on it and make it partial.
 func (c *Collector) Collect(ctx context.Context) *Snapshot {
-	snap := NewSnapshot(c.now().UTC())
+	snap := NewSnapshot(c.stamp())
 	known := c.tracker.Known(snap.StartedAt)
 
 	// The account connections ask their micro services from the start of
@@ -173,7 +173,7 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	snap.markMissing(asked)
 	snap.Expected = expectedNames(known, snap)
 	c.tracker.observe(snap)
-	snap.FinishedAt = c.now().UTC()
+	snap.FinishedAt = c.stamp()
 	return snap
 }
 
@@ -347,4 +347,10 @@ func sortedKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// stamp reads the clock in UTC to the microsecond, the precision the store
+// keeps, so that a snapshot's times equal the ones stored for its epoch.
+func (c *Collector) stamp() time.Time {
+	return c.now().UTC().Truncate(time.Microsecond)
 }

@@ -1,5 +1,6 @@
 # Runs the repository's verification profiles (docs/operations/verification.md)
-# on every pull request and on pushes to develop.
+# on every pull request and on pushes to develop. The go-full stage is split
+# across parallel jobs by scripts/ci-go-test.sh.
 #
 # The feature-docs audit stage is left out: its auditor is not in this
 # repository, and verify.py never downloads it. Run it locally.
@@ -56,17 +57,58 @@ jobs:
           path: ${{ runner.temp }}/verify
           retention-days: 7
 
-  go-full:
-    name: Full Go suite and race checks
+  go-plan:
+    name: Plan the Go suite shares
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: plan
+        run: |
+          matrix=$(scripts/ci-go-test.sh matrix)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  go-full:
+    name: Full Go suite (${{ matrix.name }})
+    needs: go-plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.go-plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - name: Verify (full Go stages)
-        run: python3 -B scripts/verify.py full --only vet-full,go-full,race-api,race-k8s --log-dir "$RUNNER_TEMP/verify"
+      - name: Test
+        env:
+          SHARE_ARGS: ${{ matrix.args }}
+          GO_TEST_JSON: ${{ runner.temp }}/go-test.json
+        run: |
+          # shellcheck disable=SC2086 # SHARE_ARGS holds several arguments
+          scripts/ci-go-test.sh $SHARE_ARGS
+      - name: Upload test output
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-test-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/go-test.json
+          retention-days: 7
+
+  go-vet-race:
+    name: Go vet and race checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Verify (vet and race stages)
+        run: python3 -B scripts/verify.py full --only vet-full,race-api,race-k8s --log-dir "$RUNNER_TEMP/verify"
       - name: Show failed stage logs
         if: failure()
         run: tail -n 200 "$RUNNER_TEMP"/verify/*.log
@@ -74,6 +116,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: verify-go-full-logs
+          name: verify-go-vet-race-logs
           path: ${{ runner.temp }}/verify
           retention-days: 7
