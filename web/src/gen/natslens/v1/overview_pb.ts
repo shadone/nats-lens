@@ -20,7 +20,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/overview.proto.
  */
 export const file_natslens_v1_overview: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS9vdmVydmlldy5wcm90bxILbmF0c2xlbnMudjEiigIKCUZyZXNobmVzcxINCgVlcG9jaBgBIAEoAxIsCghlcG9jaF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoDYWdlGAMgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEg8KB3BhcnRpYWwYBCABKAgSDAoEbGl2ZRgFIAEoCBIrCghpbnRlcnZhbBgGIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhISCgpjb2xsZWN0aW5nGAcgASgIEjgKFG5vdF9jb2xsZWN0aW5nX3NpbmNlGAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCL2AgoEVGlsZRIKCgJpZBgBIAEoCRINCgVsYWJlbBgCIAEoCRISCgV2YWx1ZRgDIAEoAUgAiAEBEh8KBHVuaXQYBCABKA4yES5uYXRzbGVucy52MS5Vbml0EhQKDHZhbHVlX3N1ZmZpeBgFIAEoCRITCgZ2YWx1ZTIYBiABKAFIAYgBARIVCg12YWx1ZTJfc3VmZml4GAcgASgJEhAKCHN1YnRpdGxlGAggASgJEiMKBnN0YXR1cxgJIAEoDjITLm5hdHNsZW5zLnYxLlN0YXR1cxIjCgZzZXJpZXMYCiABKAsyEy5uYXRzbGVucy52MS5TZXJpZXMSJAoHc2VyaWVzMhgLIAEoCzITLm5hdHNsZW5zLnYxLlNlcmllcxISCgVsaW1pdBgMIAEoAUgCiAEBEhMKC2Rlc2NyaXB0aW9uGA0gASgJEhIKCnZhbHVlX3RleHQYDiABKAlCCAoGX3ZhbHVlQgkKB192YWx1ZTJCCAoGX2xpbWl0In8KClRpbWVXaW5kb3cSKQoFc3RhcnQYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEicKA2VuZBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFbGFiZWwYAyABKAkSDgoGZGV0YWlsGAQgASgJIl8KEkdldE92ZXJ2aWV3UmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRISCgptYXhfcG9pbnRzGAIgASgFEg4KBnN5c3RlbRgDIAEoCSLIAgoTR2V0T3ZlcnZpZXdSZXNwb25zZRIPCgdjbHVzdGVyGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEikKCWZyZXNobmVzcxgDIAEoCzIWLm5hdHNsZW5zLnYxLkZyZXNobmVzcxIrCgdzZXJ2ZXJzGAQgAygLMhoubmF0c2xlbnMudjEuU2VydmVyU3VtbWFyeRIoCgV0YWxseRgFIAEoCzIZLm5hdHNsZW5zLnYxLkZpbmRpbmdUYWxseRIrCg13b3JzdF9maW5kaW5nGAYgASgLMhQubmF0c2xlbnMudjEuRmluZGluZxIgCgV0aWxlcxgHIAMoCzIRLm5hdHNsZW5zLnYxLlRpbGUSKAoHd2luZG93cxgIIAMoCzIXLm5hdHNsZW5zLnYxLlRpbWVXaW5kb3dCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings, file_natslens_v1_servers, file_natslens_v1_timeseries]);
+  fileDesc("ChpuYXRzbGVucy92MS9vdmVydmlldy5wcm90bxILbmF0c2xlbnMudjEiigIKCUZyZXNobmVzcxINCgVlcG9jaBgBIAEoAxIsCghlcG9jaF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoDYWdlGAMgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEg8KB3BhcnRpYWwYBCABKAgSDAoEbGl2ZRgFIAEoCBIrCghpbnRlcnZhbBgGIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhISCgpjb2xsZWN0aW5nGAcgASgIEjgKFG5vdF9jb2xsZWN0aW5nX3NpbmNlGAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCL2AgoEVGlsZRIKCgJpZBgBIAEoCRINCgVsYWJlbBgCIAEoCRISCgV2YWx1ZRgDIAEoAUgAiAEBEh8KBHVuaXQYBCABKA4yES5uYXRzbGVucy52MS5Vbml0EhQKDHZhbHVlX3N1ZmZpeBgFIAEoCRITCgZ2YWx1ZTIYBiABKAFIAYgBARIVCg12YWx1ZTJfc3VmZml4GAcgASgJEhAKCHN1YnRpdGxlGAggASgJEiMKBnN0YXR1cxgJIAEoDjITLm5hdHNsZW5zLnYxLlN0YXR1cxIjCgZzZXJpZXMYCiABKAsyEy5uYXRzbGVucy52MS5TZXJpZXMSJAoHc2VyaWVzMhgLIAEoCzITLm5hdHNsZW5zLnYxLlNlcmllcxISCgVsaW1pdBgMIAEoAUgCiAEBEhMKC2Rlc2NyaXB0aW9uGA0gASgJEhIKCnZhbHVlX3RleHQYDiABKAlCCAoGX3ZhbHVlQgkKB192YWx1ZTJCCAoGX2xpbWl0IscCCgpUaW1lV2luZG93EikKBXN0YXJ0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBInCgNlbmQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWxhYmVsGAMgASgJEg4KBmRldGFpbBgEIAEoCRIKCgJpZBgFIAEoCRIcChRzdXBwb3J0aW5nX2V2ZW50X2lkcxgGIAMoCRISCgpkZXJpdmF0aW9uGAcgASgJEhMKC3VuYXZhaWxhYmxlGAggAygJEhYKDmV2aWRlbmNlX3RvdGFsGAkgASgFEhoKDWV2ZW50X3JlYWRfaWQYCiABKANIAIgBARItCg1jYXB0dXJlX3JhbmdlGAsgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlQhAKDl9ldmVudF9yZWFkX2lkIl8KEkdldE92ZXJ2aWV3UmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRISCgptYXhfcG9pbnRzGAIgASgFEg4KBnN5c3RlbRgDIAEoCSLIAgoTR2V0T3ZlcnZpZXdSZXNwb25zZRIPCgdjbHVzdGVyGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEikKCWZyZXNobmVzcxgDIAEoCzIWLm5hdHNsZW5zLnYxLkZyZXNobmVzcxIrCgdzZXJ2ZXJzGAQgAygLMhoubmF0c2xlbnMudjEuU2VydmVyU3VtbWFyeRIoCgV0YWxseRgFIAEoCzIZLm5hdHNsZW5zLnYxLkZpbmRpbmdUYWxseRIrCg13b3JzdF9maW5kaW5nGAYgASgLMhQubmF0c2xlbnMudjEuRmluZGluZxIgCgV0aWxlcxgHIAMoCzIRLm5hdHNsZW5zLnYxLlRpbGUSKAoHd2luZG93cxgIIAMoCzIXLm5hdHNsZW5zLnYxLlRpbWVXaW5kb3dCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings, file_natslens_v1_servers, file_natslens_v1_timeseries]);
 
 /**
  * How current the stored data is.
@@ -247,6 +247,49 @@ export type TimeWindow = Message<"natslens.v1.TimeWindow"> & {
    * @generated from field: string detail = 4;
    */
   detail: string;
+
+  /**
+   * Identity of the retained derivation inputs, not a causal incident ID.
+   *
+   * @generated from field: string id = 5;
+   */
+  id: string;
+
+  /**
+   * Exact event rows used by the bounded derivation, in observed order.
+   *
+   * @generated from field: repeated string supporting_event_ids = 6;
+   */
+  supportingEventIds: string[];
+
+  /**
+   * Meaning and grouping rule; bounds are observed/inferred, never causation.
+   *
+   * @generated from field: string derivation = 7;
+   */
+  derivation: string;
+
+  /**
+   * @generated from field: repeated string unavailable = 8;
+   */
+  unavailable: string[];
+
+  /**
+   * @generated from field: int32 evidence_total = 9;
+   */
+  evidenceTotal: number;
+
+  /**
+   * Event membership boundary and original range used for reconstruction.
+   *
+   * @generated from field: optional int64 event_read_id = 10;
+   */
+  eventReadId?: bigint | undefined;
+
+  /**
+   * @generated from field: natslens.v1.TimeRange capture_range = 11;
+   */
+  captureRange?: TimeRange | undefined;
 };
 
 /**

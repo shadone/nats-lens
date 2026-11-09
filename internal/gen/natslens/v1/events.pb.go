@@ -373,6 +373,11 @@ type ListEventsRequest struct {
 	HistogramBuckets int32 `protobuf:"varint,11,opt,name=histogram_buckets,json=histogramBuckets,proto3" json:"histogram_buckets,omitempty"`
 	// Return the facets and total_unfiltered.
 	IncludeFacets bool `protobuf:"varint,12,opt,name=include_facets,json=includeFacets,proto3" json:"include_facets,omitempty"`
+	// Exact retained event selection, at most 1000 unique positive decimal IDs.
+	// It intersects the other predicates; missing IDs remain missing.
+	SelectedIds []string `protobuf:"bytes,13,rep,name=selected_ids,json=selectedIds,proto3" json:"selected_ids,omitempty"`
+	// Captured event membership. A known zero excludes all events.
+	EventReadId   *int64 `protobuf:"varint,14,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -489,6 +494,20 @@ func (x *ListEventsRequest) GetIncludeFacets() bool {
 		return x.IncludeFacets
 	}
 	return false
+}
+
+func (x *ListEventsRequest) GetSelectedIds() []string {
+	if x != nil {
+		return x.SelectedIds
+	}
+	return nil
+}
+
+func (x *ListEventsRequest) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
 }
 
 // The count of events with one value of a dimension.
@@ -826,6 +845,7 @@ type GetEventRequest struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// System ID, as ListSystems returns it. Empty means the default system.
 	System        string `protobuf:"bytes,2,opt,name=system,proto3" json:"system,omitempty"`
+	EventReadId   *int64 `protobuf:"varint,3,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -872,6 +892,13 @@ func (x *GetEventRequest) GetSystem() string {
 		return x.System
 	}
 	return ""
+}
+
+func (x *GetEventRequest) GetEventReadId() int64 {
+	if x != nil && x.EventReadId != nil {
+		return *x.EventReadId
+	}
+	return 0
 }
 
 // One event with its payload.
@@ -955,7 +982,7 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\arepeats\x18\x15 \x01(\x05R\arepeats\x129\n" +
 	"\n" +
 	"first_time\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampR\tfirstTime\x12\x18\n" +
-	"\aroutine\x18\x17 \x01(\bR\aroutine\"\xca\x03\n" +
+	"\aroutine\x18\x17 \x01(\bR\aroutine\"\xa8\x04\n" +
 	"\x11ListEventsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x122\n" +
 	"\asources\x18\x02 \x03(\x0e2\x18.natslens.v1.EventSourceR\asources\x12\x14\n" +
@@ -971,7 +998,10 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\ffold_repeats\x18\n" +
 	" \x01(\bR\vfoldRepeats\x12+\n" +
 	"\x11histogram_buckets\x18\v \x01(\x05R\x10histogramBuckets\x12%\n" +
-	"\x0einclude_facets\x18\f \x01(\bR\rincludeFacets\"V\n" +
+	"\x0einclude_facets\x18\f \x01(\bR\rincludeFacets\x12!\n" +
+	"\fselected_ids\x18\r \x03(\tR\vselectedIds\x12'\n" +
+	"\revent_read_id\x18\x0e \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
+	"\x0e_event_read_id\"V\n" +
 	"\n" +
 	"EventFacet\x12\x1c\n" +
 	"\tdimension\x18\x01 \x01(\tR\tdimension\x12\x14\n" +
@@ -997,10 +1027,12 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\x06facets\x18\x05 \x03(\v2\x17.natslens.v1.EventFacetR\x06facets\x12@\n" +
 	"\x0eroutine_groups\x18\x06 \x03(\v2\x19.natslens.v1.RoutineGroupR\rroutineGroups\x126\n" +
 	"\thistogram\x18\a \x03(\v2\x18.natslens.v1.EventBucketR\thistogram\x12)\n" +
-	"\x10total_unfiltered\x18\b \x01(\x05R\x0ftotalUnfiltered\"9\n" +
+	"\x10total_unfiltered\x18\b \x01(\x05R\x0ftotalUnfiltered\"t\n" +
 	"\x0fGetEventRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
-	"\x06system\x18\x02 \x01(\tR\x06system\"<\n" +
+	"\x06system\x18\x02 \x01(\tR\x06system\x12'\n" +
+	"\revent_read_id\x18\x03 \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
+	"\x0e_event_read_id\"<\n" +
 	"\x10GetEventResponse\x12(\n" +
 	"\x05event\x18\x01 \x01(\v2\x12.natslens.v1.EventR\x05event*\x95\x01\n" +
 	"\vEventSource\x12\x1c\n" +
@@ -1073,6 +1105,8 @@ func file_natslens_v1_events_proto_init() {
 	}
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_findings_proto_init()
+	file_natslens_v1_events_proto_msgTypes[1].OneofWrappers = []any{}
+	file_natslens_v1_events_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

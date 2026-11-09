@@ -49,6 +49,7 @@ var (
 
 // K8sWindowEvent is a Kubernetes event as the windows need it.
 type K8sWindowEvent struct {
+	ID   string
 	At   time.Time
 	Kind string
 	// Server is a NATS pod's server; Node, Version, Cause and Pool come

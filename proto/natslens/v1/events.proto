@@ -150,6 +150,11 @@ message ListEventsRequest {
 
   // Return the facets and total_unfiltered.
   bool include_facets = 12;
+  // Exact retained event selection, at most 1000 unique positive decimal IDs.
+  // It intersects the other predicates; missing IDs remain missing.
+  repeated string selected_ids = 13;
+  // Captured event membership. A known zero excludes all events.
+  optional int64 event_read_id = 14;
 }
 
 // The count of events with one value of a dimension.
@@ -237,6 +242,7 @@ message GetEventRequest {
 
   // System ID, as ListSystems returns it. Empty means the default system.
   string system = 2;
+  optional int64 event_read_id = 3;
 }
 
 // One event with its payload.
