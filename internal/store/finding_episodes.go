@@ -27,6 +27,11 @@ type FindingEpisode struct {
 	Finding            Finding
 	StartKnown         bool
 	FirstRetainedEpoch int64
+	// Resolution and latest retained state are distinct from the state at To.
+	ResolutionAt                time.Time
+	ResolutionEpoch             int64
+	LatestState, LatestSeverity string
+	LatestStartEpoch            int64
 }
 
 type FindingEpisodePage struct {

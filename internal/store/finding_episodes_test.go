@@ -71,3 +71,79 @@ func TestFindingEpisodesHalfOpenOverlapAndPaging(t *testing.T) {
 		t.Fatalf("active at range start: %+v", p)
 	}
 }
+
+func TestFindingEpisodesSeparateHistoricalAndLatestState(t *testing.T) {
+	s := refireStore(t)
+	p, err := s.FindingEpisodes(context.Background(), FindingEpisodeQuery{From: t0.Add(150 * time.Second), To: t0.Add(165 * time.Second), Limit: 10})
+	if err != nil || len(p.Items) != 1 {
+		t.Fatalf("page = %+v, %v", p, err)
+	}
+	e := p.Items[0]
+	if !e.Finding.Firing() || e.Finding.Severity != "warning" || !e.Finding.ResolvedAt.IsZero() {
+		t.Fatalf("historical state: %+v", e)
+	}
+	if !e.ResolutionAt.Equal(t0.Add(3*time.Minute)) || e.ResolutionEpoch != 3 || e.LatestState != StateFiring || e.LatestSeverity != "critical" || e.LatestStartEpoch != 5 {
+		t.Fatalf("later evidence not distinguished: %+v", e)
+	}
+}
+
+func TestFindingEpisodesStreamScopeIncludesChildrenOnly(t *testing.T) {
+	s := openMem(t)
+	addEpoch(t, s, 1, t0.Add(time.Minute))
+	apply(t, s, 1,
+		okRun("stream-001", frow("APP/orders", "warning", "parent"), frow("OTHER/orders", "warning", "other account")),
+		CheckRun{Code: "consumer-006", EntityType: "consumer", Status: RunOK, Rows: []FindingRow{
+			frow("APP/orders/worker", "warning", "child"), frow("APP/orders-extra/worker", "warning", "other stream")}})
+	p, err := s.FindingEpisodes(context.Background(), FindingEpisodeQuery{From: t0, To: t0.Add(2 * time.Minute), EntityType: "stream", EntityKey: "APP/orders", Limit: 10})
+	if err != nil || p.Total != 2 || len(p.Items) != 2 {
+		t.Fatalf("stream scope = %+v, %v", p, err)
+	}
+	for _, e := range p.Items {
+		if e.Finding.Detail != "parent" && e.Finding.Detail != "child" {
+			t.Fatalf("leaked scope: %+v", e)
+		}
+	}
+}
+
+func TestFindingEpisodesRetainedFragmentDoesNotInventOnset(t *testing.T) {
+	s := refireStore(t)
+	if _, err := s.DB().Exec(`DELETE FROM finding_transitions WHERE finding_id=? AND epoch=2`, FindingID("stream-001", "A/s")); err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.FindingEpisodes(context.Background(), FindingEpisodeQuery{From: t0, To: t0.Add(6 * time.Minute), Limit: 10})
+	if err != nil || p.Total != 2 {
+		t.Fatalf("retained fragments: %+v, %v", p, err)
+	}
+	found := false
+	for _, e := range p.Items {
+		if e.FirstRetainedEpoch == 3 {
+			found = true
+			if e.StartKnown || e.Finding.SinceEpoch != 0 {
+				t.Fatalf("invented onset: %+v", e)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("lost inspectable resolution fragment: %+v", p)
+	}
+}
+
+func TestFindingEpisodesFreezeMembershipAcrossPages(t *testing.T) {
+	s := refireStore(t)
+	ctx := context.Background()
+	q := FindingEpisodeQuery{From: t0, To: t0.Add(10 * time.Minute), Limit: 1}
+	first, err := s.FindingEpisodes(ctx, q)
+	if err != nil || first.ReadEpoch != 5 || len(first.Items) != 1 {
+		t.Fatalf("first page: %+v, %v", first, err)
+	}
+	addEpoch(t, s, 6, t0.Add(6*time.Minute))
+	apply(t, s, 6, okRun("stream-001"))
+	addEpoch(t, s, 7, t0.Add(7*time.Minute))
+	apply(t, s, 7, okRun("stream-001", frow("A/s", "info", "third")))
+	q.Offset = 1
+	q.ReadEpoch = first.ReadEpoch
+	second, err := s.FindingEpisodes(ctx, q)
+	if err != nil || second.Total != 2 || len(second.Items) != 1 || second.Items[0].Finding.SinceEpoch != 2 {
+		t.Fatalf("new recurrence shifted continuation: %+v, %v", second, err)
+	}
+}
