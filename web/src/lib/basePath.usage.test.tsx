@@ -6,30 +6,28 @@
 import { render, screen } from "@testing-library/react";
 import { Link, MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { uiSources } from "../test/sources";
 import { appHref, appUrl, basePath, routerBasename, slashBaseAddress } from "./basePath";
-
-const sources = import.meta.glob<string>(["../**/*.ts", "../**/*.tsx", "!../**/*.test.ts", "!../**/*.test.tsx", "!../gen/**", "!../test/**"], {
-  query: "?raw",
-  import: "default",
-  eager: true,
-});
 
 /**
  * An href not built by appHref, the browser's location by a global name, a
- * page opened or a path to the API written out: each bypasses the router's
- * basename.
+ * page opened, the address changed through the History API or a path to the
+ * API written out: each bypasses the router's basename.
  */
-const BYPASS = /\bhref=\{(?!appHref\()|\bhref="\/|\b(?:window|document|globalThis|self)\.location\b|\bwindow\.open\(|["'`]\/api\//;
+const BYPASS =
+  /\bhref=\{(?!appHref\()|\bhref="\/|\b(?:window|document|globalThis|self)\.location\b|\bwindow\.open\(|\bhistory\s*\.\s*(?:pushState|replaceState)\s*\(|["'`]\/api\//;
 
 /**
- * The global location, unqualified. A file that names the router's location
- * `location` (const location = useLocation()) reads that one; there only
- * the qualified forms above count.
+ * The global location, unqualified. A file that declares its own `location`
+ * (const location = useLocation(), or { location } destructured) reads that
+ * one; there only the qualified forms above count. An object key or an
+ * argument named location declares nothing.
  */
 const BARE_LOCATION = /(?<![\w.$])location\s*(?:\.\s*(?:href|pathname|origin|search|hash|host|assign|replace|reload)\b|=(?!=))/;
-const LOCAL_LOCATION = /\b(?:const|let|var)\s+location\b|[({,]\s*location\s*[,)}:]/;
+const LOCAL_LOCATION =
+  /\b(?:const|let|var)\s+location\s*=(?!=)|\{\s*(?:[^{}]*,\s*)?location\s*(?:,[^{}]*)?\}\s*(?:=(?![=>])|(?::[^()=]*)?\)\s*(?:=>|\{))/;
 
-/** Each allowed line, by its file and a part of its text, with why. */
+/** Each allowed line, by its file and its whole text, trimmed, with why. */
 const ALLOWED: { file: string; line: string; why: string }[] = [
   { file: "./basePath.ts", line: "return window.location.origin + appHref(path);", why: "appUrl: the origin before the base path" },
   { file: "./basePath.ts", line: "if (base && window.location.pathname === base) {", why: "slashBaseAddress: the address of the base path itself" },
@@ -38,14 +36,18 @@ const ALLOWED: { file: string; line: string; why: string }[] = [
     line: 'window.history.replaceState(window.history.state, "", `${base}/${window.location.search}${window.location.hash}`);',
     why: "slashBaseAddress: adds the slash, keeping the query and fragment",
   },
-  { file: "../api/wasmTransport.ts", line: 'new URLSearchParams(window.location.search).has("fixed")', why: "the page's own ?fixed, read once at start" },
+  { file: "../api/wasmTransport.ts", line: 'globalThis.natslensLive = !new URLSearchParams(window.location.search).has("fixed");', why: "the page's own ?fixed, read once at start" },
   {
     file: "../components/InvestigationContext.tsx",
-    line: "origin: window.location.origin, pathname: loc.pathname",
+    line: "const context = buildInvestigationContext({ origin: window.location.origin, pathname: loc.pathname, search: loc.search, hash: loc.hash, system: system.id, spec, selection });",
     why: "the context's deployment must be a bare origin (internal/investigation refuses a path), and sourcePath is the route path; neither is a link",
   },
-  { file: "../components/OnCallFinding.tsx", line: "<a href={playbook}", why: "the playbook, an https URL from the server's configuration" },
-  { file: "../components/HostedDemo.tsx", line: '<a className="x" href={REPOSITORY_URL}', why: "the repository on GitHub" },
+  {
+    file: "../components/OnCallFinding.tsx",
+    line: '{playbook && <p><a href={playbook} className="x" rel="noreferrer">Open the playbook</a></p>}',
+    why: "the playbook, an https URL from the server's configuration",
+  },
+  { file: "../components/HostedDemo.tsx", line: '<a className="x" href={REPOSITORY_URL} rel="noreferrer">', why: "the repository on GitHub" },
   { file: "../components/RouteBoundary.tsx", line: '<a className="btn" href={this.props.href}>Reload page</a>', why: "App builds it with appHref" },
 ];
 
@@ -61,7 +63,14 @@ function bypasses(files: Record<string, string>): { file: string; line: string }
   return out;
 }
 
+/** The lines found that no allowance names, whole: an allowed line that grows another call is no longer allowed. */
+function unallowed(found: { file: string; line: string }[]): string[] {
+  return found.filter((f) => !ALLOWED.some((a) => a.file === f.file && f.line === a.line)).map((f) => `${f.file}: ${f.line}`);
+}
+
 describe("links under a base path", () => {
+  const sources = uiSources();
+
   it("reads the files it checks", () => {
     expect(Object.keys(sources).length).toBeGreaterThan(50);
     expect(Object.keys(sources)).toContain("../components/ServerHeadline.tsx");
@@ -69,12 +78,11 @@ describe("links under a base path", () => {
 
   it("builds links and URLs only through the router or basePath.ts", () => {
     const found = bypasses(sources);
-    const unexpected = found.filter((f) => !ALLOWED.some((a) => a.file === f.file && f.line.includes(a.line))).map((f) => `${f.file}: ${f.line}`);
-    expect(unexpected).toEqual([]);
+    expect(unallowed(found)).toEqual([]);
     // Each allowance covers one line, which is still there: an allowed use
     // cannot be traded for another on a line of its own.
     for (const a of ALLOWED) {
-      expect(found.filter((f) => f.file === a.file && f.line.includes(a.line)), `${a.file}: ${a.line}`).toHaveLength(1);
+      expect(found.filter((f) => f.file === a.file && f.line === a.line), `${a.file}: ${a.line}`).toHaveLength(1);
     }
   });
 
@@ -90,12 +98,34 @@ describe("links under a base path", () => {
       '<a href="/servers">',
       "<a href={path}>",
       'fetch("/api/natslens.v1.LensService/GetOverview")',
+      'history.pushState(null, "", "/servers");',
+      'window.history.replaceState(null, "", "/servers");',
     ];
     for (const line of bad) expect(bypasses({ "./probe.ts": `function f() {\n${line}\n}` }), line).toHaveLength(1);
   });
 
+  it("does not take an object key or an argument named location for a declaration", () => {
+    for (const other of ["const opts = { location: 1 };", "log(location);", "f(a, location);", "send({ at: 1, location });"]) {
+      expect(bypasses({ "./probe.ts": `${other}\nlocation.href = "/servers";` }), other).toHaveLength(1);
+    }
+  });
+
+  it("allows only the whole allowed line", () => {
+    const grown = 'return window.location.origin + appHref(path); window.open("/servers");';
+    expect(unallowed(bypasses({ "./basePath.ts": grown }))).toEqual([`./basePath.ts: ${grown}`]);
+    expect(unallowed(bypasses({ "./basePath.ts": "  return window.location.origin + appHref(path);" }))).toEqual([]);
+  });
+
   it("leaves the router's location, an appHref link and comparisons alone", () => {
     expect(bypasses({ "./router.ts": "const location = useLocation();\nconst p = location.pathname;\nif (location == x) {}" })).toEqual([]);
+    for (const own of [
+      "const { location } = useRouter();",
+      "const { navigate, location, params } = props;",
+      "function Page({ location }: Props) {",
+      "const Page = ({ id, location }) => {",
+    ]) {
+      expect(bypasses({ "./router.tsx": `${own}\nconst p = location.pathname;` }), own).toEqual([]);
+    }
     expect(bypasses({ "./ok.tsx": "<a href={appHref(path)}>\nconst loc = useLocation(); loc.pathname;\nprior.location.pathname" })).toEqual([]);
   });
 });
