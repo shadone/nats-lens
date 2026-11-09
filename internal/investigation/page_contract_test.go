@@ -121,7 +121,16 @@ func TestSupportedPageEffectiveFilterContracts(t *testing.T) {
 }
 
 func TestEveryReadBooleanHasAuditedPolicy(t *testing.T) {
-	audited := map[string]string{"ListFindings": "includeMuted", "ListEvents": "hideRoutine foldRepeats includeFacets", "GetStatusTimeline": "includeOk", "ListConnections": "includeTooling", "ListStreams": "includeKv summaryOnly", "ListConsumers": "includeEphemeral", "GetApplications": "includeTooling"}
+	// New metric/storage choices are audited by
+	// TestAddedReadBooleanDefaultsAndRoundTrips: each remains false unless
+	// explicitly requested, and both values survive exact machine replay.
+	audited := map[string]string{
+		"ListFindings": "includeMuted", "ListEvents": "hideRoutine foldRepeats includeFacets",
+		"GetStatusTimeline": "includeOk", "ListConnections": "includeTooling",
+		"ListStreams": "includeKv summaryOnly", "ListConsumers": "includeEphemeral",
+		"GetApplications": "includeTooling", "GetTimeSeries": "includeObservations",
+		"ListMetricContributors": "descending", "GetStorageChange": "resourcesOnly",
+	}
 	for _, method := range Methods() {
 		fields := Method(method).Input().Fields()
 		for i := 0; i < fields.Len(); i++ {
