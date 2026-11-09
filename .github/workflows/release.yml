@@ -4,13 +4,16 @@
 # both, and a GitHub release with generated notes. docs/operations/releasing.md
 # describes how to cut one.
 #
-# A pull request that touches the release inputs, and a manual run, build
-# everything and publish nothing.
+# A push to develop, a pull request that touches the release inputs, and a
+# manual run build everything and publish nothing.
 name: Release
 
 on:
   push:
     tags: ['v*']
+    # Every merge, as the paths below miss inputs that broke the image build
+    # before (Go importing docs/, web tests importing files outside web/).
+    branches: [develop]
   pull_request:
     paths:
       - .github/workflows/release.yml
@@ -27,10 +30,10 @@ permissions: {}
 # Tag runs queue one at a time, so two tags do not push `latest` or create
 # releases at once. GitHub keeps one pending run per group: a third tag
 # pushed while one runs and one waits cancels the waiting one, which then
-# needs a re-run. Pull request runs replace their own older runs.
+# needs a re-run. Other runs replace older runs of their own branch.
 concurrency:
-  group: ${{ github.event_name == 'push' && 'release-tags' || format('release-{0}', github.ref) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.ref_type == 'tag' && 'release-tags' || format('release-{0}', github.ref) }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 env:
   IMAGE: ghcr.io/shadone/nats-lens
@@ -42,10 +45,14 @@ jobs:
     name: Version
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      # gh release list, for the highest release so far.
+      contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
       publish: ${{ steps.version.outputs.publish }}
       prerelease: ${{ steps.version.outputs.prerelease }}
+      latest: ${{ steps.version.outputs.latest }}
     steps:
       - name: Work out the version
         id: version
@@ -53,10 +60,17 @@ jobs:
           EVENT: ${{ github.event_name }}
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
+          # Semantic versioning 2.0.0 without build metadata: no leading
+          # zeros, no empty prerelease identifiers.
+          num='(0|[1-9][0-9]*)'
+          ident='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+          semver="^v$num\.$num\.$num(-$ident(\.$ident)*)?\$"
           if [ "$EVENT" = push ] && [ "$REF_TYPE" = tag ]; then
-            if ! printf '%s\n' "$REF_NAME" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-              echo "::error::tag $REF_NAME is not vMAJOR.MINOR.PATCH[-PRERELEASE]"
+            if ! printf '%s\n' "$REF_NAME" | grep -Eq "$semver"; then
+              echo "::error::tag $REF_NAME is not vMAJOR.MINOR.PATCH[-PRERELEASE] (semantic versioning)"
               exit 1
             fi
             version=$REF_NAME
@@ -70,12 +84,22 @@ jobs:
             *) prerelease=false ;;
           esac
           if [ "$publish" = false ]; then prerelease=true; fi
+          # A release is the latest only when no published release has a
+          # higher version, so a patch for an older line does not move
+          # `latest` back.
+          latest=false
+          if [ "$publish" = true ] && [ "$prerelease" = false ]; then
+            released=$(gh release list --repo "$REPO" --exclude-drafts --exclude-pre-releases --limit 1000 --json tagName --jq '.[].tagName')
+            highest=$({ printf '%s\n' "$version"; printf '%s\n' "$released"; } | grep -E "^v$num\.$num\.$num\$" | sort -V | tail -n 1)
+            if [ "$highest" = "$version" ]; then latest=true; fi
+          fi
           {
             echo "version=$version"
             echo "publish=$publish"
             echo "prerelease=$prerelease"
+            echo "latest=$latest"
           } >> "$GITHUB_OUTPUT"
-          echo "version $version, publish $publish, prerelease $prerelease"
+          echo "version $version, publish $publish, prerelease $prerelease, latest $latest"
 
   linux:
     name: Web UI and Linux binaries
@@ -203,28 +227,75 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  image:
-    name: Container image
-    # After the binaries, so a failed build publishes no image.
+  # Two jobs build the image, one per kind of run, so the write permissions
+  # exist only in a run that publishes and the image is built once either way.
+  image-check:
+    name: Container image (build only)
     needs: [meta, linux, darwin]
+    if: needs.meta.outputs.publish != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: read
-      packages: write
-      id-token: write
-      attestations: write
-      artifact-metadata: write
     env:
       VERSION: ${{ needs.meta.outputs.version }}
-      PUBLISH: ${{ needs.meta.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Image labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: type=sha
+          labels: |
+            org.opencontainers.image.title=nats-lens
+            org.opencontainers.image.description=Observes a NATS deployment: snapshots, events, findings and a web UI
+            org.opencontainers.image.licenses=AGPL-3.0-only
+          annotations: |
+            org.opencontainers.image.title=nats-lens
+            org.opencontainers.image.description=Observes a NATS deployment: snapshots, events, findings and a web UI
+            org.opencontainers.image.licenses=AGPL-3.0-only
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ env.VERSION }}
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: false
+
+  image:
+    name: Container image
+    # After the binaries, so a failed build publishes no image.
+    needs: [meta, linux, darwin]
+    if: needs.meta.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      # Push to ghcr.io/shadone/nats-lens.
+      packages: write
+      # Sign the image's provenance attestation (Sigstore via OIDC).
+      id-token: write
+      # Store that attestation in the repository.
+      attestations: write
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Log in to GHCR
-        if: env.PUBLISH == 'true'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
@@ -241,9 +312,7 @@ jobs:
           tags: |
             type=semver,pattern=v{{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ needs.meta.outputs.publish == 'true' && needs.meta.outputs.prerelease == 'false' }}
-            type=ref,event=pr
-            type=sha,enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=raw,value=latest,enable=${{ needs.meta.outputs.latest == 'true' }}
           labels: |
             org.opencontainers.image.title=nats-lens
             org.opencontainers.image.description=Observes a NATS deployment: snapshots, events, findings and a web UI
@@ -259,7 +328,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           build-args: VERSION=${{ env.VERSION }}
-          push: ${{ env.PUBLISH == 'true' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
@@ -267,12 +336,13 @@ jobs:
           # BuildKit's own the image index lists only the two platforms.
           provenance: false
       - name: Attest the image
-        if: env.PUBLISH == 'true'
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+          # Storage records exist only for organization-owned repositories.
+          create-storage-record: false
 
   release:
     name: GitHub release
@@ -281,13 +351,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
+      # Create the release and upload its files.
       contents: write
+      # Sign and store the archives' provenance attestation.
       id-token: write
       attestations: write
-      artifact-metadata: write
     env:
       VERSION: ${{ needs.meta.outputs.version }}
       PRERELEASE: ${{ needs.meta.outputs.prerelease }}
+      LATEST: ${{ needs.meta.outputs.latest }}
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -314,7 +386,7 @@ jobs:
 
           Container image for linux/amd64 and linux/arm64:
 
-              docker run -p 8080:8080 ${IMAGE}:${VERSION} demo
+              docker run -p 127.0.0.1:8080:8080 ${IMAGE}:${VERSION} demo
 
           Binaries: download the archive for your platform, compare it with \`checksums.txt\` (\`sha256sum -c checksums.txt --ignore-missing\`) and check its build provenance with \`gh attestation verify <archive> --repo ${REPO}\`.
 
@@ -326,4 +398,6 @@ jobs:
           EOF
           args=(--repo "$REPO" --verify-tag --title "$VERSION" --generate-notes --notes "$(cat notes.md)")
           if [ "$PRERELEASE" = true ]; then args+=(--prerelease); fi
+          # Not "Latest" when a published release has a higher version.
+          if [ "$LATEST" = true ]; then args+=(--latest); else args+=(--latest=false); fi
           gh release create "$VERSION" "${args[@]}" dist/*.tar.gz dist/checksums.txt
