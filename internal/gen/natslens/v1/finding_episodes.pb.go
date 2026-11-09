@@ -50,7 +50,13 @@ type FindingEpisode struct {
 	// Next raw-history offset; zero means no further retained transitions.
 	NextTransitionOffset int32 `protobuf:"varint,12,opt,name=next_transition_offset,json=nextTransitionOffset,proto3" json:"next_transition_offset,omitempty"`
 	// Explicit unavailable historical metadata, not inferred defaults.
-	Unavailable   []string `protobuf:"bytes,13,rep,name=unavailable,proto3" json:"unavailable,omitempty"`
+	Unavailable []string `protobuf:"bytes,13,rep,name=unavailable,proto3" json:"unavailable,omitempty"`
+	// Use this token with next_transition_offset to continue the same capture.
+	TransitionPageToken string `protobuf:"bytes,14,opt,name=transition_page_token,json=transitionPageToken,proto3" json:"transition_page_token,omitempty"`
+	// First retained observation, not an onset when start_epoch is absent.
+	FirstRetainedAt *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=first_retained_at,json=firstRetainedAt,proto3" json:"first_retained_at,omitempty"`
+	// Known cause ID remains available even if its event has expired.
+	CauseEventId  int64 `protobuf:"varint,16,opt,name=cause_event_id,json=causeEventId,proto3" json:"cause_event_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -174,6 +180,27 @@ func (x *FindingEpisode) GetUnavailable() []string {
 		return x.Unavailable
 	}
 	return nil
+}
+
+func (x *FindingEpisode) GetTransitionPageToken() string {
+	if x != nil {
+		return x.TransitionPageToken
+	}
+	return ""
+}
+
+func (x *FindingEpisode) GetFirstRetainedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FirstRetainedAt
+	}
+	return nil
+}
+
+func (x *FindingEpisode) GetCauseEventId() int64 {
+	if x != nil {
+		return x.CauseEventId
+	}
+	return 0
 }
 
 type ListFindingEpisodesRequest struct {
@@ -389,7 +416,7 @@ var File_natslens_v1_finding_episodes_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_finding_episodes_proto_rawDesc = "" +
 	"\n" +
-	"\"natslens/v1/finding_episodes.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1anatslens/v1/findings.proto\"\x82\x06\n" +
+	"\"natslens/v1/finding_episodes.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1anatslens/v1/findings.proto\"\xa4\a\n" +
 	"\x0eFindingEpisode\x12.\n" +
 	"\afinding\x18\x01 \x01(\v2\x14.natslens.v1.FindingR\afinding\x120\n" +
 	"\x14first_retained_epoch\x18\x02 \x01(\x03R\x12firstRetainedEpoch\x12$\n" +
@@ -405,7 +432,10 @@ const file_natslens_v1_finding_episodes_proto_rawDesc = "" +
 	" \x03(\v2\x1e.natslens.v1.FindingTransitionR\vtransitions\x12)\n" +
 	"\x10transition_count\x18\v \x01(\x05R\x0ftransitionCount\x124\n" +
 	"\x16next_transition_offset\x18\f \x01(\x05R\x14nextTransitionOffset\x12 \n" +
-	"\vunavailable\x18\r \x03(\tR\vunavailableB\x0e\n" +
+	"\vunavailable\x18\r \x03(\tR\vunavailable\x122\n" +
+	"\x15transition_page_token\x18\x0e \x01(\tR\x13transitionPageToken\x12F\n" +
+	"\x11first_retained_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\x0ffirstRetainedAt\x12$\n" +
+	"\x0ecause_event_id\x18\x10 \x01(\x03R\fcauseEventIdB\x0e\n" +
 	"\f_start_epoch\"\x9c\x03\n" +
 	"\x1aListFindingEpisodesRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x1d\n" +
@@ -464,16 +494,17 @@ var file_natslens_v1_finding_episodes_proto_depIdxs = []int32{
 	6,  // 3: natslens.v1.FindingEpisode.latest_retained_severity:type_name -> natslens.v1.Severity
 	4,  // 4: natslens.v1.FindingEpisode.latest_observed_at:type_name -> google.protobuf.Timestamp
 	7,  // 5: natslens.v1.FindingEpisode.transitions:type_name -> natslens.v1.FindingTransition
-	8,  // 6: natslens.v1.ListFindingEpisodesRequest.range:type_name -> natslens.v1.TimeRange
-	9,  // 7: natslens.v1.ListFindingEpisodesRequest.entity:type_name -> natslens.v1.EntityRef
-	0,  // 8: natslens.v1.ListFindingEpisodesResponse.episodes:type_name -> natslens.v1.FindingEpisode
-	8,  // 9: natslens.v1.ListFindingEpisodesResponse.range:type_name -> natslens.v1.TimeRange
-	4,  // 10: natslens.v1.ListFindingEpisodesResponse.read_at:type_name -> google.protobuf.Timestamp
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	4,  // 6: natslens.v1.FindingEpisode.first_retained_at:type_name -> google.protobuf.Timestamp
+	8,  // 7: natslens.v1.ListFindingEpisodesRequest.range:type_name -> natslens.v1.TimeRange
+	9,  // 8: natslens.v1.ListFindingEpisodesRequest.entity:type_name -> natslens.v1.EntityRef
+	0,  // 9: natslens.v1.ListFindingEpisodesResponse.episodes:type_name -> natslens.v1.FindingEpisode
+	8,  // 10: natslens.v1.ListFindingEpisodesResponse.range:type_name -> natslens.v1.TimeRange
+	4,  // 11: natslens.v1.ListFindingEpisodesResponse.read_at:type_name -> google.protobuf.Timestamp
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_finding_episodes_proto_init() }

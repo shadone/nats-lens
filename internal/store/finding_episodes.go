@@ -28,6 +28,8 @@ type FindingEpisode struct {
 	Finding            Finding
 	StartKnown         bool
 	FirstRetainedEpoch int64
+	LastRetainedEpoch  int64
+	TransitionCount    int
 	// Resolution and latest retained state are distinct from the state at To.
 	ResolutionAt                time.Time
 	ResolutionEpoch             int64
@@ -75,14 +77,15 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 	var sqlBytes int64
 	for rows.Next() {
 		var id, code, typ, key, kind, severity, detail sql.NullString
-		var firstEpoch, startEpoch, lastEpoch sql.NullInt64
+		var firstEpoch, startEpoch, lastEpoch, lastRetained sql.NullInt64
+		var transitionCount sql.NullInt64
 		var firstAt, lastAt sql.NullTime
 		var value sql.NullFloat64
 		var cause sql.NullInt64
 		var resolutionAt, latestAt sql.NullTime
 		var resolutionEpoch, latestStart sql.NullInt64
 		var latestState, latestSeverity sql.NullString
-		if err := rows.Scan(&out.Total, &sqlBytes, &id, &code, &typ, &key, &firstEpoch, &startEpoch, &firstAt, &lastEpoch, &lastAt, &kind, &severity, &detail, &value, &cause, &resolutionAt, &resolutionEpoch, &latestState, &latestSeverity, &latestStart, &latestAt); err != nil {
+		if err := rows.Scan(&out.Total, &sqlBytes, &id, &code, &typ, &key, &firstEpoch, &startEpoch, &firstAt, &lastEpoch, &lastAt, &kind, &severity, &detail, &value, &cause, &resolutionAt, &resolutionEpoch, &latestState, &latestSeverity, &latestStart, &latestAt, &lastRetained, &transitionCount); err != nil {
 			return FindingEpisodePage{}, err
 		}
 		if sqlBytes > 8<<20 {
@@ -95,7 +98,7 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 		if bytes > 8<<20 {
 			return FindingEpisodePage{}, ErrFindingEpisodeReadLimit
 		}
-		e := FindingEpisode{StartKnown: startEpoch.Valid, FirstRetainedEpoch: firstEpoch.Int64, ResolutionEpoch: resolutionEpoch.Int64, LatestState: latestState.String, LatestSeverity: latestSeverity.String, LatestStartEpoch: latestStart.Int64}
+		e := FindingEpisode{LastRetainedEpoch: lastRetained.Int64, TransitionCount: int(transitionCount.Int64), StartKnown: startEpoch.Valid, FirstRetainedEpoch: firstEpoch.Int64, ResolutionEpoch: resolutionEpoch.Int64, LatestState: latestState.String, LatestSeverity: latestSeverity.String, LatestStartEpoch: latestStart.Int64}
 		if resolutionAt.Valid {
 			e.ResolutionAt = resolutionAt.Time.UTC()
 		}
@@ -140,7 +143,7 @@ const findingEpisodesSQL = `WITH ordered AS (
  AND (?='' OR (entity_type=? AND entity_key=?) OR (?='stream' AND entity_type='consumer' AND starts_with(entity_key,?||'/')))
 ), episodes AS (
  SELECT finding_id,max(check_code) AS check_code,max(entity_type) AS entity_type,max(entity_key) AS entity_key,
- min(epoch) AS first_epoch,max(epoch) FILTER(WHERE kind='firing') AS start_epoch,
+ min(epoch) AS first_epoch,max(epoch) AS last_epoch,count(*) AS transition_count,max(epoch) FILTER(WHERE kind='firing') AS start_epoch,
  arg_min(time,epoch) AS first_at,max(time) FILTER(WHERE kind='resolved') AS resolved_at,
  max(epoch) FILTER(WHERE kind='resolved') AS resolved_epoch,
  arg_max(struct_pack(epoch,time,kind,severity,detail,value,cause_event_id),epoch) FILTER(WHERE time<make_timestamp(?::BIGINT)) AS last
@@ -153,7 +156,7 @@ const findingEpisodesSQL = `WITH ordered AS (
 )
 SELECT totals.n,budget.n,p.finding_id,p.check_code,p.entity_type,p.entity_key,p.first_epoch,p.start_epoch,p.first_at,
  p.last.epoch,p.last.time,p.last.kind,p.last.severity,p.last.detail,p.last.value,p.last.cause_event_id,
- p.resolved_at,p.resolved_epoch,f.state,f.severity,f.since_epoch,latest.started_at
+ p.resolved_at,p.resolved_epoch,f.state,f.severity,f.since_epoch,latest.started_at,p.last_epoch,p.transition_count
 FROM (SELECT count(*) AS n FROM matching) totals
 CROSS JOIN (SELECT coalesce(sum(octet_length(encode(finding_id))+octet_length(encode(check_code))+
  octet_length(encode(entity_type))+octet_length(encode(entity_key))+octet_length(encode(last.detail))),0) AS n FROM page) budget

@@ -24,5 +24,8 @@ func NewCaptured(ctx context.Context, db *sql.DB, interval time.Duration, refere
 	if err = p.listPages.InitImmutable(fingerprint); err != nil {
 		return nil, err
 	}
+	if err = p.episodePages.InitImmutable(fingerprint); err != nil {
+		return nil, err
+	}
 	return p, nil
 }

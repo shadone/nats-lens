@@ -35,6 +35,12 @@ message FindingEpisode {
   int32 next_transition_offset = 12;
   // Explicit unavailable historical metadata, not inferred defaults.
   repeated string unavailable = 13;
+  // Use this token with next_transition_offset to continue the same capture.
+  string transition_page_token = 14;
+  // First retained observation, not an onset when start_epoch is absent.
+  google.protobuf.Timestamp first_retained_at = 15;
+  // Known cause ID remains available even if its event has expired.
+  int64 cause_event_id = 16;
 }
 
 message ListFindingEpisodesRequest {
