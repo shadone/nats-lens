@@ -72,4 +72,6 @@ message ListFindingEpisodesResponse {
   int64 read_epoch = 5;
   // Source clock; a captured source retains its captured reference clock.
   google.protobuf.Timestamp read_at = 6;
+  // No retained match is not a healthy-state or complete-capture assertion.
+  repeated string unavailable = 7;
 }

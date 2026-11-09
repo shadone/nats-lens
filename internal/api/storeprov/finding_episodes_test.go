@@ -1,8 +1,11 @@
 package storeprov_test
 
 import (
+	"connectrpc.com/connect"
 	"errors"
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/api/apitest"
+	"google.golang.org/protobuf/proto"
 	"testing"
 	"time"
 
@@ -99,5 +102,72 @@ func TestFindingEpisodeAPIRetentionRequiresTraversalReset(t *testing.T) {
 	req.PageToken = first.NextPageToken
 	if _, err := p.ListFindingEpisodes(ctx, req); !errors.Is(err, api.ErrFailedPrecondition) {
 		t.Fatalf("retention changed identities without reset: %v", err)
+	}
+}
+
+func TestFindingEpisodeHTTPContinuationKeepsOriginalRange(t *testing.T) {
+	p := episodeProvider(t)
+	now := p.Now()
+	p.Clock = func() time.Time { return now }
+	_, client := apitest.ServeHandler(t, &api.Handler{Systems: api.One("shop", "Example shop", p)})
+	first, err := client.ListFindingEpisodes(ctx, connect.NewRequest(&v1.ListFindingEpisodesRequest{System: "shop", PageSize: 1}))
+	if err != nil || first.Msg.GetNextPageToken() == "" {
+		t.Fatalf("first HTTP page: %v %v", first, err)
+	}
+	now = now.Add(time.Minute)
+	next, err := client.ListFindingEpisodes(ctx, connect.NewRequest(&v1.ListFindingEpisodesRequest{System: "shop", PageSize: 1, PageToken: first.Msg.NextPageToken}))
+	if err != nil {
+		t.Fatalf("omitted continuation range moved: %v", err)
+	}
+	if !proto.Equal(first.Msg.Range, next.Msg.Range) || len(next.Msg.Episodes) != 1 || next.Msg.Episodes[0].FirstRetainedEpoch != 1 {
+		t.Fatalf("HTTP continuation: %v", next.Msg)
+	}
+}
+
+func TestFindingEpisodeAPIMissingHistoryIsUnavailable(t *testing.T) {
+	p := episodeProvider(t)
+	got, err := p.ListFindingEpisodes(ctx, &v1.ListFindingEpisodesRequest{FindingId: "stream-001:APP/orders", FirstRetainedEpoch: 99})
+	if err != nil || len(got.GetEpisodes()) != 0 || len(got.GetUnavailable()) == 0 {
+		t.Fatalf("missing occurrence not explained: %v %v", got, err)
+	}
+}
+
+func TestFindingEpisodeAPIRawHistoryPagesOnlySelectedOccurrence(t *testing.T) {
+	st := emptyStore(t)
+	_, err := st.DB().Exec(`INSERT INTO finding_transitions(finding_id,check_code,entity_type,entity_key,epoch,time,kind,severity,detail)
+ SELECT 'stream-001:APP/orders','stream-001','stream','APP/orders',n+1,make_timestamp(?::BIGINT)+n*INTERVAL 1 SECOND,
+ CASE WHEN n=0 THEN 'firing' ELSE 'changed' END,CASE WHEN n%2=0 THEN 'warning' ELSE 'critical' END,'Recorded transition'
+ FROM range(130) t(n)`, t0.UnixMicro())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &storeprov.Provider{St: st, Clock: func() time.Time { return t0.Add(3 * time.Minute) }}
+	req := &v1.ListFindingEpisodesRequest{FindingId: "stream-001:APP/orders", FirstRetainedEpoch: 1, IncludeTransitions: true}
+	first, err := p.ListFindingEpisodes(ctx, req)
+	if err != nil || len(first.GetEpisodes()) != 1 {
+		t.Fatalf("raw first: %v %v", first, err)
+	}
+	e := first.Episodes[0]
+	if e.TransitionCount != 130 || len(e.Transitions) != 100 || e.NextTransitionOffset != 100 || e.TransitionPageToken == "" {
+		t.Fatalf("raw history not bounded: %v", e)
+	}
+	req.TransitionOffset = e.NextTransitionOffset
+	req.PageToken = e.TransitionPageToken
+	next, err := p.ListFindingEpisodes(ctx, req)
+	if err != nil || len(next.GetEpisodes()) != 1 || len(next.Episodes[0].Transitions) != 30 || next.Episodes[0].NextTransitionOffset != 0 {
+		t.Fatalf("raw continuation: %v %v", next, err)
+	}
+	seen := map[int64]bool{}
+	for _, tr := range append(e.Transitions, next.Episodes[0].Transitions...) {
+		if seen[tr.Epoch] {
+			t.Fatal("duplicate transition", tr.Epoch)
+		}
+		seen[tr.Epoch] = true
+	}
+	if len(seen) != 130 || !seen[1] || !seen[130] {
+		t.Fatalf("raw coverage: %d", len(seen))
+	}
+	if next.Episodes[0].LatestRetainedState != v1.FindingState_FINDING_STATE_UNSPECIFIED {
+		t.Fatal("missing current finding row invented present state")
 	}
 }
