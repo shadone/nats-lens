@@ -67,7 +67,7 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 		readEpoch = newestEpoch
 	}
 	rows, err := tx.QueryContext(ctx, findingEpisodesSQL, readEpoch, q.FindingID, q.FindingID, q.CheckCode, q.CheckCode,
-		q.EntityType, q.EntityType, q.EntityKey, q.EntityType, q.EntityKey, q.To.UnixMicro(), q.From.UnixMicro(), q.To.UnixMicro(), q.StartEpoch, q.StartEpoch, q.FirstRetainedEpoch, q.FirstRetainedEpoch, q.Limit, q.Offset)
+		q.EntityType, q.EntityType, q.EntityKey, q.EntityType, q.EntityKey, episodeBoundaryMicros(q.To), episodeBoundaryMicros(q.From), episodeBoundaryMicros(q.To), q.StartEpoch, q.StartEpoch, q.FirstRetainedEpoch, q.FirstRetainedEpoch, q.Limit, q.Offset)
 	if err != nil {
 		return FindingEpisodePage{}, fmt.Errorf("finding episodes: %w", err)
 	}
@@ -164,3 +164,13 @@ LEFT JOIN page p ON budget.n<=8388608
 LEFT JOIN findings f ON f.id=p.finding_id
 LEFT JOIN epochs latest ON latest.epoch=f.last_seen_epoch
 ORDER BY p.first_epoch DESC,p.finding_id`
+
+// Stored timestamps have microsecond precision. Ceiling either bound preserves
+// the exact >=start / <end predicate when an API boundary has finer precision.
+func episodeBoundaryMicros(t time.Time) int64 {
+	us := t.UnixMicro()
+	if t.Nanosecond()%1000 != 0 {
+		us++
+	}
+	return us
+}
