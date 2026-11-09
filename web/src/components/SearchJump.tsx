@@ -3,7 +3,7 @@
 // kind; a prefix such as stream: or since:2h narrows them. Cmd+K on a Mac,
 // Ctrl+K elsewhere, focuses it; the arrow keys move across the groups,
 // Enter opens, Escape closes the list and a second Escape clears the text.
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useNavigate } from "react-router";
 import { MIN_REMOTE_TEXT, useEventMatches, useFindingMatches } from "../api/commandSearch";
 import type { Finding, LensEvent } from "../api/model";
@@ -209,8 +209,10 @@ export function SearchJump() {
           <p className="search-note search-hint">
             Names, check codes and event types. Narrow with{" "}
             {COMMAND_KINDS.map((k) => (
-              <code key={k}>{KIND_PREFIX[k]}:</code>
-            ))}{" "}
+              <Fragment key={k}>
+                <code>{KIND_PREFIX[k]}:</code>{" "}
+              </Fragment>
+            ))}
             <code>since:2h</code>
           </p>
         </div>
@@ -245,7 +247,7 @@ export function SearchJump() {
                 </div>
                 <ul role="group" aria-labelledby={`${listId}-g-${g.kind}`}>
                   {g.rows.map((r) => (
-                    <li key={r.key} {...optionProps(rowOption(r))}>
+                    <li key={r.key} {...optionProps(rowOption(r), r.kind === "finding" ? "search-finding" : "")}>
                       <span className="sr-only">{ROW_KIND_LABEL[r.kind]}</span>
                       <span className="sn">
                         {r.severity && <i className={`search-sev ${r.severity}`} aria-hidden="true" />}

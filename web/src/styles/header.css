@@ -83,7 +83,12 @@
 .search-chip button{border:0;background:transparent;padding:0 2px;font:inherit;line-height:1;color:var(--text-muted);cursor:pointer}
 .search-chip button:hover{color:var(--text)}
 .search-note{margin:0;padding:var(--sp-2);color:var(--text-muted);font-size:var(--fs-sm)}
-.search-hint code{font:var(--fs-xs) var(--mono);color:var(--text-2);margin-right:var(--sp-1)}
+.search-hint code{font:var(--fs-xs) var(--mono);color:var(--text-2)}
+/* On a phone a finding's severity and time go under its code and entity, which keep the width. */
+@media (max-width:600px){
+  .search-pop li.search-finding{grid-template-columns:minmax(0,1fr);gap:0}
+  .search-pop li.search-finding .ss{max-width:none}
+}
 
 /* At 1280px a page with the account scope keeps the bar on one row. */
 @media (max-width:1400px){

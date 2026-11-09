@@ -78,7 +78,7 @@ describe("command bar", () => {
   it("shows a hint of the prefixes while the box is empty", async () => {
     renderApp(<SearchJump />, "/?system=sys-a");
     await userEvent.click(box());
-    expect(screen.getByText(/Narrow with/)).toHaveTextContent("server:stream:consumer:kv:object:account:finding:event: since:2h");
+    expect(screen.getByText(/Narrow with/)).toHaveTextContent("server: stream: consumer: kv: object: account: finding: event: since:2h");
     expect(box()).toHaveAttribute("aria-expanded", "false");
   });
 
