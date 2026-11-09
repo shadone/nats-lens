@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -145,5 +147,56 @@ func TestFindingEpisodesFreezeMembershipAcrossPages(t *testing.T) {
 	second, err := s.FindingEpisodes(ctx, q)
 	if err != nil || second.Total != 2 || len(second.Items) != 1 || second.Items[0].Finding.SinceEpoch != 2 {
 		t.Fatalf("new recurrence shifted continuation: %+v, %v", second, err)
+	}
+}
+
+func TestFindingEpisodesSelectRetainedFragmentAndRejectFutureBoundary(t *testing.T) {
+	s := refireStore(t)
+	ctx := context.Background()
+	if _, err := s.DB().Exec(`DELETE FROM finding_transitions WHERE epoch=2`); err != nil {
+		t.Fatal(err)
+	}
+	q := FindingEpisodeQuery{From: t0, To: t0.Add(6 * time.Minute), Limit: 10, FindingID: FindingID("stream-001", "A/s"), FirstRetainedEpoch: 3}
+	p, err := s.FindingEpisodes(ctx, q)
+	if err != nil || len(p.Items) != 1 || p.Items[0].FirstRetainedEpoch != 3 || p.Items[0].StartKnown {
+		t.Errorf("fragment lookup substituted another occurrence: %+v, %v", p, err)
+	}
+	q.ReadEpoch = 6
+	if _, err := s.FindingEpisodes(ctx, q); !errors.Is(err, ErrInvalidFindingEpisodeQuery) {
+		t.Fatalf("future transition boundary accepted: %v", err)
+	}
+}
+
+func TestFindingEpisodesValidateAndBoundReads(t *testing.T) {
+	s := refireStore(t)
+	ctx := context.Background()
+	base := FindingEpisodeQuery{From: t0, To: t0.Add(6 * time.Minute), Limit: 10}
+	for name, change := range map[string]func(*FindingEpisodeQuery){
+		"zero limit":          func(q *FindingEpisodeQuery) { q.Limit = 0 },
+		"large limit":         func(q *FindingEpisodeQuery) { q.Limit = 101 },
+		"negative offset":     func(q *FindingEpisodeQuery) { q.Offset = -1 },
+		"negative epoch":      func(q *FindingEpisodeQuery) { q.FirstRetainedEpoch = -1 },
+		"unscoped occurrence": func(q *FindingEpisodeQuery) { q.FirstRetainedEpoch = 2 },
+		"large identity":      func(q *FindingEpisodeQuery) { q.FindingID = strings.Repeat("x", 4097) },
+		"reversed range":      func(q *FindingEpisodeQuery) { q.To = q.From.Add(-time.Second) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			q := base
+			change(&q)
+			if _, err := s.FindingEpisodes(ctx, q); !errors.Is(err, ErrInvalidFindingEpisodeQuery) {
+				t.Fatalf("invalid query accepted: %v", err)
+			}
+		})
+	}
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := s.FindingEpisodes(canceled, base); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation: %v", err)
+	}
+	if _, err := s.DB().Exec(`UPDATE finding_transitions SET detail=? WHERE epoch=2`, strings.Repeat("x", (8<<20)+1)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.FindingEpisodes(ctx, FindingEpisodeQuery{From: t0, To: t0.Add(150 * time.Second), Limit: 10}); !errors.Is(err, ErrFindingEpisodeReadLimit) {
+		t.Fatalf("byte budget accepted: %v", err)
 	}
 }
