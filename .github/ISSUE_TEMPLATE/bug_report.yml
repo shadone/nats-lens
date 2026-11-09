@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Report a security issue privately instead, as SECURITY.md describes. Remove credentials, host names and other private data from logs and screenshots before you post them.
+        Report a security issue privately instead, as [the security policy](https://github.com/shadone/nats-lens/security/policy) describes. Remove credentials, host names and other private data from logs and screenshots before you post them.
   - type: input
     id: version
     attributes:

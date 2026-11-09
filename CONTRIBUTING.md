@@ -11,13 +11,13 @@ Ask a question in [Discussions](https://github.com/shadone/nats-lens/discussions
 ```sh
 make build
 make lint
-go test -short ./...
+make test-short
 cd web && npx tsc --noEmit && npm test
 ```
 
 `go test -timeout 40m ./...` runs every Go test. The tests of `internal/checks` alone take about 13 minutes, longer than Go's default 10-minute limit. [Run the Go test tiers](docs/operations/go-test-tiers.md) lists the faster selections, and [Run repository verification](docs/operations/verification.md) the fast and full gates.
 
-`bin/natslens demo` serves the UI with fixed demo data on http://127.0.0.1:8080, without NATS.
+`bin/natslens demo` serves the UI with the three made-up demo systems on http://127.0.0.1:8080, without NATS.
 
 ## Propose a change
 
@@ -37,7 +37,7 @@ These rules come from [AGENTS.md](AGENTS.md), which holds the full list. A pull 
 - **Feature docs follow the code.** Every user-facing change updates its page in [docs/features/](docs/features/README.md) and both sections of `docs/features/README.md`: the capabilities table and the coverage map.
 - **Examples use made-up names.** Examples, tests and screenshots use the online shop of `inventory.example.yaml` and the `example.com` domain, never a real company, deployment or host.
 - **UI styles use the tokens.** Font sizes, spacing and radius come from `web/src/styles/tokens.css`, and labels are in sentence case.
-- **Times passed to DuckDB keep their time zone.** Compare a TIMESTAMP column with a `time.Time` parameter directly, or pass Unix microseconds; [AGENTS.md](AGENTS.md) explains why, and such a query is tested with a non-UTC `TZ`.
+- **DuckDB shifts a `time.Time` parameter.** Wherever DuckDB cannot type it from a TIMESTAMP column, it shifts the value by the session time zone. Compare a TIMESTAMP column with the parameter directly (`col >= ?`), or pass Unix microseconds, and test such a query with a non-UTC `TZ`.
 
 ## AI agents
 
@@ -45,4 +45,4 @@ An AI coding agent working in this repository reads [AGENTS.md](AGENTS.md) first
 
 ## License
 
-nats-lens is licensed under the GNU Affero General Public License v3.0 only (AGPL-3.0-only). Contributions are accepted under the same license: by contributing, you agree that your contribution is licensed under AGPL-3.0-only, see [LICENSE](LICENSE). No contributor license agreement is required.
+nats-lens is licensed under the GNU Affero General Public License v3.0 only (AGPL-3.0-only). Contributions are accepted under the same license: by contributing, you agree that your contribution is licensed under AGPL-3.0-only. The license text is in [LICENSE](LICENSE). No contributor license agreement is required.

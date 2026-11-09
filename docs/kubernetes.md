@@ -1,4 +1,4 @@
-# Kubernetes
+# Kubernetes watcher
 
 This page describes the optional Kubernetes watcher, which records what happens to the NATS pods and their nodes. To run natslens itself in Kubernetes, see [Deploy](deploy.md).
 

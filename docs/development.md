@@ -7,6 +7,7 @@ This page is for contributors: what to install, how to build and run nats-lens a
 - Go 1.27 (1.27.2 or later for the standard library's security fixes)
 - `nats-server` (v2.15) and the `nats` CLI, for the local dev cluster
 - Node.js 22.22, 24.15 or 26 and npm, to build and test the web UI (`make build` verifies or regenerates production assets)
+- A C and C++ compiler, because DuckDB is linked through cgo
 - `buf`, only to regenerate the API code (`make proto`)
 
 ## Setup
