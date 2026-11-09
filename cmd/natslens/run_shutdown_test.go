@@ -42,6 +42,7 @@ nats: { url: %s, user: %s, password: %s }
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel) // stops run if a wait below fails the test
 	done := make(chan error, 1)
 	go func() { done <- run(ctx, []string{"run", "-config", conf, "-log-level", "error"}) }()
 	// Events are captured once the events connection has subscribed;
