@@ -58,6 +58,9 @@ The worst-streams table requests one bounded page; its count and totals cover al
 - **Tiles in the API.** `GetOverview` returns each tile with a one-sentence `description` for its tooltip. A tile whose value is a name sets `value_text`: the Meta leader tile names the leader there, and its `value` is the number of leader changes in the range. The meta leader is the server more than half of the expected servers report (the answering ones when none is expected), the rule `cluster.meta_leader_changes` uses; without such a majority `value_text` is empty.
 
 - **Acknowledged trouble stays visible.** Cause cards show the current acknowledgement's author, time, note, and quiet state. The status line counts acknowledged firing findings, including muted ones. Acknowledging leaves severity counts unchanged; muting still removes a finding from unmuted status. On phones, the status line and cause cards precede the two-column health tiles and timeline.
+- **Captured event evidence.** Timeline events open their retained record inside the refresh-stable investigation. Source, kind, reason, observed/received UTC times, named resources and an explicitly requested payload remain separate from the latest linked finding state. Colliding 32-pixel hit regions in lanes become a counted contributor control; zoom marks at the same timestamp and side are grouped. Groups describe visual overlap, never a causal incident. Each explicit page reads at most 50 exact identities; missing rows retain their captured label when available. Mark details and window pages support Copy as prompt.
+- **Inferred-window support.** A detected window includes its grouping rule and captured input identities. The complete window route fixes the original query interval and event membership boundary. Reopening reconstructs the exact identity or reports it unavailable; it never substitutes a new window. Supporting records are selected by ID, including inputs outside the displayed interval. The window is system-wide context even when opened with account/resource navigation. A boundary prevents newer event membership; it does not freeze mutable payloads, linked findings, retention or every Timeline fact. See [Timeline event evidence](../reference/timeline-event-evidence.md).
+
 ## Scenarios
 
 ### Understand the two chart sections
@@ -208,3 +211,11 @@ The worst-streams table requests one bounded page; its count and totals cover al
 - **One system at a time.** The page shows the system the address's `?system=` names, or the first configured; the Fleet page compares systems ([multiple-systems.md](multiple-systems.md)).
 - **No per-subject traffic.** Message rates are per server and for the whole system, not per subject.
 - **No stories made up.** The lanes show stored events and windows; they do not infer that a group of events was "a redeploy".
+
+### Inspect colliding event marks and window support
+
+- **Given** multiple captured observations share a lane hit region or an inferred window
+- **When** I activate its counted control or window
+- **Then** I can page through the exact captured input identities, read a retained record and explicitly open its payload
+- **And** missing rows, capture limits, unknown IDs and noncausal grouping are disclosed
+- **And** a shared window link keeps its fixed interval and boundary rather than following the live clock

@@ -37,6 +37,8 @@ Slow-consumer investigations separate recorded disconnects from aggregate counte
 - **Old requests unchanged.** A request without these flags gets the same response as before they existed.
 
 - **Acknowledgement events.** Saving an acknowledgement writes a non-routine `finding.acknowledged` event in the same transaction. Events and the finding timeline can show its author and note. Acknowledgement events are records of saves, not a list of release or replacement receipts; those receipts in finding details last only for the current visit.
+- Timeline event links carry a captured event boundary. The selected record and fixed-range feed honor it; an incompatible server that cannot acknowledge it is rejected. Exact window/overlap batches use the separate bounded `GetEventBatch` read; the ordinary feed remains broader time/filter context. Event membership is not an immutable snapshot or a guarantee of retained payloads.
+
 ## Scenarios
 
 ### Copy text from an event
