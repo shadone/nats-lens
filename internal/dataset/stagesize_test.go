@@ -50,3 +50,24 @@ func TestStageSizeFailsWhenTheStageIsGone(t *testing.T) {
 		t.Fatalf("err %v, want fs.ErrNotExist", err)
 	}
 }
+
+// deniedFS refuses to list one directory.
+type deniedFS struct {
+	fstest.MapFS
+	denied string
+}
+
+func (d deniedFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if name == d.denied {
+		return nil, fs.ErrPermission
+	}
+	return d.MapFS.ReadDir(name)
+}
+
+// Only a vanished file is skipped: any other error still stops the export.
+func TestStageSizeReturnsOtherErrors(t *testing.T) {
+	fsys := deniedFS{MapFS: fstest.MapFS{"part/a.parquet": {Data: []byte("x")}}, denied: "part"}
+	if _, err := stageSize(fsys); !errors.Is(err, fs.ErrPermission) {
+		t.Fatalf("err %v, want fs.ErrPermission", err)
+	}
+}
