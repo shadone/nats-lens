@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/events.proto.
  */
 export const file_natslens_v1_events: GenFile = /*@__PURE__*/
-  fileDesc("ChhuYXRzbGVucy92MS9ldmVudHMucHJvdG8SC25hdHNsZW5zLnYxIuEECgVFdmVudBIKCgJpZBgBIAEoCRIoCgR0aW1lGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtyZWNlaXZlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKAoGc291cmNlGAQgASgOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDAoEa2luZBgFIAEoCRIMCgR0eXBlGAYgASgJEicKCHNldmVyaXR5GAcgASgOMhUubmF0c2xlbnMudjEuU2V2ZXJpdHkSDwoHc3VtbWFyeRgIIAEoCRIOCgZzZXJ2ZXIYCSABKAkSDwoHYWNjb3VudBgKIAEoCRIOCgZzdHJlYW0YCyABKAkSEAoIY29uc3VtZXIYDCABKAkSEwoLY2xpZW50X25hbWUYDSABKAkSEwoLY2xpZW50X2hvc3QYDiABKAkSDgoGcmVhc29uGA8gASgJEjIKCnRyYW5zaXRpb24YECABKAsyHi5uYXRzbGVucy52MS5GaW5kaW5nVHJhbnNpdGlvbhIlCgdmaW5kaW5nGBEgASgLMhQubmF0c2xlbnMudjEuRmluZGluZxIkCgZyYWlzZWQYEiADKAsyFC5uYXRzbGVucy52MS5GaW5kaW5nEgsKA3JhdxgTIAEoCRIUCgxhY2NvdW50X25hbWUYFCABKAkSDwoHcmVwZWF0cxgVIAEoBRIuCgpmaXJzdF90aW1lGBYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdyb3V0aW5lGBcgASgIIscCChFMaXN0RXZlbnRzUmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIpCgdzb3VyY2VzGAIgAygOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDQoFa2luZHMYAyADKAkSJgoGZW50aXR5GAQgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhMKC2NsaWVudF9uYW1lGAUgASgJEhEKCXBhZ2Vfc2l6ZRgGIAEoBRISCgpwYWdlX3Rva2VuGAcgASgJEg4KBnN5c3RlbRgIIAEoCRIUCgxoaWRlX3JvdXRpbmUYCSABKAgSFAoMZm9sZF9yZXBlYXRzGAogASgIEhkKEWhpc3RvZ3JhbV9idWNrZXRzGAsgASgFEhYKDmluY2x1ZGVfZmFjZXRzGAwgASgIIj0KCkV2ZW50RmFjZXQSEQoJZGltZW5zaW9uGAEgASgJEg0KBXZhbHVlGAIgASgJEg0KBWNvdW50GAMgASgFIk8KDFJvdXRpbmVHcm91cBINCgVsYWJlbBgBIAEoCRIMCgRraW5kGAIgASgJEhMKC2NsaWVudF9uYW1lGAMgASgJEg0KBWNvdW50GAQgASgFImsKC0V2ZW50QnVja2V0EikKBXN0YXJ0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgd3YXJuaW5nGAIgASgFEg8KB25vdGFibGUYAyABKAUSDwoHcm91dGluZRgEIAEoBSKhAgoSTGlzdEV2ZW50c1Jlc3BvbnNlEiIKBmV2ZW50cxgBIAMoCzISLm5hdHNsZW5zLnYxLkV2ZW50EhcKD25leHRfcGFnZV90b2tlbhgCIAEoCRITCgt0b3RhbF9jb3VudBgDIAEoBRIWCg5yb3V0aW5lX2hpZGRlbhgEIAEoBRInCgZmYWNldHMYBSADKAsyFy5uYXRzbGVucy52MS5FdmVudEZhY2V0EjEKDnJvdXRpbmVfZ3JvdXBzGAYgAygLMhkubmF0c2xlbnMudjEuUm91dGluZUdyb3VwEisKCWhpc3RvZ3JhbRgHIAMoCzIYLm5hdHNsZW5zLnYxLkV2ZW50QnVja2V0EhgKEHRvdGFsX3VuZmlsdGVyZWQYCCABKAUiLQoPR2V0RXZlbnRSZXF1ZXN0EgoKAmlkGAEgASgJEg4KBnN5c3RlbRgCIAEoCSI1ChBHZXRFdmVudFJlc3BvbnNlEiEKBWV2ZW50GAEgASgLMhIubmF0c2xlbnMudjEuRXZlbnQqlQEKC0V2ZW50U291cmNlEhwKGEVWRU5UX1NPVVJDRV9VTlNQRUNJRklFRBAAEhUKEUVWRU5UX1NPVVJDRV9OQVRTEAESGwoXRVZFTlRfU09VUkNFX0tVQkVSTkVURVMQAhIYChRFVkVOVF9TT1VSQ0VfRklORElORxADEhoKFkVWRU5UX1NPVVJDRV9DT0xMRUNUT1IQBEJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings]);
+  fileDesc("ChhuYXRzbGVucy92MS9ldmVudHMucHJvdG8SC25hdHNsZW5zLnYxIuEECgVFdmVudBIKCgJpZBgBIAEoCRIoCgR0aW1lGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtyZWNlaXZlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKAoGc291cmNlGAQgASgOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDAoEa2luZBgFIAEoCRIMCgR0eXBlGAYgASgJEicKCHNldmVyaXR5GAcgASgOMhUubmF0c2xlbnMudjEuU2V2ZXJpdHkSDwoHc3VtbWFyeRgIIAEoCRIOCgZzZXJ2ZXIYCSABKAkSDwoHYWNjb3VudBgKIAEoCRIOCgZzdHJlYW0YCyABKAkSEAoIY29uc3VtZXIYDCABKAkSEwoLY2xpZW50X25hbWUYDSABKAkSEwoLY2xpZW50X2hvc3QYDiABKAkSDgoGcmVhc29uGA8gASgJEjIKCnRyYW5zaXRpb24YECABKAsyHi5uYXRzbGVucy52MS5GaW5kaW5nVHJhbnNpdGlvbhIlCgdmaW5kaW5nGBEgASgLMhQubmF0c2xlbnMudjEuRmluZGluZxIkCgZyYWlzZWQYEiADKAsyFC5uYXRzbGVucy52MS5GaW5kaW5nEgsKA3JhdxgTIAEoCRIUCgxhY2NvdW50X25hbWUYFCABKAkSDwoHcmVwZWF0cxgVIAEoBRIuCgpmaXJzdF90aW1lGBYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdyb3V0aW5lGBcgASgIIosDChFMaXN0RXZlbnRzUmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIpCgdzb3VyY2VzGAIgAygOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDQoFa2luZHMYAyADKAkSJgoGZW50aXR5GAQgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhMKC2NsaWVudF9uYW1lGAUgASgJEhEKCXBhZ2Vfc2l6ZRgGIAEoBRISCgpwYWdlX3Rva2VuGAcgASgJEg4KBnN5c3RlbRgIIAEoCRIUCgxoaWRlX3JvdXRpbmUYCSABKAgSFAoMZm9sZF9yZXBlYXRzGAogASgIEhkKEWhpc3RvZ3JhbV9idWNrZXRzGAsgASgFEhYKDmluY2x1ZGVfZmFjZXRzGAwgASgIEhQKDHNlbGVjdGVkX2lkcxgNIAMoCRIaCg1ldmVudF9yZWFkX2lkGA4gASgDSACIAQFCEAoOX2V2ZW50X3JlYWRfaWQiPQoKRXZlbnRGYWNldBIRCglkaW1lbnNpb24YASABKAkSDQoFdmFsdWUYAiABKAkSDQoFY291bnQYAyABKAUiTwoMUm91dGluZUdyb3VwEg0KBWxhYmVsGAEgASgJEgwKBGtpbmQYAiABKAkSEwoLY2xpZW50X25hbWUYAyABKAkSDQoFY291bnQYBCABKAUiawoLRXZlbnRCdWNrZXQSKQoFc3RhcnQYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg8KB3dhcm5pbmcYAiABKAUSDwoHbm90YWJsZRgDIAEoBRIPCgdyb3V0aW5lGAQgASgFIuUCChJMaXN0RXZlbnRzUmVzcG9uc2USIgoGZXZlbnRzGAEgAygLMhIubmF0c2xlbnMudjEuRXZlbnQSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEhMKC3RvdGFsX2NvdW50GAMgASgFEhYKDnJvdXRpbmVfaGlkZGVuGAQgASgFEicKBmZhY2V0cxgFIAMoCzIXLm5hdHNsZW5zLnYxLkV2ZW50RmFjZXQSMQoOcm91dGluZV9ncm91cHMYBiADKAsyGS5uYXRzbGVucy52MS5Sb3V0aW5lR3JvdXASKwoJaGlzdG9ncmFtGAcgAygLMhgubmF0c2xlbnMudjEuRXZlbnRCdWNrZXQSGAoQdG90YWxfdW5maWx0ZXJlZBgIIAEoBRIUCgxzZWxlY3RlZF9pZHMYCSADKAkSGgoNZXZlbnRfcmVhZF9pZBgKIAEoA0gAiAEBQhAKDl9ldmVudF9yZWFkX2lkIlsKD0dldEV2ZW50UmVxdWVzdBIKCgJpZBgBIAEoCRIOCgZzeXN0ZW0YAiABKAkSGgoNZXZlbnRfcmVhZF9pZBgDIAEoA0gAiAEBQhAKDl9ldmVudF9yZWFkX2lkImMKEEdldEV2ZW50UmVzcG9uc2USIQoFZXZlbnQYASABKAsyEi5uYXRzbGVucy52MS5FdmVudBIaCg1ldmVudF9yZWFkX2lkGAIgASgDSACIAQFCEAoOX2V2ZW50X3JlYWRfaWQiYQoUR2V0RXZlbnRCYXRjaFJlcXVlc3QSCwoDaWRzGAEgAygJEhoKDWV2ZW50X3JlYWRfaWQYAiABKANIAIgBARIOCgZzeXN0ZW0YAyABKAlCEAoOX2V2ZW50X3JlYWRfaWQilAEKFUdldEV2ZW50QmF0Y2hSZXNwb25zZRIiCgZldmVudHMYASADKAsyEi5uYXRzbGVucy52MS5FdmVudBIUCgxzZWxlY3RlZF9pZHMYAiADKAkSGgoNZXZlbnRfcmVhZF9pZBgDIAEoA0gAiAEBEhMKC3RvdGFsX2NvdW50GAQgASgFQhAKDl9ldmVudF9yZWFkX2lkIokBChlMaXN0RXZlbnRTZWxlY3Rpb25SZXF1ZXN0EgsKA2lkcxgBIAMoCRIaCg1ldmVudF9yZWFkX2lkGAIgASgDSACIAQESDgoGc3lzdGVtGAMgASgJEg4KBm9mZnNldBgEIAEoBRIRCglwYWdlX3NpemUYBSABKAVCEAoOX2V2ZW50X3JlYWRfaWQi7wEKGkxpc3RFdmVudFNlbGVjdGlvblJlc3BvbnNlEiIKBmV2ZW50cxgBIAMoCzISLm5hdHNsZW5zLnYxLkV2ZW50EhQKDHNlbGVjdGVkX2lkcxgCIAMoCRIaCg1ldmVudF9yZWFkX2lkGAMgASgDSACIAQESEwoLdG90YWxfY291bnQYBCABKAUSHAoUc2VsZWN0ZWRfdG90YWxfY291bnQYBSABKAUSDgoGb2Zmc2V0GAYgASgFEhMKC25leHRfb2Zmc2V0GAcgASgFEhEKCXBhZ2Vfc2l6ZRgIIAEoBUIQCg5fZXZlbnRfcmVhZF9pZCqVAQoLRXZlbnRTb3VyY2USHAoYRVZFTlRfU09VUkNFX1VOU1BFQ0lGSUVEEAASFQoRRVZFTlRfU09VUkNFX05BVFMQARIbChdFVkVOVF9TT1VSQ0VfS1VCRVJORVRFUxACEhgKFEVWRU5UX1NPVVJDRV9GSU5ESU5HEAMSGgoWRVZFTlRfU09VUkNFX0NPTExFQ1RPUhAEQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings]);
 
 /**
  * One event.
@@ -137,7 +137,8 @@ export type Event = Message<"natslens.v1.Event"> & {
   transition?: FindingTransition | undefined;
 
   /**
-   * For a finding event: the finding as it is now.
+   * Latest finding row returned by the source, separate from the recorded
+   * transition. A synthetic reference-frame read can return frame-relative state.
    *
    * @generated from field: natslens.v1.Finding finding = 17;
    */
@@ -301,6 +302,21 @@ export type ListEventsRequest = Message<"natslens.v1.ListEventsRequest"> & {
    * @generated from field: bool include_facets = 12;
    */
   includeFacets: boolean;
+
+  /**
+   * Exact retained event selection, at most 1000 unique positive decimal IDs.
+   * It intersects the other predicates; missing IDs remain missing.
+   *
+   * @generated from field: repeated string selected_ids = 13;
+   */
+  selectedIds: string[];
+
+  /**
+   * Captured event membership. A known zero excludes all events.
+   *
+   * @generated from field: optional int64 event_read_id = 14;
+   */
+  eventReadId?: bigint | undefined;
 };
 
 /**
@@ -494,11 +510,24 @@ export type ListEventsResponse = Message<"natslens.v1.ListEventsResponse"> & {
 
   /**
    * With include_facets: number of events in the range, with no other
-   * filter.
+   * UI filter. Explicit selected IDs and event membership remain in force.
    *
    * @generated from field: int32 total_unfiltered = 8;
    */
   totalUnfiltered: number;
+
+  /**
+   * Acknowledged exact selection; preserves input order. Older servers lacking
+   * these fields must not be treated as honoring the selection or boundary.
+   *
+   * @generated from field: repeated string selected_ids = 9;
+   */
+  selectedIds: string[];
+
+  /**
+   * @generated from field: optional int64 event_read_id = 10;
+   */
+  eventReadId?: bigint | undefined;
 };
 
 /**
@@ -527,6 +556,11 @@ export type GetEventRequest = Message<"natslens.v1.GetEventRequest"> & {
    * @generated from field: string system = 2;
    */
   system: string;
+
+  /**
+   * @generated from field: optional int64 event_read_id = 3;
+   */
+  eventReadId?: bigint | undefined;
 };
 
 /**
@@ -548,6 +582,13 @@ export type GetEventResponse = Message<"natslens.v1.GetEventResponse"> & {
    * @generated from field: natslens.v1.Event event = 1;
    */
   event?: Event | undefined;
+
+  /**
+   * Acknowledged event membership; absence means unsupported/unrequested.
+   *
+   * @generated from field: optional int64 event_read_id = 2;
+   */
+  eventReadId?: bigint | undefined;
 };
 
 /**
@@ -556,6 +597,171 @@ export type GetEventResponse = Message<"natslens.v1.GetEventResponse"> & {
  */
 export const GetEventResponseSchema: GenMessage<GetEventResponse> = /*@__PURE__*/
   messageDesc(file_natslens_v1_events, 7);
+
+/**
+ * Bounded identity lookup without a temporal filter. It is used for captured
+ * window inputs, which can lie outside the original Timeline range.
+ *
+ * @generated from message natslens.v1.GetEventBatchRequest
+ */
+export type GetEventBatchRequest = Message<"natslens.v1.GetEventBatchRequest"> & {
+  /**
+   * @generated from field: repeated string ids = 1;
+   */
+  ids: string[];
+
+  /**
+   * @generated from field: optional int64 event_read_id = 2;
+   */
+  eventReadId?: bigint | undefined;
+
+  /**
+   * @generated from field: string system = 3;
+   */
+  system: string;
+};
+
+/**
+ * Describes the message natslens.v1.GetEventBatchRequest.
+ * Use `create(GetEventBatchRequestSchema)` to create a new message.
+ */
+export const GetEventBatchRequestSchema: GenMessage<GetEventBatchRequest> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_events, 8);
+
+/**
+ * @generated from message natslens.v1.GetEventBatchResponse
+ */
+export type GetEventBatchResponse = Message<"natslens.v1.GetEventBatchResponse"> & {
+  /**
+   * @generated from field: repeated natslens.v1.Event events = 1;
+   */
+  events: Event[];
+
+  /**
+   * @generated from field: repeated string selected_ids = 2;
+   */
+  selectedIds: string[];
+
+  /**
+   * @generated from field: optional int64 event_read_id = 3;
+   */
+  eventReadId?: bigint | undefined;
+
+  /**
+   * Number of requested identities still available at this boundary.
+   *
+   * @generated from field: int32 total_count = 4;
+   */
+  totalCount: number;
+};
+
+/**
+ * Describes the message natslens.v1.GetEventBatchResponse.
+ * Use `create(GetEventBatchResponseSchema)` to create a new message.
+ */
+export const GetEventBatchResponseSchema: GenMessage<GetEventBatchResponse> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_events, 9);
+
+/**
+ * Explicit captured membership, independent of a time filter. At most 2000
+ * unique IDs; page_size defaults to 50 and never exceeds 50. Offsets select
+ * the supplied order, not an evolving database ranking. No payloads are read.
+ *
+ * @generated from message natslens.v1.ListEventSelectionRequest
+ */
+export type ListEventSelectionRequest = Message<"natslens.v1.ListEventSelectionRequest"> & {
+  /**
+   * @generated from field: repeated string ids = 1;
+   */
+  ids: string[];
+
+  /**
+   * @generated from field: optional int64 event_read_id = 2;
+   */
+  eventReadId?: bigint | undefined;
+
+  /**
+   * @generated from field: string system = 3;
+   */
+  system: string;
+
+  /**
+   * @generated from field: int32 offset = 4;
+   */
+  offset: number;
+
+  /**
+   * @generated from field: int32 page_size = 5;
+   */
+  pageSize: number;
+};
+
+/**
+ * Describes the message natslens.v1.ListEventSelectionRequest.
+ * Use `create(ListEventSelectionRequestSchema)` to create a new message.
+ */
+export const ListEventSelectionRequestSchema: GenMessage<ListEventSelectionRequest> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_events, 10);
+
+/**
+ * @generated from message natslens.v1.ListEventSelectionResponse
+ */
+export type ListEventSelectionResponse = Message<"natslens.v1.ListEventSelectionResponse"> & {
+  /**
+   * @generated from field: repeated natslens.v1.Event events = 1;
+   */
+  events: Event[];
+
+  /**
+   * Acknowledges the entire supplied selection, not only the visible page.
+   *
+   * @generated from field: repeated string selected_ids = 2;
+   */
+  selectedIds: string[];
+
+  /**
+   * @generated from field: optional int64 event_read_id = 3;
+   */
+  eventReadId?: bigint | undefined;
+
+  /**
+   * Retained matching records on this page; missing IDs are never substituted.
+   *
+   * @generated from field: int32 total_count = 4;
+   */
+  totalCount: number;
+
+  /**
+   * Number of supplied identities; not a count of currently retained records.
+   *
+   * @generated from field: int32 selected_total_count = 5;
+   */
+  selectedTotalCount: number;
+
+  /**
+   * @generated from field: int32 offset = 6;
+   */
+  offset: number;
+
+  /**
+   * Zero means no later supplied identities. This is not an authorization token.
+   *
+   * @generated from field: int32 next_offset = 7;
+   */
+  nextOffset: number;
+
+  /**
+   * @generated from field: int32 page_size = 8;
+   */
+  pageSize: number;
+};
+
+/**
+ * Describes the message natslens.v1.ListEventSelectionResponse.
+ * Use `create(ListEventSelectionResponseSchema)` to create a new message.
+ */
+export const ListEventSelectionResponseSchema: GenMessage<ListEventSelectionResponse> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_events, 11);
 
 /**
  * Where an event came from.

@@ -1,3 +1,4 @@
+import {eventReadId as parseEventReadId} from "./eventIdentity";
 import { onCall } from "./oncall";
 // Calls to the API: builds requests from view-model filters and adapts the
 // responses. Pages call these through the hooks in queries.ts.
@@ -168,8 +169,10 @@ export async function listEvents(sys: string, spec: RangeSpec, f: EventFilter, s
   return { items: r.events.map(event), nextPageToken: r.nextPageToken, totalCount: r.totalCount };
 }
 
-export async function getEvent(sys: string, id: string, signal?: AbortSignal) {
-  const r = await lens.getEvent({ ...systemInit(sys), id }, { signal });
+export async function getEvent(sys: string, id: string, signal?: AbortSignal,readId?:string) {
+  const r = await lens.getEvent({ ...systemInit(sys), id,eventReadId:parseEventReadId(readId) }, { signal });
+ if(!r.event||r.event.id!==id)throw new Error("This source did not return the selected recorded event.");
+ if(readId!==undefined&&r.eventReadId!==parseEventReadId(readId))throw new Error("This server did not acknowledge the event membership boundary.");
   return r.event ? event(r.event) : undefined;
 }
 

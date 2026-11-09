@@ -1,22 +1,30 @@
 BIN := bin/natslens
 DEV_DATA := .dev/natslens
 
-.PHONY: build build-go web web-test web-dev proto test test-short test-fast lint fmt demo dev-cluster dev-cluster-stop load churn run-dev image vuln clean
+.PHONY: build build-full build-go web-full web web-test web-dev proto test test-short test-fast verify-fast verify-full verify-web verify-proto verify-race lint fmt demo dev-cluster dev-cluster-stop load churn run-dev image vuln clean
 
-# Builds the web UI into internal/webui/dist, then the binary that embeds it.
-build: web
-	go build -o $(BIN) ./cmd/natslens
+# Verifies/rebuilds production assets, then builds the binary that embeds them.
+build: web/node_modules/.package-lock.json
+	node scripts/build-web.mjs --go "$(BIN)"
 
-# Builds the binary alone; without `make web` it embeds a placeholder page.
+# Explicit frontend rebuild, followed by the embedding binary.
+build-full: web/node_modules/.package-lock.json
+	node scripts/build-web.mjs --force --go "$(BIN)"
+
+# Embeds the assets already present, or a placeholder if index.html is absent.
+# It does not verify that existing assets match current frontend sources.
 build-go:
 	go build -o $(BIN) ./cmd/natslens
 
-# npm ci runs only when the lockfile is newer than the installed tree.
-web/node_modules/.package-lock.json: web/package-lock.json
+# npm ci runs when package/lock/config inputs are newer than the installed marker.
+web/node_modules/.package-lock.json: web/package.json web/package-lock.json web/.npmrc
 	cd web && npm ci --no-audit --no-fund
 
 web: web/node_modules/.package-lock.json
-	cd web && npm run build
+	node scripts/build-web.mjs
+
+web-full: web/node_modules/.package-lock.json
+	node scripts/build-web.mjs --force
 
 web-test: web/node_modules/.package-lock.json
 	cd web && npm test
@@ -41,6 +49,22 @@ test-short:
 # Pure policy/decoding selection; short alone still includes DuckDB and HTTP.
 test-fast:
 	./scripts/test-go-fast.sh
+
+# Aggregate checks are read-only; no dependency installation or source rewriting.
+verify-fast:
+	python3 -B scripts/verify.py fast
+
+verify-full:
+	python3 -B scripts/verify.py full
+
+verify-web:
+	python3 -B scripts/verify.py web
+
+verify-proto:
+	python3 -B scripts/verify.py proto
+
+verify-race:
+	python3 -B scripts/verify.py race
 
 lint:
 	go vet ./...

@@ -1,5 +1,6 @@
 // The Servers page's data points: who answers, versions in use, restarts,
 // the JetStream store across servers and slow-consumer detections.
+import {InfoTip} from "./MetricBox";
 import { Link } from "react-router";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
 import { slowEvidencePath } from "../lib/slowConsumers";
@@ -32,7 +33,7 @@ function Answering({ list }: { list: ServerList }) {
   const down = all.filter((n) => !seen.get(n)?.present);
   return (
     <div className="card dp">
-      <span className="lbl">Answering</span>
+      <span className="lbl">Answering <InfoTip label="Answering" text="Servers that answered the newest collection, out of observed and expected server names. A missing reply is not proof that the server process stopped."/></span>
       <div className="dp-v">
         <b className={down.length ? "bad" : undefined}>{all.length - down.length}</b> <em>of {all.length}</em>
       </div>
@@ -59,7 +60,7 @@ function Versions({ servers }: { servers: ServerRow[] }) {
   const inUse = groups.reduce((a, g) => a + g.versions.length, 0);
   return (
     <div className="card dp">
-      <span className="lbl">Versions</span>
+      <span className="lbl">Versions <InfoTip label="Versions" text="NATS server versions in the latest server list. The coloured segments count servers, not releases or application-library versions."/></span>
       <div className="dp-v">
         <b>{inUse || "–"}</b> <em>in use</em>
       </div>
@@ -85,7 +86,7 @@ function Restarts({ servers, spec, start, end }: { servers: ServerRow[]; spec: R
   const span = end - start || 1;
   return (
     <div className="card dp">
-      <span className="lbl">{titled("Restarts", spec)}</span>
+      <span className="lbl">{titled("Restarts", spec)} <InfoTip label="Restarts" text="Observed server process restarts during the selected range. Each tick is a recorded start-time change; missing observations can hide additional restarts."/></span>
       <div className="dp-v">
         <b>{all.length}</b>
       </div>
@@ -110,7 +111,7 @@ function Store({ servers }: { servers: ServerRow[] }) {
   const bandLeft = lo === undefined ? 0 : Math.min(99, r(lo));
   return (
     <div className="card dp">
-      <span className="lbl">JetStream store</span>
+      <span className="lbl">JetStream store <InfoTip label="JetStream store" text="Configured JetStream file-storage allowance used on each server, as a percentage. The headline is the median; the band spans the lowest to highest reported percentage. Missing usage or nonpositive limits are excluded. This is not filesystem capacity."/></span>
       <div className="dp-v">
         <b>{med === undefined ? "–" : `${r(med)}%`}</b> {med !== undefined && <em>median</em>}
       </div>
@@ -143,7 +144,7 @@ function SlowConsumers({ servers, spec, start, end }: { servers: ServerRow[]; sp
   const w = pts.length ? 240 / pts.length : 0;
   return (
     <div className="card dp">
-      <span className="lbl">{titled("Slow-consumer detections", spec)}</span>
+      <span className="lbl">{titled("Slow-consumer detections", spec)} <InfoTip label="Slow-consumer detections" text="A detection means NATS had trouble sending data because a receiving connection could not keep up. Counts are known counter increases in the selected range, per server process. They cover clients, routes, gateways and leaf connections; retries can count without a disconnect. They are not unique clients or JetStream pending messages, and do not prove message loss."/></span>
       <div className="dp-v">
         <b className={total > 0 ? "warn" : undefined}>{known.length ? fmtInt(total) : "–"}</b>
       </div>
@@ -156,9 +157,7 @@ function SlowConsumers({ servers, spec, start, end }: { servers: ServerRow[]; sp
           return h && to > from ? <a key={p.time} href={investigate(from, to)} aria-label={`Investigate ${fmtInt(p.value)} ${p.value === 1 ? "detection" : "detections"} in bucket starting ${new Date(from).toISOString()}`}><rect x={(i * w).toFixed(1)} y={(23 - h).toFixed(1)} width={Math.max(1, w - 2).toFixed(1)} height={h.toFixed(1)} className="dp-bar" /></a> : null;
         })}
       </svg>
-      <p className="dp-n">A detection means NATS had trouble sending data because a receiving connection could not keep up.</p>
       <Link className="x" to={investigate()}>Investigate detections</Link>
-      <details className="dp-n"><summary>About this metric</summary><p>Covers clients, routes, gateways and leaf connections; retries can count without a disconnect. Not unique clients, JetStream consumers or pending messages. The counter alone does not establish application slowness or message loss.</p></details>
       <div className="dp-n">
         {!known.length ? "not reported" : total === 0 || !most ? "none" : (
           <>

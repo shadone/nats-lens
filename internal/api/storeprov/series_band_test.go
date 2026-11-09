@@ -330,10 +330,10 @@ func TestDeliveredRateSkipsGaps(t *testing.T) {
 		e := int64(i + 1)
 		r.epoch(e, t0.Add(at[i]), "S0", "S1")
 		r.add("consumer_stats", map[string]any{"epoch": e, "server_id": "S0", "account": "APP", "stream": "order-jobs",
-			"consumer": "resize-worker", "is_leader": true, "delivered_consumer_seq": seq[i]})
+			"consumer": "resize-worker", "is_leader": true, "created": t0.Add(-time.Hour), "delivered_consumer_seq": seq[i]})
 		// A follower that lags must not be read.
 		r.add("consumer_stats", map[string]any{"epoch": e, "server_id": "S1", "account": "APP", "stream": "order-jobs",
-			"consumer": "resize-worker", "is_leader": false, "delivered_consumer_seq": seq[i] + 5000*e})
+			"consumer": "resize-worker", "is_leader": false, "created": t0.Add(-time.Hour), "delivered_consumer_seq": seq[i] + 5000*e})
 	}
 	c := serveSeries(t, st, t0.Add(at[3]+30*time.Second))
 	e := &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_CONSUMER, Key: "APP/order-jobs/resize-worker"}

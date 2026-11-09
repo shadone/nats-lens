@@ -1,6 +1,7 @@
 // The Events page's feed: routine events hidden, repeats folded, facets
 // and the histogram, plus the probe behind the "N new" pill and the
 // events around a finding's start. Every hook keys on the page's system.
+import {eventReadId,frozenEventRange} from "./eventIdentity";
 import { useQuery } from "@tanstack/react-query";
 import { keepSameSystem } from "./placeholder";
 import { timestampFromMs } from "@bufbuild/protobuf/wkt";
@@ -55,6 +56,8 @@ export interface EventFeed {
 }
 
 export interface FeedFilter {
+ eventReadId?:string;
+ evidenceRange?:{start:string;end:string};
   sources: EventSourceName[];
   kinds: string[];
   entity?: Entity;
@@ -82,6 +85,7 @@ export function feedEvent(e: PEvent): FeedEvent {
 /** The request fields every feed call shares. */
 function filterInit(f: FeedFilter) {
   return {
+    eventReadId:eventReadId(f.eventReadId),
     sources: f.sources.map(sourceEnum),
     kinds: f.kinds,
     entity: entityInit(f.entity),
@@ -121,7 +125,7 @@ export async function listEventFeed(sys: string, spec: RangeSpec, f: FeedFilter,
     {
       ...systemInit(sys),
       // A live range leaves the end open, so the server reads up to its now.
-      range: spec.kind === "live" ? { start: timestampFromMs(start) } : { start: timestampFromMs(start), end: timestampFromMs(end) },
+      range: f.evidenceRange?frozenEventRange(f.evidenceRange):spec.kind === "live" ? { start: timestampFromMs(start) } : { start: timestampFromMs(start), end: timestampFromMs(end) },
       ...filterInit(f),
       histogramBuckets: HISTOGRAM_BUCKETS,
       includeFacets: true,
@@ -130,6 +134,7 @@ export async function listEventFeed(sys: string, spec: RangeSpec, f: FeedFilter,
     },
     { signal },
   );
+  if(f.eventReadId!==undefined&&r.eventReadId!==eventReadId(f.eventReadId))throw new Error("This server did not acknowledge the captured event boundary.");
   return eventFeed(r, start, end);
 }
 
@@ -187,7 +192,7 @@ export function useEventFeed(spec: RangeSpec, f: FeedFilter) {
  */
 export function useNewEvents(spec: RangeSpec, f: FeedFilter, shown: EventFeed | undefined) {
   const sys = useSystem();
-  const enabled = spec.kind === "live" && f.pageToken === "" && shown !== undefined;
+  const enabled = f.eventReadId===undefined && spec.kind === "live" && f.pageToken === "" && shown !== undefined;
   const q = useQuery({
     queryKey: ["eventFeedNew", sys, rangeKey(spec), feedKey(f), shown?.start, shown?.totalCount],
     queryFn: ({ signal }) => countEventsSince(sys, shown!.start, f, signal),

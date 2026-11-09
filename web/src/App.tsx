@@ -1,3 +1,4 @@
+import {ChartIntervalProvider} from "./charts/ChartIntervals";
 import { InvestigationProvider } from "./components/InvestigationContext";
 import { RouteBoundary } from "./components/RouteBoundary";
 // The shell and the routes. Every page reads the time range, the system and
@@ -11,12 +12,17 @@ import { Landing, SystemGate } from "./components/SystemGate";
 import { useRoutePosition } from "./lib/useRoutePosition";
 import { useSidebar } from "./lib/useSidebar";
 import { useSystem } from "./lib/useSystem";
+import {MetricInvestigation} from "./pages/MetricInvestigation";
 import { Fleet } from "./pages/Fleet";
 import { SlowConsumerInvestigation } from "./pages/SlowConsumerInvestigation";
 import { Overview } from "./pages/Overview";
 import { Checks, CheckDetail } from "./pages/Checks";
 import { Findings } from "./pages/Findings";
 import { FindingByLabels } from "./pages/FindingByLabels";
+import {TimelineEvents} from "./pages/TimelineEvents";
+import {TimelineWindow} from "./pages/TimelineWindow";
+import {FindingHistory} from "./pages/FindingHistory";
+import {FindingOccurrence} from "./pages/FindingOccurrence";
 import { FindingDetail } from "./pages/FindingDetail";
 import { Events } from "./pages/Events";
 import { Streams } from "./pages/Streams";
@@ -33,6 +39,7 @@ import { Replay } from "./pages/Replay";
 import { Topology } from "./pages/Topology";
 import { Accounts } from "./pages/Accounts";
 import { Capacity } from "./pages/Capacity";
+import { StorageChange } from "./pages/StorageChange";
 import { DataHistory } from "./pages/DataHistory";
 import { Subjects } from "./pages/Subjects";
 import { MicroServices } from "./pages/MicroServices";
@@ -45,7 +52,7 @@ export function App() {
   const main = useRoutePosition();
   const { collapsed, setCollapsed, drawerOpen, setDrawerOpen, drawerShown } = useSidebar();
   return (
-    <InvestigationProvider><div className={`shell${collapsed ? " rail" : ""}`}>
+    <InvestigationProvider><ChartIntervalProvider><div className={`shell${collapsed ? " rail" : ""}`}>
       <a className="skip" href="#main">
         Skip to content
       </a>
@@ -74,8 +81,12 @@ export function App() {
                 <Route path="/checks" element={<Checks />} />
                 <Route path="/checks/:code" element={<CheckDetail />} />
                 <Route path="/findings" element={<Findings />} />
+                <Route path="/findings/history" element={<FindingHistory />} />
                 <Route path="/findings/by-labels" element={<FindingByLabels />} />
+                <Route path="/findings/:id/occurrences/:firstEpoch" element={<FindingOccurrence />} />
                 <Route path="/findings/:id" element={<FindingDetail />} />
+                <Route path="/timeline/events" element={<TimelineEvents />} />
+                <Route path="/timeline/windows/:id" element={<TimelineWindow />} />
                 <Route path="/events" element={<Events />} />
                 <Route path="/streams" element={<Streams />} />
                 <Route path="/streams/:account/:stream" element={<StreamDetail />} />
@@ -96,7 +107,9 @@ export function App() {
                 <Route path="/replay" element={<Replay />} />
                 <Route path="/topology" element={<Topology />} />
                 <Route path="/accounts" element={<Accounts />} />
+                <Route path="/metrics" element={<MetricInvestigation/>}/><Route path="/metrics/:family" element={<MetricInvestigation/>}/>
                 <Route path="/capacity" element={<Capacity />} />
+                <Route path="/capacity/storage-change" element={<StorageChange />} />
                 <Route path="/data-history" element={<DataHistory />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
@@ -106,6 +119,6 @@ export function App() {
           </StaleProvider>
         </main>
       </div>
-    </div></InvestigationProvider>
+    </div></ChartIntervalProvider></InvestigationProvider>
   );
 }

@@ -29,7 +29,6 @@
 .infotip{position:relative;display:inline-flex}
 .infotip-b{width:16px;height:16px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font:500 var(--fs-xs)/14px var(--sans);cursor:help}
 .infotip-b:hover,.infotip-b:focus-visible{border-color:var(--accent);color:var(--accent-text)}
-.infotip-t{position:absolute;z-index:20;top:20px;left:-8px;width:max-content;max-width:260px;padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md);background:var(--strong-bg);color:var(--on-strong);font:400 var(--fs-sm)/1.4 var(--sans);white-space:normal;box-shadow:0 4px 14px var(--shadow)}
 .mb-stale{align-self:flex-start;margin-top:var(--sp-1);font:var(--fs-xs) var(--mono);color:var(--sev-warning);cursor:help}
 
 /* Header links stretch across the box; inspection and other controls sit above them. */
@@ -39,17 +38,16 @@
 .chart-link:hover{text-decoration:underline;color:var(--accent-text)}
 .chart-link:focus-visible{outline:none}
 .chart-link:focus-visible::after{outline:2px solid var(--accent);outline-offset:2px}
-.chart-linked .infotip,.chart-linked .spark,.chart-linked .tc-svg,.chart-linked .mb-note a,.chart-linked .investigation-copy{position:relative;z-index:2}
+.chart-linked .infotip,.chart-linked .spark,.chart-linked .tc-svg,.chart-linked .mb-note a{position:relative;z-index:2}
 .chart-linked .mb-note a{display:inline-block}
 
 .chart-inspection{position:relative;z-index:2;min-width:0;touch-action:pan-y;outline-offset:2px}
 .chart-inspection:focus-visible{outline:2px solid var(--accent)}
-.chart-readout{position:absolute;z-index:30;top:100%;left:0;max-width:100%;box-sizing:border-box;padding:var(--sp-2);border-radius:var(--r-md);background:var(--strong-bg);color:var(--on-strong);box-shadow:0 4px 14px var(--shadow);font:var(--fs-xs)/1.5 var(--mono);overflow-wrap:anywhere;pointer-events:none}
+.chart-readout{position:fixed;z-index:30;width:min(24rem,calc(100vw - 2 * var(--sp-3)));box-sizing:border-box;padding:var(--sp-2);border-radius:var(--r-md);background:var(--strong-bg);color:var(--on-strong);box-shadow:0 4px 14px var(--shadow);font:var(--fs-xs)/1.5 var(--mono);overflow-wrap:anywhere;white-space:normal;overflow:auto;overscroll-behavior:contain;pointer-events:auto}
 .chart-readout span,.chart-readout b{display:block}
 .chart-cursor{position:absolute;top:0;bottom:0;width:1px;background:var(--text-muted);pointer-events:none}
 .chart-linked .chart-inspection .spark,.chart-linked .chart-inspection .tc-svg{z-index:auto}
 
-.card:has(.chart-readout){position:relative;z-index:10}
 .chart-inspection{cursor:crosshair}
 
 .mb-context{font-size:var(--fs-xs);color:var(--text-muted);margin-top:var(--sp-1);overflow-wrap:anywhere}
@@ -59,12 +57,22 @@
 .mbox .mb-v{max-width:100%;flex-wrap:wrap;white-space:normal}
 .mbox .mb-v b{overflow-wrap:anywhere;min-width:0}
 .mbox .mb-note{overflow-wrap:anywhere}
-/* Anchor metric explanations to the card so a right-column tip fits on phones. */
+/* Metric headings retain their controls above stretched card links. */
 .mbox{position:relative}
 .mbox .infotip{position:static;z-index:auto}
 .mbox .infotip-b{position:relative;z-index:3}
-.mbox .infotip-t{left:12px;right:12px;top:36px;width:auto;max-width:none}
-.mbox:has(.infotip-t){z-index:11}
 
 /* A box without a chart: its steady line and note follow the heading. */
 .mb-quiet .mb-h + .mb-track-note,.mb-quiet .mb-h + .mb-note{margin-top:var(--sp-2)}
+
+.tc-h > .infotip { flex: none; margin-right: auto; }
+.dp .lbl .infotip { margin-left: var(--sp-1); vertical-align: middle; }
+
+.chart-h > .infotip { flex: none; margin-right: auto; }
+.chart-help-legend { display: inline-flex; margin-top: var(--sp-2); }
+
+.chart-selected-interval{position:absolute;top:0;bottom:0;box-sizing:border-box;background:var(--accent-soft);border-inline:2px solid var(--accent);opacity:.65;pointer-events:none}
+.chart-interval-trigger{position:absolute;inset-block-start:var(--sp-1);inset-inline-start:var(--sp-1);z-index:4;padding:var(--sp-1);min-width:var(--sp-6);min-height:var(--sp-6);opacity:0;pointer-events:none}
+.chart-inspection-wrap:hover>.chart-interval-trigger,.chart-inspection-wrap:focus-within>.chart-interval-trigger,.chart-interval-trigger:focus-visible{opacity:1;pointer-events:auto}
+.chart-interval-actions{flex-wrap:wrap}
+@media(hover:none){.chart-interval-trigger{opacity:1;pointer-events:auto}}

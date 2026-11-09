@@ -81,6 +81,7 @@
 .sl-run.critical{background:var(--cell-critical)}
 .sl-run.warning{background:var(--cell-warning)}
 .sl-run.info{background:var(--cell-info)}
+.sl-run.nodata{background:var(--surface-sunk);outline:1px dashed var(--text-muted);outline-offset:-1px}
 .sl-run.muted{background:var(--track-fill);outline:1.5px dotted var(--sev-muted);outline-offset:-1.5px}
 .sl-axis .sl-ticks{position:relative;height:20px;font:var(--fs-xs) var(--mono);color:var(--text-muted)}
 .sl-ticks span{position:absolute;top:4px;transform:translateX(-50%);white-space:nowrap}

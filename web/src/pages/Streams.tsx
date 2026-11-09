@@ -1,3 +1,4 @@
+import {MetricHelp} from "../components/MetricHelp";
 import { ListTraversal, useListTraversal } from "../components/ListTraversal";
 import { useSystem } from "../lib/useSystem";
 import { rangeKey } from "../lib/timeRange";
@@ -59,7 +60,7 @@ export function Streams() {
                       <th scope="col">
                         <span className="sr-only">Status</span>
                       </th>
-                      <th scope="col">Stream</th>
+                      <th scope="col" aria-label="Stream">Stream <MetricHelp label="Stream storage history" ids={["stream.bytes"]}/></th>
                       <th scope="col" className="num">
                         R
                       </th>

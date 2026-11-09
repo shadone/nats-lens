@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/capacity.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Presentation order applies to the complete bounded ranking before paging.
+enum StorageChangeOrder {
+  STORAGE_CHANGE_ORDER_UNSPECIFIED = 0; // Absolute change descending.
+  STORAGE_CHANGE_ORDER_LOGICAL_ASCENDING = 1;
+  STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING = 2;
+}
+
+// Compare retained storage observations without inferring causation.
+message GetStorageChangeRequest {
+  // System ID; empty selects the default system.
+  string system = 1;
+  // Account ID; empty includes all resources. Server usage is system-wide.
+  string account = 2;
+  // Required requested moments, in increasing order and at most 30 days apart.
+  // Future moments are invalid,
+  // except a captured source's disclosed one-microsecond exclusive-end adjustment.
+  google.protobuf.Timestamp a = 3;
+  google.protobuf.Timestamp b = 4;
+  // Optional returned collection pins. Missing retained pins never fall back.
+  int64 epoch_a = 5;
+  int64 epoch_b = 6;
+  // At most 100 rows; zero selects 100.
+  int32 page_size = 7;
+  // Opaque continuation for the same scoped comparison and pinned evidence.
+  string page_token = 8;
+  // Unknown deltas remain last for every order; stable identity breaks ties.
+  StorageChangeOrder order = 9;
+  // Filter displayed rows only; totals retain every resource type in scope.
+  CapacityStreamKind resource_kind = 10;
+  // Omit server rows from the displayed ranking, retaining server totals.
+  bool resources_only = 11;
+}
+
+// One resolved collection window, not an interpolated instantaneous reading.
+message StorageChangeEndpoint {
+  // Requested moment, unchanged.
+  google.protobuf.Timestamp requested = 1;
+  // Resolved collection; zero when unavailable.
+  int64 epoch = 2;
+  // Window in which replies were gathered. No window ends after requested.
+  google.protobuf.Timestamp started_at = 3;
+  google.protobuf.Timestamp finished_at = 4;
+  // Requested minus finished_at, when a collection is available.
+  google.protobuf.Duration age = 5;
+  // Complete expected-server JSZ coverage with matching detailed stream counts,
+  // independent of unrelated endpoint failures.
+  bool inventory_complete = 6;
+  // Stable reason codes, including no_collection, stale_collection and missing_jsz.
+  repeated string reasons = 7;
+}
+
+// Separate byte quantities. Unset means unavailable, never an inferred zero.
+message StorageChangeBytes {
+  // One logical copy of each resource.
+  optional int64 logical = 1;
+  // Sum of observed copy reports; not physical disk allocation.
+  optional int64 observed_replicas = 2;
+  // Logical bytes times configured replicas, explicitly an estimate.
+  optional int64 estimated_replicas = 3;
+  // JSZ-reported file or memory usage; system-wide even for account queries.
+  optional int64 server_reported = 4;
+}
+
+// One resource incarnation or one named server's file/memory store.
+message StorageChangeRow {
+  // Stable scoped identity, including resource creation time and storage type.
+  string id = 1;
+  // resource or server.
+  string row_kind = 2;
+  // Resource account and underlying stream; empty for server rows.
+  string account = 3;
+  string stream = 4;
+  // Resource type; unset for server rows.
+  CapacityStreamKind kind = 5;
+  // Bucket name without KV_ or OBJ_; empty for an ordinary stream.
+  string bucket = 6;
+  // Server name; empty for resource rows.
+  string server = 7;
+  // file or memory.
+  string storage = 8;
+  // Explicit incarnation; unset if the reports cannot establish it.
+  google.protobuf.Timestamp created = 9;
+  // Quantities at A and B, and signed differences only where comparable.
+  StorageChangeBytes before = 10;
+  StorageChangeBytes after = 11;
+  StorageChangeBytes delta = 12;
+  // Observation/lifecycle limitations; correlation does not establish a cause.
+  repeated string reasons = 13;
+  // Exact source process IDs for this row at each endpoint.
+  repeated string processes_a = 14;
+  repeated string processes_b = 15;
+  // Configured replica counts; unset if missing or conflicting.
+  optional int32 configured_replicas_a = 16;
+  optional int32 configured_replicas_b = 17;
+  // Matching stored lifecycle event IDs, not causal attribution.
+  repeated int64 event_ids = 18;
+}
+
+// Totals use all ranked rows, including rows omitted from this page.
+message StorageChangeTotals {
+  // file or memory.
+  string storage = 1;
+  // Complete totals only; unset if any relevant quantity is unknown.
+  StorageChangeBytes before = 2;
+  StorageChangeBytes after = 3;
+  StorageChangeBytes delta = 4;
+  // Sum of comparable resource contributions; unknown_rows qualifies the sum.
+  StorageChangeBytes known_contributions = 5;
+  // Comparable resource contributions outside this page, including negatives.
+  StorageChangeBytes omitted_contributions = 6;
+  // Resource rows whose logical or replica contribution is unavailable.
+  int32 unknown_rows = 7;
+  // Server usage change minus observed file/memory-copy changes. This residual
+  // is not physical accounting; unset for incomplete or account-scoped data.
+  optional int64 unreconciled = 8;
+}
+
+// Reproducible comparison; both endpoint pins are returned on every page.
+message GetStorageChangeResponse {
+  StorageChangeEndpoint a = 1;
+  StorageChangeEndpoint b = 2;
+  // completed_at_or_before_requested, no future/interpolated observations.
+  string endpoint_policy = 3;
+  // bytes for every quantity; negative deltas are retained.
+  string unit = 4;
+  repeated StorageChangeRow rows = 5;
+  repeated StorageChangeTotals totals = 6;
+  int32 total_count = 7;
+  string next_page_token = 8;
+  // Relative evidence-view URL preserving scope and resolved collection pins.
+  string investigation_url = 9;
+  // Comparison-level limitations, including server_usage_is_system_wide.
+  repeated string reasons = 10;
+  // Resolved configured system and requested resource account scope.
+  string system = 11;
+  string account = 12;
+}

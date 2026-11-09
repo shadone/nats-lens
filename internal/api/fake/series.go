@@ -193,9 +193,9 @@ func consumerSample(metric string, e *v1.EntityRef, c time.Time) (float64, bool)
 // counts, with the bucket's lowest and highest sample; averages of samples
 // for other gauges and rates; sums of events for cluster.slow_consumers and
 // the event metrics.
-func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) *v1.Series {
+func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32, observationGrid ...bool) *v1.Series {
 	if _, ok := bandOf[metric]; ok {
-		return s.bandSeries(metric, e, r, maxPoints)
+		return s.bandSeries(metric, e, r, maxPoints, observationGrid...)
 	}
 	step := api.Step(r, maxPoints, sampleEvery)
 	out := &v1.Series{Metric: metric, Entity: e, Unit: api.Metrics[metric].Unit, Step: dur(step)}
@@ -214,26 +214,31 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 		var n int
 		var lo, hi *float64
 		if metric == "cluster.slow_consumers" || metric == "server.slow_consumers" {
-			for _, sp := range s.sc.servers {
-				if metric == "server.slow_consumers" && sp.name != e.GetKey() {
+			for x := api.BucketStart(t.Add(sampleEvery-1), sampleEvery); x.Before(stop); x = x.Add(sampleEvery) {
+				if !s.sc.hasCollection(s.clock(x)) {
 					continue
 				}
-				sum += float64(s.slowCount(sp, t, stop))
+				for _, sp := range s.sc.servers {
+					if metric == "server.slow_consumers" && sp.name != e.GetKey() {
+						continue
+					}
+					sum += float64(s.slowCount(sp, x, earliest(x.Add(sampleEvery), stop)))
+				}
+				n = 1
 			}
-			n = 1
 		} else if eventMetrics[metric] {
 			// Samples on a grid of sampleEvery, so that no event counts
 			// in two buckets.
 			for x := api.BucketStart(t.Add(sampleEvery-time.Nanosecond), sampleEvery); x.Before(stop); x = x.Add(sampleEvery) {
 				if v, ok := s.sc.value(metric, e, s.clock(x)); ok {
 					sum += v
+					n = 1
 				}
 			}
-			n = 1
 		} else if out.Unit == v1.Unit_UNIT_COUNT {
 			// A count takes the bucket's last sample, as the store's
 			// arg_max does, so it stays whole, with its lowest and highest.
-			for x := t; x.Before(stop); x = x.Add(sampleEvery) {
+			for x := observationSampleStart(t, observationGrid); x.Before(stop); x = x.Add(sampleEvery) {
 				if v, ok := s.sc.value(metric, e, s.clock(x)); ok {
 					sum, n = v, 1
 					if lo == nil || v < *lo {
@@ -245,7 +250,7 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 				}
 			}
 		} else {
-			for x := t; x.Before(stop); x = x.Add(sampleEvery) {
+			for x := observationSampleStart(t, observationGrid); x.Before(stop); x = x.Add(sampleEvery) {
 				if v, ok := s.sc.value(metric, e, s.clock(x)); ok {
 					sum += v
 					n++
@@ -268,12 +273,28 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 }
 
 // GetTimeSeries draws one metric of a known entity.
-func (p *Provider) GetTimeSeries(_ context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
+func (p *Provider) GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
 	e, err := p.sc.resolveEntity(req.GetEntity())
 	if err != nil {
 		return nil, err
 	}
-	return &v1.GetTimeSeriesResponse{Series: p.scen().series(req.GetMetric(), e, req.GetRange(), req.GetMaxPoints())}, nil
+	if req.GetIncludeObservations() && req.GetRange().GetEnd().AsTime().Sub(req.GetRange().GetStart().AsTime()) > api.MaxObservationRange {
+		return nil, fmt.Errorf("%w: observation range exceeds 30 days", api.ErrInvalid)
+	}
+	if req.GetIncludeObservations() {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+	}
+	scenario := p.scen()
+	out := scenario.series(req.GetMetric(), e, req.GetRange(), req.GetMaxPoints(), req.GetIncludeObservations())
+	if req.GetIncludeObservations() {
+		out.Observations, err = scenario.observationSummary(ctx, req.Metric, e, req.Range)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &v1.GetTimeSeriesResponse{Series: out}, nil
 }
 
 // resolveEntity checks that the entity exists and fills in its parts.
@@ -307,4 +328,13 @@ func (sc *scenario) resolveEntity(e *v1.EntityRef) (*v1.EntityRef, error) {
 		}
 	}
 	return nil, fmt.Errorf("entity %s %q: %w", e.GetType(), e.GetKey(), api.ErrNotFound)
+}
+
+// Opted-in demo curves use the same native grid as their observations.
+// Standalone chart generation retains its existing sampling behavior.
+func observationSampleStart(t time.Time, enabled []bool) time.Time {
+	if len(enabled) > 0 && enabled[0] {
+		return api.BucketStart(t.Add(sampleEvery-time.Nanosecond), sampleEvery)
+	}
+	return t
 }

@@ -18,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/timeline.proto.
  */
 export const file_natslens_v1_timeline: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS90aW1lbGluZS5wcm90bxILbmF0c2xlbnMudjEi2QEKC1RpbWVsaW5lUm93EgsKA2tleRgHIAEoCRISCgpjaGVja19jb2RlGAEgASgJEhIKCmNoZWNrX25hbWUYAiABKAkSJwoIc2V2ZXJpdHkYAyABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRImCgZlbnRpdHkYBCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSIgoFY2VsbHMYBSADKA4yEy5uYXRzbGVucy52MS5TdGF0dXMSIAoDbm93GAYgASgOMhMubmF0c2xlbnMudjEuU3RhdHVzItgBCglMYW5lRXZlbnQSCgoCaWQYCCABKAkSKAoEdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKAoGc291cmNlGAIgASgOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDAoEa2luZBgDIAEoCRITCgtzaG9ydF9sYWJlbBgEIAEoCRINCgVsYWJlbBgFIAEoCRInCghzZXZlcml0eRgGIAEoDjIVLm5hdHNsZW5zLnYxLlNldmVyaXR5EhAKCGV2ZW50X2lkGAcgASgJIrgBChhHZXRTdGF0dXNUaW1lbGluZVJlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USKQoGYnVja2V0GAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEiYKBmVudGl0eRgDIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhISCgppbmNsdWRlX29rGAQgASgIEg4KBnN5c3RlbRgFIAEoCSL8AgoZR2V0U3RhdHVzVGltZWxpbmVSZXNwb25zZRIpCgVzdGFydBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKQoGYnVja2V0GAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhQKDGJ1Y2tldF9jb3VudBgDIAEoBRImCgRyb3dzGAQgAygLMhgubmF0c2xlbnMudjEuVGltZWxpbmVSb3cSKgoKa3ViZXJuZXRlcxgFIAMoCzIWLm5hdHNsZW5zLnYxLkxhbmVFdmVudBIkCgRuYXRzGAYgAygLMhYubmF0c2xlbnMudjEuTGFuZUV2ZW50EigKB3dpbmRvd3MYByADKAsyFy5uYXRzbGVucy52MS5UaW1lV2luZG93EhYKDm5hdHNfdHJ1bmNhdGVkGAggASgIEhkKEWZpbmRpbmdfdHJ1bmNhdGVkGAkgASgIEhwKFGt1YmVybmV0ZXNfdHJ1bmNhdGVkGAogASgIQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_events, file_natslens_v1_overview]);
+  fileDesc("ChpuYXRzbGVucy92MS90aW1lbGluZS5wcm90bxILbmF0c2xlbnMudjEi2QEKC1RpbWVsaW5lUm93EgsKA2tleRgHIAEoCRISCgpjaGVja19jb2RlGAEgASgJEhIKCmNoZWNrX25hbWUYAiABKAkSJwoIc2V2ZXJpdHkYAyABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRImCgZlbnRpdHkYBCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSIgoFY2VsbHMYBSADKA4yEy5uYXRzbGVucy52MS5TdGF0dXMSIAoDbm93GAYgASgOMhMubmF0c2xlbnMudjEuU3RhdHVzIq4CCglMYW5lRXZlbnQSCgoCaWQYCCABKAkSKAoEdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKAoGc291cmNlGAIgASgOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDAoEa2luZBgDIAEoCRITCgtzaG9ydF9sYWJlbBgEIAEoCRINCgVsYWJlbBgFIAEoCRInCghzZXZlcml0eRgGIAEoDjIVLm5hdHNsZW5zLnYxLlNldmVyaXR5EhAKCGV2ZW50X2lkGAcgASgJEiYKBmVudGl0eRgJIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhISCgpmaW5kaW5nX2lkGAogASgJEhgKEHRyYW5zaXRpb25fZXBvY2gYCyABKAMi5gEKGEdldFN0YXR1c1RpbWVsaW5lUmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIpCgZidWNrZXQYAiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SJgoGZW50aXR5GAMgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhIKCmluY2x1ZGVfb2sYBCABKAgSDgoGc3lzdGVtGAUgASgJEhoKDWV2ZW50X3JlYWRfaWQYBiABKANIAIgBAUIQCg5fZXZlbnRfcmVhZF9pZCLtAwoZR2V0U3RhdHVzVGltZWxpbmVSZXNwb25zZRIpCgVzdGFydBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKQoGYnVja2V0GAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhQKDGJ1Y2tldF9jb3VudBgDIAEoBRImCgRyb3dzGAQgAygLMhgubmF0c2xlbnMudjEuVGltZWxpbmVSb3cSKgoKa3ViZXJuZXRlcxgFIAMoCzIWLm5hdHNsZW5zLnYxLkxhbmVFdmVudBIkCgRuYXRzGAYgAygLMhYubmF0c2xlbnMudjEuTGFuZUV2ZW50EigKB3dpbmRvd3MYByADKAsyFy5uYXRzbGVucy52MS5UaW1lV2luZG93EhYKDm5hdHNfdHJ1bmNhdGVkGAggASgIEhkKEWZpbmRpbmdfdHJ1bmNhdGVkGAkgASgIEhwKFGt1YmVybmV0ZXNfdHJ1bmNhdGVkGAogASgIEhoKEmZpbmRpbmdfcmVhZF9lcG9jaBgLIAEoAxIaCg1ldmVudF9yZWFkX2lkGAwgASgDSACIAQESJQoFcmFuZ2UYDSABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2VCEAoOX2V2ZW50X3JlYWRfaWRCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_events, file_natslens_v1_overview]);
 
 /**
  * One check's states over the range.
@@ -149,6 +149,24 @@ export type LaneEvent = Message<"natslens.v1.LaneEvent"> & {
    * @generated from field: string event_id = 7;
    */
   eventId: string;
+
+  /**
+   * @generated from field: natslens.v1.EntityRef entity = 9;
+   */
+  entity?: EntityRef | undefined;
+
+  /**
+   * For finding transitions, the recorded finding identity and collection.
+   * Zero/empty means the mapping is unavailable, not current-only evidence.
+   *
+   * @generated from field: string finding_id = 10;
+   */
+  findingId: string;
+
+  /**
+   * @generated from field: int64 transition_epoch = 11;
+   */
+  transitionEpoch: bigint;
 };
 
 /**
@@ -201,6 +219,14 @@ export type GetStatusTimelineRequest = Message<"natslens.v1.GetStatusTimelineReq
    * @generated from field: string system = 5;
    */
   system: string;
+
+  /**
+   * Optional captured event membership boundary, including a known empty zero.
+   * It does not pin check/configuration state or restore expired events.
+   *
+   * @generated from field: optional int64 event_read_id = 6;
+   */
+  eventReadId?: bigint | undefined;
 };
 
 /**
@@ -289,6 +315,26 @@ export type GetStatusTimelineResponse = Message<"natslens.v1.GetStatusTimelineRe
    * @generated from field: bool kubernetes_truncated = 10;
    */
   kubernetesTruncated: boolean;
+
+  /**
+   * Boundary for ListFindingEpisodes after selecting this Timeline. Later
+   * finding transitions are excluded; this is not a persistent database pin.
+   *
+   * @generated from field: int64 finding_read_epoch = 11;
+   */
+  findingReadEpoch: bigint;
+
+  /**
+   * @generated from field: optional int64 event_read_id = 12;
+   */
+  eventReadId?: bigint | undefined;
+
+  /**
+   * Resolved query bounds, separate from the possibly partial last bucket.
+   *
+   * @generated from field: natslens.v1.TimeRange range = 13;
+   */
+  range?: TimeRange | undefined;
 };
 
 /**

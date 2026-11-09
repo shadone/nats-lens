@@ -48,3 +48,37 @@
 .zoom-h .zkey svg{width:9px;height:9px;vertical-align:-1px;margin-right:var(--sp-1)}
 .zsvg{display:block;width:100%;overflow:visible}
 .zsvg text{font-family:var(--mono)}
+
+/* Marks keep their lane geometry; previews live outside the clipping card. */
+button.timeline-mark { padding: 0; border: 0; color: inherit; font: inherit; cursor: help; }
+.timeline-mark:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+button.timeline-mark::after { content: ""; position: absolute; inset: -4px; }
+.timeline-mark { cursor: help; }
+
+.timeline-details { display: grid; gap: var(--sp-3); overflow-wrap: anywhere; }
+
+.dlg.dlg-fullscreen { width: calc(100dvw - 32px); height: calc(100dvh - 32px); max-width: none; margin: auto; }
+.dlg-fullscreen > .dlg-h { position: sticky; top: calc(-1 * var(--sp-5)); background: var(--surface); z-index: 1; padding-block: var(--sp-3); }
+.timeline-finding-list { display: grid; gap: var(--sp-3); }
+.timeline-finding-list > article { padding: var(--sp-4); }
+.timeline-finding-list .btns { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+
+/* Long historical labels must not consume the value column on phones. */
+.occurrence-facts.kv{grid-template-columns:minmax(0,1fr);row-gap:var(--sp-1);margin-block:var(--sp-3)}
+.occurrence-facts.kv dt,.occurrence-facts.kv dd{min-width:0;overflow-wrap:anywhere}
+.occurrence-facts.kv dd{margin-bottom:var(--sp-2)}
+@media(min-width:761px){.occurrence-facts.kv{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.finding-occurrence{padding:var(--sp-4);min-width:0}
+.finding-occurrence .btns{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-3)}
+
+/* Counts replace colliding hit targets; the track keeps its full width. */
+button.timeline-event-group { min-width: var(--sp-6); height: var(--sp-6); width:auto; transform:translateX(-50%); border-radius:var(--r-sm); background:var(--surface-2); color:var(--text); z-index:2; border:1px solid var(--border); font-size:var(--fs-xs); line-height:1; }
+.timeline-event-list { display:grid; gap:var(--sp-4); padding-inline-start:var(--sp-5); }
+.timeline-event-list > li { min-width:0; }
+.timeline-event-evidence .btns { display:flex; flex-wrap:wrap; gap:var(--sp-3); }
+.timeline-event-evidence .raw { overflow:auto; max-height:50vh; white-space:pre-wrap; overflow-wrap:anywhere; }
+
+/* Text-table actions use their own bounded hit area, not an absolute lane tick. */
+button.timeline-mark.timeline-table-event { text-decoration:underline dotted var(--text-faint);text-underline-offset:var(--sp-1);position:relative;max-width:100%;min-height:var(--sp-12);background:transparent;text-align:start;white-space:normal;overflow-wrap:anywhere;cursor:pointer; }
+button.timeline-mark.timeline-table-event::after { content:none; }
+button.timeline-mark.timeline-table-event:hover { color:var(--accent-text);text-decoration-color:var(--accent); }

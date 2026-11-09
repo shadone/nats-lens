@@ -10,6 +10,8 @@ The Applications page groups the client connections of a system by the applicati
 
 ## Behavior and rules
 
+- **Chart descriptions.** The traffic column has an independent [chart help](chart-help.md) control describing whole-hour counts, directions, per-row scaling and gaps without sorting the table.
+
 - **First visit.** The page reads data for the current scope while its view loads. The shell stays available, with loading and reload recovery described in [navigation](navigation.md).
 
 - **Replay context.** “Replay this window” opens fixed A and B from the selected range, using at most its last 24 hours and ending no later than now. The page explains that Replay covers all accounts and compares observed libraries alongside system-wide reconnects, findings and server upgrades. Library changes do not prove an application deployment. Replay collection evidence links back with an exact application-name filter and account scope; summary cards still cover the account scope. When the application is absent or outside the first 500 listed, the page explains that it is not listed. See [replay.md](replay.md) for comparison coverage and limits.

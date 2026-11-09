@@ -13,6 +13,7 @@ import (
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/store"
+	"google.golang.org/protobuf/proto"
 )
 
 // sourceOf maps events.source to the API's sources: system events and
@@ -70,9 +71,22 @@ func severityOf(kind, reason, consumer string) v1.Severity {
 
 // eventFilter builds the WHERE clause of a ListEvents request.
 func eventFilter(req *v1.ListEventsRequest) (string, []any) {
-	start, end := span(req.GetRange())
-	where := []string{"e.time >= ?", "e.time < ?"}
-	args := []any{start, end}
+	where := []string{"true"}
+	var args []any
+	if req.Range != nil {
+		start, end := span(req.Range)
+		where = append(where, "e.time >= ?", "e.time < ?")
+		args = append(args, start, end)
+	}
+	if req.EventReadId != nil {
+		where = append(where, "e.id<=?")
+		args = append(args, *req.EventReadId)
+	}
+	if len(req.SelectedIds) > 0 {
+		where = append(where, "e.id IN (SELECT unnest(?::BIGINT[]))")
+		ids, _ := api.EventSelection(req.SelectedIds, req.EventReadId)
+		args = append(args, ids)
+	}
 	if len(req.GetSources()) > 0 {
 		var src []string
 		for _, s := range req.GetSources() {
@@ -136,7 +150,8 @@ const eventCols = `e.id, e.time, e.received_at, e.source, e.kind, e.server_name,
   e.client_name, e.client_host, e.reason, e.summary,
   CASE WHEN e.source = 'finding' THEN json_extract_string(e.raw, '$.finding_id') END,
   CASE WHEN e.source = 'finding' THEN json_extract_string(e.raw, '$.severity') END,
-  CASE WHEN e.source = 'finding' THEN json_extract_string(e.raw, '$.detail') END`
+  CASE WHEN e.source = 'finding' THEN json_extract_string(e.raw, '$.detail') END,
+ CASE WHEN e.source = 'finding' THEN TRY_CAST(json_extract_string(e.raw, '$.epoch') AS BIGINT) END`
 
 func scanEvent(rows interface{ Scan(...any) error }, extra ...any) (*v1.Event, error) {
 	var ev v1.Event
@@ -145,8 +160,9 @@ func scanEvent(rows interface{ Scan(...any) error }, extra ...any) (*v1.Event, e
 	var source string
 	var server, account, stream, consumer, client, host, reason sql.NullString
 	var findingID, findingSeverity, findingDetail sql.NullString
+	var findingEpoch sql.NullInt64
 	dest := append([]any{&id, &at, &received, &source, &ev.Kind, &server, &account, &stream, &consumer, &client, &host,
-		&reason, &ev.Summary, &findingID, &findingSeverity, &findingDetail}, extra...)
+		&reason, &ev.Summary, &findingID, &findingSeverity, &findingDetail, &findingEpoch}, extra...)
 	if err := rows.Scan(dest...); err != nil {
 		return nil, err
 	}
@@ -157,7 +173,7 @@ func scanEvent(rows interface{ Scan(...any) error }, extra ...any) (*v1.Event, e
 	ev.Severity = severityOf(ev.GetKind(), ev.GetReason(), ev.GetConsumer())
 	if findingID.Valid {
 		ev.Severity = severityOfText[findingSeverity.String]
-		ev.Transition = &v1.FindingTransition{FindingId: findingID.String, Time: ev.GetTime(),
+		ev.Transition = &v1.FindingTransition{FindingId: findingID.String, Epoch: findingEpoch.Int64, Time: ev.GetTime(),
 			State: transitionState[strings.TrimPrefix(ev.GetKind(), "finding.")], Severity: ev.GetSeverity(), Detail: findingDetail.String}
 	}
 	return &ev, nil
@@ -200,39 +216,11 @@ func (p *Provider) decorateEvents(ctx context.Context, evs []*v1.Event) error {
 	}
 	for _, ev := range evs {
 		if t := ev.GetTransition(); t != nil {
-			code, _, _ := strings.Cut(t.GetFindingId(), ":")
-			ev.Type = code
-			if p.Checks != nil {
-				if c, ok := p.Checks.Lookup(code); ok {
-					ev.Type = code + " " + c.Name
-				}
-			}
 			if f, ok := byID[t.GetFindingId()]; ok {
 				ev.Finding = p.findingProto(f, nil)
 			}
-			// The stored summary leads with the code for SQL readers; the
-			// type carries that here, so the summary names the entity. A
-			// resolve's detail is the last failing result, and says so.
-			label := entityLabel(ev)
-			if label == "" {
-				// No column names the entity: fall back to the finding's
-				// key, and for the system, whose key is empty, to its name.
-				_, label, _ = strings.Cut(t.GetFindingId(), ":")
-				if acc, rest, ok := strings.Cut(label, "/"); ok && names[acc] != "" {
-					label = names[acc] + "/" + rest
-				}
-				if label == "" {
-					label = "system"
-				}
-			}
-			switch {
-			case t.GetState() == v1.FindingState_FINDING_STATE_RESOLVED:
-				ev.Summary = "resolved: " + label + ". Last failing result: " + t.GetDetail()
-			case label != "":
-				ev.Summary = label + ": " + t.GetDetail()
-			default:
-				ev.Summary = t.GetDetail()
-			}
+			p.decorateEventLabel(ev, names)
+
 		}
 		for _, f := range byCause[ev.GetId()] {
 			ev.Raised = append(ev.Raised, p.findingProto(f, nil))
@@ -241,9 +229,79 @@ func (p *Provider) decorateEvents(ctx context.Context, evs []*v1.Event) error {
 	return nil
 }
 
+// Timeline's lane DTO does not contain current finding/raised-finding fields.
+// Reuse pure labels without leaving the caller's transaction connection.
+func (p *Provider) decorateTimelineEvents(ctx context.Context, evs []*v1.Event) error {
+	if len(evs) == 0 {
+		return nil
+	}
+	names, err := p.AccountNames(ctx)
+	if err != nil {
+		return err
+	}
+	for _, ev := range evs {
+		p.decorateEventLabel(ev, names)
+	}
+	return nil
+}
+
+func (p *Provider) decorateEventLabel(ev *v1.Event, names map[string]string) {
+	t := ev.GetTransition()
+	if t == nil {
+		return
+	}
+	code, _, _ := strings.Cut(t.GetFindingId(), ":")
+	ev.Type = code
+	if p.Checks != nil {
+		if c, ok := p.Checks.Lookup(code); ok {
+			ev.Type = code + " " + c.Name
+		}
+	}
+	// The stored summary leads with the code for SQL readers; the
+	// type carries that here, so the summary names the entity. A
+	// resolve's detail is the last failing result, and says so.
+	label := entityLabel(ev)
+	if label == "" {
+		// No column names the entity: fall back to the finding's
+		// key, and for the system, whose key is empty, to its name.
+		_, label, _ = strings.Cut(t.GetFindingId(), ":")
+		if acc, rest, ok := strings.Cut(label, "/"); ok && names[acc] != "" {
+			label = names[acc] + "/" + rest
+		}
+		if label == "" {
+			label = "system"
+		}
+	}
+	switch {
+	case t.GetState() == v1.FindingState_FINDING_STATE_RESOLVED:
+		ev.Summary = "resolved: " + label + ". Last failing result: " + t.GetDetail()
+	case label != "":
+		ev.Summary = label + ": " + t.GetDetail()
+	default:
+		ev.Summary = t.GetDetail()
+	}
+}
+
 // ListEvents reads events newest first, paging by time and ID so that new
 // events do not shift the pages.
 func (p *Provider) ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error) {
+	res, err := p.listEvents(ctx, req)
+	if err == nil {
+		res.SelectedIds = append([]string(nil), req.SelectedIds...)
+		if req.EventReadId != nil {
+			res.EventReadId = proto.Int64(*req.EventReadId)
+		}
+	}
+	if err == nil && (len(req.SelectedIds) > 0 || req.EventReadId != nil) && !api.FitsEntityPage(res) {
+		return nil, fmt.Errorf("%w: selected event response exceeds page budget", api.ErrResourceExhausted)
+	}
+	return res, err
+}
+
+func (p *Provider) listEvents(ctx context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error) {
+	if _, err := api.EventSelection(req.SelectedIds, req.EventReadId); err != nil {
+		return nil, err
+	}
 	cur, err := api.DecodeCursor(req.GetPageToken())
 	if err != nil {
 		return nil, err
@@ -289,9 +347,26 @@ func (p *Provider) ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*
 
 // GetEvent reads one event with its payload.
 func (p *Provider) GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error) {
+	res, err := p.getEvent(ctx, req)
+	if err == nil && req.EventReadId != nil {
+		res.EventReadId = proto.Int64(*req.EventReadId)
+	}
+	if err == nil && req.EventReadId != nil && !api.FitsEntityPage(res) {
+		return nil, fmt.Errorf("%w: selected event exceeds page budget", api.ErrResourceExhausted)
+	}
+	return res, err
+}
+
+func (p *Provider) getEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error) {
+	if _, err := api.EventSelection(nil, req.EventReadId); err != nil {
+		return nil, err
+	}
 	id, err := parseID(req.GetId())
 	if err != nil {
 		return nil, fmt.Errorf("%w: event id %q is not a positive number", api.ErrInvalid, req.GetId())
+	}
+	if req.EventReadId != nil && id > *req.EventReadId {
+		return nil, fmt.Errorf("event %d outside selected membership: %w", id, api.ErrNotFound)
 	}
 	var raw sql.NullString
 	ev, err := scanEvent(p.db().QueryRowContext(ctx, `SELECT `+eventCols+`, e.raw::VARCHAR FROM events e WHERE e.id = ?`, id), &raw)
@@ -316,8 +391,12 @@ var (
 
 // laneEvents reads the newest laneLimit events of the kinds in the range,
 // and whether there were more.
-func (p *Provider) laneEvents(ctx context.Context, r *v1.TimeRange, entity *v1.EntityRef, kinds []string) ([]*v1.Event, bool, error) {
-	where, args := eventFilter(&v1.ListEventsRequest{Range: r, Kinds: kinds, Entity: entity})
+func (p *Provider) laneEvents(ctx context.Context, r *v1.TimeRange, entity *v1.EntityRef, kinds []string, readIDs ...int64) ([]*v1.Event, bool, error) {
+	request := &v1.ListEventsRequest{Range: r, Kinds: kinds, Entity: entity}
+	if len(readIDs) > 0 {
+		request.EventReadId = &readIDs[0]
+	}
+	where, args := eventFilter(request)
 	// The newest laneLimit events, plus one to tell whether more exist.
 	rows, err := p.db().QueryContext(ctx, `SELECT `+eventCols+` FROM events e WHERE `+where+
 		` ORDER BY e.time DESC, e.id DESC LIMIT ?`, append(args, laneLimit+1)...)
@@ -342,17 +421,17 @@ func (p *Provider) laneEvents(ctx context.Context, r *v1.TimeRange, entity *v1.E
 // lanes reads the NATS events and the finding transitions of the range,
 // each the newest laneLimit, merged oldest first, with a truncation flag
 // for each.
-func (p *Provider) lanes(ctx context.Context, r *v1.TimeRange, entity *v1.EntityRef) ([]*v1.LaneEvent, bool, bool, error) {
-	nats, natsCut, err := p.laneEvents(ctx, r, entity, laneKinds)
+func (p *Provider) lanes(ctx context.Context, r *v1.TimeRange, entity *v1.EntityRef, readIDs ...int64) ([]*v1.LaneEvent, bool, bool, error) {
+	nats, natsCut, err := p.laneEvents(ctx, r, entity, laneKinds, readIDs...)
 	if err != nil {
 		return nil, false, false, err
 	}
-	found, foundCut, err := p.laneEvents(ctx, r, entity, findingKinds)
+	found, foundCut, err := p.laneEvents(ctx, r, entity, findingKinds, readIDs...)
 	if err != nil {
 		return nil, false, false, err
 	}
 	evs := append(nats, found...)
-	if err := p.decorateEvents(ctx, evs); err != nil {
+	if err := p.decorateTimelineEvents(ctx, evs); err != nil {
 		return nil, false, false, err
 	}
 	slices.SortStableFunc(evs, func(a, b *v1.Event) int {
@@ -366,7 +445,7 @@ func (p *Provider) lanes(ctx context.Context, r *v1.TimeRange, entity *v1.Entity
 	out := make([]*v1.LaneEvent, 0, len(evs))
 	for _, ev := range evs {
 		out = append(out, &v1.LaneEvent{Id: ev.GetId(), Time: ev.GetTime(), Source: ev.GetSource(), Kind: ev.GetKind(),
-			ShortLabel: ev.GetType(), Label: ev.GetType() + " " + ev.GetSummary(), Severity: ev.GetSeverity(), EventId: ev.GetId()})
+			ShortLabel: ev.GetType(), Label: ev.GetType() + " " + ev.GetSummary(), Severity: ev.GetSeverity(), EventId: ev.GetId(), Entity: api.EventEntity(ev), FindingId: ev.GetTransition().GetFindingId(), TransitionEpoch: ev.GetTransition().GetEpoch()})
 	}
 	return out, natsCut, foundCut, nil
 }

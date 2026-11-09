@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -12,6 +14,7 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -26,26 +29,48 @@ const (
 // EntitySnapshot freezes ordering, summary values and totals, without stream history.
 // It is a bounded process-local traversal context, not a database snapshot.
 type EntitySnapshot struct {
-	Streams   []*v1.StreamSummary
-	Consumers []*v1.ConsumerSummary
-	Totals    *v1.StreamTotals
-	Epoch     int64
-	Scope     string
-	Range     *v1.TimeRange
-	created   time.Time
-	id        string
+	MetricRows []*v1.MetricContributor
+	ReadAt     *timestamppb.Timestamp
+	Streams    []*v1.StreamSummary
+	Consumers  []*v1.ConsumerSummary
+	Totals     *v1.StreamTotals
+	Epoch      int64
+	Scope      string
+	Range      *v1.TimeRange
+	created    time.Time
+	id         string
+	immutable  bool
 }
 
 // ASVS 15.4.1: serialize access to the bounded context cache.
 type EntityPages struct {
 	mu       sync.Mutex
 	contexts []*EntitySnapshot
+	// fingerprint is set only by trusted offline composition, never by a request.
+	fingerprint string
+}
+
+// InitImmutable rehydrates bounded rankings for a closed dataset held
+// read-only. fingerprint must identify the exact content, not a filename/mtime.
+// Tokens are untrusted pagination data, not authentication or signed credentials.
+// Call only during trusted construction, before this pager is used.
+func (p *EntityPages) InitImmutable(fingerprint string) error {
+	b, err := hex.DecodeString(fingerprint)
+	if err != nil || len(b) != sha256.Size || fingerprint != hex.EncodeToString(b) {
+		return invalid("invalid dataset fingerprint")
+	}
+	if p.fingerprint != "" || len(p.contexts) != 0 {
+		return invalid("pager is already initialized")
+	}
+	p.fingerprint = fingerprint
+	return nil
 }
 
 type entityToken struct {
-	ID     string        `json:"id"`
-	Offset int           `json:"offset"`
-	Range  *v1.TimeRange `json:"range"`
+	ID       string        `json:"id"`
+	IssuedAt int64         `json:"issuedAt,string,omitempty"`
+	Offset   int           `json:"offset"`
+	Range    *v1.TimeRange `json:"range"`
 }
 
 // ASVS 1.5.2, 2.2.1: accept only bounded JSON cursor data and validate its fields.
@@ -115,6 +140,26 @@ func (p *EntityPages) Begin(ctx context.Context, token, scope string, load func(
 		if err != nil {
 			return nil, 0, err
 		}
+		if p.fingerprint != "" {
+			issued := time.Unix(t.IssuedAt, 0)
+			if t.IssuedAt <= 0 || now.Before(issued) || now.Sub(issued) >= ListContextLifetime {
+				return nil, 0, fmt.Errorf("%w: list context expired or has a future issue time; read the first page again", ErrFailedPrecondition)
+			}
+			// Reuse the same loader and ranking budgets as a first page. No alternate
+			// query, sorting, formula, persisted cache, or caller-selected mode exists.
+			snapshot, _, err := p.Begin(ctx, "", scope, load)
+			if err != nil {
+				return nil, 0, err
+			}
+			if snapshot.id != t.ID {
+				return nil, 0, invalid("page_token does not match dataset, list filters, system, range or summary")
+			}
+			if t.Offset >= snapshot.rowCount() {
+				return nil, 0, invalid("page_token offset is outside the list")
+			}
+			snapshot.created = issued
+			return snapshot, t.Offset, nil
+		}
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		for _, s := range p.contexts {
@@ -127,7 +172,7 @@ func (p *EntityPages) Begin(ctx context.Context, token, scope string, load func(
 			if now.Sub(s.created) >= ListContextLifetime {
 				break
 			}
-			if t.Offset >= max(len(s.Streams), len(s.Consumers)) {
+			if t.Offset >= s.rowCount() {
 				return nil, 0, invalid("page_token offset is outside the list")
 			}
 			return s, t.Offset, nil
@@ -141,12 +186,29 @@ func (p *EntityPages) Begin(ctx context.Context, token, scope string, load func(
 	if err := ctx.Err(); err != nil {
 		return nil, 0, err
 	}
-	if max(len(s.Streams), len(s.Consumers)) > MaxListRankingRows {
+	if s.rowCount() > MaxListRankingRows {
 		return nil, 0, fmt.Errorf("%w: list ranking exceeds %d rows; narrow filters", ErrResourceExhausted, MaxListRankingRows)
 	}
-	size := proto.Size(&v1.ListStreamsResponse{Streams: s.Streams, Totals: s.Totals}) + proto.Size(&v1.ListConsumersResponse{Consumers: s.Consumers})
+	size := proto.Size(&v1.ListMetricContributorsResponse{Contributors: s.MetricRows, ReadAt: s.ReadAt}) + proto.Size(&v1.ListStreamsResponse{Streams: s.Streams, Totals: s.Totals}) + proto.Size(&v1.ListConsumersResponse{Consumers: s.Consumers})
 	if size > MaxListContextBytes {
 		return nil, 0, fmt.Errorf("%w: list ranking exceeds %d bytes; narrow the account or stream filter", ErrResourceExhausted, MaxListContextBytes)
+	}
+	if p.fingerprint != "" {
+		stream, _ := proto.MarshalOptions{Deterministic: true}.Marshal(&v1.ListStreamsResponse{Streams: s.Streams, Totals: s.Totals, Epoch: s.Epoch, Range: s.Range})
+		consumers, _ := proto.MarshalOptions{Deterministic: true}.Marshal(&v1.ListConsumersResponse{Consumers: s.Consumers, Epoch: s.Epoch, Range: s.Range})
+		hash := sha256.New()
+		parts := [][]byte{[]byte("natslens immutable list v1"), []byte(p.fingerprint), []byte(scope), stream, consumers}
+		if len(s.MetricRows) > 0 {
+			b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(&v1.ListMetricContributorsResponse{Contributors: s.MetricRows, ReadAt: s.ReadAt})
+			parts = append(parts, b)
+		}
+		for _, part := range parts {
+			// Length prefix keeps the deterministic byte components unambiguous.
+			fmt.Fprintf(hash, "%d:", len(part))
+			hash.Write(part)
+		}
+		s.id, s.Scope, s.created, s.immutable = base64.RawURLEncoding.EncodeToString(hash.Sum(nil)[:16]), scope, time.Unix(now.Unix(), 0), true
+		return s, 0, nil
 	}
 	// ASVS 11.5.1: use an unpredictable process-local context identifier.
 	var id [16]byte
@@ -171,10 +233,14 @@ func (p *EntityPages) Begin(ctx context.Context, token, scope string, load func(
 }
 
 func (s *EntitySnapshot) Next(offset int) string {
-	if offset >= max(len(s.Streams), len(s.Consumers)) {
+	if offset >= s.rowCount() {
 		return ""
 	}
-	b, _ := json.Marshal(entityToken{ID: s.id, Offset: offset, Range: s.Range})
+	token := entityToken{ID: s.id, Offset: offset, Range: s.Range}
+	if s.immutable {
+		token.IssuedAt = s.created.Unix()
+	}
+	b, _ := json.Marshal(token)
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
@@ -190,4 +256,8 @@ func fitsEntityBytes(m proto.Message, budget int) bool {
 	}
 	b, err := protojson.Marshal(m)
 	return err == nil && len(b) <= budget
+}
+
+func (s *EntitySnapshot) rowCount() int {
+	return max(len(s.Streams), len(s.Consumers), len(s.MetricRows))
 }

@@ -42,7 +42,7 @@ function Causes({ onMute }: { onMute: (f: Finding) => void }) {
 
 function Story({ end }: { end: number }) {
   const { spec } = useTimeRange();
-  const q = useTimeline(spec);
+  const q = useTimeline(spec, undefined, true);
   const tl = q.data;
   const info = useLensInfo().data;
   return (
@@ -81,7 +81,7 @@ function Lower({ start, end }: { start: number; end: number }) {
         <QueryView q={bc} what="the busiest consumers">
           {(cs) => (cs.length ? <BusiestConsumers consumers={cs} spec={spec} start={start} end={end} /> : <Empty>No consumer in the newest collection of this range.</Empty>)}
         </QueryView>
-        <p className="muted-note">Delivery rate over the 15 minutes before the range's end, from each consumer's leader.</p>
+        <p className="muted-note">Delivery-sequence rate in the newest comparable leader run within 15 minutes before the range’s end; not unique messages.</p>
       </section>
       <section className="card ov-panel" aria-labelledby="ov-st">
         <div className="sec-h">

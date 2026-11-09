@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -154,10 +155,19 @@ func (h *Handler) user(ctx context.Context, header interface{ Get(string) string
 	return email, nil
 }
 
+// rangeReference allows captured data to include a zero-duration latest sample
+// in a derived half-open interval without changing its observed reference time.
+func rangeReference(p Provider) time.Time {
+	if p, ok := p.(interface{ RangeReference() time.Time }); ok {
+		return p.RangeReference()
+	}
+	return p.Now()
+}
+
 // withRange fills an unset range with the default span ending at the
 // provider's now.
 func withRange(p Provider, r **v1.TimeRange) error {
-	out, err := ResolveRange(*r, p.Now(), DefaultRange)
+	out, err := ResolveRange(*r, rangeReference(p), DefaultRange)
 	if err == nil {
 		*r = out
 	}
@@ -294,7 +304,7 @@ func (h *Handler) ListMutes(ctx context.Context, req *connect.Request[v1.ListMut
 
 func (h *Handler) GetStatusTimeline(ctx context.Context, req *connect.Request[v1.GetStatusTimelineRequest]) (*connect.Response[v1.GetStatusTimelineResponse], error) {
 	return call(ctx, h, "GetStatusTimeline", req.Msg, func(p Provider, m *v1.GetStatusTimelineRequest) error {
-		return normalizeTimeline(m, p.Now())
+		return normalizeTimeline(m, rangeReference(p))
 	}, on(Provider.GetStatusTimeline))
 }
 
@@ -307,6 +317,7 @@ func (h *Handler) ListEvents(ctx context.Context, req *connect.Request[v1.ListEv
 			func() error { return maxLen("sources", len(m.GetSources()), MaxEnumFilters) },
 			func() error { return maxLen("kinds", len(m.GetKinds()), MaxKindFilters) },
 			func() error { return histogramBuckets(m.GetHistogramBuckets()) },
+			func() error { _, err := EventSelection(m.SelectedIds, m.EventReadId); return err },
 			func() error { return checkEntity("entity", m.GetEntity(), true) },
 		)
 	}, on(Provider.ListEvents))
@@ -317,7 +328,8 @@ func (h *Handler) GetEvent(ctx context.Context, req *connect.Request[v1.GetEvent
 		if m.GetId() == "" {
 			return invalid("id is required")
 		}
-		return nil
+		_, err := EventSelection(nil, m.EventReadId)
+		return err
 	}, on(Provider.GetEvent))
 }
 
@@ -327,7 +339,7 @@ func (h *Handler) ListStreams(ctx context.Context, req *connect.Request[v1.ListS
 		if _, err = EntityLimit(m.GetLimit()); err != nil {
 			return err
 		}
-		m.Range, err = EntityListRange(m.GetRange(), m.GetPageToken(), p.Now())
+		m.Range, err = EntityListRange(m.GetRange(), m.GetPageToken(), rangeReference(p))
 		return err
 	}, on(Provider.ListStreams))
 }
@@ -347,7 +359,7 @@ func (h *Handler) ListConsumers(ctx context.Context, req *connect.Request[v1.Lis
 		if _, err = EntityLimit(m.GetLimit()); err != nil {
 			return err
 		}
-		m.Range, err = EntityListRange(m.GetRange(), m.GetPageToken(), p.Now())
+		m.Range, err = EntityListRange(m.GetRange(), m.GetPageToken(), rangeReference(p))
 		return err
 	}, on(Provider.ListConsumers))
 }
@@ -419,7 +431,7 @@ func (h *Handler) ListMetrics(context.Context, *connect.Request[v1.ListMetricsRe
 
 func (h *Handler) GetTimeSeries(ctx context.Context, req *connect.Request[v1.GetTimeSeriesRequest]) (*connect.Response[v1.GetTimeSeriesResponse], error) {
 	return call(ctx, h, "GetTimeSeries", req.Msg, func(p Provider, m *v1.GetTimeSeriesRequest) error {
-		return normalizeTimeSeries(m, p.Now())
+		return normalizeTimeSeries(m, rangeReference(p))
 	}, on(Provider.GetTimeSeries))
 }
 
@@ -443,7 +455,7 @@ func (h *Handler) ListObjectStores(ctx context.Context, req *connect.Request[v1.
 
 func (h *Handler) GetReplay(ctx context.Context, req *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error) {
 	return call(ctx, h, "GetReplay", req.Msg, func(p Provider, m *v1.GetReplayRequest) error {
-		return normalizeReplay(m, p.Now())
+		return normalizeReplay(m, rangeReference(p))
 	}, func(s System, ctx context.Context, m *v1.GetReplayRequest) (*v1.GetReplayResponse, error) {
 		f, err := s.Provider.Replay(ctx, m)
 		if err != nil {
@@ -579,4 +591,54 @@ func (h *Handler) GetOnCall(ctx context.Context, req *connect.Request[v1.GetOnCa
 		}
 		return FinishOnCall(f, replay, ""), nil
 	})
+}
+
+func (h *Handler) GetStorageChange(ctx context.Context, req *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error) {
+	return call(ctx, h, "GetStorageChange", req.Msg, func(p Provider, m *v1.GetStorageChangeRequest) error {
+		if err := validateStorageChangeSelection(m); err != nil {
+			return err
+		}
+		if m.A == nil || m.B == nil || m.A.CheckValid() != nil || m.B.CheckValid() != nil || !m.A.AsTime().Before(m.B.AsTime()) || m.B.AsTime().After(rangeReference(p)) {
+			return invalid("valid ordered nonfuture a and b are required")
+		}
+		if m.B.AsTime().Sub(m.A.AsTime()) > MaxStorageChangeSpan {
+			return invalid("storage comparison is at most 30 days")
+		}
+		if m.EpochA < 0 || m.EpochB < 0 || m.PageSize < 0 || m.PageSize > MaxStorageChangePage || len(m.PageToken) > 1024 || len(m.Account) > 1024 {
+			return invalid("invalid storage comparison scope, pins or page budget")
+		}
+		if m.PageSize == 0 {
+			m.PageSize = MaxStorageChangePage
+		}
+		return nil
+	}, func(s System, ctx context.Context, m *v1.GetStorageChangeRequest) (*v1.GetStorageChangeResponse, error) {
+		f, err := s.Provider.StorageChange(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		scoped := proto.Clone(m).(*v1.GetStorageChangeRequest)
+		scoped.System = s.Ref.GetId()
+		return FinishStorageChange(scoped, f)
+	})
+}
+
+func (h *Handler) ListMetricContributors(ctx context.Context, req *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error) {
+	return call(ctx, h, "ListMetricContributors", req.Msg, func(p Provider, m *v1.ListMetricContributorsRequest) error {
+		return NormalizeMetricContributors(m, rangeReference(p))
+	}, on(Provider.ListMetricContributors))
+}
+
+func (h *Handler) ListFindingEpisodes(ctx context.Context, req *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error) {
+	return call(ctx, h, "ListFindingEpisodes", req.Msg, func(p Provider, m *v1.ListFindingEpisodesRequest) error {
+		_, err := NormalizeFindingEpisodes(m, rangeReference(p))
+		return err
+	}, on(Provider.ListFindingEpisodes))
+}
+
+func (h *Handler) GetEventBatch(ctx context.Context, req *connect.Request[v1.GetEventBatchRequest]) (*connect.Response[v1.GetEventBatchResponse], error) {
+	return call(ctx, h, "GetEventBatch", req.Msg, func(_ Provider, m *v1.GetEventBatchRequest) error { return EventBatchSelection(m.Ids, m.EventReadId) }, on(Provider.GetEventBatch))
+}
+
+func (h *Handler) ListEventSelection(ctx context.Context, req *connect.Request[v1.ListEventSelectionRequest]) (*connect.Response[v1.ListEventSelectionResponse], error) {
+	return call(ctx, h, "ListEventSelection", req.Msg, func(_ Provider, m *v1.ListEventSelectionRequest) error { return NormalizeEventSelection(m) }, on(Provider.ListEventSelection))
 }

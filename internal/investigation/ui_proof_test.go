@@ -2,6 +2,8 @@ package investigation
 
 import (
 	"encoding/json"
+	"fmt"
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
@@ -26,6 +28,11 @@ func TestUIEntityAndEnumProof(t *testing.T) {
 		{"ListEvents", "/events?show=all", `{"entity":{"type":"ENTITY_TYPE_SYSTEM"}}`, false},
 		{"ListEvents", "/events?show=all", `{"entity":{"type":"ENTITY_TYPE_UNSPECIFIED"}}`, false},
 		{"ListEvents", "/events?show=all", `{"entity":{"type":987,"key":"future"}}`, true},
+		{"ListEvents", "/events?show=all", `{"selectedIds":[]}`, false},
+		{"ListEvents", "/events?show=all", `{"selectedIds":["1"]}`, true},
+		{"ListEvents", "/events?show=all", `{"eventReadId":"0"}`, true},
+		{"GetEvent", "/events?id=1", `{"id":"1"}`, false},
+		{"GetEvent", "/events?id=1", `{"id":"1","eventReadId":"0"}`, true},
 		{"ListEvents", "/events?show=all", `{"sources":[0]}`, true},
 		{"ListEvents", "/events?show=all", `{"sources":[987]}`, true},
 		{"ListFindings", "/findings", `{"severities":["SEVERITY_UNSPECIFIED"]}`, true},
@@ -193,5 +200,25 @@ func TestPredicateProofDistinguishesOneofZeroFromAbsent(t *testing.T) {
 	ui.Set(f, protoreflect.ValueOfString(""))
 	if limits := compareUIFields("fixture", request, ui, policies); len(limits) != 0 {
 		t.Fatal(limits)
+	}
+}
+
+func TestTimelineRowCoverageOptionIsNotAnEncodedUIPredicate(t *testing.T) {
+	c, err := ContextFromURL("https://lens.example.com/?system=shop&range=1h", "https://lens.example.com", fixtureNow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []bool{false, true} {
+		raw, _, err := Prepare("GetStatusTimeline", c, []byte(fmt.Sprintf(`{"includeOk":%t}`, value)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var req v1.GetStatusTimelineRequest
+		if err := protojson.Unmarshal(raw, &req); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(strings.Join(proveUILinkScope("GetStatusTimeline", req.ProtoReflect(), c), " "), "includeOk") {
+			t.Fatalf("includeOk=%v silently treated as page-equivalent", value)
+		}
 	}
 }

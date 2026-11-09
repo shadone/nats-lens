@@ -2,23 +2,25 @@
 
 - **Surfaces:** `cli`
 - **Status:** shipped
-- **Related:** [history-and-archive.md](history-and-archive.md), [checks.md](checks.md), [command-bar.md](command-bar.md), [design.md](../design.md)
+- **Related:** [history-and-archive.md](history-and-archive.md), [offline-datasets.md](offline-datasets.md), [checks.md](checks.md), [command-bar.md](command-bar.md), [design.md](../design.md)
 
 ## What it does
 
-`natslens sql` answers trusted offline questions that the pages and proposed semantic investigation commands do not cover. It reads an existing DuckDB database and prints an aligned table or a machine-readable JSON document. Database-only queries need no collector, NATS connection or network.
+`natslens sql` answers trusted offline questions that the pages and semantic investigation commands do not cover. It reads an existing DuckDB database and prints an aligned table or a machine-readable JSON document. Database-only queries need no collector, NATS connection or network.
 
 ## Behavior and rules
 
-- **Choose one source.** An explicit database file, a data directory or a configured system selects the source. A multi-system configuration requires a system selection. Missing files fail without creating a database or running migrations.
-- **Preserve arbitrary columns.** JSON preserves column order, duplicate labels, type metadata, NULL and exact integer/decimal values. Its arbitrary schema stays separate from the proposed semantic investigation result schema. The [SQL CLI reference](../reference/sql-cli.md) defines representations and flags.
+- **Choose one source.** An explicit database file, a validated local bundle, a data directory or a configured system selects the source. Bundle and database flags are exclusive with each other and with configuration/system/directory flags. A multi-system configuration requires a system selection. Missing files fail without creating a database or running migrations.
+- **Preserve arbitrary columns.** JSON preserves column order, duplicate labels, type metadata, NULL and exact integer/decimal values. Its arbitrary schema stays separate from the semantic investigation result schema. The [SQL CLI reference](../reference/sql-cli.md) defines representations and flags.
 - **Reject unfaithful temporal JSON.** TIME, TIMETZ and TIME_NS result types fail before value conversion, including nested members, NULL and empty results. Temporal infinities and dates outside the JSON timestamp format also fail with explicit-cast guidance. Supported date and timestamp types retain their precision.
 - **Keep configuration diagnostics private.** Configuration and system-selection failures omit raw values, paths and configured system IDs. Their fixed diagnostic directs the caller to the local configuration or an explicit offline file.
 - **Keep the table.** The default table retains aligned columns, `NULL`, UTC times to milliseconds and the row count.
 - **Bound returned data.** Explicit row, output-byte and time budgets bound result presentation. Row truncation is visible. SQL is passed unchanged; no hidden limit changes its meaning. Native execution can consume resources before those limits apply.
 - **Publish complete results.** Query, conversion, cancellation and byte-limit failures publish no data. A new output file is published atomically and never replaces an existing file. Diagnostics go to stderr and failures exit unsuccessfully.
 - **Protect the selected database.** SQL opens the selected file read-only without migrations or cleanup. Trusted SQL can still read external files, write exports, attach writable databases and use extensions. Read-only database access is not an untrusted SQL sandbox.
-- **Select a consistent snapshot.** A live writer lock prevents inspection from another process. Snapshot acquisition is separate work described in [Investigation workflows](../plans/investigation-workflows.md); copying a live database file alone does not establish consistency. The SQL command neither stops the collector nor certifies a supplied snapshot.
+- **Select a consistent snapshot.** A live writer lock prevents inspection from another process. The [offline dataset acquisition channel](offline-datasets.md) creates a consistent closed artifact while the collector runs; copying a live database file alone does not establish consistency. The SQL command neither stops the collector nor certifies an arbitrary bare file.
+- **Validate bundles explicitly.** `-bundle` uses the shared reader before executing trusted SQL. JSON names the bundle and includes its verified manifest within the output budget. Bare `-db` remains schema-independent and does not claim semantic compatibility. Validation does not make arbitrary SQL safe or apply semantic response redaction.
+
 - **Keep semantic access separate.** Raw SQL remains an advanced local escape hatch. It is absent from the API and default agent/MCP surface.
 
 ## Scenarios
@@ -86,11 +88,19 @@
 - **Then** stderr contains a fixed diagnostic and the process exits unsuccessfully
 - **And** stdout and stderr omit the sensitive value and configuration filename
 
+### Inspect a validated bundle
+
+- **Surfaces:** `cli`
+- **Given** a trusted published local dataset
+- **When** I select `-bundle` with trusted SQL and JSON output
+- **Then** shared validation checks compatibility and integrity before execution
+- **And** the bounded result includes the manifest while retaining exact positional SQL values.
+
 ## Not supported / out of scope
 
-- SQL over the API. Remote [agent investigations](agent-investigations.md) use bounded semantic reads; offline semantic parity and dataset acquisition remain separate work.
+- SQL over the API. [Agent investigations](agent-investigations.md) use bounded semantic reads against live APIs or closed datasets.
 - Querying a database held by a live collector process.
-- Obtaining or validating a consistent snapshot, bundle source selection or an interchangeable offline semantic backend.
+- Acquiring a snapshot from SQL itself; use the [dataset acquisition workflow](offline-datasets.md) separately.
 - Executing untrusted SQL, enforcing an OS sandbox, or rolling back external SQL side effects.
 - SQL JSON-typed values without an explicit cast to text or binary, because the pinned driver loses JSON precision and duplicate object keys.
 - JSON output of TIME, TIMETZ or TIME_NS typed values without an explicit cast to text, because the pinned driver loses clock distinctions or lacks a decoder.

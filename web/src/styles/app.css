@@ -69,7 +69,7 @@ input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
 .muted-note{color:var(--text-muted);font-size:var(--fs-sm);margin:var(--sp-2) 0}
 
 /* dialog */
-.dlg{padding:var(--sp-5) var(--sp-6);width:min(520px,calc(100vw - 32px));color:var(--text)}
+.dlg{max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain;padding:var(--sp-5) var(--sp-6);width:min(520px,calc(100vw - 32px));color:var(--text)}
 .dlg::backdrop{background:var(--backdrop)}
 .dlg-h{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-1)}
 .dlg-h h2{margin:0;font:500 var(--fs-lg) var(--sans)}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -287,7 +288,7 @@ func prodPending(s scen) []*v1.Event {
 }
 
 func keepEvent(e *v1.Event, req *v1.ListEventsRequest) bool {
-	if !inRange(e.GetTime().AsTime(), req.GetRange()) {
+	if req.Range != nil && !inRange(e.GetTime().AsTime(), req.GetRange()) {
 		return false
 	}
 	if len(req.GetSources()) > 0 && !slices.Contains(req.GetSources(), e.GetSource()) {
@@ -318,16 +319,41 @@ func keepEvent(e *v1.Event, req *v1.ListEventsRequest) bool {
 }
 
 // ListEvents filters the events, newest first, paging by time and ID.
-func (p *Provider) ListEvents(_ context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error) {
+func (p *Provider) ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if _, err := api.EventSelection(req.SelectedIds, req.EventReadId); err != nil {
+		return nil, err
+	}
+	capture, err := p.captureEvents(req.EventReadId)
+	if err != nil {
+		return nil, err
+	}
+	all := selectedDemoEvents(capture.events, req.SelectedIds)
+	res, err := p.listEventsAt(req, all)
+	if err == nil {
+		res.SelectedIds = append([]string(nil), req.SelectedIds...)
+		if req.EventReadId != nil {
+			res.EventReadId = proto.Int64(*req.EventReadId)
+		}
+	}
+	if err == nil && (len(req.SelectedIds) > 0 || req.EventReadId != nil) && !api.FitsEntityPage(res) {
+		return nil, fmt.Errorf("%w: selected event response exceeds page budget", api.ErrResourceExhausted)
+	}
+	return res, err
+}
+
+func (p *Provider) listEventsAt(req *v1.ListEventsRequest, all []*v1.Event) (*v1.ListEventsResponse, error) {
 	cur, err := api.DecodeCursor(req.GetPageToken())
 	if err != nil {
 		return nil, err
 	}
 	if richRequest(req) {
-		return p.listEventsRich(req, cur), nil
+		return p.listEventsRich(req, cur, all), nil
 	}
 	res := &v1.ListEventsResponse{}
-	for _, e := range p.events(p.scen()) {
+	for _, e := range all {
 		if !keepEvent(e, req) {
 			continue
 		}
@@ -358,8 +384,15 @@ func num(id string) int64 {
 }
 
 // GetEvent returns one event with a payload built from its fields.
-func (p *Provider) GetEvent(_ context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error) {
-	for _, e := range p.events(p.scen()) {
+func (p *Provider) GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	capture, err := p.captureEvents(req.EventReadId)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range capture.events {
 		if e.GetId() != req.GetId() {
 			continue
 		}
@@ -367,8 +400,17 @@ func (p *Provider) GetEvent(_ context.Context, req *v1.GetEventRequest) (*v1.Get
 			"type": e.GetType(), "time": e.GetTime().AsTime(), "server": e.GetServer(), "stream": e.GetStream(),
 			"consumer": e.GetConsumer(), "client": map[string]string{"name": e.GetClientName(), "host": e.GetClientHost()},
 		})
-		e.Raw = string(raw)
-		return &v1.GetEventResponse{Event: e}, nil
+		if e.Raw == "" {
+			e.Raw = string(raw)
+		}
+		res := &v1.GetEventResponse{Event: e}
+		if req.EventReadId != nil {
+			res.EventReadId = proto.Int64(*req.EventReadId)
+		}
+		if req.EventReadId != nil && !api.FitsEntityPage(res) {
+			return nil, fmt.Errorf("%w: selected event exceeds page budget", api.ErrResourceExhausted)
+		}
+		return res, nil
 	}
 	return nil, fmt.Errorf("event %q: %w", req.GetId(), api.ErrNotFound)
 }

@@ -19,7 +19,7 @@ type rateBoundDB struct {
 }
 
 func (d *rateBoundDB) QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
-	if strings.Contains(q, "WITH lead AS") {
+	if strings.Contains(q, "/* delivered_rate_summary */") {
 		d.query, d.args = q, append([]any(nil), args...)
 		d.reads++
 	}

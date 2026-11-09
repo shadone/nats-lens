@@ -61,16 +61,7 @@ var shutdownTimeout = 5 * time.Second
 // every response with the security headers.
 func NewMux(h *Handler, ui fs.FS) http.Handler {
 	mux := http.NewServeMux()
-	p, svc := natslensv1connect.NewLensServiceHandler(h,
-		connect.WithReadMaxBytes(MaxMessageBytes),
-		connect.WithSendMaxBytes(MaxMessageBytes),
-		connect.WithRecover(func(_ context.Context, spec connect.Spec, _ http.Header, r any) error {
-			if h.Log != nil {
-				h.Log.Error("api call panicked", "procedure", spec.Procedure, "panic", r, "stack", string(debug.Stack()))
-			}
-			return connect.NewError(connect.CodeInternal, errors.New("internal error; see the server log"))
-		}),
-	)
+	p, svc := newLensService(h)
 	mux.Handle(investigation.Path+"/", http.StripPrefix(investigation.Path, investigationHandler(svc)))
 	mux.Handle(PathPrefix+p, http.StripPrefix(PathPrefix, svc))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -83,6 +74,25 @@ func NewMux(h *Handler, ui fs.FS) http.Handler {
 	mux.Handle(PathPrefix+"/", http.NotFoundHandler())
 	mux.Handle("/", uiHandler(ui))
 	return withSecurityHeaders(contentSecurityPolicy(ui), mux)
+}
+
+// NewInvestigationHandler exposes only the authoritative read-only service. It
+// constructs no UI, metrics endpoint, listener, or runtime callbacks.
+func NewInvestigationHandler(h *Handler) http.Handler {
+	_, svc := newLensService(h)
+	return http.StripPrefix(investigation.Path, investigationHandler(svc))
+}
+func newLensService(h *Handler) (string, http.Handler) {
+	return natslensv1connect.NewLensServiceHandler(h,
+		connect.WithReadMaxBytes(MaxMessageBytes),
+		connect.WithSendMaxBytes(MaxMessageBytes),
+		connect.WithRecover(func(_ context.Context, spec connect.Spec, _ http.Header, r any) error {
+			if h.Log != nil {
+				h.Log.Error("api call panicked", "procedure", spec.Procedure, "panic", r, "stack", string(debug.Stack()))
+			}
+			return connect.NewError(connect.CodeInternal, errors.New("internal error; see the server log"))
+		}),
+	)
 }
 
 // MetricsWriter is a provider that serves Prometheus metrics at /metrics.

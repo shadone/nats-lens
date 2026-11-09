@@ -10,6 +10,8 @@ The Findings page lists the findings of the time range, filtered by severity, st
 
 ## Behavior and rules
 
+- **Finding prompt.** Desktop finding details and the phone on-call card offer a labeled **Copy as prompt** action for firing, resolved, and muted findings. The prompt includes the loaded finding and check IDs, its typed entity, selected UTC window, and a bounded observed summary. It leaves acknowledgement and mute state untouched. Context, untrusted evidence, and clipboard fallback follow [agent investigations](agent-investigations.md).
+
 - **Replay finding context.** Desktop details offer "Replay this window" around the latest recorded transition, first sighting or resolution in the selected range, with explicit fixed times. This is surrounding observation context, not a claimed episode duration. Missing timing has an explanation instead of a link; the newest 100 transitions can omit older episodes. [Replay](replay.md) gives the context, historical-range, retention and missing-evidence rules.
 
 - **Acknowledgements.** The [phone card and acknowledgement dialog](mobile.md) record who works on a finding. Acknowledging keeps the finding visible and counted; a mute hides it.
@@ -38,6 +40,23 @@ The Findings page lists the findings of the time range, filtered by severity, st
 - **Finding summary layout.** Each duration, transition count, and check metric has a label above its value with space between them. The severity, code, and state badges have separate gaps. Acknowledge and Mute actions are spaced apart and wrap inside the card when the window narrows.
 - **Acknowledgements beside mutes.** An acknowledgement records who is investigating one finding's current firing episode. It leaves the finding visible, counted at its severity, and eligible for the Findings badge. A mute hides the finding from those counts. “Acknowledge…” on desktop and “I'm on it” on the [phone card](mobile.md) accept an optional note of at most 500 characters, with 30 minutes, 2 hours, or until-resolved quiet. Quiet expiry resumes alert eligibility but keeps the acknowledgement. Resolve or a later firing episode stops it applying. “Update…” replaces it; “Hand back…” releases it. The verified IAP user or request name identifies the author, as for mutes. The API also accepts quiet durations from 30 minutes through 24 hours.
 - **Acknowledgement visibility.** Overview cards, Findings rows, and finding details show the current acknowledgement. The Overview counts acknowledged firing findings, including muted ones. The finding page keeps replacement and hand-back receipts only during the visit to the same system, finding, and episode; resolving the finding clears those receipts. The API has no acknowledgement-history list. Reading a past range selects the acknowledgement in force at its end.
+
+### Retained finding occurrences
+
+- Timeline finding intervals use a separate occurrence read rather than the compatibility Findings list, which can show the newest occurrence for an ID. Repeated occurrences remain separate and include recorded resolutions. Each link fixes the system, UTC interval, first retained transition identity and transition high-water mark.
+- The occurrence page shows the recorded state before the selected interval end, observed resolution when retained, and the separately labeled latest retained state. Original onset, historical configuration, historical operator state and historical flapping are not reconstructed. Missing resolution records remain unknown; an old fragment does not extend past a separately recorded new firing. Current check guidance is labeled as current.
+- Raw history is explicit: at most 100 transitions per request, newest collection first, with byte-bounded responses and continuation. Transition identity strings retain 64-bit precision. Demo identities belong to a synthetic reference frame, not native collection IDs. A missing exact occurrence explains unavailable evidence rather than opening a newer recurrence.
+- A labeled Copy as prompt action preserves the exact bounded read in descriptor-validated context data. The latest-finding link is an explicitly different destination; historical pages offer no mute or acknowledgement action against an old occurrence. The [limits and API contract](../reference/finding-occurrences.md) are proposed, not yet confirmed.
+
+### Reopen an older occurrence
+
+- **Surfaces:** `ui`, `api`
+- **Given** a finding resolved and fired again
+- **When** I open its older Timeline occurrence
+- **Then** its retained state and transitions remain separate from the later recurrence
+- **And** missing history is disclosed instead of replaced by current configuration or another occurrence
+
+
 ## Scenarios
 
 ### Look at everything that flaps

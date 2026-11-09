@@ -28,7 +28,12 @@ func metadataOverflow() error {
 // the scanner rejects their original byte size before decoding or retaining.
 // q projects only the metadata used by its caller; all values remain parameters.
 func (p *Provider) readMetadata(ctx context.Context, q string, args []any, budget *metadataBudget, visit func([]byte) error) error {
-	rows, err := p.db().QueryContext(ctx, `WITH metadata AS (`+q+`), encoded AS (
+	return readMetadataOn(ctx, p.db(), q, args, budget, visit)
+}
+
+// readMetadataOn retains the same scanner bound inside a pinned read transaction.
+func readMetadataOn(ctx context.Context, db queryReader, q string, args []any, budget *metadataBudget, visit func([]byte) error) error {
+	rows, err := db.QueryContext(ctx, `WITH metadata AS (`+q+`), encoded AS (
  SELECT to_json(metadata)::VARCHAR AS payload FROM metadata
  ), sized AS (SELECT payload, octet_length(encode(payload)) AS bytes FROM encoded),
  cumulative AS (SELECT payload, bytes, sum(bytes) OVER (ROWS UNBOUNDED PRECEDING) AS read_bytes FROM sized)

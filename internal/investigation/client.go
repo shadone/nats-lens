@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/shadone/nats-lens/internal/eventselection"
 	"io"
 	"net"
 	"net/http"
@@ -147,6 +148,9 @@ func (r *Remote) Query(ctx context.Context, method string, request []byte) (json
 		code := connect.CodeOf(err)
 		return nil, errors.New("query failed (" + code.String() + "); check access/server compatibility, narrow scope, or inspect Data history for retention loss")
 	}
+	if err := checkEventSelectionReply(method, req.ProtoReflect(), res.Msg.ProtoReflect()); err != nil {
+		return nil, err
+	}
 	// Standard protobuf JSON preserves int64/uint64 as decimal strings, optional
 	// presence. Fields newer than this client schema are unavailable.
 	return protojson.MarshalOptions{EmitDefaultValues: true}.Marshal(res.Msg)
@@ -178,6 +182,10 @@ func (p Profile) ValidateURL(raw string) error {
 	t, err := origin(p.Deployment)
 	if err != nil || u.Scheme != t.Scheme || u.Host != t.Host {
 		return errors.New("page URL does not match trusted deployment")
+	}
+	if u.Path == "/timeline/events" {
+		_, _, err := eventselection.FromURL(u)
+		return err
 	}
 	return validateSource(u.RequestURI())
 }

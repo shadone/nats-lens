@@ -1,3 +1,4 @@
+import {timelineCaptureLimits} from "./TimelineCaptureNotice";
 // What happened over the range, in three lanes on one clock: Kubernetes
 // events with the drain and upgrade windows, the worst finding state of
 // any check, and the NATS events. "Each check" opens the full status
@@ -8,8 +9,17 @@ import { hm } from "../lib/format";
 import { findingRuns } from "../lib/storyLanes";
 import { useWidth } from "../lib/useWidth";
 import { axisTicks, isDeployment, runsText, zoomWindow } from "../lib/timelineModel";
-import { RLink } from "./common";
+import {Link} from "react-router";
+import {useSystem} from "../lib/useSystem";
 import { StatusTimeline, trackSpan } from "./StatusTimeline";
+import {InfoTip} from "./MetricBox";
+import {TimelineInvestigationProvider,TimelineFindingRange} from "./TimelineInvestigation";
+import {TimelineMark, WindowPreview, timelineTime} from "./TimelineMark";
+import {LEVEL_LABEL} from "../lib/view";
+import {TimelineEventTicks} from "./TimelineEventTicks";
+import {TimelineWindowEvidence} from "./TimelineEventEvidence";
+import {findingHistoryPath} from "../lib/findingHistory";
+import {evidenceRange,evidenceQuery} from "../lib/timelineEvidence";
 import { ZoomStrip } from "./ZoomStrip";
 
 interface Props {
@@ -25,16 +35,6 @@ function firedNote(n: number): string {
 
 function pct(v: number): string {
   return `${(Math.min(1, Math.max(0, v)) * 100).toFixed(3)}%`;
-}
-
-function Ticks({ events, frac, cls }: { events: LaneEvent[]; frac: (t: number) => number; cls: (e: LaneEvent) => string }) {
-  return (
-    <>
-      {events.map((e) => (
-        <span key={e.id} className={`sl-tick ${cls(e)}`} style={{ left: pct(frac(e.time)) }} title={`${hm(e.time)} ${e.label}`} />
-      ))}
-    </>
-  );
 }
 
 function natsClass(e: LaneEvent): string {
@@ -58,25 +58,32 @@ function LaneLegend({ windows }: { windows: boolean }) {
       {item("sl-run warning", "warning")}
       {item("sl-run info", "info")}
       {item("sl-run muted", "muted")}
+      {item("sl-run nodata", "no data")}
       {item("sl-tick nats", "NATS event")}
       {item("sl-tick warn", "NATS warning")}
     </ul>
   );
 }
 
-export function StoryLanes({ tl, end, live }: Props) {
+export function StoryLanes(props:Props) { return <TimelineInvestigationProvider><StoryLaneContents {...props}/></TimelineInvestigationProvider>; }
+
+function StoryLaneContents({ tl, end, live }: Props) {
+  const system=useSystem();
   const [checks, setChecks] = useState(false);
   const [asTable, setAsTable] = useState(false);
   const span = trackSpan(tl, end);
   const axis = useRef<HTMLDivElement>(null);
   const axisW = useWidth(axis);
   const frac = (t: number) => (t - tl.start) / span;
-  const runs = findingRuns(tl.rows, tl.start, tl.bucketMs, tl.bucketCount).filter((r) => r.level !== "nodata");
+ const fixed=tl.evidenceRange??evidenceRange(tl.start,tl.start+span);
+  const lanePath=(path:string)=>{const [base,query]=path.split('?'),p=evidenceQuery(system,fixed);new URLSearchParams(query).forEach((v,k)=>p.set(k,v));if(base==='/events'&&tl.eventReadId!==undefined)p.set('eventReadId',tl.eventReadId);return `${base}?${p}`};
+  const runs = findingRuns(tl.rows, tl.start, tl.bucketMs, tl.bucketCount);
+  const observed=tl.rows.some(row=>row.cells.slice(0,tl.bucketCount).some(level=>level!=="nodata"));
   const deploys = tl.kubernetes.filter(isDeployment).length;
   const natsWarn = tl.nats.filter((e) => e.severity === "warning" || e.severity === "critical").length;
   const win = zoomWindow(tl.windows);
   const windows = tl.windows.map((w) => (
-    <span key={w.start} className="sl-win" style={{ left: pct(frac(w.start)), width: pct(frac(w.end) - frac(w.start)) }} title={`${w.label} ${hm(w.start)}–${hm(w.end)}`} />
+    <TimelineMark key={w.start} className="sl-win" style={{left:pct(frac(w.start)),width:pct(frac(w.end)-frac(w.start))}} label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>} details={<TimelineWindowEvidence window={w} range={fixed} readId={tl.eventReadId}/>}/>
   ));
   const k8sName = `Kubernetes: ${tl.kubernetes.length} events${deploys ? `, ${deploys} deployments` : ""}${tl.windows.map((w) => `, ${w.label} ${hm(w.start)}–${hm(w.end)}`).join("")}`;
   const lanes = [
@@ -88,32 +95,32 @@ export function StoryLanes({ tl, end, live }: Props) {
       marks: (
         <>
           {windows}
-          <Ticks events={tl.kubernetes} frac={frac} cls={(e) => `k8s${isDeployment(e) ? " deploy" : ""}`} />
+          <TimelineEventTicks captureLimits={timelineCaptureLimits(tl,"kubernetes")} events={tl.kubernetes} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={(e) => `sl-tick k8s${isDeployment(e) ? " deploy" : ""}`} />
         </>
       ),
-      more: "/events?src=kubernetes",
+      more: "/events?src=kubernetes&show=all",
     },
     {
       id: "findings",
       name: "Findings",
-      note: tl.rows.length ? firedNote(new Set(tl.rows.filter((r) => r.cells.some((c) => c !== "ok" && c !== "nodata")).map((r) => r.checkCode)).size) : "no check ran",
-      label: `Findings: ${runs.length ? runsText(runs) : "ok throughout"}`,
+      note: observed ? firedNote(new Set(tl.rows.filter((r) => r.cells.some((c) => c !== "ok" && c !== "nodata")).map((r) => r.checkCode)).size) : "no observed state",
+      label: `Findings: ${!observed ? "no observed check state" : runs.length ? runsText(runs) : "OK in observed buckets"}`,
       marks: (
         <>
           {runs.map((r) => (
-            <span key={r.from} className={`sl-run ${r.level}`} style={{ left: pct(frac(r.from)), width: pct(frac(r.to) - frac(r.from)) }} title={`${r.level} ${hm(r.from)}–${hm(r.to)}`} />
+            <TimelineMark key={r.from} className={`sl-run ${r.level}`} style={{left:pct(frac(r.from)),width:pct(frac(r.to)-frac(r.from))}} label={`Finding state: ${LEVEL_LABEL[r.level]}`} details={<TimelineFindingRange readEpoch={tl.findingReadEpoch} from={r.from} end={r.to}/>} preview={<><strong>{LEVEL_LABEL[r.level]} finding state</strong><div>{timelineTime(r.from)} – {timelineTime(r.to)}</div><div>Bucket boundaries, not exact onset or resolution.</div>{r.level==="nodata"&&<div>No check state was observed in these buckets. Retained occurrences may overlap this interval, but do not prove evaluation in the missing buckets.</div>}{tl.rows.filter(row=>row.cells.some((lv,i)=>tl.start+i*tl.bucketMs<r.to&&tl.start+(i+1)*tl.bucketMs>r.from&&lv!=="ok"&&lv!=="nodata")).map(row=><div key={row.key}>{row.checkCode}: {row.checkName}</div>)}</>}/>
           ))}
         </>
       ),
-      more: "/findings",
+      more: findingHistoryPath(tl.start,tl.start+span,tl.findingReadEpoch,system,undefined,undefined,fixed),
     },
     {
       id: "nats",
       name: "Events",
       note: tl.nats.length ? `${tl.nats.length} NATS${natsWarn ? `, ${natsWarn} warnings` : ""}` : "no NATS events",
       label: `NATS events: ${tl.nats.length}${natsWarn ? `, ${natsWarn} warnings` : ""}`,
-      marks: <Ticks events={tl.nats} frac={frac} cls={natsClass} />,
-      more: "/events?src=nats",
+      marks: <TimelineEventTicks captureLimits={timelineCaptureLimits(tl,"events")} events={tl.nats} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={e=>`sl-tick ${natsClass(e)}`} />,
+      more: "/events?src=nats,findings,collector&show=all",
     },
   ];
   const style = { "--buckets": tl.bucketCount } as CSSProperties;
@@ -123,12 +130,12 @@ export function StoryLanes({ tl, end, live }: Props) {
         {lanes.map((l) => (
           <div className="sl-row" key={l.id}>
             <div className="sl-lab">
-              <RLink to={l.more} className="x sl-name">
+              <Link to={lanePath(l.more)} className="x sl-name">
                 {l.name}
-              </RLink>
+              </Link>
               <small>{l.note}</small>
             </div>
-            <div className="sl-track" role="img" aria-label={l.label}>
+            <div className="sl-track" role="group" aria-label={l.label}>
               <span className="sl-base" />
               {l.marks}
             </div>
@@ -147,6 +154,7 @@ export function StoryLanes({ tl, end, live }: Props) {
       </div>
       <div className="sl-foot">
         <LaneLegend windows={tl.windows.length > 0} />
+        <InfoTip label="Timeline lanes" text="Events are observed timestamps; coloured finding boxes show the worst check state in each time bucket. Dashed boxes show buckets with no observed check state. A box is not one incident or an exact onset. Shaded windows are inferred context, not proven causes. Hover or focus a mark to inspect it; activate it to open its evidence. Missing or truncated captures limit what the Timeline can show."/>
         <span className="right">
           {checks && (
             <button type="button" className="chip" aria-pressed={asTable} onClick={() => setAsTable((t) => !t)}>

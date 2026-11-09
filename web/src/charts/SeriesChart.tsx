@@ -1,7 +1,13 @@
 // A metric over the range on detail pages: the sparkline drawn larger, with
 // the latest value, min and max as text and the range ends below. A series
 // whose refresh failed stays on screen, dimmed and dated.
-import type { Series, Window } from "../api/model";
+import {Link,useInRouterContext} from "react-router";
+import {useGlobalQuery} from "../lib/useGlobalQuery";
+import {withGlobal} from "../lib/globalQuery";
+import {writeRange} from "../lib/timeRange";
+import {metricDestination} from "../lib/metricNavigation";
+import {MetricHelp} from "../components/MetricHelp";
+import type { Entity, Series, Window } from "../api/model";
 import { useReportStale } from "../components/StaleContext";
 import { errorText } from "../components/common";
 import { dayMonHm, hms } from "../lib/format";
@@ -11,6 +17,8 @@ import { ChartHistoryStatus } from "./HistoryGaps";
 
 interface Props {
   title: string;
+  metric?:string;
+  entity?:Entity;
   series?: Series;
   start: number;
   end: number;
@@ -22,7 +30,8 @@ interface Props {
   updatedAt?: number;
 }
 
-export function SeriesChart({ title, series, start, end, windows = [], loading, error, updatedAt }: Props) {
+export function SeriesChart({ title, series, start, end, windows = [], metric,entity,loading, error, updatedAt }: Props) {
+  const routing=useInRouterContext();const to=routing?metricDestination({metric:metric??series?.metric,entity:entity??series?.entity}):undefined;
   const pts = series?.points ?? [];
   const latest = pts.length ? pts[pts.length - 1].value : undefined;
   const fmt = (v: number | undefined) => (v === undefined ? "–" : fmtValue(v, series?.unit ?? "count"));
@@ -31,13 +40,14 @@ export function SeriesChart({ title, series, start, end, windows = [], loading, 
   return (
     <div className={`card chart${stale ? " stale" : ""}`}>
       <div className="chart-h">
-        <span className="lbl">{title}</span>
+        <span className="lbl">{to?<MetricTitle title={title} to={to} start={start} end={end}/>:title}</span>
+        <MetricHelp label={title} ids={[series?.metric??""]}/>
         <b className="mono">{loading ? "…" : fmt(latest)}</b>
       </div>
       {error && !series ? (
         <p className="muted-note">Could not load: {error}</p>
       ) : (
-        <Sparkline investigation={{metric:series?.metric,entity:series?.entity}} bucketNote={series?.unit === "count" ? "Last count in bucket" : "Mean value in bucket"} stepMs={series?.stepMs} fmt={v => fmtValue(v, series?.unit ?? "count")} points={pts} status="ok" tone="change" windows={windows} start={start} end={end} label={title} current={latest === undefined ? undefined : fmt(latest)} note={asOf} />
+        <Sparkline investigation={{metric:metric??series?.metric,entity:entity??series?.entity}} bucketNote={series?.unit === "count" ? "Last count in bucket" : "Mean value in bucket"} stepMs={series?.stepMs} fmt={v => fmtValue(v, series?.unit ?? "count")} points={pts} status="ok" tone="change" windows={windows} start={start} end={end} label={title} current={latest === undefined ? undefined : fmt(latest)} note={asOf} />
       )}
       <div className="chart-f mono">
         <span>{dayMonHm(start)}</span>
@@ -54,6 +64,8 @@ export function SeriesChart({ title, series, start, end, windows = [], loading, 
 }
 
 interface QueryLike {
+  metric?:string;
+  entity?:Entity;
   data: Series | undefined;
   error: unknown;
   isPending: boolean;
@@ -64,5 +76,10 @@ interface QueryLike {
 /** A chart for a series query; a failed refresh also joins the page's banner. */
 export function QuerySeriesChart({ q, ...rest }: { q: QueryLike; title: string; start: number; end: number; windows?: Window[] }) {
   useReportStale(q);
-  return <SeriesChart {...rest} series={q.data} loading={q.isPending} error={q.error ? errorText(q.error) : undefined} updatedAt={q.dataUpdatedAt} />;
+  return <SeriesChart {...rest} metric={q.metric} entity={q.entity} series={q.data} loading={q.isPending} error={q.error ? errorText(q.error) : undefined} updatedAt={q.dataUpdatedAt} />;
+}
+
+/** A chart can show a different interval from its containing page. */
+function MetricTitle({title,to,start,end}:{title:string;to:string;start:number;end:number}){
+ const global=useGlobalQuery();const [path,query]=to.split('?');const fixed=writeRange(new URLSearchParams(query),{kind:'fixed',from:start,to:end});const merged=new URLSearchParams(withGlobal(`${path}?${fixed}`,global).split('?')[1]);merged.delete('range');return <Link className="x" to={`${path}?${merged}`}>{title}</Link>;
 }
