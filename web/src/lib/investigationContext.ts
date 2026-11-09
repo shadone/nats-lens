@@ -26,14 +26,22 @@ function routeEntity(pathname:string):InvestigationEntity|undefined{
  return undefined;
 }
 function portableEntity(e:Entity|undefined):InvestigationEntity|undefined{return e?{type:`ENTITY_TYPE_${e.kind.toUpperCase()}`,key:e.key,account:e.account||undefined,stream:e.stream||undefined,consumer:e.consumer||undefined,server:e.server||undefined}:undefined}
+function occurrenceRequest(pathname:string,params:URLSearchParams):BoundInvestigationQuery|undefined {
+ const p=pathname.split('/');if(p.length!==5||p[1]!=='findings'||p[3]!=='occurrences')return undefined;
+ const valid=(v:string)=>/^(0|[1-9]\d{0,18})$/.test(v)&&BigInt(v)<=9223372036854775807n;
+ if(!valid(p[4])||p[4]==='0')return undefined;
+ const readEpoch=params.get('readEpoch');if(readEpoch!==null&&!valid(readEpoch))return undefined;
+ try{return {method:'ListFindingEpisodes',request:{findingId:decodeURIComponent(p[2]),firstRetainedEpoch:p[4],...(readEpoch!==null?{readEpoch}:{}),includeTransitions:true,pageSize:1}}}catch{return undefined}
+}
 export function buildInvestigationContext(input:{origin:string;pathname:string;search:string;system:string;spec:RangeSpec;selection?:InvestigationSelection}):InvestigationContext {
  const {origin,pathname,search,system,spec,selection:selection}=input;
+ const params=new URLSearchParams(search);
+ const occurrence=occurrenceRequest(pathname,params);
  const family=pathname.startsWith("/metrics/")?metricFamily(pathname.slice("/metrics/".length)):undefined;
  const server=new URLSearchParams(search).get("server");const serverIdentity=server?{kind:"server" as const,key:server,server,name:server,account:"",stream:"",consumer:""}:undefined;
  const resource=pathname.startsWith("/metrics/")?resourceMetric(pathname.slice("/metrics/".length)):undefined;let selectedResource:Entity|undefined;try{if(resource)selectedResource=resourceSelection(resource,new URLSearchParams(search))}catch{/* Invalid route selectors remain untrusted filters, not invented identities. */}
  const aggregate=pathname.startsWith("/metrics/")?aggregateMetric(pathname.slice("/metrics/".length)):undefined;
- const s:InvestigationSelection|undefined=selection??(aggregate?{label:aggregate.title,series:aggregate.metrics.map((metric,i)=>({label:aggregate.labels[i],metric}))}:undefined)??(resource?{label:resource.title,metric:resource.metric,entity:selectedResource}:undefined)??(family?{label:family.title,series:(server?family.metrics:family.fleetMetrics).map((metric,i)=>({label:family.labels[i],metric,entity:serverIdentity}))}:undefined);
- const params=new URLSearchParams(search);
+ const s:InvestigationSelection|undefined=selection??(occurrence?{query:occurrence}:undefined)??(aggregate?{label:aggregate.title,series:aggregate.metrics.map((metric,i)=>({label:aggregate.labels[i],metric}))}:undefined)??(resource?{label:resource.title,metric:resource.metric,entity:selectedResource}:undefined)??(family?{label:family.title,series:(server?family.metrics:family.fleetMetrics).map((metric,i)=>({label:family.labels[i],metric,entity:serverIdentity}))}:undefined);
  // ASVS 14.2.1: copy only known navigation fields; unknown query parameters,
  // credentials, cookies and browser storage never enter portable context.
  const filters:Record<string,string>={};for(const k of FILTERS){const v=params.get(k);if(v!==null&&v.length<=1024)filters[k]=v}
