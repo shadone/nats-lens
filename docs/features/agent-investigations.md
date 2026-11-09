@@ -1,7 +1,7 @@
 # Agent investigations
 
 - **Surfaces:** `ui`, `api`, `cli`
-- **Status:** partial — portable page and shared-chart handoff with live and closed-dataset reads; live cross-query collection pinning, table-local filters and dedicated Timeline-mark actions are not built
+- **Status:** partial — portable page and shared-chart handoff with live and closed-dataset reads; live cross-query collection pinning, table-local filters and complete Timeline contributor handoff remain open
 - **Related:** [navigation.md](navigation.md), [running-nats-lens.md](running-nats-lens.md), [data-history.md](data-history.md), [sql-access.md](sql-access.md), [offline-datasets.md](offline-datasets.md), [Investigation workflows](../plans/investigation-workflows.md)
 
 ## What it does
@@ -127,7 +127,7 @@ A user can activate **Copy as prompt** on a page or chart and paste the complete
 - Live cross-query snapshot consistency, arbitrary read-at-epoch selection, reconstruction of missing provenance or unlimited retained-history crawls.
 - Automatic authentication, tunnels, listener exposure, proxy bypass or manufacturing trusted IAP assertions.
 - Removing write powers from a credential authorized on the ordinary API.
-- Table-local filters or selection state absent from the URL, dedicated Timeline-mark handoff actions or drag-and-drop context entry.
+- Table-local filters or selection state absent from the URL, universal Timeline collection pinning or drag-and-drop context entry.
 - Whole-database, message-content or log export, and automatic evidence uploads.
 
 ### Exact retained occurrence reads
@@ -140,3 +140,12 @@ A user can activate **Copy as prompt** on a page or chart and paste the complete
 - **And** an occurrence boundary is not a universal snapshot pin; historical configuration and complete Timeline contributor handoff remain unavailable
 
 This occurrence slice is proposed, not yet confirmed. See the [request and retention contract](../reference/finding-occurrences.md).
+
+### Copy recorded Timeline evidence
+
+- **Given** a selected recorded event or inferred-window evidence view
+- **When** I copy its prompt
+- **Then** the exact recorded identity or captured Timeline query and event membership boundary survive in the descriptor-validated machine context
+- **And** fixed timestamp precision is retained; broader UI projections remain explicitly partial when they cannot reproduce the machine selection
+
+This event slice is proposed, not yet confirmed. `GetEventBatch` reads 1–50 exact identities without inferring membership from a time interval. It is admitted by the same read-only boundary for live and closed datasets. The response acknowledges the selection; an older server that ignores the fields is rejected. Cross-query snapshot pinning is still unavailable.

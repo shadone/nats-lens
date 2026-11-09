@@ -55,6 +55,8 @@ A compact **Copy as prompt** action in the top bar or beside a shared chart copi
 - **Phone width.** The sidebar becomes a drawer that the menu button in the header opens. While it is open, Tab stays inside it. It closes when a link opens, on its close button, on Escape (outside an open menu), or on a tap beside it. Navigation gives focus to the destination heading or explicit fragment after the drawer closes. Closing without navigation returns focus to the menu button. The range and the search take a line each. Tables scroll sideways inside their own box, so the page itself never scrolls sideways.
 
 - **Finding links from alerts.** `/findings/by-labels` reads URL-encoded `system`, `code`, and `entity_key`, then replaces the route with `/findings/<id>?system=<id>`. A missing finding opens Findings filtered to its check, with an explanation that it may have resolved and been swept. Both destinations retain the global time range, system, and account, dropping label-routing and unknown parameters. Other API failures remain errors. The same canonical finding URL shows the [phone card](mobile.md) at 760 px and below.
+- Captured Timeline window routes belong to Overview. Their fixed range and event boundary reconstruct the exact inferred input identity or show unavailable evidence; they never fall back to a current window. Event-detail and lane links retain fixed system/range context and acknowledged event membership. Resource links provide historical context without promising pinned metadata.
+
 ## Scenarios
 
 ### Continue navigating while a view loads
