@@ -61,6 +61,8 @@ The worst-streams table requests one bounded page; its count and totals cover al
 - **Captured event evidence.** Timeline events open their retained record inside the refresh-stable investigation. Source, kind, reason, observed/received UTC times, named resources and an explicitly requested payload remain separate from the latest linked finding state. Colliding 32-pixel hit regions in lanes become a counted contributor control; zoom marks at the same timestamp and side are grouped. Groups describe visual overlap, never a causal incident. Each explicit page reads at most 50 exact identities; missing rows retain their captured label when available. Mark details and window pages support Copy as prompt.
 - **Inferred-window support.** A detected window includes its grouping rule and captured input identities. The complete window route fixes the original query interval and event membership boundary. Reopening reconstructs the exact identity or reports it unavailable; it never substitutes a new window. Supporting records are selected by ID, including inputs outside the displayed interval. The window is system-wide context even when opened with account/resource navigation. A boundary prevents newer event membership; it does not freeze mutable payloads, linked findings, retention or every Timeline fact. See [Timeline event evidence](../reference/timeline-event-evidence.md).
 
+- **Historical lane destinations.** The Findings lane opens a dedicated retained-occurrence list, preserving the fixed selected range and captured transition boundary, including known-empty zero. Per-check interval details offer the same all-results route with typed resource/check scope. Repeated firings stay separate after resolution; exact occurrence links keep that identity. The Events lane includes NATS, finding and collector sources; both event lanes show routine records instead of silently hiding or folding marked evidence. Feed destinations retain event membership and are broader source/range context than one overlap group.
+
 ## Scenarios
 
 ### Understand the two chart sections
@@ -219,3 +221,10 @@ The worst-streams table requests one bounded page; its count and totals cover al
 - **Then** I can page through the exact captured input identities, read a retained record and explicitly open its payload
 - **And** missing rows, capture limits, unknown IDs and noncausal grouping are disclosed
 - **And** a shared window link keeps its fixed interval and boundary rather than following the live clock
+
+### Open historical all-results evidence
+
+- **Given** the Timeline contains resolved and repeated findings or finding/collector event marks
+- **When** I activate its lane label or a per-check interval's all-results link
+- **Then** the destination preserves the fixed range and captured membership rather than opening the live compatibility finding list
+- **And** repeated finding occurrences stay separate, and all displayed event sources remain discoverable without routine hiding
