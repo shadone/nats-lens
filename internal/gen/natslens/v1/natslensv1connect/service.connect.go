@@ -146,6 +146,9 @@ const (
 	// LensServiceGetEventBatchProcedure is the fully-qualified name of the LensService's GetEventBatch
 	// RPC.
 	LensServiceGetEventBatchProcedure = "/natslens.v1.LensService/GetEventBatch"
+	// LensServiceListEventSelectionProcedure is the fully-qualified name of the LensService's
+	// ListEventSelection RPC.
+	LensServiceListEventSelectionProcedure = "/natslens.v1.LensService/ListEventSelection"
 )
 
 // LensServiceClient is a client for the natslens.v1.LensService service.
@@ -272,6 +275,8 @@ type LensServiceClient interface {
 	ListFindingEpisodes(context.Context, *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error)
 	// At most 50 exact retained event identities; payloads are read separately.
 	GetEventBatch(context.Context, *connect.Request[v1.GetEventBatchRequest]) (*connect.Response[v1.GetEventBatchResponse], error)
+	// One bounded page of an explicit captured event selection.
+	ListEventSelection(context.Context, *connect.Request[v1.ListEventSelectionRequest]) (*connect.Response[v1.ListEventSelectionResponse], error)
 }
 
 // NewLensServiceClient constructs a client for the natslens.v1.LensService service. By default, it
@@ -587,6 +592,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(lensServiceMethods.ByName("GetEventBatch")),
 			connect.WithClientOptions(opts...),
 		),
+		listEventSelection: connect.NewClient[v1.ListEventSelectionRequest, v1.ListEventSelectionResponse](
+			httpClient,
+			baseURL+LensServiceListEventSelectionProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListEventSelection")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -636,6 +648,7 @@ type lensServiceClient struct {
 	listMetricContributors       *connect.Client[v1.ListMetricContributorsRequest, v1.ListMetricContributorsResponse]
 	listFindingEpisodes          *connect.Client[v1.ListFindingEpisodesRequest, v1.ListFindingEpisodesResponse]
 	getEventBatch                *connect.Client[v1.GetEventBatchRequest, v1.GetEventBatchResponse]
+	listEventSelection           *connect.Client[v1.ListEventSelectionRequest, v1.ListEventSelectionResponse]
 }
 
 // ListCheckDefinitions calls natslens.v1.LensService.ListCheckDefinitions.
@@ -858,6 +871,11 @@ func (c *lensServiceClient) GetEventBatch(ctx context.Context, req *connect.Requ
 	return c.getEventBatch.CallUnary(ctx, req)
 }
 
+// ListEventSelection calls natslens.v1.LensService.ListEventSelection.
+func (c *lensServiceClient) ListEventSelection(ctx context.Context, req *connect.Request[v1.ListEventSelectionRequest]) (*connect.Response[v1.ListEventSelectionResponse], error) {
+	return c.listEventSelection.CallUnary(ctx, req)
+}
+
 // LensServiceHandler is an implementation of the natslens.v1.LensService service.
 type LensServiceHandler interface {
 	// All shipped check references with configuration from the selected system.
@@ -982,6 +1000,8 @@ type LensServiceHandler interface {
 	ListFindingEpisodes(context.Context, *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error)
 	// At most 50 exact retained event identities; payloads are read separately.
 	GetEventBatch(context.Context, *connect.Request[v1.GetEventBatchRequest]) (*connect.Response[v1.GetEventBatchResponse], error)
+	// One bounded page of an explicit captured event selection.
+	ListEventSelection(context.Context, *connect.Request[v1.ListEventSelectionRequest]) (*connect.Response[v1.ListEventSelectionResponse], error)
 }
 
 // NewLensServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -1293,6 +1313,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(lensServiceMethods.ByName("GetEventBatch")),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceListEventSelectionHandler := connect.NewUnaryHandler(
+		LensServiceListEventSelectionProcedure,
+		svc.ListEventSelection,
+		connect.WithSchema(lensServiceMethods.ByName("ListEventSelection")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/natslens.v1.LensService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case LensServiceListCheckDefinitionsProcedure:
@@ -1383,6 +1410,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceListFindingEpisodesHandler.ServeHTTP(w, r)
 		case LensServiceGetEventBatchProcedure:
 			lensServiceGetEventBatchHandler.ServeHTTP(w, r)
+		case LensServiceListEventSelectionProcedure:
+			lensServiceListEventSelectionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1566,4 +1595,8 @@ func (UnimplementedLensServiceHandler) ListFindingEpisodes(context.Context, *con
 
 func (UnimplementedLensServiceHandler) GetEventBatch(context.Context, *connect.Request[v1.GetEventBatchRequest]) (*connect.Response[v1.GetEventBatchResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetEventBatch is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) ListEventSelection(context.Context, *connect.Request[v1.ListEventSelectionRequest]) (*connect.Response[v1.ListEventSelectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListEventSelection is not implemented"))
 }

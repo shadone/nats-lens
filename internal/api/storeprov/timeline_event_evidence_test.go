@@ -138,3 +138,28 @@ func TestWindowEventBatchIsExactWithoutTimeFiltering(t *testing.T) {
 		}
 	}
 }
+
+func TestCapturedEventSelectionPagesPreserveExactIDsAndMissingRows(t *testing.T) {
+	p := eventEvidenceProvider(t)
+	ids := []string{"9007199254740993", "9007199254740996", "9007199254740995"}
+	r := &v1.ListEventSelectionRequest{Ids: ids, EventReadId: proto.Int64(9007199254740995), PageSize: 2}
+	a, err := p.ListEventSelection(context.Background(), r)
+	if err != nil || a.GetSelectedTotalCount() != 3 || a.GetTotalCount() != 1 || a.GetNextOffset() != 2 || len(a.GetEvents()) != 1 || a.Events[0].Id != ids[0] {
+		t.Fatalf("wrong first selection page: %v %v", a, err)
+	}
+	r.Offset = a.NextOffset
+	b, err := p.ListEventSelection(context.Background(), r)
+	if err != nil || b.GetOffset() != 2 || b.GetNextOffset() != 0 || len(b.GetEvents()) != 1 || b.Events[0].Id != ids[2] {
+		t.Fatalf("wrong final selection page: %v %v", b, err)
+	}
+	for _, page := range []*v1.ListEventSelectionResponse{a, b} {
+		if len(page.SelectedIds) != len(ids) || page.GetEventReadId() != r.GetEventReadId() {
+			t.Fatal("selection scope not acknowledged")
+		}
+		for _, e := range page.Events {
+			if e.Raw != "" {
+				t.Fatal("selection eagerly read payload")
+			}
+		}
+	}
+}

@@ -283,4 +283,8 @@ service LensService {
   rpc ListFindingEpisodes(ListFindingEpisodesRequest) returns (ListFindingEpisodesResponse) {}
   // At most 50 exact retained event identities; payloads are read separately.
   rpc GetEventBatch(GetEventBatchRequest) returns (GetEventBatchResponse);
+  // One bounded page of an explicit captured event selection.
+  rpc ListEventSelection(ListEventSelectionRequest) returns (ListEventSelectionResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 }

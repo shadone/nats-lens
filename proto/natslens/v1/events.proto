@@ -273,3 +273,28 @@ message GetEventBatchResponse {
   // Number of requested identities still available at this boundary.
   int32 total_count = 4;
 }
+
+// Explicit captured membership, independent of a time filter. At most 2000
+// unique IDs; page_size defaults to 50 and never exceeds 50. Offsets select
+// the supplied order, not an evolving database ranking. No payloads are read.
+message ListEventSelectionRequest {
+  repeated string ids = 1;
+  optional int64 event_read_id = 2;
+  string system = 3;
+  int32 offset = 4;
+  int32 page_size = 5;
+}
+message ListEventSelectionResponse {
+  repeated Event events = 1;
+  // Acknowledges the entire supplied selection, not only the visible page.
+  repeated string selected_ids = 2;
+  optional int64 event_read_id = 3;
+  // Retained matching records on this page; missing IDs are never substituted.
+  int32 total_count = 4;
+  // Number of supplied identities; not a count of currently retained records.
+  int32 selected_total_count = 5;
+  int32 offset = 6;
+  // Zero means no later supplied identities. This is not an authorization token.
+  int32 next_offset = 7;
+  int32 page_size = 8;
+}
