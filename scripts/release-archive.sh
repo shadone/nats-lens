@@ -22,6 +22,16 @@ chmod 0755 "$stage/$name/natslens"
 cp "$root/LICENSE" "$root/NOTICE" "$root/README.md" "$stage/$name/"
 
 mkdir -p "$out"
-# COPYFILE_DISABLE keeps macOS tar from adding AppleDouble ._ files.
-COPYFILE_DISABLE=1 tar -C "$stage" -czf "$out/$name.tar.gz" "$name"
+# Files belong to root in the archive, not to the build user. On macOS
+# (bsdtar) COPYFILE_DISABLE and --no-xattrs keep out AppleDouble ._ files
+# and extended attributes, which GNU tar warns about on extraction.
+case "$(tar --version 2>/dev/null)" in
+*bsdtar*)
+	owner=(--no-xattrs --uid 0 --gid 0 --uname root --gname root)
+	;;
+*)
+	owner=(--owner=0 --group=0 --numeric-owner)
+	;;
+esac
+COPYFILE_DISABLE=1 tar "${owner[@]}" -C "$stage" -czf "$out/$name.tar.gz" "$name"
 echo "$out/$name.tar.gz"
