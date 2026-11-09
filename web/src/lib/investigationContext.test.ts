@@ -49,3 +49,7 @@ it('copies the window page capture query and exact URL bounds without a local se
  const c=buildInvestigationContext({origin:'https://lens.example.com',pathname:`/timeline/windows/${'a'.repeat(64)}`,search:`?from=${start}&to=${end}&eventReadId=9007199254740995`,system:'shop',spec:{kind:'fixed',from:Date.parse(start),to:Date.parse(end)}});
  expect(c.query).toMatchObject({method:'GetStatusTimeline',request:{eventReadId:'9007199254740995',range:{start,end}}});
 });
+it('copies the retained history route as a scoped read instead of inventing a finding named history',()=>{
+ const c=buildInvestigationContext({origin:'https://lens.example.com',pathname:'/findings/history',search:'?from=2026-10-17T12:00:00.000123Z&to=2026-10-17T13:00:00.000456Z&readEpoch=0&check=stream-001&type=stream&key=APP%2Forders',system:'shop',spec:{kind:'fixed',from:Date.parse('2026-10-17T12:00:00Z'),to:Date.parse('2026-10-17T13:00:00Z')}});
+ expect(c.evidence).toBeUndefined();expect(c.query).toMatchObject({method:'ListFindingEpisodes',request:{readEpoch:'0',checkCode:'stream-001',entity:{type:'ENTITY_TYPE_STREAM',key:'APP/orders'},range:{start:'2026-10-17T12:00:00.000123Z',end:'2026-10-17T13:00:00.000456Z'}}});
+});
