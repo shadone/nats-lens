@@ -23,3 +23,9 @@ A window ID hashes the exact ordered derivation inputs and gap rule. It is a rec
 `/timeline/windows/:id?system=…&from=…&to=…&eventReadId=…` reconstructs against the fixed original query and captured membership. If retention or changed input prevents the exact identity from matching, it reports unavailable. It does not replace the window with a current one. Event links preserve the same system and fixed interval; resource links are supporting historical context, not proof that resource metadata is pinned.
 
 Copy as prompt preserves exact timestamps, identities and the machine request. `GetEventBatch` is available through the existing read-only live/offline handler. UI links that cannot reproduce an exact machine selection remain broader context with partial-scope disclosure.
+
+## Selected source-limit warnings
+
+The event input flags are separate: `nats_truncated` covers the NATS/collector lane inputs, `finding_truncated` the finding-transition inputs, and `kubernetes_truncated` the Kubernetes lane inputs. Preview and selected-detail warnings retain that original source-range context through refresh and into event prompt annotations. A source limit does not establish that any particular group or zoom window omitted members. These flags do not classify per-check state rows or the separately bounded inferred-window derivation input set. Unset/false flags are not a complete-capture guarantee.
+
+The notice describes input/read limits on the returned Timeline. Other retained records remain accessible through the bounded event feed and exact-identity reads; a successful single-record read does not establish complete coverage.
