@@ -128,18 +128,23 @@ func (p *Provider) GetConsumer(ctx context.Context, req *v1.GetConsumerRequest) 
 	}
 	var list []*v1.ConsumerSummary
 	if ok {
-		if list, err = p.consumersWithMissing(ctx, req.GetRange(), e, req.GetAccount(), req.GetStream(), req.GetConsumer()); err != nil {
+		if list, err = p.consumerSummaries(ctx, req.GetRange(), e, req.GetAccount(), req.GetStream(), req.GetConsumer()); err != nil {
 			return nil, err
 		}
 	}
 	if len(list) == 0 {
 		return nil, fmt.Errorf("consumer %s/%s/%s in range: %w", req.GetAccount(), req.GetStream(), req.GetConsumer(), api.ErrNotFound)
 	}
-	res := &v1.GetConsumerResponse{Consumer: list[0]}
+	// One firing read gives both the summary's status and the findings, so
+	// a check run between two reads cannot make them disagree.
 	cur, err := p.firingFindings(ctx, req.GetRange())
 	if err != nil {
 		return nil, err
 	}
+	if err = p.applyConsumerStatusAt(ctx, e, list, cur); err != nil {
+		return nil, err
+	}
+	res := &v1.GetConsumerResponse{Consumer: list[0]}
 	res.Findings = findingsFor(cur, res.GetConsumer().GetEntity())
 	if !res.GetConsumer().GetPresent() {
 		// A missing consumer has no server views; its configuration is the
@@ -294,6 +299,20 @@ ORDER BY coalesce(x.is_leader, false) DESC LIMIT 1`, epoch, account, stream, con
 // inventory's consumers that no server reports, with statuses and finding
 // codes from the firing findings, worst first.
 func (p *Provider) consumersWithMissing(ctx context.Context, r *v1.TimeRange, e epochInfo, account, stream, consumer string) ([]*v1.ConsumerSummary, error) {
+	cs, err := p.consumerSummaries(ctx, r, e, account, stream, consumer)
+	if err != nil {
+		return nil, err
+	}
+	cur, err := p.listStatusFindings(ctx, r, consumerSummaryKeys(cs), false)
+	if err != nil {
+		return nil, err
+	}
+	return cs, p.applyConsumerStatusAt(ctx, e, cs, cur)
+}
+
+// consumerSummaries reads the consumers of epoch e and adds the
+// inventory's consumers that no server reports, without statuses.
+func (p *Provider) consumerSummaries(ctx context.Context, r *v1.TimeRange, e epochInfo, account, stream, consumer string) ([]*v1.ConsumerSummary, error) {
 	cs, err := p.consumerRows(ctx, e, account, stream, consumer)
 	if err != nil {
 		return nil, err
@@ -325,14 +344,16 @@ func (p *Provider) consumersWithMissing(ctx context.Context, r *v1.TimeRange, e 
 		cs = append(cs, missingConsumers([]expectedConsumer{c}, nil, account, stream, consumer)...)
 		have[c.key()] = true
 	}
-	cur, err := p.listStatusFindings(ctx, r, consumerSummaryKeys(cs), false)
-	if err != nil {
-		return nil, err
-	}
+	return cs, nil
+}
+
+// applyConsumerStatusAt sets the consumers' statuses and finding codes from
+// the firing findings cur and the checks that ran in epoch e, worst first.
+func (p *Provider) applyConsumerStatusAt(ctx context.Context, e epochInfo, cs []*v1.ConsumerSummary, cur []*v1.Finding) error {
 	ran, err := p.checksRan(ctx, e.epoch)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	applyConsumerStatus(cs, cur, ran)
-	return cs, nil
+	return nil
 }
