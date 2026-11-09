@@ -28,6 +28,7 @@ type FindingEpisodeQuery struct {
 type FindingEpisode struct {
 	Finding            Finding
 	StartKnown         bool
+	EndingUnknown      bool
 	FirstRetainedEpoch int64
 	LastRetainedEpoch  int64
 	TransitionCount    int
