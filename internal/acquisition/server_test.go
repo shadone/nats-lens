@@ -18,11 +18,7 @@ import (
 
 func setup(t *testing.T) (Options, []Source) {
 	t.Helper()
-	root, err := os.MkdirTemp("/private/tmp", "nla-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.RemoveAll(root) })
+	root := shortSocketDir(t, "nla-")
 	if err := os.Chmod(root, 0700); err != nil {
 		t.Fatal(err)
 	}
