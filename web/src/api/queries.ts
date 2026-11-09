@@ -95,11 +95,11 @@ export function useUnmuteFinding() {
   });
 }
 
-export function useTimeline(spec: RangeSpec, entity?: Entity) {
+export function useTimeline(spec: RangeSpec, entity?: Entity, includeOk=false) {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["timeline", sys, rangeKey(spec), entityKey(entity)],
-    queryFn: ({ signal }) => api.getTimeline(sys, spec, entity, signal),
+    queryKey: ["timeline", sys, rangeKey(spec), entityKey(entity), includeOk],
+    queryFn: ({ signal }) => api.getTimeline(sys, spec, entity, signal, includeOk),
     refetchInterval: refetch(spec),
     placeholderData: keepSameSystem(sys),
   });

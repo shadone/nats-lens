@@ -42,7 +42,7 @@ function Causes({ onMute }: { onMute: (f: Finding) => void }) {
 
 function Story({ end }: { end: number }) {
   const { spec } = useTimeRange();
-  const q = useTimeline(spec);
+  const q = useTimeline(spec, undefined, true);
   const tl = q.data;
   const info = useLensInfo().data;
   return (
