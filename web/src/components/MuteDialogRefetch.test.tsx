@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Finding } from "../api/model";
 import * as requests from "../api/requests";
+import { useSystem } from "../lib/useSystem";
 import { renderApp } from "../test/render";
 import { MuteDialog } from "./MuteDialog";
 
@@ -36,7 +37,8 @@ describe("MuteDialog and the refetch", () => {
       return calls === 1 ? Promise.resolve(1) : new Promise<number>((r) => (land = () => r(2)));
     });
     function Page() {
-      useQuery({ queryKey: ["page"], queryFn: fetchPage });
+      // Shaped like every page query: the family, then the page's system.
+      useQuery({ queryKey: ["page", useSystem()], queryFn: fetchPage });
       return null;
     }
     const onClose = vi.fn();

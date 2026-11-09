@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { Route, Routes } from "react-router";
-import { useOverview, useSeries, useStream } from "../api/queries";
+import { useSeries, useStream, useTimeWindows } from "../api/queries";
 import { renderApp } from "../test/render";
 import { StreamDetail } from "./StreamDetail";
 
-vi.mock("../api/queries", () => ({ useOverview: vi.fn(), useSeries: vi.fn(), useStream: vi.fn() }));
+vi.mock("../api/queries", () => ({ useSeries: vi.fn(), useStream: vi.fn(), useTimeWindows: vi.fn() }));
 vi.mock("../charts/SeriesChart", () => ({ QuerySeriesChart: ({ title }: { title: string }) => <div>{title}</div>, SeriesChart: ({ title }: { title: string }) => <div>{title}</div> }));
 vi.mock("../components/EntityParts", () => ({ EntityFindings: () => <div>Findings</div>, EntityEvents: () => <div>Events</div>, Disagreements: () => null, ConsumersTable: () => <div>Consumers table</div>, Stat: ({ label, value }: { label: string; value: ReactNode }) => <div>{label}: {value}</div> }));
 
@@ -16,7 +16,7 @@ function page(route: string) {
     <Route path="/object-stores/:account/:bucket" element={<StreamDetail />} /></Routes>, route);
 }
 beforeEach(() => {
-  vi.mocked(useOverview).mockReturnValue({ data: { windows: [] } } as never);
+  vi.mocked(useTimeWindows).mockReturnValue({ data: [] } as never);
   vi.mocked(useSeries).mockReturnValue({ data: undefined } as never);
 });
 describe("bucket detail identity", () => {
