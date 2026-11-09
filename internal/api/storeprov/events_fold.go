@@ -202,10 +202,11 @@ func (p *Provider) facets(ctx context.Context, req *v1.ListEventsRequest, upto i
 		return err
 	}
 	res.Facets = append(sortedFacets("source", sources), sortedFacets("server", servers)...)
-	start, end := span(req.GetRange())
-	q, args := `SELECT count(*) FROM events WHERE time >= ? AND time < ?`, []any{start, end}
+	where, args := eventFilter(&v1.ListEventsRequest{Range: req.Range, SelectedIds: req.SelectedIds, EventReadId: req.EventReadId})
+	q := `SELECT count(*) FROM events e WHERE ` + where
 	if upto > 0 {
-		q, args = q+` AND id <= ?`, append(args, upto)
+		q += ` AND e.id<=?`
+		args = append(args, upto)
 	}
 	return p.db().QueryRowContext(ctx, q, args...).Scan(&res.TotalUnfiltered)
 }

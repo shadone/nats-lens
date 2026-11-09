@@ -114,7 +114,7 @@ func (p *Provider) k8sLane(ctx context.Context, r *v1.TimeRange, entity *v1.Enti
 			return nil, false, err
 		}
 		out = append(out, &v1.LaneEvent{Id: ev.GetId(), Time: ev.GetTime(), Source: ev.GetSource(), Kind: ev.GetKind(),
-			ShortLabel: k8sShortLabel(ev, typ.String, node.String), Label: ev.GetSummary(), Severity: ev.GetSeverity(), EventId: ev.GetId()})
+			ShortLabel: k8sShortLabel(ev, typ.String, node.String), Label: ev.GetSummary(), Severity: ev.GetSeverity(), EventId: ev.GetId(), Entity: api.EventEntity(ev)})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, false, err

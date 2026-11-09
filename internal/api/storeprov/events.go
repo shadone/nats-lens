@@ -145,7 +145,8 @@ const eventCols = `e.id, e.time, e.received_at, e.source, e.kind, e.server_name,
   e.client_name, e.client_host, e.reason, e.summary,
   CASE WHEN e.source = 'finding' THEN json_extract_string(e.raw, '$.finding_id') END,
   CASE WHEN e.source = 'finding' THEN json_extract_string(e.raw, '$.severity') END,
-  CASE WHEN e.source = 'finding' THEN json_extract_string(e.raw, '$.detail') END`
+  CASE WHEN e.source = 'finding' THEN json_extract_string(e.raw, '$.detail') END,
+ CASE WHEN e.source = 'finding' THEN TRY_CAST(json_extract_string(e.raw, '$.epoch') AS BIGINT) END`
 
 func scanEvent(rows interface{ Scan(...any) error }, extra ...any) (*v1.Event, error) {
 	var ev v1.Event
@@ -154,8 +155,9 @@ func scanEvent(rows interface{ Scan(...any) error }, extra ...any) (*v1.Event, e
 	var source string
 	var server, account, stream, consumer, client, host, reason sql.NullString
 	var findingID, findingSeverity, findingDetail sql.NullString
+	var findingEpoch sql.NullInt64
 	dest := append([]any{&id, &at, &received, &source, &ev.Kind, &server, &account, &stream, &consumer, &client, &host,
-		&reason, &ev.Summary, &findingID, &findingSeverity, &findingDetail}, extra...)
+		&reason, &ev.Summary, &findingID, &findingSeverity, &findingDetail, &findingEpoch}, extra...)
 	if err := rows.Scan(dest...); err != nil {
 		return nil, err
 	}
@@ -166,7 +168,7 @@ func scanEvent(rows interface{ Scan(...any) error }, extra ...any) (*v1.Event, e
 	ev.Severity = severityOf(ev.GetKind(), ev.GetReason(), ev.GetConsumer())
 	if findingID.Valid {
 		ev.Severity = severityOfText[findingSeverity.String]
-		ev.Transition = &v1.FindingTransition{FindingId: findingID.String, Time: ev.GetTime(),
+		ev.Transition = &v1.FindingTransition{FindingId: findingID.String, Epoch: findingEpoch.Int64, Time: ev.GetTime(),
 			State: transitionState[strings.TrimPrefix(ev.GetKind(), "finding.")], Severity: ev.GetSeverity(), Detail: findingDetail.String}
 	}
 	return &ev, nil
@@ -278,6 +280,14 @@ func (p *Provider) decorateEventLabel(ev *v1.Event, names map[string]string) {
 // ListEvents reads events newest first, paging by time and ID so that new
 // events do not shift the pages.
 func (p *Provider) ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error) {
+	res, err := p.listEvents(ctx, req)
+	if err == nil && (len(req.SelectedIds) > 0 || req.EventReadId != nil) && !api.FitsEntityPage(res) {
+		return nil, fmt.Errorf("%w: selected event response exceeds page budget", api.ErrResourceExhausted)
+	}
+	return res, err
+}
+
+func (p *Provider) listEvents(ctx context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error) {
 	if _, err := api.EventSelection(req.SelectedIds, req.EventReadId); err != nil {
 		return nil, err
 	}
@@ -326,6 +336,14 @@ func (p *Provider) ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*
 
 // GetEvent reads one event with its payload.
 func (p *Provider) GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error) {
+	res, err := p.getEvent(ctx, req)
+	if err == nil && req.EventReadId != nil && !api.FitsEntityPage(res) {
+		return nil, fmt.Errorf("%w: selected event exceeds page budget", api.ErrResourceExhausted)
+	}
+	return res, err
+}
+
+func (p *Provider) getEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error) {
 	if _, err := api.EventSelection(nil, req.EventReadId); err != nil {
 		return nil, err
 	}
@@ -413,7 +431,7 @@ func (p *Provider) lanes(ctx context.Context, r *v1.TimeRange, entity *v1.Entity
 	out := make([]*v1.LaneEvent, 0, len(evs))
 	for _, ev := range evs {
 		out = append(out, &v1.LaneEvent{Id: ev.GetId(), Time: ev.GetTime(), Source: ev.GetSource(), Kind: ev.GetKind(),
-			ShortLabel: ev.GetType(), Label: ev.GetType() + " " + ev.GetSummary(), Severity: ev.GetSeverity(), EventId: ev.GetId()})
+			ShortLabel: ev.GetType(), Label: ev.GetType() + " " + ev.GetSummary(), Severity: ev.GetSeverity(), EventId: ev.GetId(), Entity: api.EventEntity(ev), FindingId: ev.GetTransition().GetFindingId(), TransitionEpoch: ev.GetTransition().GetEpoch()})
 	}
 	return out, natsCut, foundCut, nil
 }
