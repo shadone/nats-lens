@@ -1,3 +1,4 @@
+import {timelineCaptureLimits} from "./TimelineCaptureNotice";
 // The status timeline of the reference: a label column, a cell track that
 // scrolls sideways on narrow screens and opens at now, and a now column. A
 // Kubernetes lane sits on top when the range has Kubernetes events; a table
@@ -68,7 +69,7 @@ function K8sLane({ tl, scroller, end }: { tl: Timeline; scroller: RefObject<HTML
       {tl.windows.map((w) => (
         <TimelineMark key={w.start} className="brk" style={{left:`${frac(w.start)*100}%`,width:`${(frac(w.end)-frac(w.start))*100}%`}} label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>} details={<TimelineWindowEvidence window={w} range={tl.evidenceRange??evidenceRange(tl.start,tl.start+span)} readId={tl.eventReadId}/>}/>
       ))}
-      <TimelineEventTicks events={tl.kubernetes} from={tl.start} end={tl.start+span} width={W} range={tl.evidenceRange??evidenceRange(tl.start,tl.start+span)} readId={tl.eventReadId} className={e=>`tick${isDeployment(e)?' deploy':''}`}/>
+      <TimelineEventTicks captureLimits={timelineCaptureLimits(tl,"kubernetes")} events={tl.kubernetes} from={tl.start} end={tl.start+span} width={W} range={tl.evidenceRange??evidenceRange(tl.start,tl.start+span)} readId={tl.eventReadId} className={e=>`tick${isDeployment(e)?' deploy':''}`}/>
       {placed.map((p) => (
         <span key={p.a} className="ann" style={{ left: `${p.l.toFixed(1)}px`, width: `${(p.r - p.l).toFixed(1)}px`, textAlign: p.align, [p.align === "right" ? "paddingRight" : "paddingLeft"]: 6 }}>
           {p.a}
