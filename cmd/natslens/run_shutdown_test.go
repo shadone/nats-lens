@@ -30,6 +30,7 @@ func TestShutdownWritesEventsThenState(t *testing.T) {
 	dir := t.TempDir()
 	conf := filepath.Join(dir, "natslens.yaml")
 	body := fmt.Sprintf(`interval: 10s
+listen: ""
 timeout: 1s
 shutdown_grace: 2s
 data_dir: %s
