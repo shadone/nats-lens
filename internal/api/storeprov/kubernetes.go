@@ -12,6 +12,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // Window and lane kinds, shared with the demo (see internal/api).
@@ -33,6 +34,7 @@ var windowEventLimit = 5000
 
 // k8sEvent is a stored Kubernetes event as the windows need it.
 type k8sEvent struct {
+	id      string
 	at      time.Time
 	kind    string
 	server  string
@@ -82,13 +84,17 @@ func k8sFilter(start, end time.Time, entity *v1.EntityRef, clientPods *regexp.Re
 // k8sLane reads the newest laneLimit Kubernetes lane events of the range,
 // oldest first, and whether there were more. Entities other than a server see the whole lane: a node
 // drain is context for every stream and consumer.
-func (p *Provider) k8sLane(ctx context.Context, r *v1.TimeRange, entity *v1.EntityRef) ([]*v1.LaneEvent, bool, error) {
+func (p *Provider) k8sLane(ctx context.Context, r *v1.TimeRange, entity *v1.EntityRef, readIDs ...int64) ([]*v1.LaneEvent, bool, error) {
 	start, end := span(r)
 	pods, err := p.clientPodNames(ctx, start, end)
 	if err != nil {
 		return nil, false, err
 	}
 	where, args := k8sFilter(start, end, entity, p.ClientPods, pods)
+	if len(readIDs) > 0 {
+		where += " AND e.id<=?"
+		args = append(args, readIDs[0])
+	}
 	rows, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, e.type, `+nodeOfEvent("e.")+` FROM events e WHERE `+where+
 		` ORDER BY e.time DESC, e.id DESC LIMIT ?`, append(args, laneLimit+1)...)
 	if err != nil {
@@ -128,28 +134,39 @@ func k8sShortLabel(ev *v1.Event, typ, node string) string { return api.K8sShortL
 // Event, or nodes of different versions) it is a node upgrade, named a GKE
 // node upgrade when a node carries GKE's node pool label; else a node
 // drain.
-func (p *Provider) k8sWindows(ctx context.Context, r *v1.TimeRange) ([]*v1.TimeWindow, error) {
+func (p *Provider) k8sWindows(ctx context.Context, r *v1.TimeRange, readIDs ...int64) ([]*v1.TimeWindow, error) {
 	start, end := span(r)
-	args := []any{start.Add(-upgradeLookback), end.Add(upgradeGap)}
+	var boundary int64
+	if len(readIDs) > 0 {
+		boundary = readIDs[0]
+	} else if err := p.db().QueryRowContext(ctx, `SELECT coalesce(max(id),0) FROM events`).Scan(&boundary); err != nil {
+		return nil, err
+	}
+	args := []any{start.Add(-upgradeLookback), end.Add(upgradeGap), boundary}
 	for _, k := range windowKinds {
 		args = append(args, k)
 	}
 	rows, err := p.db().QueryContext(ctx, `
-SELECT time, kind, server_name, `+nodeOfEvent("")+`, json_extract_string(raw, '$.kubelet_version'),
+SELECT CAST(id AS VARCHAR),time, kind, server_name, `+nodeOfEvent("")+`, json_extract_string(raw, '$.kubelet_version'),
   json_extract_string(raw, '$.cause'), json_extract_string(raw, '$.pool')
 FROM events
-WHERE source = 'k8s' AND time >= ? AND time < ? AND kind IN (?`+strings.Repeat(", ?", len(windowKinds)-1)+`)
+WHERE source = 'k8s' AND time >= ? AND time < ? AND id<=? AND kind IN (?`+strings.Repeat(", ?", len(windowKinds)-1)+`)
   AND (kind NOT LIKE 'k8s.pod.%' OR server_name IS NOT NULL)
-ORDER BY time DESC, id DESC LIMIT `+strconv.Itoa(windowEventLimit), args...)
+ORDER BY time DESC, id DESC LIMIT `+strconv.Itoa(windowEventLimit+1), args...)
 	if err != nil {
 		return nil, fmt.Errorf("kubernetes windows: %w", err)
 	}
 	defer rows.Close()
 	var evs []k8sEvent
+	limited := false
 	for rows.Next() {
+		if len(evs) == windowEventLimit {
+			limited = true
+			break
+		}
 		var e k8sEvent
 		var server, node, version, cause, pool sql.NullString
-		if err := rows.Scan(&e.at, &e.kind, &server, &node, &version, &cause, &pool); err != nil {
+		if err := rows.Scan(&e.id, &e.at, &e.kind, &server, &node, &version, &cause, &pool); err != nil {
 			return nil, err
 		}
 		e.at, e.server, e.node, e.version, e.cause, e.pool = e.at.UTC(), server.String, node.String, version.String, cause.String, pool.String
@@ -163,6 +180,11 @@ ORDER BY time DESC, id DESC LIMIT `+strconv.Itoa(windowEventLimit), args...)
 	var out []*v1.TimeWindow
 	for _, w := range deriveWindows(evs, upgradeGap) {
 		if w.GetStart().AsTime().Before(end) && !w.GetEnd().AsTime().Before(start) {
+			w.EventReadId = proto.Int64(boundary)
+			w.CaptureRange = proto.Clone(r).(*v1.TimeRange)
+			if limited {
+				w.Unavailable = append(w.Unavailable, "window_input_limit")
+			}
 			out = append(out, w)
 		}
 	}
@@ -174,7 +196,7 @@ ORDER BY time DESC, id DESC LIMIT `+strconv.Itoa(windowEventLimit), args...)
 func deriveWindows(evs []k8sEvent, gap time.Duration) []*v1.TimeWindow {
 	out := make([]api.K8sWindowEvent, len(evs))
 	for i, e := range evs {
-		out[i] = api.K8sWindowEvent{At: e.at, Kind: e.kind, Server: e.server, Node: e.node, Version: e.version, Cause: e.cause, Pool: e.pool}
+		out[i] = api.K8sWindowEvent{ID: e.id, At: e.at, Kind: e.kind, Server: e.server, Node: e.node, Version: e.version, Cause: e.cause, Pool: e.pool}
 	}
 	return api.DeriveK8sWindows(out, gap)
 }

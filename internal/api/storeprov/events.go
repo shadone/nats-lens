@@ -73,6 +73,15 @@ func eventFilter(req *v1.ListEventsRequest) (string, []any) {
 	start, end := span(req.GetRange())
 	where := []string{"e.time >= ?", "e.time < ?"}
 	args := []any{start, end}
+	if req.EventReadId != nil {
+		where = append(where, "e.id<=?")
+		args = append(args, *req.EventReadId)
+	}
+	if len(req.SelectedIds) > 0 {
+		where = append(where, "e.id IN (SELECT unnest(?::BIGINT[]))")
+		ids, _ := api.EventSelection(req.SelectedIds, req.EventReadId)
+		args = append(args, ids)
+	}
 	if len(req.GetSources()) > 0 {
 		var src []string
 		for _, s := range req.GetSources() {
@@ -269,6 +278,9 @@ func (p *Provider) decorateEventLabel(ev *v1.Event, names map[string]string) {
 // ListEvents reads events newest first, paging by time and ID so that new
 // events do not shift the pages.
 func (p *Provider) ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error) {
+	if _, err := api.EventSelection(req.SelectedIds, req.EventReadId); err != nil {
+		return nil, err
+	}
 	cur, err := api.DecodeCursor(req.GetPageToken())
 	if err != nil {
 		return nil, err
@@ -314,9 +326,15 @@ func (p *Provider) ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*
 
 // GetEvent reads one event with its payload.
 func (p *Provider) GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error) {
+	if _, err := api.EventSelection(nil, req.EventReadId); err != nil {
+		return nil, err
+	}
 	id, err := parseID(req.GetId())
 	if err != nil {
 		return nil, fmt.Errorf("%w: event id %q is not a positive number", api.ErrInvalid, req.GetId())
+	}
+	if req.EventReadId != nil && id > *req.EventReadId {
+		return nil, fmt.Errorf("event %d outside selected membership: %w", id, api.ErrNotFound)
 	}
 	var raw sql.NullString
 	ev, err := scanEvent(p.db().QueryRowContext(ctx, `SELECT `+eventCols+`, e.raw::VARCHAR FROM events e WHERE e.id = ?`, id), &raw)
@@ -341,8 +359,12 @@ var (
 
 // laneEvents reads the newest laneLimit events of the kinds in the range,
 // and whether there were more.
-func (p *Provider) laneEvents(ctx context.Context, r *v1.TimeRange, entity *v1.EntityRef, kinds []string) ([]*v1.Event, bool, error) {
-	where, args := eventFilter(&v1.ListEventsRequest{Range: r, Kinds: kinds, Entity: entity})
+func (p *Provider) laneEvents(ctx context.Context, r *v1.TimeRange, entity *v1.EntityRef, kinds []string, readIDs ...int64) ([]*v1.Event, bool, error) {
+	request := &v1.ListEventsRequest{Range: r, Kinds: kinds, Entity: entity}
+	if len(readIDs) > 0 {
+		request.EventReadId = &readIDs[0]
+	}
+	where, args := eventFilter(request)
 	// The newest laneLimit events, plus one to tell whether more exist.
 	rows, err := p.db().QueryContext(ctx, `SELECT `+eventCols+` FROM events e WHERE `+where+
 		` ORDER BY e.time DESC, e.id DESC LIMIT ?`, append(args, laneLimit+1)...)
@@ -367,12 +389,12 @@ func (p *Provider) laneEvents(ctx context.Context, r *v1.TimeRange, entity *v1.E
 // lanes reads the NATS events and the finding transitions of the range,
 // each the newest laneLimit, merged oldest first, with a truncation flag
 // for each.
-func (p *Provider) lanes(ctx context.Context, r *v1.TimeRange, entity *v1.EntityRef) ([]*v1.LaneEvent, bool, bool, error) {
-	nats, natsCut, err := p.laneEvents(ctx, r, entity, laneKinds)
+func (p *Provider) lanes(ctx context.Context, r *v1.TimeRange, entity *v1.EntityRef, readIDs ...int64) ([]*v1.LaneEvent, bool, bool, error) {
+	nats, natsCut, err := p.laneEvents(ctx, r, entity, laneKinds, readIDs...)
 	if err != nil {
 		return nil, false, false, err
 	}
-	found, foundCut, err := p.laneEvents(ctx, r, entity, findingKinds)
+	found, foundCut, err := p.laneEvents(ctx, r, entity, findingKinds, readIDs...)
 	if err != nil {
 		return nil, false, false, err
 	}
