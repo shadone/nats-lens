@@ -281,4 +281,6 @@ service LensService {
   }
   // Retained historical occurrences, without collapsing later recurrences.
   rpc ListFindingEpisodes(ListFindingEpisodesRequest) returns (ListFindingEpisodesResponse) {}
+  // At most 50 exact retained event identities; payloads are read separately.
+  rpc GetEventBatch(GetEventBatchRequest) returns (GetEventBatchResponse);
 }

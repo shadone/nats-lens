@@ -72,3 +72,17 @@ func TestDemoWindowEvidenceKeepsOriginalPayload(t *testing.T) {
 		t.Fatalf("derivation payload replaced by generic fields: %v", err)
 	}
 }
+
+func TestDemoWindowEventBatchReplaysExactFrame(t *testing.T) {
+	p := New(true)
+	now := FixedNow
+	p.clock = func() time.Time { return now }
+	events := p.events(p.scen())
+	e := events[0]
+	boundary := now.Unix()*storageFrameScale + num(e.Id)
+	now = now.Add(time.Hour)
+	got, err := p.GetEventBatch(context.Background(), &v1.GetEventBatchRequest{Ids: []string{e.Id}, EventReadId: proto.Int64(boundary)})
+	if err != nil || len(got.GetEvents()) != 1 || !proto.Equal(got.Events[0].Time, e.Time) {
+		t.Fatalf("batch frame changed: count=%d err=%v", len(got.GetEvents()), err)
+	}
+}

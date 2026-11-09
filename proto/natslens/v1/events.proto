@@ -257,3 +257,19 @@ message GetEventResponse {
   // Acknowledged event membership; absence means unsupported/unrequested.
   optional int64 event_read_id = 2;
 }
+
+// Bounded identity lookup without a temporal filter. It is used for captured
+// window inputs, which can lie outside the original Timeline range.
+message GetEventBatchRequest {
+  repeated string ids = 1;
+  optional int64 event_read_id = 2;
+  string system = 3;
+}
+
+message GetEventBatchResponse {
+  repeated Event events = 1;
+  repeated string selected_ids = 2;
+  optional int64 event_read_id = 3;
+  // Number of requested identities still available at this boundary.
+  int32 total_count = 4;
+}
