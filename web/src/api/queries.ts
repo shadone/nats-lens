@@ -78,7 +78,8 @@ export function useMutes(includeInactive: boolean, pageToken = "") {
 
 // These families read stored observations or metadata, not current operator
 // state. Unknown same-system families remain conservatively invalidated so a
-// new status-bearing view does not silently retain a stale mute or acknowledgement.
+// new status-bearing view does not silently retain a stale mute or acknowledgement;
+// queryKeys.usage.test.ts holds every query key to the system at index 1.
 const operatorIndependent = new Set([
   "time-windows", "series", "trends", "bandSeries", "metric-ranking", "lensInfo", "data-history",
   "events", "event", "serverEvents", "timeline-events", "timeline-window", "captured-event-selection",
