@@ -640,5 +640,5 @@ func (h *Handler) GetEventBatch(ctx context.Context, req *connect.Request[v1.Get
 }
 
 func (h *Handler) ListEventSelection(ctx context.Context, req *connect.Request[v1.ListEventSelectionRequest]) (*connect.Response[v1.ListEventSelectionResponse], error) {
-	return call(ctx, h, "ListEventSelection", req.Msg, func(_ Provider, m *v1.ListEventSelectionRequest) error { return nil }, on(Provider.ListEventSelection))
+	return call(ctx, h, "ListEventSelection", req.Msg, func(_ Provider, m *v1.ListEventSelectionRequest) error { return NormalizeEventSelection(m) }, on(Provider.ListEventSelection))
 }
