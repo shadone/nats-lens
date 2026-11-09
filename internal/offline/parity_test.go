@@ -106,6 +106,8 @@ func TestOfflineLiveParity(t *testing.T) {
 		{"ListFindings", `{"includeMuted":true,"pageSize":1}`}, {"GetFinding", `{"id":"server-001:nats-0"}`},
 		{"ListFindings", `{"range":{"start":"2026-10-17T14:24:00Z","end":"2026-10-17T14:24:30Z"},"includeMuted":true}`},
 		{"ListFindings", `{"range":{"start":"2026-10-17T14:25:30Z","end":"2026-10-17T14:26:00Z"},"includeMuted":true}`},
+		{"ListFindingEpisodes", `{"findingId":"server-001:nats-0","pageSize":100}`},
+		{"ListFindingEpisodes", `{"findingId":"server-001:nats-0","firstRetainedEpoch":"9007199254740989","includeTransitions":true,"pageSize":1,"range":{"start":"2026-10-17T14:24:00Z","end":"2026-10-17T14:24:30Z"}}`},
 		{"GetStatusTimeline", `{}`}, {"ListStreams", `{"account":"APP","limit":1}`}, {"GetStream", `{"account":"APP","stream":"orders"}`},
 		{"GetCapacity", `{}`}, {"GetPlacement", `{}`}, {"GetDataHistory", `{}`}, {"GetSlowConsumerInvestigation", `{}`},
 	}

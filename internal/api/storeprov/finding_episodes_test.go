@@ -277,3 +277,29 @@ func TestFindingEpisodeLatestStateMatchesRetainedFinding(t *testing.T) {
 		})
 	}
 }
+
+func TestFindingEpisodeWireBudgetsAndCancellation(t *testing.T) {
+	p := episodeProvider(t)
+	if _, err := p.St.DB().Exec(`UPDATE finding_transitions SET detail=repeat('x',600000) WHERE epoch=1`); err != nil {
+		t.Fatal(err)
+	}
+	r := &v1.ListFindingEpisodesRequest{FindingId: "stream-001:APP/orders", FirstRetainedEpoch: 1, IncludeTransitions: true, Range: &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(t0.Add(2 * time.Minute))}}
+	first, err := p.ListFindingEpisodes(ctx, r)
+	if err != nil || len(first.GetEpisodes()) != 1 || !api.FitsEntityPage(first) {
+		t.Fatalf("bounded first page: %v %v", first, err)
+	}
+	e := first.Episodes[0]
+	if len(e.Transitions) != 1 || e.NextTransitionOffset != 1 || e.TransitionPageToken == "" || e.TransitionCount != 2 {
+		t.Fatalf("oversized history silently lost: count=%d shown=%d next=%d", e.TransitionCount, len(e.Transitions), e.NextTransitionOffset)
+	}
+	r.PageToken = e.TransitionPageToken
+	r.TransitionOffset = e.NextTransitionOffset
+	if _, err = p.ListFindingEpisodes(ctx, r); !errors.Is(err, api.ErrResourceExhausted) {
+		t.Fatalf("single oversized transition admitted: %v", err)
+	}
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err = p.ListFindingEpisodes(canceled, &v1.ListFindingEpisodesRequest{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation lost: %v", err)
+	}
+}
