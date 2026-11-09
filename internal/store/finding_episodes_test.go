@@ -41,6 +41,7 @@ func TestFindingEpisodesPreserveRepeatedOccurrences(t *testing.T) {
 	apply(t, s, 7, okRun("stream-001", frow("A/s", "info", "third")))
 	q.FindingID = FindingID("stream-001", "A/s")
 	q.StartEpoch = 2
+	q.To = t0.Add(8 * time.Minute)
 	again, err := s.FindingEpisodes(ctx, q)
 	if err != nil || len(again.Items) != 1 || again.Items[0].Finding.Detail != "first" || again.Items[0].Finding.SinceEpoch != 2 {
 		t.Fatalf("stable episode lookup = %+v, %v", again, err)
