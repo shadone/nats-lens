@@ -63,7 +63,7 @@ The demo site, https://shadone.github.io/nats-lens/, is the web UI with the API 
 
    Open http://127.0.0.1:8090/nats-lens/. Python's server answers a deep link with 404 rather than `404.html`; start from the root.
 
-`natslens.wasm` is about 23 MB, 5.2 MB gzip-compressed, as GitHub Pages serves it. `internal/checks` builds for WebAssembly only without its engine, which reads the store through cgo: `engine.go`, `server_slow.go` and `server_leaf.go` carry a `!(js && wasm)` build tag, and CI's `make demo-wasm-smoke` fails when another import does not build there. The UI's links keep the base path through the router or `web/src/lib/basePath.ts`; `basePath.usage.test.ts` lists the places that build URLs otherwise.
+`natslens.wasm` is about 23 MB, 5.2 MB gzip-compressed, as GitHub Pages serves it. `internal/checks` builds for WebAssembly only without its engine, which reads the store through cgo: `engine.go`, `server_slow.go` and `server_leaf.go` carry a `!(js && wasm)` build tag, and CI, which builds the whole site with `make demo-site` and runs the smoke test on every push and pull request, fails when another import does not build there. The UI's links keep the base path through the router or `web/src/lib/basePath.ts`; `basePath.usage.test.tsx` lists the places that build URLs otherwise.
 
 ## Useful commands
 

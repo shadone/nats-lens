@@ -3,7 +3,7 @@
 # `make demo-site`. docs/features/demo-mode.md describes it.
 #
 # The paths are everything the site is built from: Go embeds checks/*.sql
-# and docs/features/*.md into the API.
+# and, through docs/*.go, docs/features/*.md into the API.
 name: Pages
 
 on:
@@ -17,6 +17,7 @@ on:
       - cmd/natslens-wasm/**
       - internal/**
       - checks/**
+      - docs/*.go
       - docs/features/**
       - web/**
   workflow_dispatch:

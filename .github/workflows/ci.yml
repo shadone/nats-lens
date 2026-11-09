@@ -46,10 +46,14 @@ jobs:
         working-directory: web
       - name: Verify (fast profile without docs)
         run: python3 -B scripts/verify.py fast --only format,gate-tests,build-tests,types,proto,vet-fast,go-fast,web-tests --log-dir "$RUNNER_TEMP/verify"
-      # The demo site's API: fails when a package it imports, such as
-      # internal/checks, gains an import that does not build for WebAssembly.
-      - name: Build the demo WebAssembly and run one call through it
-        run: make demo-wasm-smoke DEMO_SITE="$RUNNER_TEMP/demo-site"
+      # The demo site as Pages publishes it: the UI under its base path with
+      # the WebAssembly transport, and the API, which fails to build when a
+      # package it imports, such as internal/checks, gains an import that
+      # does not build for WebAssembly. Reuses the npm ci above.
+      - name: Build the demo site and run one call through its WebAssembly
+        run: |
+          make demo-site DEMO_SITE="$RUNNER_TEMP/demo-site"
+          node cmd/natslens-wasm/smoke.mjs "$RUNNER_TEMP/demo-site"
       - name: Show failed stage logs
         if: failure()
         run: tail -n 200 "$RUNNER_TEMP"/verify/*.log
