@@ -24,6 +24,7 @@ import { EntityLine } from "../components/FindingParts";
 import { MuteDialog, UnmuteDialog } from "../components/MuteDialog";
 import { AcceptedTag, Sev, StateTag } from "../components/Severity";
 import { StatusTimeline } from "../components/StatusTimeline";
+import { TimelineInvestigationProvider } from "../components/TimelineInvestigation";
 import { fmtDuration, fmtGrowth, isoMinute, isoSecond, upperFirst } from "../lib/format";
 import { baselineText, muteBy, reviewOn, sentence } from "../lib/muteView";
 import { writeRange, type RangeSpec } from "../lib/timeRange";
@@ -333,9 +334,11 @@ export function DesktopFindingDetail({ acknowledgements = true, copyAction=true 
               </div>
               <Section title="Status timeline" aside="Every check for this entity over the range.">
                 <div className="card tl">
-                  <QueryView q={tl} what="the timeline">
-                    {(t) => (t.rows.length ? <StatusTimeline tl={t} end={end} live={spec.kind === "live"} asTable={false} /> : <Empty>No check rows for this entity.</Empty>)}
-                  </QueryView>
+                  <TimelineInvestigationProvider key={id}>
+                    <QueryView q={tl} what="the timeline">
+                      {(t) => (t.rows.length ? <StatusTimeline tl={t} end={end} live={spec.kind === "live"} asTable={false} /> : <Empty>No check rows for this entity.</Empty>)}
+                    </QueryView>
+                  </TimelineInvestigationProvider>
                 </div>
               </Section>
               <Section title="Transitions" aside="Newest first, at most 100.">

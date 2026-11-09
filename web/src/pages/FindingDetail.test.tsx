@@ -69,6 +69,23 @@ beforeEach(() => {
 });
 
 describe("FindingDetail", () => {
+  it("keeps its full-screen timeline selection when a live refresh removes the row", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    m.getFinding.mockResolvedValue({ finding: base, transitions: [] });
+    m.getTimeline.mockResolvedValue({ ...emptyTimeline, start: Date.parse("2026-10-17T12:00:00Z"), bucketCount: 1, rows: [{ key: "stream-004", checkCode: "stream-004", checkName: base.checkName, severity: "warning", cells: ["warning"], now: "warning" }] });
+    show("?system=example-prod&range=6h");
+    const mark = await screen.findByRole("button", { name: "stream-004: Warning" });
+    mark.focus(); fireEvent.click(mark);
+    expect(screen.getByRole("dialog")).toHaveClass("dlg-fullscreen");
+    m.getTimeline.mockResolvedValue(emptyTimeline);
+    await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
+    expect(await screen.findByText("No check rows for this entity.")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "stream-004: Warning" })).toHaveClass("dlg-fullscreen");
+    expect(screen.getByRole("dialog")).toHaveTextContent("2026-10-17 12:00:00 UTC");
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("links the check reference with system, range and account context", async () => {
     m.getFinding.mockResolvedValue({finding:base,transitions:[]});
     show("?system=example-prod&range=6h&account=APP");
