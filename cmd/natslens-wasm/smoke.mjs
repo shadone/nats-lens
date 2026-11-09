@@ -42,5 +42,17 @@ if (info.demo !== true || info.system !== "example-prod" || info.nowFixed === tr
 }
 const missing = await globalThis.natslensFetch("GET", "/api/natslens.v1.LensService/NoSuchCall", {}, null);
 if (missing.status !== 404) fail(`an unknown call answered ${missing.status}, want 404`);
+for (const [what, args] of [
+  ["no arguments", []],
+  ["a string body", ["POST", "/api/x", {}, "{}"]],
+]) {
+  const ok = await globalThis.natslensFetch(...args).then(
+    () => false,
+    () => true,
+  );
+  if (!ok) fail(`a call with ${what} was not rejected`);
+}
+const again = await globalThis.natslensFetch("GET", "/api/natslens.v1.LensService/NoSuchCall", {}, null);
+if (again.status !== 404) fail(`after rejected calls, an unknown call answered ${again.status}`);
 console.log(`smoke: GetLensInfo answered for ${info.system}, version ${info.version}`);
 process.exit(0);
