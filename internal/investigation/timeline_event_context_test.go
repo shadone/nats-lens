@@ -60,3 +60,35 @@ func TestFindingHistoryURLPreservesCapturedScope(t *testing.T) {
 		t.Fatalf("lost typed scope: %s", request)
 	}
 }
+
+func TestFindingHistoryRequiresExplicitFixedBounds(t *testing.T) {
+	const from = "2026-10-17T12:00:00.000123Z"
+	const to = "2026-10-17T13:00:00.000456Z"
+	for _, tc := range []struct {
+		name, path, query string
+		invalid           bool
+	}{
+		{"missing both", "/findings/history", "", true},
+		{"captured but missing bounds", "/findings/history", "&readEpoch=5", true},
+		{"relative only", "/findings/history", "&range=1h&readEpoch=5", true},
+		{"encoded route relative only", "/findings/%68istory", "&range=24h&readEpoch=5", true},
+		{"from only", "/findings/history", "&from=" + from, true},
+		{"to only", "/findings/history", "&to=" + to, true},
+		{"invalid endpoint", "/findings/history", "&from=not-a-time&to=" + to, true},
+		{"empty endpoint", "/findings/history", "&from=&to=" + to, true},
+		{"backwards", "/findings/history", "&from=" + to + "&to=" + from, true},
+		{"equal", "/findings/history", "&from=" + from + "&to=" + from, true},
+		{"explicit fixed", "/findings/history", "&from=" + from + "&to=" + to + "&readEpoch=0", false},
+		{"fixed overrides relative navigation", "/findings/history", "&range=1h&from=" + from + "&to=" + to, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := ContextFromURL("https://lens.example.com"+tc.path+"?system=shop"+tc.query, "https://lens.example.com", fixtureNow())
+			if (err != nil) != tc.invalid {
+				t.Fatalf("history fixed-bounds error=%v want invalid=%v", err, tc.invalid)
+			}
+			if !tc.invalid && (c.Range.Start != from || c.Range.End != to) {
+				t.Fatalf("explicit bounds changed: %+v", c.Range)
+			}
+		})
+	}
+}
