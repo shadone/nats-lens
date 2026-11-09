@@ -52,17 +52,28 @@ class GoVersionAgreement(unittest.TestCase):
 
     def test_a_bump_of_one_side_names_both_and_says_what_to_bump(self):
         reason = verify.go_version_mismatch(self.GOMOD, self.DOCKERFILE.replace('1.27.3', '1.27.4'))
-        self.assertIn('go1.27.3', reason)
+        self.assertIn('Go 1.27.3 (its toolchain line)', reason)
         self.assertIn('golang:1.27.4', reason)
         self.assertIn('bump the older one', reason)
 
-    def test_a_missing_toolchain_line_or_two_images_fail(self):
-        self.assertIn('toolchain', verify.go_version_mismatch('module x\n\ngo 1.27.1\n', self.DOCKERFILE))
+    def test_two_images_fail(self):
         self.assertIn('one golang', verify.go_version_mismatch(self.GOMOD, self.DOCKERFILE + 'FROM golang:1.27.2 AS other\n'))
 
-    def test_the_repository_agrees(self):
-        root = Path(__file__).resolve().parent.parent
-        self.assertIsNone(verify.go_version_mismatch((root / 'go.mod').read_text(), (root / 'Dockerfile').read_text()))
+    def test_without_a_toolchain_line_the_go_line_counts(self):
+        # go get go@1.27.3 and go mod tidy leave no toolchain line.
+        self.assertIsNone(verify.go_version_mismatch('module x\n\ngo 1.27.3\n', self.DOCKERFILE))
+        reason = verify.go_version_mismatch('module x\n\ngo 1.27.1\n', self.DOCKERFILE)
+        self.assertIn('Go 1.27.1 (its go line (no toolchain line))', reason)
+        self.assertIn('names no full release', verify.go_version_mismatch('module x\n\ngo 1.27\n', self.DOCKERFILE))
+
+    def test_a_go_line_above_the_toolchain_line_fails(self):
+        reason = verify.go_version_mismatch('module x\n\ngo 1.27.5\n\ntoolchain go1.27.3\n', self.DOCKERFILE)
+        self.assertIn('setup-go would install 1.27.3 with GOTOOLCHAIN=local', reason)
+
+    def test_a_trailing_comment_on_the_toolchain_line(self):
+        gomod = 'module x\n\ngo 1.27.1\n\ntoolchain go1.27.3 // same release as the Dockerfile\n'
+        self.assertIsNone(verify.go_version_mismatch(gomod, self.DOCKERFILE))
+        self.assertIn('Go 1.27.3 (its toolchain line)', verify.go_version_mismatch(gomod, self.DOCKERFILE.replace('1.27.3', '1.27.4')))
 
 
 class TierScopeContracts(unittest.TestCase):

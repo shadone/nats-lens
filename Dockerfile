@@ -18,8 +18,9 @@ RUN npm ci --no-audit --no-fund
 COPY . /src/
 RUN mkdir -p ../internal/webui/dist && npm run build
 
-# go.mod's toolchain line names the same Go release (scripts/verify.py
-# go-version fails when they differ); bump both, and the cache ids below.
+# go.mod names the same Go release, in its toolchain line or, without one,
+# its go line (scripts/verify.py go-version fails when they differ); bump
+# both, and the cache ids below.
 FROM --platform=$BUILDPLATFORM golang:1.27.3-bookworm@sha256:dc0963f32053e4bc451d24d87e3892d42d01021b61f093e98eb95c0352bb84b0 AS build
 ARG TARGETARCH
 ARG BUILDARCH

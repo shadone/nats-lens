@@ -95,27 +95,51 @@ def check_format(root, log):
     log.write(result.stdout + result.stderr)
     return 1 if format_failed(result.returncode, result.stdout) else 0
 
+def go_release(gomod):
+    """The Go release that builds the module, as (release, why not) with one
+    of them None. It is the toolchain line's when there is one, else the go
+    line's: setup-go's go-version-file reads the toolchain line first and
+    then sets GOTOOLCHAIN=local, and go mod tidy drops a toolchain line that
+    is not above the go line. A go line above the toolchain line would make
+    setup-go install the older release, which then refuses the module."""
+    go = re.findall(r'^go\s+(\S+)\s*(?://.*)?$', gomod, re.M)
+    toolchain = re.findall(r'^toolchain\s+go(\S+)\s*(?://.*)?$', gomod, re.M)
+    if len(go) != 1 or len(toolchain) > 1:
+        return None, 'go.mod needs one go line and at most one toolchain line'
+    full = lambda v: re.fullmatch(r'\d+\.\d+\.\d+', v)
+    key = lambda v: tuple(int(n) for n in v.split('.'))
+    if not toolchain:
+        if not full(go[0]):
+            return None, f'go.mod\'s go line {go[0]} names no full release (X.Y.Z) and there is no toolchain line'
+        return go[0], None
+    if not full(toolchain[0]):
+        return None, f'go.mod\'s toolchain line go{toolchain[0]} names no full release (goX.Y.Z)'
+    if full(go[0]) and key(go[0]) > key(toolchain[0]):
+        return None, (f'go.mod\'s go line {go[0]} is above its toolchain line go{toolchain[0]}: setup-go would '
+                      f'install {toolchain[0]} with GOTOOLCHAIN=local, which refuses the module; remove the '
+                      'toolchain line (go mod tidy does) or raise it')
+    return toolchain[0], None
+
 def go_version_mismatch(gomod, dockerfile):
-    """Why go.mod's toolchain line and the Dockerfile's golang image name
-    different Go releases, or None when they agree. CI and Pages take the
-    release from the toolchain line (setup-go's go-version-file); the image,
-    the release binaries and the weekly govulncheck take it from the
-    Dockerfile."""
-    toolchain = re.findall(r'^toolchain\s+go(\S+)\s*$', gomod, re.M)
+    """Why the Go release go.mod builds with (CI and Pages, through setup-go)
+    and the Dockerfile's golang image (the image, the release binaries and
+    the weekly govulncheck) differ, or None when they agree."""
+    release, why = go_release(gomod)
+    if why:
+        return why
     images = sorted(set(re.findall(r'\bgolang:(\d+\.\d+\.\d+)', dockerfile)))
-    if len(toolchain) != 1:
-        return 'go.mod needs one "toolchain goX.Y.Z" line, the Go release CI builds with'
     if len(images) != 1:
         return f'the Dockerfile needs one golang:X.Y.Z image, found {images or "none"}'
-    if toolchain[0] != images[0]:
-        return (f'go.mod has toolchain go{toolchain[0]} and the Dockerfile golang:{images[0]}: '
-                'bump the older one to the newer release (go mod edit -toolchain=goX.Y.Z, or the '
-                'Dockerfile image with its digest and cache ids)')
+    if release != images[0]:
+        source = 'toolchain line' if re.search(r'^toolchain\s', gomod, re.M) else 'go line (no toolchain line)'
+        return (f'go.mod builds with Go {release} (its {source}) and the Dockerfile with golang:{images[0]}: '
+                'bump the older one to the newer release (go.mod: go mod edit -toolchain=goX.Y.Z, or the go '
+                'line when it is the newer; the Dockerfile: the image with its digest and cache ids)')
     return None
 
 def check_go_version(root, log):
     reason = go_version_mismatch((root / 'go.mod').read_text(), (root / 'Dockerfile').read_text())
-    log.write((reason or 'go.mod toolchain and Dockerfile golang image agree') + '\n')
+    log.write((reason or 'go.mod and the Dockerfile name the same Go release') + '\n')
     return 1 if reason else 0
 
 def template_outputs(text):
