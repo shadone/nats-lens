@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "natslens/v1/common.proto";
+import "natslens/v1/overview.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// System-wide inferred Kubernetes windows without Overview tiles or check rows.
+message GetTimeWindowsRequest {
+  string system = 1;
+  TimeRange range = 2;
+}
+
+// Uses the same bounded derivation as Overview and Timeline. Empty output does
+// not establish complete capture or absence of changes. Each returned window
+// retains its derivation, captured inputs, membership boundary and limitations.
+message GetTimeWindowsResponse {
+  repeated TimeWindow windows = 1;
+  TimeRange range = 2;
+}

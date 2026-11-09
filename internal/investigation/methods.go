@@ -19,7 +19,7 @@ var methods = []string{
 	"GetLensInfo", "ListSystems", "ListMetrics", "ListCheckDefinitions",
 	"ListMetricContributors", "GetOverview", "GetShellStatus", "GetTimeSeries", "GetTimeSeriesBatch",
 	"ListFindings", "ListFindingEpisodes", "GetFinding", "GetOnCall", "ListEvents", "GetEvent", "GetEventBatch", "ListEventSelection",
-	"GetStatusTimeline", "ListServers", "GetServer", "ListAccounts",
+	"GetTimeWindows", "GetStatusTimeline", "ListServers", "GetServer", "ListAccounts",
 	"ListConnections", "ListStreams", "GetStream", "ListConsumers", "GetConsumer",
 	"ListKeyValueStores", "ListObjectStores", "GetCapacity", "GetDataHistory",
 	"GetPlacement", "GetReplay", "GetTopology", "GetAccountsAndAuth",

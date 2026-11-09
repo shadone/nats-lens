@@ -302,6 +302,11 @@ func (h *Handler) ListMutes(ctx context.Context, req *connect.Request[v1.ListMut
 	}, on(Provider.ListMutes))
 }
 
+// ASVS 1.5.2, 2.2.1/2.2.2: generated typed input uses the existing trusted range validator.
+func (h *Handler) GetTimeWindows(ctx context.Context, req *connect.Request[v1.GetTimeWindowsRequest]) (*connect.Response[v1.GetTimeWindowsResponse], error) {
+	return call(ctx, h, "GetTimeWindows", req.Msg, func(p Provider, m *v1.GetTimeWindowsRequest) error { return withRange(p, &m.Range) }, on(Provider.GetTimeWindows))
+}
+
 func (h *Handler) GetStatusTimeline(ctx context.Context, req *connect.Request[v1.GetStatusTimelineRequest]) (*connect.Response[v1.GetStatusTimelineResponse], error) {
 	return call(ctx, h, "GetStatusTimeline", req.Msg, func(p Provider, m *v1.GetStatusTimelineRequest) error {
 		return normalizeTimeline(m, rangeReference(p))

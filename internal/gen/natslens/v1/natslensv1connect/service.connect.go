@@ -60,6 +60,9 @@ const (
 	LensServiceEndAcknowledgementProcedure = "/natslens.v1.LensService/EndAcknowledgement"
 	// LensServiceListMutesProcedure is the fully-qualified name of the LensService's ListMutes RPC.
 	LensServiceListMutesProcedure = "/natslens.v1.LensService/ListMutes"
+	// LensServiceGetTimeWindowsProcedure is the fully-qualified name of the LensService's
+	// GetTimeWindows RPC.
+	LensServiceGetTimeWindowsProcedure = "/natslens.v1.LensService/GetTimeWindows"
 	// LensServiceGetStatusTimelineProcedure is the fully-qualified name of the LensService's
 	// GetStatusTimeline RPC.
 	LensServiceGetStatusTimelineProcedure = "/natslens.v1.LensService/GetStatusTimeline"
@@ -177,6 +180,8 @@ type LensServiceClient interface {
 	EndAcknowledgement(context.Context, *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error)
 	// Mutes, active or all.
 	ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error)
+	// System-wide chart window annotations, without Overview or check-state work.
+	GetTimeWindows(context.Context, *connect.Request[v1.GetTimeWindowsRequest]) (*connect.Response[v1.GetTimeWindowsResponse], error)
 	// Worst state per check per time bucket, with event lanes.
 	GetStatusTimeline(context.Context, *connect.Request[v1.GetStatusTimelineRequest]) (*connect.Response[v1.GetStatusTimelineResponse], error)
 	// Events matching filters, newest first.
@@ -360,6 +365,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+LensServiceListMutesProcedure,
 			connect.WithSchema(lensServiceMethods.ByName("ListMutes")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getTimeWindows: connect.NewClient[v1.GetTimeWindowsRequest, v1.GetTimeWindowsResponse](
+			httpClient,
+			baseURL+LensServiceGetTimeWindowsProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetTimeWindows")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -615,6 +627,7 @@ type lensServiceClient struct {
 	acknowledgeFinding           *connect.Client[v1.AcknowledgeFindingRequest, v1.AcknowledgeFindingResponse]
 	endAcknowledgement           *connect.Client[v1.EndAcknowledgementRequest, v1.EndAcknowledgementResponse]
 	listMutes                    *connect.Client[v1.ListMutesRequest, v1.ListMutesResponse]
+	getTimeWindows               *connect.Client[v1.GetTimeWindowsRequest, v1.GetTimeWindowsResponse]
 	getStatusTimeline            *connect.Client[v1.GetStatusTimelineRequest, v1.GetStatusTimelineResponse]
 	listEvents                   *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
 	getEvent                     *connect.Client[v1.GetEventRequest, v1.GetEventResponse]
@@ -704,6 +717,11 @@ func (c *lensServiceClient) EndAcknowledgement(ctx context.Context, req *connect
 // ListMutes calls natslens.v1.LensService.ListMutes.
 func (c *lensServiceClient) ListMutes(ctx context.Context, req *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error) {
 	return c.listMutes.CallUnary(ctx, req)
+}
+
+// GetTimeWindows calls natslens.v1.LensService.GetTimeWindows.
+func (c *lensServiceClient) GetTimeWindows(ctx context.Context, req *connect.Request[v1.GetTimeWindowsRequest]) (*connect.Response[v1.GetTimeWindowsResponse], error) {
+	return c.getTimeWindows.CallUnary(ctx, req)
 }
 
 // GetStatusTimeline calls natslens.v1.LensService.GetStatusTimeline.
@@ -902,6 +920,8 @@ type LensServiceHandler interface {
 	EndAcknowledgement(context.Context, *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error)
 	// Mutes, active or all.
 	ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error)
+	// System-wide chart window annotations, without Overview or check-state work.
+	GetTimeWindows(context.Context, *connect.Request[v1.GetTimeWindowsRequest]) (*connect.Response[v1.GetTimeWindowsResponse], error)
 	// Worst state per check per time bucket, with event lanes.
 	GetStatusTimeline(context.Context, *connect.Request[v1.GetStatusTimelineRequest]) (*connect.Response[v1.GetStatusTimelineResponse], error)
 	// Events matching filters, newest first.
@@ -1081,6 +1101,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		LensServiceListMutesProcedure,
 		svc.ListMutes,
 		connect.WithSchema(lensServiceMethods.ByName("ListMutes")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetTimeWindowsHandler := connect.NewUnaryHandler(
+		LensServiceGetTimeWindowsProcedure,
+		svc.GetTimeWindows,
+		connect.WithSchema(lensServiceMethods.ByName("GetTimeWindows")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -1344,6 +1371,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceEndAcknowledgementHandler.ServeHTTP(w, r)
 		case LensServiceListMutesProcedure:
 			lensServiceListMutesHandler.ServeHTTP(w, r)
+		case LensServiceGetTimeWindowsProcedure:
+			lensServiceGetTimeWindowsHandler.ServeHTTP(w, r)
 		case LensServiceGetStatusTimelineProcedure:
 			lensServiceGetStatusTimelineHandler.ServeHTTP(w, r)
 		case LensServiceListEventsProcedure:
@@ -1463,6 +1492,10 @@ func (UnimplementedLensServiceHandler) EndAcknowledgement(context.Context, *conn
 
 func (UnimplementedLensServiceHandler) ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListMutes is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetTimeWindows(context.Context, *connect.Request[v1.GetTimeWindowsRequest]) (*connect.Response[v1.GetTimeWindowsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetTimeWindows is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) GetStatusTimeline(context.Context, *connect.Request[v1.GetStatusTimelineRequest]) (*connect.Response[v1.GetStatusTimelineResponse], error) {

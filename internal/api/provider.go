@@ -64,6 +64,7 @@ type Provider interface {
 	// EndAcknowledgement hands an acknowledgement back; ErrNotFound for
 	// an unknown ID, ErrFailedPrecondition for one no longer in force.
 	EndAcknowledgement(ctx context.Context, req *v1.EndAcknowledgementRequest) (*v1.Acknowledgement, error)
+	GetTimeWindows(ctx context.Context, req *v1.GetTimeWindowsRequest) (*v1.GetTimeWindowsResponse, error)
 	GetStatusTimeline(ctx context.Context, req *v1.GetStatusTimelineRequest) (*v1.GetStatusTimelineResponse, error)
 	ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error)
 	GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error)
