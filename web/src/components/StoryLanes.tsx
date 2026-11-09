@@ -58,6 +58,7 @@ function LaneLegend({ windows }: { windows: boolean }) {
       {item("sl-run warning", "warning")}
       {item("sl-run info", "info")}
       {item("sl-run muted", "muted")}
+      {item("sl-run nodata", "no data")}
       {item("sl-tick nats", "NATS event")}
       {item("sl-tick warn", "NATS warning")}
     </ul>
@@ -76,7 +77,8 @@ function StoryLaneContents({ tl, end, live }: Props) {
   const frac = (t: number) => (t - tl.start) / span;
  const fixed=tl.evidenceRange??evidenceRange(tl.start,tl.start+span);
   const lanePath=(path:string)=>{const [base,query]=path.split('?'),p=evidenceQuery(system,fixed);new URLSearchParams(query).forEach((v,k)=>p.set(k,v));if(base==='/events'&&tl.eventReadId!==undefined)p.set('eventReadId',tl.eventReadId);return `${base}?${p}`};
-  const runs = findingRuns(tl.rows, tl.start, tl.bucketMs, tl.bucketCount).filter((r) => r.level !== "nodata");
+  const runs = findingRuns(tl.rows, tl.start, tl.bucketMs, tl.bucketCount);
+  const observed=tl.rows.some(row=>row.cells.slice(0,tl.bucketCount).some(level=>level!=="nodata"));
   const deploys = tl.kubernetes.filter(isDeployment).length;
   const natsWarn = tl.nats.filter((e) => e.severity === "warning" || e.severity === "critical").length;
   const win = zoomWindow(tl.windows);
@@ -101,12 +103,12 @@ function StoryLaneContents({ tl, end, live }: Props) {
     {
       id: "findings",
       name: "Findings",
-      note: tl.rows.length ? firedNote(new Set(tl.rows.filter((r) => r.cells.some((c) => c !== "ok" && c !== "nodata")).map((r) => r.checkCode)).size) : "no check ran",
-      label: `Findings: ${runs.length ? runsText(runs) : "ok throughout"}`,
+      note: observed ? firedNote(new Set(tl.rows.filter((r) => r.cells.some((c) => c !== "ok" && c !== "nodata")).map((r) => r.checkCode)).size) : "no observed state",
+      label: `Findings: ${!observed ? "no observed check state" : runs.length ? runsText(runs) : "OK in observed buckets"}`,
       marks: (
         <>
           {runs.map((r) => (
-            <TimelineMark key={r.from} className={`sl-run ${r.level}`} style={{left:pct(frac(r.from)),width:pct(frac(r.to)-frac(r.from))}} label={`Finding state: ${LEVEL_LABEL[r.level]}`} details={<TimelineFindingRange readEpoch={tl.findingReadEpoch} from={r.from} end={r.to}/>} preview={<><strong>{LEVEL_LABEL[r.level]} finding state</strong><div>{timelineTime(r.from)} – {timelineTime(r.to)}</div><div>Bucket boundaries, not exact onset or resolution.</div>{tl.rows.filter(row=>row.cells.some((lv,i)=>tl.start+i*tl.bucketMs<r.to&&tl.start+(i+1)*tl.bucketMs>r.from&&lv!=="ok"&&lv!=="nodata")).map(row=><div key={row.key}>{row.checkCode}: {row.checkName}</div>)}</>}/>
+            <TimelineMark key={r.from} className={`sl-run ${r.level}`} style={{left:pct(frac(r.from)),width:pct(frac(r.to)-frac(r.from))}} label={`Finding state: ${LEVEL_LABEL[r.level]}`} details={<TimelineFindingRange readEpoch={tl.findingReadEpoch} from={r.from} end={r.to}/>} preview={<><strong>{LEVEL_LABEL[r.level]} finding state</strong><div>{timelineTime(r.from)} – {timelineTime(r.to)}</div><div>Bucket boundaries, not exact onset or resolution.</div>{r.level==="nodata"&&<div>No check state was observed in these buckets. Retained occurrences may overlap this interval, but do not prove evaluation in the missing buckets.</div>}{tl.rows.filter(row=>row.cells.some((lv,i)=>tl.start+i*tl.bucketMs<r.to&&tl.start+(i+1)*tl.bucketMs>r.from&&lv!=="ok"&&lv!=="nodata")).map(row=><div key={row.key}>{row.checkCode}: {row.checkName}</div>)}</>}/>
           ))}
         </>
       ),
@@ -152,7 +154,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
       </div>
       <div className="sl-foot">
         <LaneLegend windows={tl.windows.length > 0} />
-        <InfoTip label="Timeline lanes" text="Events are observed timestamps; coloured finding boxes show the worst check state in each time bucket. A box is not one incident or an exact onset. Shaded windows are inferred context, not proven causes. Hover or focus a mark to inspect it; activate it to open its evidence. Missing or truncated captures limit what the Timeline can show."/>
+        <InfoTip label="Timeline lanes" text="Events are observed timestamps; coloured finding boxes show the worst check state in each time bucket. Dashed boxes show buckets with no observed check state. A box is not one incident or an exact onset. Shaded windows are inferred context, not proven causes. Hover or focus a mark to inspect it; activate it to open its evidence. Missing or truncated captures limit what the Timeline can show."/>
         <span className="right">
           {checks && (
             <button type="button" className="chip" aria-pressed={asTable} onClick={() => setAsTable((t) => !t)}>
