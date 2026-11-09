@@ -238,3 +238,42 @@ func TestTimelineReadBoundaryUsesOneConnection(t *testing.T) {
 		t.Fatalf("Timeline escaped its transaction connection: %v %v", got, err)
 	}
 }
+
+func TestFindingEpisodeLatestStateMatchesRetainedFinding(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		flap bool
+		want v1.FindingState
+	}{
+		{"changed", false, v1.FindingState_FINDING_STATE_CHANGED},
+		{"flapping", true, v1.FindingState_FINDING_STATE_FLAPPING},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := episodeProvider(t)
+			r := rows{t, p.St}
+			end := int64(4)
+			if tc.flap {
+				end = 9
+			}
+			for e := int64(4); e <= end; e++ {
+				r.epoch(e, t0.Add(time.Duration(e-1)*time.Minute), "S0")
+				var findings []store.FindingRow
+				if !tc.flap || e%2 == 1 {
+					findings = []store.FindingRow{{EntityKey: "APP/orders", Severity: "warning", Detail: "later state"}}
+				}
+				if _, err := p.St.ApplyCheckRuns(ctx, e, []store.CheckRun{{Code: "stream-001", EntityType: "stream", Status: store.RunOK, Rows: findings}}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			p.Clock = func() time.Time { return t0.Add(10 * time.Minute) }
+			latest, err := p.GetFinding(ctx, &v1.GetFindingRequest{Id: "stream-001:APP/orders"})
+			if err != nil || latest.GetFinding().GetState() != tc.want {
+				t.Fatalf("fixture latest: %v %v", latest, err)
+			}
+			got, err := p.ListFindingEpisodes(ctx, &v1.ListFindingEpisodesRequest{Range: &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(t0.Add(30 * time.Second))}})
+			if err != nil || len(got.GetEpisodes()) != 1 || got.Episodes[0].LatestRetainedState != tc.want || got.Episodes[0].Finding.State != v1.FindingState_FINDING_STATE_FIRING {
+				t.Fatalf("historical/latest flags conflated: %v %v", got, err)
+			}
+		})
+	}
+}
