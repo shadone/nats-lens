@@ -32,6 +32,7 @@ type FindingEpisode struct {
 	ResolutionEpoch             int64
 	LatestState, LatestSeverity string
 	LatestStartEpoch            int64
+	LatestObservedAt            time.Time
 }
 
 type FindingEpisodePage struct {
@@ -58,7 +59,7 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 		}
 	}
 	rows, err := tx.QueryContext(ctx, findingEpisodesSQL, readEpoch, q.FindingID, q.FindingID, q.CheckCode, q.CheckCode,
-		q.EntityType, q.EntityType, q.EntityKey, q.To.UTC(), q.From.UTC(), q.To.UTC(), q.StartEpoch, q.StartEpoch, q.Limit, q.Offset)
+		q.EntityType, q.EntityType, q.EntityKey, q.EntityType, q.EntityKey, q.To.UnixMicro(), q.From.UnixMicro(), q.To.UnixMicro(), q.StartEpoch, q.StartEpoch, q.Limit, q.Offset)
 	if err != nil {
 		return FindingEpisodePage{}, fmt.Errorf("finding episodes: %w", err)
 	}
@@ -71,7 +72,10 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 		var firstAt, lastAt sql.NullTime
 		var value sql.NullFloat64
 		var cause sql.NullInt64
-		if err := rows.Scan(&out.Total, &id, &code, &typ, &key, &firstEpoch, &startEpoch, &firstAt, &lastEpoch, &lastAt, &kind, &severity, &detail, &value, &cause); err != nil {
+		var resolutionAt, latestAt sql.NullTime
+		var resolutionEpoch, latestStart sql.NullInt64
+		var latestState, latestSeverity sql.NullString
+		if err := rows.Scan(&out.Total, &id, &code, &typ, &key, &firstEpoch, &startEpoch, &firstAt, &lastEpoch, &lastAt, &kind, &severity, &detail, &value, &cause, &resolutionAt, &resolutionEpoch, &latestState, &latestSeverity, &latestStart, &latestAt); err != nil {
 			return FindingEpisodePage{}, err
 		}
 		if !id.Valid {
@@ -81,7 +85,13 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 		if bytes > 8<<20 {
 			return FindingEpisodePage{}, ErrFindingEpisodeReadLimit
 		}
-		e := FindingEpisode{StartKnown: startEpoch.Valid, FirstRetainedEpoch: firstEpoch.Int64}
+		e := FindingEpisode{StartKnown: startEpoch.Valid, FirstRetainedEpoch: firstEpoch.Int64, ResolutionEpoch: resolutionEpoch.Int64, LatestState: latestState.String, LatestSeverity: latestSeverity.String, LatestStartEpoch: latestStart.Int64}
+		if resolutionAt.Valid {
+			e.ResolutionAt = resolutionAt.Time.UTC()
+		}
+		if latestAt.Valid {
+			e.LatestObservedAt = latestAt.Time.UTC()
+		}
 		f := &e.Finding
 		f.ID, f.CheckCode, f.EntityType, f.EntityKey = id.String, code.String, typ.String, key.String
 		f.SinceEpoch, f.Since = startEpoch.Int64, firstAt.Time.UTC()
@@ -117,20 +127,24 @@ const findingEpisodesSQL = `WITH ordered AS (
  SELECT *,sum(CASE WHEN kind='firing' THEN 1 ELSE 0 END) OVER(
   PARTITION BY finding_id ORDER BY epoch ROWS UNBOUNDED PRECEDING) AS occurrence
  FROM finding_transitions WHERE epoch<=? AND (?='' OR finding_id=?) AND (?='' OR check_code=?)
- AND (?='' OR (entity_type=? AND entity_key=?))
+ AND (?='' OR (entity_type=? AND entity_key=?) OR (?='stream' AND entity_type='consumer' AND starts_with(entity_key,?||'/')))
 ), episodes AS (
  SELECT finding_id,max(check_code) AS check_code,max(entity_type) AS entity_type,max(entity_key) AS entity_key,
  min(epoch) AS first_epoch,max(epoch) FILTER(WHERE kind='firing') AS start_epoch,
  arg_min(time,epoch) AS first_at,max(time) FILTER(WHERE kind='resolved') AS resolved_at,
- arg_max(struct_pack(epoch,time,kind,severity,detail,value,cause_event_id),epoch) FILTER(WHERE time<?) AS last
+ max(epoch) FILTER(WHERE kind='resolved') AS resolved_epoch,
+ arg_max(struct_pack(epoch,time,kind,severity,detail,value,cause_event_id),epoch) FILTER(WHERE time<make_timestamp(?::BIGINT)) AS last
  FROM ordered GROUP BY finding_id,occurrence
 ), matching AS (
- SELECT * FROM episodes WHERE (resolved_at IS NULL OR resolved_at>?) AND first_at<? AND last IS NOT NULL
+ SELECT * FROM episodes WHERE (resolved_at IS NULL OR resolved_at>make_timestamp(?::BIGINT)) AND first_at<make_timestamp(?::BIGINT) AND last IS NOT NULL
  AND (?=0 OR start_epoch=?)
 ), page AS (
  SELECT * FROM matching ORDER BY first_epoch DESC,finding_id LIMIT ? OFFSET ?
 )
 SELECT totals.n,p.finding_id,p.check_code,p.entity_type,p.entity_key,p.first_epoch,p.start_epoch,p.first_at,
- p.last.epoch,p.last.time,p.last.kind,p.last.severity,p.last.detail,p.last.value,p.last.cause_event_id
+ p.last.epoch,p.last.time,p.last.kind,p.last.severity,p.last.detail,p.last.value,p.last.cause_event_id,
+ p.resolved_at,p.resolved_epoch,f.state,f.severity,f.since_epoch,latest.started_at
 FROM (SELECT count(*) AS n FROM matching) totals LEFT JOIN page p ON true
+LEFT JOIN findings f ON f.id=p.finding_id
+LEFT JOIN epochs latest ON latest.epoch=f.last_seen_epoch
 ORDER BY p.first_epoch DESC,p.finding_id`
