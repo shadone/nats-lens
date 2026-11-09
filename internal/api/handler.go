@@ -636,5 +636,5 @@ func (h *Handler) ListFindingEpisodes(ctx context.Context, req *connect.Request[
 }
 
 func (h *Handler) GetEventBatch(ctx context.Context, req *connect.Request[v1.GetEventBatchRequest]) (*connect.Response[v1.GetEventBatchResponse], error) {
-	return call(ctx, h, "GetEventBatch", req.Msg, func(_ Provider, m *v1.GetEventBatchRequest) error { return nil }, on(Provider.GetEventBatch))
+	return call(ctx, h, "GetEventBatch", req.Msg, func(_ Provider, m *v1.GetEventBatchRequest) error { return EventBatchSelection(m.Ids, m.EventReadId) }, on(Provider.GetEventBatch))
 }

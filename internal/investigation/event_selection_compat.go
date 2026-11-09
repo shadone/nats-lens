@@ -8,7 +8,7 @@ import (
 // Require positive acknowledgement of additive exact-selection fields. A prior
 // server can legally ignore unknown protobuf fields; that is not a scoped read.
 func checkEventSelectionReply(method string, in, out protoreflect.Message) error {
-	if method != "ListEvents" && method != "GetEvent" && method != "GetStatusTimeline" {
+	if method != "ListEvents" && method != "GetEvent" && method != "GetStatusTimeline" && method != "GetEventBatch" {
 		return nil
 	}
 	mismatch := func() error {
@@ -34,8 +34,12 @@ func checkEventSelectionReply(method string, in, out protoreflect.Message) error
 			return mismatch()
 		}
 	}
-	if method == "ListEvents" {
-		selected := in.Descriptor().Fields().ByJSONName("selectedIds")
+	if method == "ListEvents" || method == "GetEventBatch" {
+		field := "selectedIds"
+		if method == "GetEventBatch" {
+			field = "ids"
+		}
+		selected := in.Descriptor().Fields().ByJSONName(field)
 		if selected == nil || in.Get(selected).List().Len() == 0 {
 			return nil
 		}
