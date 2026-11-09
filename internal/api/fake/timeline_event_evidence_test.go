@@ -86,3 +86,40 @@ func TestDemoWindowEventBatchReplaysExactFrame(t *testing.T) {
 		t.Fatalf("batch frame changed: count=%d err=%v", len(got.GetEvents()), err)
 	}
 }
+
+func TestDemoEventBatchSummariesDeferPayloads(t *testing.T) {
+	p := New(false)
+	capture, err := p.captureEvents(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var chosen []*v1.Event
+	var ids []string
+	for _, e := range capture.events {
+		if e.Source == srcK8s && e.Raw != "" {
+			chosen = append(chosen, e)
+			ids = append(ids, e.Id)
+			if len(ids) == 2 {
+				break
+			}
+		}
+	}
+	if len(ids) != 2 {
+		t.Fatal("fixture requires two original payloads")
+	}
+	page, err := p.GetEventBatch(context.Background(), &v1.GetEventBatchRequest{Ids: ids, EventReadId: proto.Int64(capture.boundary)})
+	if err != nil || len(page.GetEvents()) != 2 {
+		t.Fatalf("batch unavailable: %v", err)
+	}
+	for _, summary := range page.Events {
+		if summary.Raw != "" {
+			t.Fatalf("summary batch eagerly returns payload for event %s", summary.Id)
+		}
+	}
+	for _, original := range chosen {
+		detail, err := p.GetEvent(context.Background(), &v1.GetEventRequest{Id: original.Id, EventReadId: proto.Int64(capture.boundary)})
+		if err != nil || detail.GetEvent().GetRaw() != original.Raw || original.Raw == "" {
+			t.Fatalf("explicit detail lost original payload: %v", err)
+		}
+	}
+}
