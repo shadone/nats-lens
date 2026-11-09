@@ -79,6 +79,8 @@ export interface FindingFilter {
   includeMuted?: boolean;
   checkCode?: string;
   entity?: Entity;
+  /** Only findings whose check or entity contains this text, ignoring case. */
+  text?: string;
   pageSize?: number;
   pageToken?: string;
 }
@@ -93,6 +95,7 @@ export async function listFindings(sys: string, spec: RangeSpec, f: FindingFilte
       includeMuted: f.includeMuted ?? false,
       checkCode: f.checkCode ?? "",
       entity: entityInit(f.entity),
+      text: f.text ?? "",
       pageSize: f.pageSize ?? 0,
       pageToken: f.pageToken ?? "",
     },
@@ -154,6 +157,8 @@ export interface EventFilter {
   kinds?: string[];
   entity?: Entity;
   clientName?: string;
+  /** Only events whose kind or names contain this text, ignoring case. */
+  text?: string;
   pageSize?: number;
   pageToken?: string;
 }
@@ -167,6 +172,7 @@ export async function listEvents(sys: string, spec: RangeSpec, f: EventFilter, s
       kinds: f.kinds ?? [],
       entity: entityInit(f.entity),
       clientName: f.clientName ?? "",
+      text: f.text ?? "",
       pageSize: f.pageSize ?? 0,
       pageToken: f.pageToken ?? "",
     },

@@ -61,14 +61,29 @@
 .search input::placeholder{color:var(--text-muted)}
 .search input::-webkit-search-cancel-button{display:none}
 .search kbd{font:var(--fs-xs) var(--mono);color:var(--text-muted);border:1px solid var(--border);border-radius:var(--r-sm);padding:0 var(--sp-1);white-space:nowrap}
-.search-pop{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;padding:var(--sp-1);box-shadow:0 8px 24px var(--shadow)}
+/* The command bar's results: wider than the box on a desktop, never wider than the screen. */
+.search-pop{position:absolute;left:0;top:calc(100% + 4px);z-index:20;min-width:100%;width:min(460px,calc(100vw - 32px));max-height:min(70vh,560px);overflow-y:auto;padding:var(--sp-1);box-shadow:0 8px 24px var(--shadow)}
 .search-pop ul{list-style:none;margin:0;padding:0}
-.search-pop li{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:var(--sp-2);align-items:baseline;padding:var(--sp-2);border-radius:var(--r-md);cursor:pointer;color:var(--text)}
+.search-pop li[role="option"]{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--sp-3);align-items:baseline;padding:var(--sp-1) var(--sp-2);min-height:32px;align-content:center;border-radius:var(--r-md);cursor:pointer;color:var(--text)}
 .search-pop li.on{background:var(--accent-soft)}
-.search-pop .sk{font:500 var(--fs-xs)/1.2 var(--sans);color:var(--text-muted)}
-.search-pop .sn{font-size:var(--fs-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.search-pop .ss{font-size:var(--fs-xs);color:var(--text-muted);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search-pop .sn{display:flex;align-items:baseline;gap:var(--sp-2);min-width:0;font-size:var(--fs-md);overflow:hidden;white-space:nowrap}
+.search-pop .sn > .mono{flex:none;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.search-pop .sd{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text-2);font-size:var(--fs-sm)}
+.search-pop .ss{font-size:var(--fs-xs);color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search-pop li.search-more{display:block;color:var(--accent-text);font-size:var(--fs-sm)}
+.search-group{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-1);font:500 var(--fs-xs)/1.2 var(--sans);color:var(--text-muted)}
+.search-pop > ul > li + li .search-group{border-top:1px solid var(--border-soft);margin-top:var(--sp-1)}
+.search-state{font-weight:400}
+.search-sev{flex:none;align-self:center;width:6px;height:6px;border-radius:var(--r-xs);background:var(--sev-muted)}
+.search-sev.critical{background:var(--sev-critical)}
+.search-sev.warning{background:var(--cell-warning)}
+.search-sev.info{background:var(--sev-info)}
+.search-chips{display:flex;flex-wrap:wrap;gap:var(--sp-1);padding:var(--sp-1) var(--sp-1) var(--sp-2)}
+.search-chip{display:inline-flex;align-items:center;gap:var(--sp-1);padding:2px var(--sp-1) 2px var(--sp-2);border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface-2);font-size:var(--fs-xs);color:var(--text-2)}
+.search-chip button{border:0;background:transparent;padding:0 2px;font:inherit;line-height:1;color:var(--text-muted);cursor:pointer}
+.search-chip button:hover{color:var(--text)}
 .search-note{margin:0;padding:var(--sp-2);color:var(--text-muted);font-size:var(--fs-sm)}
+.search-hint code{font:var(--fs-xs) var(--mono);color:var(--text-2);margin-right:var(--sp-1)}
 
 /* At 1280px a page with the account scope keeps the bar on one row. */
 @media (max-width:1400px){
