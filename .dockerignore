@@ -11,6 +11,10 @@ internal/webui/dist/*
 .idea
 .vscode
 deploy
-docs
+# docs/ is a Go package (the check reference embeds features/*.md); the
+# rest of docs/ is left out.
+docs/*
+!docs/*.go
+!docs/features
 
 internal/webui/.build-*
