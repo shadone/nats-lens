@@ -12,3 +12,9 @@ it('rejects scope changes, duplicate fields, malformed/oversized membership and 
 it('retains exact int64 strings for the maximum combined lane without sending them in HTTP headers',()=>{
  const full={...s,ids:Array.from({length:2000},(_,i)=>`${9223372036854775807n-BigInt(i)}`)};const u=new URL(selectionPath(full,1950),'https://example.com');expect(u.search.length).toBeLessThan(400);expect(u.hash.length).toBeLessThan(88000);expect(selectionFromURL(u).selection).toEqual(full);
 });
+
+it('copies the current selection page from the global handoff without adding a nonexistent request range',async()=>{
+ const {buildInvestigationContext}=await import('./investigationContext');const u=new URL(selectionPath(s,1,1),'https://example.com');
+ const c=buildInvestigationContext({origin:u.origin,pathname:u.pathname,search:u.search,hash:u.hash,system:s.system,spec:{kind:'fixed',from:Date.parse(s.from),to:Date.parse(s.to)}});
+ expect(c.query).toEqual({method:'ListEventSelection',request:{ids:s.ids,eventReadId:s.eventReadId,offset:1,pageSize:1,system:s.system}});expect(c.range).toEqual({start:s.from,end:s.to});expect(c.annotation).toContain('finding transitions');
+});
