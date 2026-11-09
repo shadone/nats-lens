@@ -157,22 +157,22 @@ func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 				"first_epoch": 1, "last_epoch": last, "config_hash": h, "durable_name": name})
 		}
 	}
-	consumerStats := func(e int64, id, st, name string, isLeader bool, seq int64, paused bool) {
+	consumerStats := func(e int64, id, st, name string, isLeader bool, seq int64, paused bool, created time.Time) {
 		r.add("consumer_stats", map[string]any{"epoch": e, "server_id": id, "account": "APP", "stream": st, "consumer": name,
 			"is_leader": isLeader, "leader": "nats-0", "delivered_consumer_seq": seq, "num_pending": 3, "num_ack_pending": 1,
-			"paused": paused})
+			"paused": paused, "created": created})
 	}
 	consumer("orders", "fast", map[string]string{"S0": "c"})
 	consumer("orders", "planner", map[string]string{"S0": "c"})
 	consumer("orders", "fresh", map[string]string{"S0": "c"})
 	consumer("payments", "settler", map[string]string{"S0": "c", "S1": "c2"})
 	for e := last - 3; e <= last; e++ {
-		consumerStats(e, "S0", "orders", "fast", true, int64(confAt(e).Sub(confStart).Seconds()), false)
-		consumerStats(e, "S0", "orders", "planner", true, 400, true)
+		consumerStats(e, "S0", "orders", "fast", true, int64(confAt(e).Sub(confStart).Seconds()), false, confStart.Add(-time.Hour))
+		consumerStats(e, "S0", "orders", "planner", true, 400, true, confStart.Add(-time.Hour))
 	}
-	consumerStats(last, "S0", "orders", "fresh", true, 0, false)
-	consumerStats(last, "S0", "payments", "settler", true, 50, false)
-	consumerStats(last, "S1", "payments", "settler", false, 50, false)
+	consumerStats(last, "S0", "orders", "fresh", true, 0, false, confAt(last))
+	consumerStats(last, "S0", "payments", "settler", true, 50, false, confStart.Add(-time.Hour))
+	consumerStats(last, "S1", "payments", "settler", false, 50, false, confStart.Add(-time.Hour))
 	// nats-1 rebuilt its copy of settler: another creation time. The
 	// leader lists it as current.
 	if _, err := st.DB().Exec(`UPDATE consumer_stats SET created = CASE server_id WHEN 'S0' THEN TIMESTAMP '2026-10-01 08:00:00'
