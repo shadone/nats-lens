@@ -287,6 +287,11 @@ func ContextFromURL(raw, trusted string, now time.Time) (*Context, error) {
 		return nil, err
 	}
 	q := u.Query()
+	// A retained-history route has no live/default mode. Match the browser:
+	// missing fixed endpoints must not become invented last-24-hour evidence.
+	if u.Path == "/findings/history" && (!q.Has("from") || !q.Has("to")) {
+		return nil, errors.New("finding history URL requires explicit fixed from and to bounds")
+	}
 	end := now.UTC()
 	start := end.Add(-24 * time.Hour)
 	if q.Has("from") || q.Has("to") {

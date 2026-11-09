@@ -53,3 +53,9 @@ T3 preview snapshot twice returned `Preview snapshot failed: Preview automation 
 The actual general copy action was keyboard-activated with a controlled clipboard sink, not an OS clipboard claim. Its context sends `ListFindingEpisodes`, exact range and membership boundary; no finding named `history` is invented. The real CLI returns the same **20 occurrences**: `/private/tmp/nats-finding-history-copy-context.json`, `nats-finding-history-copy-cli.json`. Existing transport/UI links can still be partial for unprojected API options; the exact machine request remains available.
 
 Fresh read-only review and integration are parent-owned. Remaining umbrella acceptance includes complete aggregate share/all-results behavior and capture-limit disclosure across every representation; this slice does not imply universal snapshot pinning, complete capture or causal attribution.
+
+## Fresh R1 correction
+
+Review of `6428754d` found one P2: CLI URL import inherited the generic last-24-hour/relative fallback for `/findings/history`, while the page requires fixed endpoints. Checkpoint `b6268b62` reproduces four runtime failures: missing both endpoints, missing them with a boundary, relative-only range and an encoded static-route alias. The correction requires both endpoint parameters before generic range resolution; existing RFC3339Nano and ordered-range validation still applies.
+
+Twelve controls cover missing/partial/empty/invalid/equal/backwards endpoints, encoded aliases, exact valid fractional-second bounds, known zero and fixed-over-relative precedence. `/private/tmp/nats-history-fixed-bounds-r1-{red,green,removed,restored}.log` retain initial RED, Honolulu race GREEN, old-file-overlay runtime RED and restored GREEN. Focused investigation vet passes. No UI, API, SQL or native source behavior changed; no broad suite was rerun.

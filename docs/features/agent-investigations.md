@@ -158,3 +158,10 @@ This event slice is proposed, not yet confirmed. `GetEventBatch` reads 1–50 ex
 - **And** a mismatched acknowledged boundary fails explicitly instead of broadening the captured read
 
 Ordinary event requests with unset capture fields retain their existing reviewed UI predicates. Active exact-ID/event-boundary fields remain partial unless the effective UI projection proves them; no universal snapshot equivalence is inferred from their defaults.
+
+### Reject incomplete history URLs
+
+- **Given** a historical finding-list URL omits either fixed endpoint or supplies only a relative range
+- **When** the CLI imports it
+- **Then** it rejects the URL rather than inventing a preceding-24-hour history request
+- **And** explicit valid fixed bounds remain unchanged, including fractional-second precision
