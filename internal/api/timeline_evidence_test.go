@@ -38,3 +38,23 @@ func TestWindowEvidenceRetainsExactDerivationInputs(t *testing.T) {
 		t.Fatalf("missing identity invented: %v", missing)
 	}
 }
+
+func TestEventSelectionValidatesTypedIdentityBudget(t *testing.T) {
+	good, err := EventSelection([]string{"9007199254740993", "9223372036854775807"}, nil)
+	if err != nil || !slices.Equal(good, []int64{9007199254740993, 9223372036854775807}) {
+		t.Fatalf("precision lost: %v %v", good, err)
+	}
+	for _, ids := range [][]string{{"0"}, {"-1"}, {"01"}, {"+1"}, {"1e3"}, {"9223372036854775808"}, {"1", "1"}, {"synthetic-sensitive-text"}, make([]string, 1001)} {
+		if _, err := EventSelection(ids, nil); err == nil || strings.Contains(err.Error(), "synthetic-sensitive-text") {
+			t.Fatalf("unsafe selection admitted/disclosed: %v", err)
+		}
+	}
+	negative := int64(-1)
+	if _, err := EventSelection(nil, &negative); err == nil {
+		t.Fatal("negative boundary admitted")
+	}
+	zero := int64(0)
+	if _, err := EventSelection(nil, &zero); err != nil {
+		t.Fatal("known empty boundary rejected", err)
+	}
+}
