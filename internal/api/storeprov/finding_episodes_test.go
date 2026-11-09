@@ -2,6 +2,7 @@ package storeprov_test
 
 import (
 	"connectrpc.com/connect"
+	"context"
 	"errors"
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/apitest"
@@ -224,5 +225,16 @@ func TestTimelineEmptyBoundaryExcludesLateChecksInSameCollection(t *testing.T) {
 	got, err := p.ListFindingEpisodes(ctx, &v1.ListFindingEpisodesRequest{Range: rng, ReadEpoch: proto.Int64(timeline.FindingReadEpoch)})
 	if err != nil || got.GetTotalCount() != 0 || len(got.GetUnavailable()) == 0 {
 		t.Fatalf("late check publication entered selected empty history: %v %v", got, err)
+	}
+}
+
+func TestTimelineReadBoundaryUsesOneConnection(t *testing.T) {
+	p := episodeProvider(t)
+	p.St.DB().SetMaxOpenConns(1)
+	limited, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	got, err := p.GetStatusTimeline(limited, &v1.GetStatusTimelineRequest{Range: &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(t0.Add(5 * time.Minute))}, Bucket: durationpb.New(time.Minute)})
+	if err != nil || got.GetFindingReadEpoch() != 3 || len(got.GetNats()) == 0 {
+		t.Fatalf("Timeline escaped its transaction connection: %v %v", got, err)
 	}
 }
