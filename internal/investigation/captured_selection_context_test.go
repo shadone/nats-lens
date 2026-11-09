@@ -17,7 +17,9 @@ func capturedSelectionURL(t *testing.T) string {
 	return "https://lens.example.com/timeline/events?" + q.Encode() + "#selection=" + base64.RawURLEncoding.EncodeToString([]byte(data))
 }
 func TestCapturedSelectionURLImportsExactPageAndRoundTrips(t *testing.T) {
- if err:=(Profile{Deployment:"https://lens.example.com"}).ValidateURL(capturedSelectionURL(t));err!=nil{t.Fatalf("CLI trusted-URL validation rejected captured link: %v",err)}
+	if err := (Profile{Deployment: "https://lens.example.com"}).ValidateURL(capturedSelectionURL(t)); err != nil {
+		t.Fatalf("CLI trusted-URL validation rejected captured link: %v", err)
+	}
 	c, err := ContextFromURL(capturedSelectionURL(t), "https://lens.example.com", fixtureNow())
 	if err != nil {
 		t.Fatal(err)
