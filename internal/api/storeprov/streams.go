@@ -337,22 +337,22 @@ func (p *Provider) ListStreams(ctx context.Context, req *v1.ListStreamsRequest) 
 }
 
 // streamStatus sets the streams' statuses, finding codes and expected
-// consumers.
-func (p *Provider) streamStatus(ctx context.Context, r *v1.TimeRange, e epochInfo, ss []*v1.StreamSummary) error {
+// consumers, returning the same firing evidence for request-local reuse.
+func (p *Provider) streamStatus(ctx context.Context, r *v1.TimeRange, e epochInfo, ss []*v1.StreamSummary) ([]*v1.Finding, error) {
 	cur, err := p.firingFindings(ctx, r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ran, err := p.checksRan(ctx, e.epoch)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	inv, named, err := p.inventory(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	applyStreamStatus(ss, cur, ran, expectedPerStream(inv), named)
-	return nil
+	return cur, nil
 }
 
 // GetStream reads one stream of the range's newest epoch.
@@ -370,7 +370,8 @@ func (p *Provider) GetStream(ctx context.Context, req *v1.GetStreamRequest) (*v1
 	if len(list) == 0 {
 		return nil, fmt.Errorf("stream %s/%s in range: %w", req.GetAccount(), req.GetStream(), api.ErrNotFound)
 	}
-	if err := p.streamStatus(ctx, req.GetRange(), e, list); err != nil {
+	cur, err := p.streamStatus(ctx, req.GetRange(), e, list)
+	if err != nil {
 		return nil, err
 	}
 	res := &v1.GetStreamResponse{Stream: list[0]}
@@ -384,10 +385,6 @@ func (p *Provider) GetStream(ctx context.Context, req *v1.GetStreamRequest) (*v1
 		return nil, err
 	}
 	if res.Consumers, err = p.consumersWithMissing(ctx, req.GetRange(), e, req.GetAccount(), req.GetStream(), ""); err != nil {
-		return nil, err
-	}
-	cur, err := p.firingFindings(ctx, req.GetRange())
-	if err != nil {
 		return nil, err
 	}
 	res.Findings = findingsFor(cur, res.GetStream().GetEntity())

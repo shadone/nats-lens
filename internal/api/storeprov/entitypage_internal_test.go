@@ -289,7 +289,7 @@ func BenchmarkStreamListPageEnrichment(b *testing.B) {
 					if err != nil {
 						b.Fatal(err)
 					}
-					if err = p.streamStatus(context.Background(), r, e, ss); err != nil {
+					if _, err = p.streamStatus(context.Background(), r, e, ss); err != nil {
 						b.Fatal(err)
 					}
 					api.LimitStreams(&v1.ListStreamsResponse{Streams: ss, Totals: totals}, 10)
