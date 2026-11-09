@@ -1,0 +1,69 @@
+syntax = "proto3";
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+import "natslens/v1/findings.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// One retained firing occurrence, identified by finding.id and
+// first_retained_epoch. A later recurrence never replaces this occurrence.
+message FindingEpisode {
+  // State, severity and recorded detail before the selected interval end.
+  // Current-only configuration/onset/operator metadata is omitted.
+  Finding finding = 1;
+  // First retained transition of this occurrence, including an incomplete
+  // fragment whose original firing transition has expired.
+  int64 first_retained_epoch = 2;
+  // Original firing epoch, only when its transition is retained.
+  optional int64 start_epoch = 3;
+  // Recorded resolution, possibly after the selected interval end. This is
+  // separate from finding.state at that historical endpoint.
+  google.protobuf.Timestamp observed_resolution_at = 4;
+  int64 resolution_epoch = 5;
+  // Latest retained finding row, not the historical occurrence's state.
+  // Unspecified means that row is unavailable, never healthy.
+  FindingState latest_retained_state = 6;
+  Severity latest_retained_severity = 7;
+  int64 latest_start_epoch = 8;
+  google.protobuf.Timestamp latest_observed_at = 9;
+  // Optional raw transitions of this occurrence, newest epoch first.
+  repeated FindingTransition transitions = 10;
+  int32 transition_count = 11;
+  // Next raw-history offset; zero means no further retained transitions.
+  int32 next_transition_offset = 12;
+  // Explicit unavailable historical metadata, not inferred defaults.
+  repeated string unavailable = 13;
+}
+
+message ListFindingEpisodesRequest {
+  // Occurrences overlapping [start,end), defaulting to the last 24 hours.
+  TimeRange range = 1;
+  string check_code = 2;
+  // A stream also includes its consumers. Unset means the whole system.
+  EntityRef entity = 3;
+  string finding_id = 4;
+  // Exact retained occurrence selection; requires finding_id.
+  int64 first_retained_epoch = 5;
+  // Zero means 50; at most 100. Response bytes are bounded separately.
+  int32 page_size = 6;
+  // Freezes range, transition membership and scope, not a database snapshot.
+  string page_token = 7;
+  string system = 8;
+  // Raw history is available only for one exact selected occurrence.
+  bool include_transitions = 9;
+  // At most 100 transitions per call, with explicit continuation.
+  int32 transition_offset = 10;
+}
+
+message ListFindingEpisodesResponse {
+  repeated FindingEpisode episodes = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+  TimeRange range = 4;
+  // Transition high-water mark, used by continuation tokens.
+  int64 read_epoch = 5;
+  // Source clock; a captured source retains its captured reference clock.
+  google.protobuf.Timestamp read_at = 6;
+}

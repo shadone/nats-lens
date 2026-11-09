@@ -140,6 +140,9 @@ const (
 	// LensServiceListMetricContributorsProcedure is the fully-qualified name of the LensService's
 	// ListMetricContributors RPC.
 	LensServiceListMetricContributorsProcedure = "/natslens.v1.LensService/ListMetricContributors"
+	// LensServiceListFindingEpisodesProcedure is the fully-qualified name of the LensService's
+	// ListFindingEpisodes RPC.
+	LensServiceListFindingEpisodesProcedure = "/natslens.v1.LensService/ListFindingEpisodes"
 )
 
 // LensServiceClient is a client for the natslens.v1.LensService service.
@@ -262,6 +265,8 @@ type LensServiceClient interface {
 	GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error)
 	// Bounded frozen metric summaries, ranked across matching observed entities.
 	ListMetricContributors(context.Context, *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error)
+	// Retained historical occurrences, without collapsing later recurrences.
+	ListFindingEpisodes(context.Context, *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error)
 }
 
 // NewLensServiceClient constructs a client for the natslens.v1.LensService service. By default, it
@@ -565,6 +570,12 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		listFindingEpisodes: connect.NewClient[v1.ListFindingEpisodesRequest, v1.ListFindingEpisodesResponse](
+			httpClient,
+			baseURL+LensServiceListFindingEpisodesProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListFindingEpisodes")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -612,6 +623,7 @@ type lensServiceClient struct {
 	getTimeSeries                *connect.Client[v1.GetTimeSeriesRequest, v1.GetTimeSeriesResponse]
 	getTimeSeriesBatch           *connect.Client[v1.GetTimeSeriesBatchRequest, v1.GetTimeSeriesBatchResponse]
 	listMetricContributors       *connect.Client[v1.ListMetricContributorsRequest, v1.ListMetricContributorsResponse]
+	listFindingEpisodes          *connect.Client[v1.ListFindingEpisodesRequest, v1.ListFindingEpisodesResponse]
 }
 
 // ListCheckDefinitions calls natslens.v1.LensService.ListCheckDefinitions.
@@ -824,6 +836,11 @@ func (c *lensServiceClient) ListMetricContributors(ctx context.Context, req *con
 	return c.listMetricContributors.CallUnary(ctx, req)
 }
 
+// ListFindingEpisodes calls natslens.v1.LensService.ListFindingEpisodes.
+func (c *lensServiceClient) ListFindingEpisodes(ctx context.Context, req *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error) {
+	return c.listFindingEpisodes.CallUnary(ctx, req)
+}
+
 // LensServiceHandler is an implementation of the natslens.v1.LensService service.
 type LensServiceHandler interface {
 	// All shipped check references with configuration from the selected system.
@@ -944,6 +961,8 @@ type LensServiceHandler interface {
 	GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error)
 	// Bounded frozen metric summaries, ranked across matching observed entities.
 	ListMetricContributors(context.Context, *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error)
+	// Retained historical occurrences, without collapsing later recurrences.
+	ListFindingEpisodes(context.Context, *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error)
 }
 
 // NewLensServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -1243,6 +1262,12 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceListFindingEpisodesHandler := connect.NewUnaryHandler(
+		LensServiceListFindingEpisodesProcedure,
+		svc.ListFindingEpisodes,
+		connect.WithSchema(lensServiceMethods.ByName("ListFindingEpisodes")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/natslens.v1.LensService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case LensServiceListCheckDefinitionsProcedure:
@@ -1329,6 +1354,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetTimeSeriesBatchHandler.ServeHTTP(w, r)
 		case LensServiceListMetricContributorsProcedure:
 			lensServiceListMetricContributorsHandler.ServeHTTP(w, r)
+		case LensServiceListFindingEpisodesProcedure:
+			lensServiceListFindingEpisodesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1504,4 +1531,8 @@ func (UnimplementedLensServiceHandler) GetTimeSeriesBatch(context.Context, *conn
 
 func (UnimplementedLensServiceHandler) ListMetricContributors(context.Context, *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListMetricContributors is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) ListFindingEpisodes(context.Context, *connect.Request[v1.ListFindingEpisodesRequest]) (*connect.Response[v1.ListFindingEpisodesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListFindingEpisodes is not implemented"))
 }
