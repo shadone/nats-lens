@@ -49,6 +49,22 @@ This page is for contributors: what to install, how to build and run nats-lens a
 
 `natslens investigate methods` discovers the remote read interface. Copy investigation context from a page or shared chart, then use a trusted profile to query the existing API without browser automation or database access. The [command reference](reference/agent-investigations.md) covers profile/auth setup and JSON; the [agent playbook](agents/investigate.md) covers bounded evidence gathering and citation. Remote and offline sources share the read-only interface. [Storage comparisons](reference/storage-change.md) return their own retained endpoint pins; MCP and universal cross-query pinning remain separate work.
 
+## Demo site
+
+The demo site, https://shadone.github.io/nats-lens/, is the web UI with the API of `natslens demo` compiled to WebAssembly ([cmd/natslens-wasm](../cmd/natslens-wasm)), as static files ([demo mode](features/demo-mode.md)). The [Pages workflow](../.github/workflows/pages.yml) publishes it on a push to `develop`; GitHub Pages must be set to deploy from GitHub Actions.
+
+1. **Build it.** `make demo-site` writes `bin/demo-site`: the UI built with `VITE_NATSLENS_WASM=1` under the base path `DEMO_BASE` (default `/nats-lens/`), `natslens.wasm`, the `wasm_exec.js` of the same Go toolchain, `404.html` (a copy of `index.html`, so a deep link opens the app) and `.nojekyll`. Set `DEMO_SITE` for another directory.
+2. **Serve it under its base path.** Any static server works when the directory is reachable as `/nats-lens/`, for example:
+
+   ```sh
+   mkdir -p /tmp/pages && ln -sfn "$PWD/bin/demo-site" /tmp/pages/nats-lens
+   python3 -m http.server -d /tmp/pages -b 127.0.0.1 8090
+   ```
+
+   Open http://127.0.0.1:8090/nats-lens/. Python's server answers a deep link with 404 rather than `404.html`; start from the root.
+
+`natslens.wasm` is about 23 MB, 5.2 MB gzip-compressed, as GitHub Pages serves it. `internal/checks` builds for WebAssembly only without its engine, which reads the store through cgo: `engine.go`, `server_slow.go` and `server_leaf.go` carry a `!(js && wasm)` build tag, and CI's `make demo-wasm-smoke` fails when another import does not build there. The UI's links keep the base path through the router or `web/src/lib/basePath.ts`; `basePath.usage.test.ts` lists the places that build URLs otherwise.
+
 ## Useful commands
 
 | Command               | Description                                                                         |
@@ -70,6 +86,8 @@ This page is for contributors: what to install, how to build and run nats-lens a
 | make churn            | Deletes a consumer from a named connection, recreates it 20s later, then restarts nats-2. |
 | make run-dev          | Runs the collector against the dev cluster.                                         |
 | make demo             | Serves the API with the three demo systems on 127.0.0.1:8080, without NATS.         |
+| make demo-site        | Builds the [demo site](#demo-site) into `bin/demo-site`.                            |
+| make demo-wasm-smoke  | Builds the demo site's WebAssembly and runs one API call through it under Node.     |
 | make proto            | Lints the protobuf and regenerates the Go and TypeScript code.                      |
 | make fmt              | Formats the Go code with `gofmt -w`.                                                |
 | make image            | Builds the linux/amd64 container image with buildx; `IMAGE` names it (default `natslens:dev`). |

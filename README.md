@@ -15,7 +15,9 @@ nats-lens answers the questions that come after an incident: what failed, when, 
 
 ## Try it
 
-Run the demo. It serves three made-up NATS systems, one of them after a Kubernetes node upgrade during which a consumer was deleted, and needs no NATS server:
+[Try it in your browser](https://shadone.github.io/nats-lens/): the demo runs in the page, with made-up data, and needs nothing installed.
+
+Or run the demo yourself. It serves three made-up NATS systems, one of them after a Kubernetes node upgrade during which a consumer was deleted, and needs no NATS server:
 
 ```sh
 docker run --rm -p 127.0.0.1:8080:8080 ghcr.io/shadone/nats-lens demo

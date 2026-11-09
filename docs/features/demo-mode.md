@@ -8,6 +8,8 @@
 
 `natslens demo` serves the web UI and the API with three fixed systems, without NATS and without a database. `example-prod`, the default, is a three-server cluster a few hours after a Kubernetes node upgrade restarted all three servers. `example-global` is a supercluster of 24 servers in the clusters `eu`, `us` and `ap`, joined by gateways, after a node upgrade left one server down. `example-staging` has been watched for nine hours and has stopped collecting: its credentials were rejected three hours ago. The demo is for seeing what nats-lens shows before connecting it to a real system, and for working on the UI without a cluster.
 
+The same systems run in a browser at https://shadone.github.io/nats-lens/, without installing anything: the demo site serves the web UI as static files, and the API runs inside the page, compiled to WebAssembly.
+
 ## Behavior and rules
 
 - **Data history examples.** `example-staging` has nine hours of history, a three-minute collector restart about five hours before now, and a collector connection closed three hours before now. Collections and series omit the restart interval. It has 14-day database retention and no archive. `example-prod` and `example-global` have 30-day database retention; their archive examples keep hours for 90 days, holding 90 and 30 days respectively. `example-global` also has a five-minute collection gap and a four-minute Kubernetes-watch gap. Data history lists these gaps and history requirements, and charts hatch collection losses; Fleet keeps its separate status strips.
@@ -40,6 +42,10 @@
 - **Address.** `-listen` sets the address, and `-allowed-host` the Host names the API accepts. Without `-listen` the address is `NATSLENS_DEMO_LISTEN` when it is set, else `127.0.0.1:8080`. The container image sets `NATSLENS_DEMO_LISTEN=0.0.0.0:8080`, so `docker run -p 127.0.0.1:8080:8080 ghcr.io/shadone/nats-lens demo` serves the demo at http://127.0.0.1:8080 to this machine only; on a non-loopback address the demo accepts any Host name. Publishing the port on every interface (`-p 8080:8080`) lets anyone who reaches the machine use the demo.
 
 - **On-call story and acknowledgements.** `example-prod`'s `consumer-010` for `analytics-aggregator` on `order-archive` has Alice's acknowledgement with 2 hours of quiet and a note about recreating the durable. Its phone card includes the observed upgrade window, Replay steps, reported sibling delivery, and an HTTPS playbook. `example-global`'s `consumer-002` for `label-printer` on `shipping-updates` has Carol's replacement of Bob's acknowledgement; Carol's 30-minute quiet expired. Only the current acknowledgement appears after loading a finding. Demo acknowledgements and hand-backs work in memory and disappear when the process stops. The seeded scenario writes no acknowledgement events. `example-staging` has no recent present observations.
+- **The demo site.** https://shadone.github.io/nats-lens/ answers every call in the page, from the same three systems and scenario as `natslens demo`, shifted to now. The first visit downloads about 5 MB (the API, compressed); until it has started, the page shows "Loading the demo…" and the download size. A line above the top bar of every page says the data is made up and generated in the browser, and links to the repository on GitHub. With `?fixed` in the address it is opened with, the site keeps the scenario at its own time, as `-fixed` does; the choice holds until the page is reloaded.
+- **How the demo site differs.** Its mutes, acknowledgements and acceptances live in the browser tab: another tab or a reload starts from the scenario again, and no other visitor sees them. It has no `/metrics` and no `/healthz`, as no server runs. Copy as prompt names the site's origin as the deployment, which `natslens investigate` cannot query. Links, copied Replay links and Replay's incident log keep the site's path, `/nats-lens/`, and a link opened directly loads the app (the site answers an unknown path with the app's page).
+- **Publishing the demo site.** A push to `develop` that changes what the site is built from rebuilds it with `make demo-site` and deploys it to GitHub Pages ([development.md](../development.md#demo-site)).
+
 ## Scenarios
 
 ### See nats-lens without a cluster
@@ -48,6 +54,21 @@
 - **Given** a built `natslens` binary
 - **When** I run `natslens demo` and open http://127.0.0.1:8080
 - **Then** the Overview shows the scenario's findings, tiles, timeline with the node upgrade window, events, streams and servers, with "Demo" in the sidebar
+
+### Try nats-lens in a browser
+
+- **Surfaces:** `ui`
+- **Given** a browser
+- **When** I open https://shadone.github.io/nats-lens/
+- **Then** "Loading the demo…" shows while the page downloads the demo, then the Fleet page of the three demo systems, under a line saying the data is made up
+- **And** a mute I make holds in that tab until I reload it
+
+### Open a shared link to the demo site
+
+- **Surfaces:** `ui`
+- **Given** I copied the link to an A–B on the demo site's Replay page
+- **When** I open it in another browser
+- **Then** the Replay page opens at the same A and B, at https://shadone.github.io/nats-lens/replay
 
 ### Run the demo from the container image
 
@@ -147,4 +168,5 @@
 
 - **No other scenarios.** The demo has three built-in systems; it cannot load a recorded database, and its systems cannot be configured.
 - **No collection.** The demo never connects to NATS.
-- **No persistence.** Mutes and acknowledgements made in the demo are lost when it stops.
+- **No persistence.** Mutes and acknowledgements made in the demo are lost when it stops, and on the demo site when the tab is reloaded or closed.
+- **No shared state on the demo site.** Each tab runs its own API: a mute made in one tab is not seen in another or by other visitors.
