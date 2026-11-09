@@ -1,3 +1,4 @@
+import {timelineCaptureLimits} from "./TimelineCaptureNotice";
 // What happened over the range, in three lanes on one clock: Kubernetes
 // events with the drain and upgrade windows, the worst finding state of
 // any check, and the NATS events. "Each check" opens the full status
@@ -92,7 +93,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
       marks: (
         <>
           {windows}
-          <TimelineEventTicks events={tl.kubernetes} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={(e) => `sl-tick k8s${isDeployment(e) ? " deploy" : ""}`} />
+          <TimelineEventTicks captureLimits={timelineCaptureLimits(tl,"kubernetes")} events={tl.kubernetes} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={(e) => `sl-tick k8s${isDeployment(e) ? " deploy" : ""}`} />
         </>
       ),
       more: "/events?src=kubernetes&show=all",
@@ -116,7 +117,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
       name: "Events",
       note: tl.nats.length ? `${tl.nats.length} NATS${natsWarn ? `, ${natsWarn} warnings` : ""}` : "no NATS events",
       label: `NATS events: ${tl.nats.length}${natsWarn ? `, ${natsWarn} warnings` : ""}`,
-      marks: <TimelineEventTicks events={tl.nats} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={e=>`sl-tick ${natsClass(e)}`} />,
+      marks: <TimelineEventTicks captureLimits={timelineCaptureLimits(tl,"events")} events={tl.nats} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={e=>`sl-tick ${natsClass(e)}`} />,
       more: "/events?src=nats,findings,collector&show=all",
     },
   ];
