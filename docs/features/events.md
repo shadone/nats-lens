@@ -181,3 +181,5 @@ Copy as prompt preserves the full selection and current offset/page size. Both c
 - **No export.** Events can be read through the API or with `natslens sql`, but the page has no download.
 - **No events older than `retention`.** Older events are in the archive only ([history-and-archive.md](history-and-archive.md)).
 - **At most 10 sources and 50 kinds** in one filter.
+
+Timeline text-table Kubernetes records use the same application preview and persistent recorded-event detail as lane ticks. Observed UTC dates, source-limit notices and optional membership boundaries remain explicit; missing recorded IDs show the captured summary without inventing a record lookup. Inferred-window rows retain their separate derivation/evidence path.

@@ -249,3 +249,12 @@ Native modal dialogs lock the background page at its existing scroll position. L
 The proposed, not yet confirmed link format carries at most 2,000 IDs outside the HTTP query; it does not authorize reads or pin row updates/deletions.
 
 Captured event and inferred-window pages name their destination in the phone header while retaining Overview as their navigation parent.
+
+### Follow expanded Timeline labels
+
+- **Given** an expanded per-check Timeline or its text table
+- **When** I follow its check label/code
+- **Then** retained occurrence history keeps the captured interval, transition boundary and known typed resource
+- **And** the expanded Kubernetes label keeps the fixed event interval and event membership boundary with routine-event hiding disabled
+
+These proposed, not yet confirmed label destinations reuse the existing historical routes; they do not make historical configuration or source updates immutable.
