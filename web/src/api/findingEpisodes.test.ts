@@ -17,3 +17,8 @@ it('rejects malformed and overflow collection identities rather than rounding th
  for(const x of ['-1','01','1.5','9223372036854775808','1e3',''])expect(()=>epoch(x)).toThrow();
  expect(epoch('9223372036854775807')).toBe(9223372036854775807n);
 });
+it('rejects a source that ignores the captured occurrence boundary, including known empty capture',async()=>{
+ for(const [wanted,returned] of [['0',5n],['5',6n]]){
+ vi.mocked(lens.listFindingEpisodes).mockResolvedValue(create(ListFindingEpisodesResponseSchema,{readEpoch:returned}));await expect(listFindingEpisodes('shop',1000,2000,{readEpoch:wanted})).rejects.toThrow(/boundary/i);
+ }
+});
