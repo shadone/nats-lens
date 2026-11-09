@@ -14,7 +14,6 @@
 # $GITHUB_STEP_SUMMARY (or stdout), the output of failed tests is printed,
 # and the raw `go test -json` stream is kept in $GO_TEST_JSON when set.
 set -euo pipefail
-export LC_ALL=C
 
 # Packages split by test name, with their share counts. The slowest packages
 # go here: each share is one CI job.
@@ -51,7 +50,7 @@ case "$mode" in
     pkg=$2 index=$3
     count=$(count_of "$pkg")
     all=$(go test -list '.*' "$pkg")
-    names=$(printf '%s\n' "$all" | awk '/^(Test|Fuzz|Example)/' | sort |
+    names=$(printf '%s\n' "$all" | awk '/^(Test|Fuzz|Example)/' | LC_ALL=C sort |
       awk -v i="$index" -v n="$count" '(NR - 1) % n == i')
     if [ -z "$names" ]; then echo "no tests in share $index of $count of $pkg" >&2; exit 1; fi
     echo "share $index of $count of $pkg: $(printf '%s\n' "$names" | wc -l | tr -d ' ') tests"
@@ -84,7 +83,7 @@ summary=${GITHUB_STEP_SUMMARY:-/dev/stdout}
   echo "| Package | Result | Seconds |"
   echo "| --- | --- | ---: |"
   jq -r 'select(.Test == null and (.Action == "pass" or .Action == "fail" or .Action == "skip"))
-    | "| \(.Package) | \(.Action) | \(.Elapsed // 0) |"' "$out" | sort -t'|' -k4 -rn
+    | "| \(.Package) | \(.Action) | \(.Elapsed // 0) |"' "$out" | LC_ALL=C sort -t'|' -k4 -rn
   echo
   echo "### Slowest tests"
   echo
@@ -94,7 +93,7 @@ summary=${GITHUB_STEP_SUMMARY:-/dev/stdout}
   # SIGPIPE, which pipefail turns into the script's exit status.
   jq -r 'select(.Test != null and (.Test | contains("/") | not) and (.Action == "pass" or .Action == "fail"))
     | [.Elapsed, "| \(.Package | sub(".*/"; "")).\(.Test) | \(.Action) | \(.Elapsed) |"] | @tsv' "$out" |
-    sort -rn | awk -F'\t' 'NR <= 25 { print $2 }'
+    LC_ALL=C sort -rn | awk -F'\t' 'NR <= 25 { print $2 }'
 } >> "$summary"
 
 # Build errors, and in each failed package the output of every test that did
