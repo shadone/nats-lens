@@ -1,4 +1,5 @@
 import {fireEvent,render,screen} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router';
 import {expect,it,vi} from 'vitest';
 import type {UseQueryResult} from '@tanstack/react-query';
@@ -55,4 +56,13 @@ it('keeps finding and collector observations in the Events lane destination inst
  render(<MemoryRouter initialEntries={['/?system=shop']}><StoryLanes tl={{...tl,nats:[e,{...e,id:'2',source:'finding'},{...e,id:'3',source:'collector'}]}} end={end} live={false}/></MemoryRouter>);
  const events=new URL(screen.getByRole('link',{name:'Events'}).getAttribute('href')!,'https://example.com');expect(events.searchParams.get('src')?.split(',')).toEqual(['nats','findings','collector']);expect(events.searchParams.get('show')).toBe('all');expect(events.searchParams.get('eventReadId')).toBe(tl.eventReadId);
  const k8s=new URL(screen.getByRole('link',{name:'Kubernetes'}).getAttribute('href')!,'https://example.com');expect(k8s.searchParams.get('show')).toBe('all');
+});
+
+it('opens by touch release without hover and keeps its selected event through refresh',async()=>{
+ vi.mocked(useCapturedEvent).mockReturnValue(result(undefined));
+ const user=userEvent.setup();const {rerender}=render(<MemoryRouter initialEntries={['/?system=shop']}><StoryLanes tl={tl} end={end} live/></MemoryRouter>);
+ const mark=screen.getByRole('button',{name:'NATS event: Recorded shutdown'});await user.pointer([{keys:'[TouchA>]',target:mark},{keys:'[/TouchA]',target:mark}]);expect(screen.getByRole('dialog')).toHaveTextContent('Recorded shutdown');
+ rerender(<MemoryRouter initialEntries={['/?system=shop']}><StoryLanes tl={{...tl,nats:[],eventReadId:'9007199254740999'}} end={end} live/></MemoryRouter>);expect(screen.getByRole('dialog')).toHaveTextContent('Recorded shutdown');expect(screen.getByRole('link',{name:'Open recorded event'}).getAttribute('href')).toContain('eventReadId=9007199254740995');
+ // jsdom does not synthesize the native dialog cancel event from Escape.
+ fireEvent(screen.getByRole('dialog'),new Event('cancel',{bubbles:true,cancelable:true}));expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
