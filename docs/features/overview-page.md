@@ -237,3 +237,12 @@ The worst-streams table requests one bounded page; its count and totals cover al
 - **When** I inspect a mark, open its group or zoom detail, and the Timeline later refreshes
 - **Then** the selected evidence keeps the original source warning and names the affected input family
 - **And** a copied event prompt carries that limitation without claiming which observations are missing
+
+### Share a captured event group
+
+- **Given** overlapping Timeline marks retain exact event IDs and an explicit system
+- **When** I choose **Open all captured events**
+- **Then** a separate fixed-context page retains the captured membership and source-limit notices, with explicit summary paging and on-demand record detail
+- **And** sharing its full URL or copying its prompt retains the selected page without turning the group into a causal incident or complete event feed
+
+This bounded captured-group policy is proposed, not yet confirmed; see [Events](events.md#captured-timeline-selections).
