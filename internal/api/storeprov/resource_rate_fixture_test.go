@@ -32,8 +32,7 @@ func TestConformanceRateFixtureHasExplicitIdentityEvidence(t *testing.T) {
 	}
 	// A provider configured for thirty seconds cannot certify five-minute
 	// pairs. This is independent of missing identity metadata.
-	shortCadence := *p
-	shortCadence.Interval = 30 * time.Second
+	shortCadence := &storeprov.Provider{St: st, Checks: set, Interval: 30 * time.Second, Clock: p.Clock}
 	req.Consumer = "fast"
 	tooFar, err := shortCadence.GetConsumer(ctx, req)
 	if err != nil || tooFar.GetConsumer().DeliveredPerSecond != nil {
