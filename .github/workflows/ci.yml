@@ -57,19 +57,25 @@ jobs:
           path: ${{ runner.temp }}/verify
           retention-days: 7
 
+  go-plan:
+    name: Plan the Go suite shares
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: plan
+        run: echo "matrix=$(scripts/ci-go-test.sh matrix)" >> "$GITHUB_OUTPUT"
+
   go-full:
-    name: Full Go suite (${{ matrix.share }})
+    name: Full Go suite (${{ matrix.name }})
+    needs: go-plan
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { share: "checks 1 of 4", args: "checks 0 4" }
-          - { share: "checks 2 of 4", args: "checks 1 4" }
-          - { share: "checks 3 of 4", args: "checks 2 4" }
-          - { share: "checks 4 of 4", args: "checks 3 4" }
-          - { share: "other packages", args: "rest" }
+      matrix: ${{ fromJSON(needs.go-plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -78,9 +84,17 @@ jobs:
       - name: Test
         env:
           SHARE_ARGS: ${{ matrix.args }}
+          GO_TEST_JSON: ${{ runner.temp }}/go-test.json
         run: |
           # shellcheck disable=SC2086 # SHARE_ARGS holds several arguments
           scripts/ci-go-test.sh $SHARE_ARGS
+      - name: Upload test output
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-test-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/go-test.json
+          retention-days: 7
 
   go-vet-race:
     name: Go vet and race checks
