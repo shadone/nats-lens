@@ -93,10 +93,21 @@ export function parseCommand(raw: string): CommandQuery {
   return q;
 }
 
-/** The text with one kind of prefix taken out, for a chip's remove button. */
+/**
+ * The text with one kind of prefix taken out, for a chip's remove button.
+ * Only a typed word that held the prefix changes, rebuilt from its other
+ * parts as they were typed; every other word stays as it is.
+ */
 export function withoutPrefix(raw: string, prefix: "kind" | "since"): string {
-  return words(raw)
-    .filter((word) => (prefix === "kind" ? !kindOf(word) : sinceWord(word) === undefined))
+  const removed = (part: string) => (prefix === "kind" ? kindOf(part) !== undefined : sinceWord(part) !== undefined);
+  return raw
+    .trim()
+    .split(/\s+/)
+    .map((typed) => {
+      const parts = words(typed);
+      return parts.some(removed) ? parts.filter((p) => !removed(p)).join("") : typed;
+    })
+    .filter(Boolean)
     .join(" ");
 }
 

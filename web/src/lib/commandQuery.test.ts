@@ -21,6 +21,9 @@ describe("parseCommand", () => {
     expect(parseCommand("event:subject:x")).toEqual({ text: "subject:x", kind: "event" });
     expect(withoutPrefix("event:since:2h", "since")).toBe("event:");
     expect(withoutPrefix("event:since:2h", "kind")).toBe("since:2h");
+    expect(withoutPrefix("event:abc since:2h", "since")).toBe("event:abc");
+    expect(withoutPrefix("event:since:2h abc", "since")).toBe("event: abc");
+    expect(withoutPrefix("stream:Order since:2h x:y", "kind")).toBe("Order since:2h x:y");
   });
 
   it("takes the last kind prefix", () => {
