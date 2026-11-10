@@ -13,7 +13,7 @@ import { ms, sourceEnum } from "./adapt-common";
 import { event } from "./adapt-findings";
 import { lens } from "./client";
 import type { Entity, EventSourceName, LensEvent } from "./model";
-import { entityInit, systemInit } from "./requests";
+import { entityInit, rangeInit, systemInit } from "./requests";
 
 /** An event of a feed. With folding, one row stands for repeats events. */
 export interface FeedEvent extends LensEvent {
@@ -162,6 +162,19 @@ export async function listEventsBetween(sys: string, start: number, end: number,
     { signal },
   );
   return { items: r.events.map(feedEvent), totalCount: r.totalCount };
+}
+
+/**
+ * The command bar's events: those whose kind, reason or names contain
+ * text, worth reading and repeats folded as on the Events page, newest
+ * first, one page of limit rows.
+ */
+export async function searchEvents(sys: string, spec: RangeSpec, text: string, limit: number, signal?: AbortSignal) {
+  const r = await lens.listEvents(
+    { ...systemInit(sys), range: rangeInit(spec), text, hideRoutine: true, foldRepeats: true, pageSize: limit },
+    { signal },
+  );
+  return { items: r.events.map(feedEvent), nextPageToken: r.nextPageToken, totalCount: r.totalCount };
 }
 
 function feedKey(f: FeedFilter) {

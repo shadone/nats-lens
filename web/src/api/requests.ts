@@ -157,10 +157,6 @@ export interface EventFilter {
   kinds?: string[];
   entity?: Entity;
   clientName?: string;
-  /** Only events whose kind or names contain this text, ignoring case. */
-  text?: string;
-  /** Leave out routine events: client churn, sampled acks and the like. */
-  hideRoutine?: boolean;
   pageSize?: number;
   pageToken?: string;
 }
@@ -174,8 +170,6 @@ export async function listEvents(sys: string, spec: RangeSpec, f: EventFilter, s
       kinds: f.kinds ?? [],
       entity: entityInit(f.entity),
       clientName: f.clientName ?? "",
-      text: f.text ?? "",
-      hideRoutine: f.hideRoutine ?? false,
       pageSize: f.pageSize ?? 0,
       pageToken: f.pageToken ?? "",
     },

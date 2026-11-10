@@ -6,7 +6,8 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useNavigate } from "react-router";
 import { MIN_REMOTE_TEXT, useEventMatches, useFindingMatches } from "../api/commandSearch";
-import type { Finding, LensEvent } from "../api/model";
+import type { FeedEvent } from "../api/events";
+import type { Finding } from "../api/model";
 import { SEARCH_KIND_LABEL, useSearchItems } from "../api/search";
 import { useCurrentSystem } from "../api/systems";
 import { serverNow } from "../lib/clock";
@@ -54,15 +55,27 @@ type Option = { id: string; row: ResultRow; group?: undefined } | { id: string; 
 
 interface RemoteQuery<T> {
   isPending: boolean;
+  isPlaceholderData: boolean;
   error: unknown;
-  data?: { items: T[]; totalCount: number };
+  data?: { items: T[]; totalCount: number; nextPageToken: string };
 }
 
-function remote<T>(wanted: boolean, settling: boolean, r: RemoteQuery<T>): RemoteResult<T> {
+/**
+ * What a findings or events group shows. While the text settles or the
+ * next answer loads, the rows of the previous text stand in, marked
+ * stale: the query's own data while the text settles (only when the
+ * narrowing is the same), and its placeholder after, which the query keeps
+ * only for the same system, range and narrowing.
+ */
+function remote<T>(wanted: boolean, settling: boolean, sameNarrowing: boolean, r: RemoteQuery<T>): RemoteResult<T> {
   if (!wanted) return { state: "idle", items: [], total: 0 };
+  const data = r.data;
+  if ((settling && sameNarrowing && data) || (!settling && r.isPlaceholderData && data)) {
+    return { state: "loading", items: data.items, total: data.totalCount, stale: true };
+  }
   if (settling || r.isPending) return { state: "loading", items: [], total: 0 };
   if (r.error) return { state: "error", items: [], total: 0 };
-  return { state: "ready", items: r.data?.items ?? [], total: r.data?.totalCount ?? 0 };
+  return { state: "ready", items: data?.items ?? [], total: data?.totalCount ?? 0, hasMore: (data?.nextPageToken ?? "") !== "" };
 }
 
 export function SearchJump() {
@@ -91,8 +104,8 @@ export function SearchJump() {
   const groups = groupResults(
     query,
     names.data ?? [],
-    remote<Finding>(known && wantsRemote(query, "finding"), settling, findingsQ),
-    remote<LensEvent>(known && wantsRemote(query, "event"), settling, eventsQ),
+    remote<Finding>(known && wantsRemote(query, "finding"), settling, settled.kind === query.kind, findingsQ),
+    remote<FeedEvent>(known && wantsRemote(query, "event"), settling, settled.kind === query.kind, eventsQ),
     serverNow(),
   );
   const options: Option[] = [];
@@ -245,7 +258,7 @@ export function SearchJump() {
                   {g.state === "loading" && <span className="search-state">Searching…</span>}
                   {g.state === "error" && <span className="search-state">Could not search {g.label.toLowerCase()}</span>}
                 </div>
-                <ul role="group" aria-labelledby={`${listId}-g-${g.kind}`}>
+                <ul role="group" aria-labelledby={`${listId}-g-${g.kind}`} aria-busy={g.stale ? true : undefined} className={g.stale ? "search-stale" : undefined}>
                   {g.rows.map((r) => (
                     <li key={r.key} {...optionProps(rowOption(r), r.kind === "finding" ? "search-finding" : "")}>
                       <span className="sr-only">{ROW_KIND_LABEL[r.kind]}</span>

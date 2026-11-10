@@ -1,11 +1,14 @@
 // The command bar's findings, events, groups and prefixes; the name search
 // and the shortcut are in SearchJump.test.tsx.
 import { create } from "@bufbuild/protobuf";
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { useNavigate } from "react-router";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
-import type { Finding, LensEvent } from "../api/model";
+import type { Finding } from "../api/model";
+import * as events from "../api/events";
+import type { FeedEvent } from "../api/events";
 import * as requests from "../api/requests";
 import { GetShellStatusResponseSchema } from "../gen/natslens/v1/systems_pb";
 import { serverNow } from "../lib/clock";
@@ -27,9 +30,13 @@ vi.mock("../api/requests", async (orig) => ({
   listStreams: vi.fn(),
   listConsumers: vi.fn(),
   listFindings: vi.fn(),
-  listEvents: vi.fn(),
+}));
+vi.mock("../api/events", async (orig) => ({
+  ...(await orig<typeof import("../api/events")>()),
+  searchEvents: vi.fn(),
 }));
 const m = vi.mocked(requests);
+const ev = vi.mocked(events);
 
 /** An hour ago, so that the rows show the time without a date. */
 const AT = serverNow() - 3_600_000;
@@ -52,20 +59,22 @@ const EVENT = {
   stream: "order-archive",
   server: "",
   clientName: "",
-} as LensEvent;
+  repeats: 1,
+  routine: false,
+} as FeedEvent;
 const page = <T,>(items: T[]) => ({ items, nextPageToken: "", totalCount: items.length });
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(lens.getShellStatus).mockImplementation((async () =>
-    create(GetShellStatusResponseSchema, { systems: [{ system: { id: "sys-a", name: "A" } }], defaultSystem: "sys-a", systemKnown: true })) as never);
+    create(GetShellStatusResponseSchema, { systems: [{ system: { id: "sys-a", name: "A" } }, { system: { id: "sys-b", name: "B" } }], defaultSystem: "sys-a", systemKnown: true })) as never);
   m.listServers.mockResolvedValue({ servers: [{ name: "nats-1", cluster: "c" }], expected: [], missing: [] } as never);
   m.listStreams.mockResolvedValue({ streams: [{ entity: { account: "APP", stream: "order-archive" } }] } as never);
   m.listConsumers.mockResolvedValue(
     Object.assign([{ entity: { account: "APP", stream: "order-archive", consumer: "analytics-aggregator" } }], { totalCount: 1, nextPageToken: "" }) as never,
   );
   m.listFindings.mockResolvedValue(page([FINDING]));
-  m.listEvents.mockResolvedValue(page([EVENT]));
+  ev.searchEvents.mockResolvedValue(page([EVENT]));
 });
 
 afterEach(() => vi.useRealTimers());
@@ -87,7 +96,7 @@ describe("command bar", () => {
     await userEvent.type(box(), "a");
     await settle();
     expect(m.listFindings).not.toHaveBeenCalled();
-    expect(m.listEvents).not.toHaveBeenCalled();
+    expect(ev.searchEvents).not.toHaveBeenCalled();
   });
 
   it("asks once for findings and once for events while ten characters are typed", async () => {
@@ -96,9 +105,9 @@ describe("command bar", () => {
     await settle();
     await screen.findByText("consumer-010");
     expect(m.listFindings).toHaveBeenCalledTimes(1);
-    expect(m.listEvents).toHaveBeenCalledTimes(1);
+    expect(ev.searchEvents).toHaveBeenCalledTimes(1);
     expect(m.listFindings.mock.calls[0][2]).toEqual({ text: "analytics-", includeMuted: true, pageSize: 5 });
-    expect(m.listEvents.mock.calls[0][2]).toEqual({ text: "analytics-", hideRoutine: true, pageSize: 5 });
+    expect(ev.searchEvents.mock.calls[0].slice(2, 4)).toEqual(["analytics-", 5]);
   });
 
   it("groups names, findings and events in order, and moves across the groups with the arrow keys", async () => {
@@ -144,8 +153,8 @@ describe("command bar", () => {
     await screen.findByText("CONSUMER.DELETED");
     expect(groupLabels()).toEqual(["Events"]);
     expect(m.listFindings).not.toHaveBeenCalled();
-    const [, spec, filter] = m.listEvents.mock.calls.at(-1)!;
-    expect(filter).toEqual({ text: "", hideRoutine: true, pageSize: 10 });
+    const [, spec, text, limit] = ev.searchEvents.mock.calls.at(-1)!;
+    expect([text, limit]).toEqual(["", 10]);
     expect(spec.kind === "fixed" && spec.to - spec.from).toBe(2 * 3_600_000);
     expect(screen.getByText("Events", { selector: ".search-chip" })).toBeInTheDocument();
     expect(screen.getByText("Since 2h", { selector: ".search-chip" })).toBeInTheDocument();
@@ -187,11 +196,54 @@ describe("command bar", () => {
 
   it("keeps the name results while findings and events load or fail", async () => {
     m.listFindings.mockImplementation(() => new Promise(() => {}));
-    m.listEvents.mockRejectedValue(new Error("down"));
+    ev.searchEvents.mockRejectedValue(new Error("down"));
     renderApp(<SearchJump />, "/?system=sys-a");
     await userEvent.type(box(), "analytics");
     await screen.findByText("Could not search events");
     expect(screen.getByText("Searching…")).toBeInTheDocument();
     expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Consumeranalytics-aggregatororder-archive"]);
+  });
+
+  it("shows a folded run of events as one row with its count", async () => {
+    ev.searchEvents.mockResolvedValue(page([{ ...EVENT, repeats: 5 }]));
+    renderApp(<SearchJump />, "/?system=sys-a");
+    await userEvent.type(box(), "event: analytics");
+    expect(await screen.findByText(`×5 · ${hm(AT)}`)).toBeInTheDocument();
+  });
+
+  it("keeps the previous rows, dimmed, while the next text loads", async () => {
+    m.listFindings.mockImplementation((_s, _r, f) => (f.text === "consumer-010" ? Promise.resolve(page([FINDING])) : new Promise(() => {})));
+    renderApp(<SearchJump />, "/?system=sys-a");
+    await userEvent.type(box(), "consumer-010");
+    await screen.findByText(`Warning · firing since ${hm(AT)}`);
+    await userEvent.type(box(), "x");
+    const stale = () => screen.getByText("consumer-010").closest("ul");
+    expect(stale()).toHaveClass("search-stale");
+    await settle();
+    expect(stale()).toHaveClass("search-stale");
+    expect(screen.getAllByText("Searching…").length).toBeGreaterThan(0);
+  });
+
+  it("never shows another system's findings or events while the new system's load", async () => {
+    m.listFindings.mockImplementation((sys) => (sys === "sys-a" ? Promise.resolve(page([FINDING])) : new Promise(() => {})));
+    ev.searchEvents.mockImplementation((sys) => (sys === "sys-a" ? Promise.resolve(page([EVENT])) : new Promise(() => {})));
+    function Switch() {
+      const navigate = useNavigate();
+      return <button onClick={() => navigate("/?system=sys-b")}>Switch</button>;
+    }
+    renderApp(
+      <>
+        <SearchJump />
+        <Switch />
+      </>,
+      "/?system=sys-a",
+    );
+    await userEvent.type(box(), "consumer-010");
+    await screen.findByText("CONSUMER.DELETED");
+    fireEvent.click(screen.getByRole("button", { name: "Switch" }));
+    await waitFor(() => expect(m.listFindings.mock.calls.some(([sys]) => sys === "sys-b")).toBe(true));
+    expect(screen.queryByText("consumer-010")).toBeNull();
+    expect(screen.queryByText("CONSUMER.DELETED")).toBeNull();
+    expect(screen.getAllByText("Searching…")).toHaveLength(2);
   });
 });

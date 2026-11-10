@@ -1,13 +1,16 @@
 // The findings and events of the command bar: one small page of each,
 // filtered by text on the server. A query key per text, so a stale request
 // is cancelled when the text changes and its result is never shown for the
-// new text.
+// new text; while the next key loads, the previous rows stand in only for
+// the same system, range and narrowing.
 import { useQuery } from "@tanstack/react-query";
 import { serverNow } from "../lib/clock";
 import { rangeKey, resolveRange, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
-import type { Finding, LensEvent, Page } from "./model";
-import { listEvents, listFindings } from "./requests";
+import { searchEvents, type FeedEvent } from "./events";
+import type { Finding, Page } from "./model";
+import { keepSameSystem } from "./placeholder";
+import { listFindings } from "./requests";
 import { useCurrentSystem } from "./systems";
 
 /** Characters of text before findings and events are asked for. */
@@ -17,7 +20,7 @@ export interface RemoteSearch {
   text: string;
   /** Last part of the selected range to read; unset reads all of it. */
   sinceMs?: number;
-  /** Largest number of rows to read. */
+  /** Largest number of rows to read; it differs when the box is narrowed to one kind. */
   limit: number;
 }
 
@@ -32,11 +35,13 @@ function useRemote<T>(family: string, spec: RangeSpec, s: RemoteSearch, enabled:
   load: (sys: string, range: RangeSpec, signal: AbortSignal) => Promise<Page<T>>) {
   const sys = useSystem();
   const known = useCurrentSystem().known;
+  const range = rangeKey(spec);
   return useQuery({
-    queryKey: [family, sys, rangeKey(spec), s.text, s.sinceMs ?? 0, s.limit],
+    queryKey: [family, sys, range, s.text, s.sinceMs ?? 0, s.limit],
     queryFn: ({ signal }) => load(sys, searchRange(spec, s.sinceMs), signal),
     enabled: enabled && known === true,
     staleTime: 30_000,
+    placeholderData: keepSameSystem(sys, { 2: range, 5: s.limit }),
   });
 }
 
@@ -46,8 +51,7 @@ export function useFindingMatches(spec: RangeSpec, s: RemoteSearch, enabled: boo
     listFindings(sys, range, { text: s.text, includeMuted: true, pageSize: s.limit }, signal));
 }
 
-/** Events of the range whose kind or names contain the text, newest first, routine ones left out as on the Events page. */
+/** Events of the range whose kind, reason or names contain the text, as the Events page shows them. */
 export function useEventMatches(spec: RangeSpec, s: RemoteSearch, enabled: boolean) {
-  return useRemote<LensEvent>("command-events", spec, s, enabled, (sys, range, signal) =>
-    listEvents(sys, range, { text: s.text, hideRoutine: true, pageSize: s.limit }, signal));
+  return useRemote<FeedEvent>("command-events", spec, s, enabled, (sys, range, signal) => searchEvents(sys, range, s.text, s.limit, signal));
 }

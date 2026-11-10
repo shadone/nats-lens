@@ -74,6 +74,7 @@
 .search-group{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-1);font:500 var(--fs-xs)/1.2 var(--sans);color:var(--text-muted)}
 .search-pop > ul > li + li .search-group{border-top:1px solid var(--border-soft);margin-top:var(--sp-1)}
 .search-state{font-weight:400}
+.search-pop ul.search-stale{opacity:.55}
 .search-sev{flex:none;align-self:center;width:6px;height:6px;border-radius:var(--r-xs);background:var(--sev-muted)}
 .search-sev.critical{background:var(--sev-critical)}
 .search-sev.warning{background:var(--cell-warning)}

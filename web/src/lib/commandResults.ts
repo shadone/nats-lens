@@ -62,6 +62,8 @@ export interface ResultGroup {
   total?: number;
   more?: MoreAction;
   state: RemoteState;
+  /** The rows answer the previous text. */
+  stale?: boolean;
 }
 
 const SEVERITY_LABEL: Record<SeverityLevel, string> = { critical: "Critical", warning: "Warning", info: "Info" };
@@ -92,14 +94,16 @@ export function findingRow(f: Finding, now: number): ResultRow {
   };
 }
 
-export function eventRow(e: LensEvent, now: number): ResultRow {
+/** An event row; a folded row (repeats above 1) shows its count before the newest time. */
+export function eventRow(e: LensEvent & { repeats?: number }, now: number): ResultRow {
   const subject = e.consumer || e.stream || e.clientName || e.server;
+  const when = e.time !== undefined ? whenText(e.time, now) : "";
   return {
     key: `event:${e.id}`,
     kind: "event",
     name: subject || e.type,
     detail: subject ? e.type : e.summary,
-    note: e.time !== undefined ? whenText(e.time, now) : "",
+    note: (e.repeats ?? 1) > 1 ? [`×${e.repeats}`, when].filter(Boolean).join(" · ") : when,
     severity: e.severity,
     path: eventPath(e.id),
   };
@@ -117,6 +121,10 @@ export interface RemoteResult<T> {
   state: RemoteState;
   items: T[];
   total: number;
+  /** The server has a next page. */
+  hasMore?: boolean;
+  /** The items answer the previous text and show while the next ones load. */
+  stale?: boolean;
 }
 
 /**
@@ -128,7 +136,7 @@ export function groupResults(
   q: CommandQuery,
   names: SearchItem[],
   findings: RemoteResult<Finding>,
-  events: RemoteResult<LensEvent>,
+  events: RemoteResult<LensEvent & { repeats?: number }>,
   now: number,
 ): ResultGroup[] {
   const narrowed = q.kind !== undefined;
@@ -146,14 +154,15 @@ export function groupResults(
       const r = kind === "finding" ? findings : events;
       if (r.state === "idle" || (r.state === "ready" && r.items.length === 0)) continue;
       const remoteCap = narrowed ? NARROWED_REMOTE_CAP : REMOTE_CAP;
-      const rows = r.items.slice(0, remoteCap).map((x) => (kind === "finding" ? findingRow(x as Finding, now) : eventRow(x as LensEvent, now)));
+      const rows = r.items.slice(0, remoteCap).map((x) => (kind === "finding" ? findingRow(x as Finding, now) : eventRow(x as LensEvent & { repeats?: number }, now)));
       out.push({
         kind,
         label: GROUP_LABEL[kind],
         rows,
         total: r.state === "ready" ? r.total : undefined,
-        more: r.state === "ready" && r.total > rows.length ? moreFor(kind, narrowed) : undefined,
+        more: r.state === "ready" && (r.hasMore || r.items.length > rows.length) ? moreFor(kind, narrowed) : undefined,
         state: r.state,
+        stale: r.stale,
       });
       continue;
     }

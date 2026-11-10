@@ -106,3 +106,18 @@ describe("event subject", () => {
     );
   });
 });
+
+describe("folded events", () => {
+  it("shows a folded row's count before its time", () => {
+    expect(eventRow({ ...event(), repeats: 5 }, NOW).note).toBe("×5 · 09:31");
+    expect(eventRow({ ...event(), repeats: 1 }, NOW).note).toBe("09:31");
+  });
+
+  it("offers more only when the server has a next page, since folded rows count fewer than events", () => {
+    const evs = [event({ id: "1" }), event({ id: "2" })];
+    const last = groupResults(parseCommand("zz"), [], idle, { state: "ready", items: evs, total: 40 }, NOW);
+    expect(last[0].more).toBeUndefined();
+    const more = groupResults(parseCommand("zz"), [], idle, { state: "ready", items: evs, total: 40, hasMore: true }, NOW);
+    expect(moreLabel(more[0])).toBe("Show all 40");
+  });
+});
