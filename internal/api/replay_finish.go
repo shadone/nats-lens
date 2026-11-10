@@ -54,8 +54,8 @@ type replayBuilder struct {
 	hasStep map[string]bool
 	// byFinding are the transitions of each finding in time order.
 	byFinding map[string][]ReplayTransition
-	// catchUp is each server's catch-up, for its restart step.
-	catchUp map[string]catchUpSummary
+	// catchUp are each server's catch-up episodes, for its restart steps.
+	catchUp map[string][]catchUpSummary
 }
 
 // FinishReplay words, folds, orders, caps and counts the facts a provider

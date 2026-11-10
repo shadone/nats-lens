@@ -11,6 +11,13 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
+// CatchUpMinLag is the smallest peak lag, in raft operations, of a run
+// behind that makes a catch-up step, unless the run starts with the
+// server's restarted process: a busy stream's followers trail by a few
+// operations without catching up on anything. A run without a reported
+// lag is kept.
+const CatchUpMinLag = 100
+
 // catchUpChecks are the checks whose transitions a catch-up step takes
 // in: stream-003 about one of its streams, server-012 about its server.
 var catchUpChecks = map[string]bool{"stream-003": true, "server-012": true}
@@ -24,7 +31,7 @@ const (
 	// that reported it behind, with no time without collections between.
 	caughtUp catchUpEnd = iota
 	// currentUnseen: reported current later, but a time without
-	// collections or without the leader's report hides when.
+	// collections or without a report of the replica hides when.
 	currentUnseen
 	// behindAtB: reported behind in the collection at B.
 	behindAtB
@@ -33,7 +40,7 @@ const (
 	unknownAtB
 )
 
-// catchUpAsset is one replica on a server: its runs between A and B
+// catchUpAsset is one replica on a server within an episode: its runs
 // joined, with how the last ended.
 type catchUpAsset struct {
 	entity    *v1.EntityRef
@@ -46,58 +53,137 @@ type catchUpAsset struct {
 	why string
 }
 
-// catchUpSummary is how the catch-up of a restarted server ended, for
-// its restart step's body.
+// catchUpSummary is how one catch-up episode of a server ended, for the
+// restart step it follows.
 type catchUpSummary struct {
 	from, end time.Time
 	behind    bool // a replica still behind at B
 	allSeen   bool // every replica seen current again
 }
 
-// catchUpEndOf classifies a run's end, with what hides it when hidden.
+// unreportedText says that a replica was not reported from the
+// collection at next on: in that one collection when single.
+func unreportedText(next time.Time, single bool) string {
+	if single {
+		return "the replica was not reported behind or current in the collection of " + clockText(next)
+	}
+	return "the replica was not reported behind or current from " + clockText(next)
+}
+
+// catchUpEndOf classifies a run's end, with what hides it when hidden. A
+// collection without a report of the replica as behind or current is one
+// in which the leader did not list it so, or the replica's server did not
+// report the asset.
 func (b *replayBuilder) catchUpEndOf(c ReplayCatchUp) (catchUpEnd, string) {
 	reach := ReplayEpochReach * b.f.Interval
 	switch {
 	case c.CurrentEpoch != 0 && c.NextEpoch == c.CurrentEpoch && c.Current.Sub(c.Last) <= reach:
 		return caughtUp, ""
 	case c.CurrentEpoch != 0 && c.NextEpoch != c.CurrentEpoch:
-		return currentUnseen, fmt.Sprintf("the leader did not report the replica from %s to %s", clockText(c.Next), clockText(c.Current))
+		return currentUnseen, unreportedText(c.Next, c.CurrentEpoch-c.NextEpoch == 1)
 	case c.CurrentEpoch != 0:
 		return currentUnseen, fmt.Sprintf("no collection from %s to %s", clockText(c.Last), clockText(c.Current))
 	case b.f.EpochB != 0 && c.LastEpoch == b.f.EpochB:
 		return behindAtB, ""
 	case c.NextEpoch != 0:
-		return unknownAtB, "the leader did not report the replica after " + clockText(c.Last)
+		return unknownAtB, unreportedText(c.Next, c.NextEpoch == b.f.EpochB)
 	}
 	return unknownAtB, "no collection after " + clockText(c.Last) + " up to B"
 }
 
-// restartedInto reports whether a restart's new process of the server
-// was first collected in the epoch.
-func (b *replayBuilder) restartedInto(server string, epoch int64) bool {
-	return slices.ContainsFunc(b.f.Restarts, func(r ReplayRestart) bool { return r.Server == server && r.NewEpoch == epoch })
+// startsRestart reports whether a run starts with a restarted process of
+// its server: within ReplayEpochReach collect intervals of the new
+// process's first collection, as its leader may first report the replica
+// offline.
+func (b *replayBuilder) startsRestart(c ReplayCatchUp) bool {
+	reach := ReplayEpochReach * b.f.Interval
+	return slices.ContainsFunc(b.f.Restarts, func(r ReplayRestart) bool {
+		return r.Server == c.Server && !c.From.Before(r.FirstSeen) && !c.From.After(r.FirstSeen.Add(reach))
+	})
 }
 
-// catchUps adds one step per server whose replicas a leader reported
-// behind between A and B. A run of one collection is left out as a burst
-// of writes, unless it is the first collection of the server's restarted
-// process. It returns each server's summary.
-func (b *replayBuilder) catchUps() map[string]catchUpSummary {
-	byServer := map[string]map[string]*catchUpAsset{}
-	runs := slices.Clone(b.f.CatchUps)
-	slices.SortStableFunc(runs, func(x, y ReplayCatchUp) int { return x.From.Compare(y.From) })
+// keepCatchUp reports whether a run makes part of a step: one that starts
+// with a restarted process, or one behind in two collections or more with
+// a peak lag of at least CatchUpMinLag (or none reported). A run of one
+// collection otherwise is a burst of writes.
+func (b *replayBuilder) keepCatchUp(c ReplayCatchUp) bool {
+	if c.Entity == nil {
+		return false
+	}
+	return b.startsRestart(c) || (c.Behind >= 2 && (c.PeakLag == nil || *c.PeakLag >= CatchUpMinLag))
+}
+
+// runEnd is when a run stops counting as behind: its current collection,
+// B for one behind at B, else its last collection behind.
+func (b *replayBuilder) runEnd(c ReplayCatchUp) time.Time {
+	switch {
+	case c.CurrentEpoch != 0:
+		return c.Current
+	case b.f.EpochB != 0 && c.LastEpoch == b.f.EpochB:
+		return b.f.B
+	}
+	return c.Last
+}
+
+// episodes splits a server's runs, in time order, into episodes: a run
+// that starts after every earlier run of the episode ended, or after a
+// restart of the server that followed the episode's start, begins a new
+// one.
+func (b *replayBuilder) episodes(runs []ReplayCatchUp) [][]ReplayCatchUp {
+	var out [][]ReplayCatchUp
+	var start, end time.Time
 	for _, c := range runs {
-		if c.Entity == nil || (c.Behind < 2 && !b.restartedInto(c.Server, c.FromEpoch)) {
-			continue
+		restarted := slices.ContainsFunc(b.f.Restarts, func(r ReplayRestart) bool {
+			return r.Server == c.Server && r.LastSeen.After(start) && !r.LastSeen.After(c.From)
+		})
+		if len(out) == 0 || c.From.After(end) || restarted {
+			out = append(out, nil)
+			start, end = c.From, time.Time{}
 		}
-		if byServer[c.Server] == nil {
-			byServer[c.Server] = map[string]*catchUpAsset{}
+		out[len(out)-1] = append(out[len(out)-1], c)
+		end = latest(end, b.runEnd(c))
+	}
+	return out
+}
+
+// catchUps adds one step per catch-up episode of a server whose replicas
+// a leader reported behind between A and B (keepCatchUp). It returns each
+// server's episodes in time order.
+func (b *replayBuilder) catchUps() map[string][]catchUpSummary {
+	byServer := map[string][]ReplayCatchUp{}
+	for _, c := range b.f.CatchUps {
+		if b.keepCatchUp(c) {
+			byServer[c.Server] = append(byServer[c.Server], c)
 		}
+	}
+	out := map[string][]catchUpSummary{}
+	for _, server := range slices.Sorted(mapKeys(byServer)) {
+		runs := byServer[server]
+		slices.SortStableFunc(runs, func(x, y ReplayCatchUp) int { return x.From.Compare(y.From) })
+		for _, ep := range b.episodes(runs) {
+			assets := b.catchUpAssets(ep)
+			d := b.catchUpStep(server, assets)
+			b.add(d)
+			out[server] = append(out[server], catchUpSummary{from: d.time, end: d.end,
+				behind:  slices.ContainsFunc(assets, func(a *catchUpAsset) bool { return a.end == behindAtB }),
+				allSeen: !slices.ContainsFunc(assets, func(a *catchUpAsset) bool { return a.end != caughtUp })})
+		}
+	}
+	return out
+}
+
+// catchUpAssets joins an episode's runs by asset, ordered by their first
+// run, then kind and key.
+func (b *replayBuilder) catchUpAssets(runs []ReplayCatchUp) []*catchUpAsset {
+	m := map[string]*catchUpAsset{}
+	var assets []*catchUpAsset
+	for _, c := range runs {
 		key := c.Entity.GetType().String() + "|" + c.Entity.GetKey()
-		a := byServer[c.Server][key]
+		a := m[key]
 		if a == nil {
 			a = &catchUpAsset{entity: c.Entity, from: c.From, fromEpoch: c.FromEpoch}
-			byServer[c.Server][key] = a
+			m[key] = a
+			assets = append(assets, a)
 		}
 		a.run = c
 		if c.PeakLag != nil && (a.peak == nil || *c.PeakLag > *a.peak) {
@@ -105,27 +191,51 @@ func (b *replayBuilder) catchUps() map[string]catchUpSummary {
 		}
 		a.end, a.why = b.catchUpEndOf(c)
 	}
-	out := map[string]catchUpSummary{}
-	for server, m := range byServer {
-		assets := slices.Collect(func(yield func(*catchUpAsset) bool) {
-			for _, a := range m {
-				if !yield(a) {
-					return
-				}
-			}
-		})
-		slices.SortFunc(assets, func(x, y *catchUpAsset) int {
-			return cmp.Or(x.from.Compare(y.from), cmp.Compare(x.entity.GetType(), y.entity.GetType()), cmp.Compare(x.entity.GetKey(), y.entity.GetKey()))
-		})
-		d := b.catchUpStep(server, assets)
-		b.add(d)
-		out[server] = catchUpSummary{from: d.time, end: d.end, behind: slices.ContainsFunc(assets, func(a *catchUpAsset) bool { return a.end == behindAtB }),
-			allSeen: !slices.ContainsFunc(assets, func(a *catchUpAsset) bool { return a.end != caughtUp })}
-	}
-	return out
+	slices.SortStableFunc(assets, func(x, y *catchUpAsset) int {
+		return cmp.Or(x.from.Compare(y.from), cmp.Compare(x.entity.GetType(), y.entity.GetType()), cmp.Compare(x.entity.GetKey(), y.entity.GetKey()))
+	})
+	return assets
 }
 
-// catchUpStep words one server's step.
+// whyText says what hid the end of the assets: one reason, or each
+// distinct reason with the assets it hid ("no collection from 09:10:00
+// to 09:12:30 (PAY); the replica was not reported … (ORDERS)").
+func whyText(as []*catchUpAsset) string {
+	var reasons []string
+	names := map[string][]string{}
+	for _, a := range as {
+		if _, ok := names[a.why]; !ok {
+			reasons = append(reasons, a.why)
+		}
+		names[a.why] = append(names[a.why], entityLabel(a.entity))
+	}
+	if len(reasons) == 1 {
+		return reasons[0]
+	}
+	parts := make([]string, len(reasons))
+	for i, r := range reasons {
+		parts[i] = r + " (" + listText(names[r]) + ")"
+	}
+	return strings.Join(parts, "; ")
+}
+
+// staleLag reports whether the detail of a stream-003 transition names
+// replicas ("Leader nats-0 reports nats-1 1200 operations behind, nats-2
+// …") and not the server among them; a detail that names none is not.
+func staleLag(detail, server string) bool {
+	_, list, ok := strings.Cut(detail, " reports ")
+	if !ok {
+		return false
+	}
+	for _, item := range strings.Split(strings.TrimSuffix(list, "."), ", ") {
+		if name, _, _ := strings.Cut(item, " "); name == server {
+			return false
+		}
+	}
+	return true
+}
+
+// catchUpStep words one episode of a server.
 func (b *replayBuilder) catchUpStep(server string, assets []*catchUpAsset) *draft {
 	d := &draft{kind: v1.ReplayStepKind_REPLAY_STEP_KIND_CATCH_UP, time: assets[0].from, entities: []*v1.EntityRef{serverEntity(server)}}
 	by := map[catchUpEnd][]*catchUpAsset{}
@@ -138,14 +248,20 @@ func (b *replayBuilder) catchUpStep(server string, assets []*catchUpAsset) *draf
 		atA = atA || (b.f.EpochA != 0 && a.fromEpoch == b.f.EpochA)
 	}
 	caught, unseen, behind, unknown := by[caughtUp], by[currentUnseen], by[behindAtB], by[unknownAtB]
+	// The end: the last collection that reported a replica current, or
+	// for one not observed at B its last one behind.
 	var end time.Time
 	var endEpoch int64
-	for _, a := range append(slices.Clone(caught), unseen...) {
-		if a.run.Current.After(end) {
-			end, endEpoch = a.run.Current, a.run.CurrentEpoch
+	for _, a := range assets {
+		at, epoch := a.run.Current, a.run.CurrentEpoch
+		if a.end == unknownAtB {
+			at, epoch = a.run.Last, a.run.LastEpoch
+		}
+		if at.After(end) {
+			end, endEpoch = at, epoch
 		}
 	}
-	if len(behind)+len(unknown) > 0 {
+	if len(behind) > 0 {
 		d.openAtB = true
 	} else {
 		d.end = end
@@ -185,10 +301,10 @@ func (b *replayBuilder) catchUpStep(server string, assets []*catchUpAsset) *draf
 			they, verb = "it", "was"
 		}
 		body = append(body, fmt.Sprintf("%s %s current by %s, but when %s caught up was not observed: %s.", capitalize(assetsText(unseen)), verb,
-			clockText(by), they, unseen[0].why))
+			clockText(by), they, whyText(unseen)))
 	}
 	if len(unknown) > 0 {
-		body = append(body, fmt.Sprintf("%s not observed at B: %s.", capitalize(assetsText(unknown)), unknown[0].why))
+		body = append(body, fmt.Sprintf("%s not observed at B: %s.", capitalize(assetsText(unknown)), whyText(unknown)))
 	}
 	if len(behind) > 0 && len(behind) < len(assets) {
 		var names []string
@@ -227,7 +343,8 @@ func (b *replayBuilder) catchUpStep(server string, assets []*catchUpAsset) *draf
 			if !catchUpChecks[t.Check] || t.Time.Before(d.time) || t.Time.After(to) {
 				continue
 			}
-			if (t.Check == "server-012" && t.Entity.GetKey() == server) || (t.Check == "stream-003" && keys[t.Entity.GetKey()]) {
+			if (t.Check == "server-012" && t.Entity.GetKey() == server) ||
+				(t.Check == "stream-003" && keys[t.Entity.GetKey()] && !staleLag(t.Detail, server)) {
 				b.takenIn[transitionKey(t)] = true
 				d.evidence = append(d.evidence, findingEvidence(t))
 				if t.State != v1.FindingState_FINDING_STATE_RESOLVED {
@@ -319,7 +436,7 @@ func slowest(as []*catchUpAsset) *catchUpAsset {
 // took …".
 func slowestText(caught []*catchUpAsset, all bool) string {
 	s := slowest(caught)
-	took := durText(s.run.Current.Sub(s.from))
+	took := durText(s.run.Current.Sub(s.run.From))
 	lag := ""
 	if s.peak != nil {
 		lag = " and was at most " + digits(*s.peak) + " operations behind"
@@ -348,15 +465,18 @@ func digits(n int64) string {
 	return string(out)
 }
 
-// catchUpRestartText ties a restart to its server's catch-up step:
-// "Its replicas were current again by 09:09:00."; empty when the server
-// had none that began after its old process last answered.
+// catchUpRestartText ties a restart to the catch-up episode of its
+// server that started in its window, from the old process's last answer
+// to the restart window after the new one's first: "Its replicas were
+// current again by 09:09:00."; empty when there is none.
 func (b *replayBuilder) catchUpRestartText(r ReplayRestart) string {
-	c, ok := b.catchUp[r.Server]
-	if !ok || c.from.Before(r.LastSeen) {
+	i := slices.IndexFunc(b.catchUp[r.Server], func(c catchUpSummary) bool {
+		return !c.from.Before(r.LastSeen) && !c.from.After(r.FirstSeen.Add(b.f.RestartWindow))
+	})
+	if i < 0 {
 		return ""
 	}
-	switch {
+	switch c := b.catchUp[r.Server][i]; {
 	case c.behind:
 		return "Its replicas were still catching up at B."
 	case c.allSeen:
