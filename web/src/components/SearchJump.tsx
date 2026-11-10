@@ -204,7 +204,7 @@ export function SearchJump() {
         role="combobox"
         aria-label="Search this system"
         aria-autocomplete="list"
-        aria-expanded={showList && options.length > 0}
+        aria-expanded={showList && groups.some((g) => g.rows.length > 0 || g.more)}
         aria-controls={showList ? listId : undefined}
         aria-activedescendant={showList && options[current] ? options[current].id : undefined}
         placeholder="Search this system"

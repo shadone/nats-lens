@@ -256,6 +256,7 @@ describe("command bar", () => {
     const kept = screen.getByText("CONSUMER.DELETED").closest("li")!;
     expect(kept).toHaveAttribute("aria-disabled", "true");
     expect(box()).not.toHaveAttribute("aria-activedescendant");
+    expect(box()).toHaveAttribute("aria-expanded", "true");
     await userEvent.keyboard("{ArrowDown}{Enter}");
     fireEvent.mouseDown(kept);
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/\?system=sys-a$/);
