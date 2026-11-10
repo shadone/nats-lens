@@ -59,6 +59,14 @@ func startKubernetes(ctx context.Context, cfg config.Kubernetes, st *store.Store
 	// The client pod watch is opt-in: without kubernetes.client_pod_watch
 	// no request for client pods is made.
 	if cw := cfg.ClientPodWatch; cw.On() {
+		// Until the first lists, no stored pod counts as live: one of a
+		// namespace no longer watched, or whose watch never lists, must
+		// not match a reused address.
+		if err := st.EndLiveClientPods(ctx); err != nil {
+			cancel()
+			wg.Wait()
+			return nil, err
+		}
 		log.Info("watching client pods", "namespaces", cw.Namespaces, "all_namespaces", cw.AllNamespaces)
 		cp := k8s.NewClientPodWatcher(k8s.ClientPodOptions{
 			Client: client, Namespaces: cw.Namespaces, AllNamespaces: cw.AllNamespaces, Record: capture.Record,

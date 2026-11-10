@@ -46,8 +46,9 @@ func (t *tracker) podStateOf(p *corev1.Pod) *podState {
 
 // podsListed takes a (re)list of the NATS pods of namespace ns. The first
 // list sets the state without recording; a later one records what changed
-// since the watch broke, timed now, and deletes the pods no longer there.
-func (t *tracker) podsListed(ns string, pods []*corev1.Pod, initial bool) {
+// since the watch broke, timed now, and deletes the pods no longer there,
+// unless the list was truncated and may have left them out.
+func (t *tracker) podsListed(ns string, pods []*corev1.Pod, initial, truncated bool) {
 	present := map[string]bool{}
 	for _, p := range pods {
 		present[podKey(p.Namespace, p.Name)] = true
@@ -58,7 +59,7 @@ func (t *tracker) podsListed(ns string, pods []*corev1.Pod, initial bool) {
 		t.podChanged(p)
 	}
 	for k, s := range t.pods {
-		if s.ns == ns && !present[k] {
+		if !truncated && s.ns == ns && !present[k] {
 			t.podGone(s, time.Time{})
 		}
 	}

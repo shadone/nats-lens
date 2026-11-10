@@ -76,7 +76,7 @@ func TestWriteClientPods(t *testing.T) {
 	}
 	// c ends; the touch moves a's last sighting, not b's or c's.
 	t2 := t1.Add(5 * time.Minute)
-	if err := s.WriteClientPods(ctx, ClientPodBatch{At: t2, Ended: map[string]time.Time{"c": t2.Add(-time.Minute)}, Touch: true}); err != nil {
+	if err := s.WriteClientPods(ctx, ClientPodBatch{At: t2, Ended: map[string]time.Time{"c": t2.Add(-time.Minute)}, Touch: []string{""}}); err != nil {
 		t.Fatal(err)
 	}
 	r = clientPodRows(t, s)

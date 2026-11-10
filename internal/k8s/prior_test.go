@@ -26,7 +26,7 @@ func TestFirstListsComparedWithTheStore(t *testing.T) {
 			"n2": {},                  // gone
 		},
 	}
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", false), natsPod("nats-1", "n1", true)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", false), natsPod("nats-1", "n1", true)}, true, false)
 	cord := node("n0", "pool-1", "v1")
 	cord.Spec.Unschedulable = true
 	tr.nodesListed([]*corev1.Node{cord, node("n1", "pool-1", "v1")}, true)
@@ -44,7 +44,7 @@ func TestFirstListsComparedWithTheStore(t *testing.T) {
 	}
 	// Later relists are not compared with the store again.
 	s.reset()
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", false), natsPod("nats-1", "n1", true)}, false)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", false), natsPod("nats-1", "n1", true)}, false, false)
 	if len(s.all()) != 0 {
 		t.Fatalf("relist recorded %v", s.kinds())
 	}

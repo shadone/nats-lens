@@ -2,11 +2,13 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"regexp"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -41,14 +43,15 @@ type ClientPodRelist struct {
 }
 
 // ClientPodBatch is what the watch writes at once: the pods that changed,
-// the pods that released their addresses, the lists, and whether the
-// live pods' last sighting is refreshed.
+// the pods that released their addresses, the complete lists, and the
+// namespaces ("" for all) whose live pods' last sighting is refreshed:
+// those whose watch is healthy.
 type ClientPodBatch struct {
 	At      time.Time
 	Seen    []ClientPod
 	Ended   map[string]time.Time
 	Relists []ClientPodRelist
-	Touch   bool
+	Touch   []string
 }
 
 // ClientPodOptions configure a ClientPodWatcher.
@@ -73,8 +76,9 @@ type ClientPodOptions struct {
 	FlushEvery, TouchEvery time.Duration
 }
 
-// maxClientPods bounds the pods kept in memory; pods beyond it are not
-// matched, with a warning.
+// maxClientPods bounds the pods kept in memory and listed per watch;
+// pods beyond it are not matched, which is logged and recorded once as
+// KindClientPodsCapped.
 const maxClientPods = 50_000
 
 // clientPodWarnEvery spaces the repeated failure logs of a client pod
@@ -94,6 +98,9 @@ type ClientPodWatcher struct {
 	pending ClientPodBatch
 	dirty   map[string]bool
 	full    bool
+	// healthy holds, by namespace ("" for all), whether its watch listed
+	// and is not failing; its loop sets it.
+	healthy map[string]*atomic.Bool
 	// warned holds the sources whose permission failure was explained.
 	warned sync.Map
 }
@@ -127,9 +134,11 @@ func (w *ClientPodWatcher) Run(ctx context.Context) error {
 	if w.o.AllNamespaces {
 		namespaces = []string{""}
 	}
+	w.healthy = map[string]*atomic.Bool{}
 	for _, ns := range namespaces {
+		w.healthy[ns] = &atomic.Bool{}
 		l := &loop{src: w.source(ns), out: updates, record: w.o.Record, gapAfter: w.o.GapAfter, now: w.o.Now,
-			log: w.o.Log, sleep: w.sleep, warnEvery: clientPodWarnEvery}
+			log: w.o.Log, sleep: w.sleep, warnEvery: clientPodWarnEvery, maxPages: maxClientPods / listPage, healthy: w.healthy[ns]}
 		wg.Go(func() { l.run(ctx) })
 	}
 	flush := time.NewTicker(w.o.FlushEvery)
@@ -176,6 +185,11 @@ func (w *ClientPodWatcher) apply(u update) {
 			present[string(p.UID)] = true
 			w.changed(p)
 		}
+		// A truncated list may have left out pods that still run: it
+		// ends none.
+		if u.truncated {
+			return
+		}
 		for uid, p := range w.live {
 			if !present[uid] && (u.src.ns == "" || p.Namespace == u.src.ns) {
 				delete(w.live, uid)
@@ -191,7 +205,12 @@ func (w *ClientPodWatcher) apply(u update) {
 	}
 	uid := string(p.UID)
 	if u.ev.Type == watch.Deleted || ended(p) {
-		if _, live := w.live[uid]; live || w.dirty[uid] {
+		if p, live := w.live[uid]; live {
+			// Not written yet: write it with its end, so that a pod that
+			// lived less than a flush is kept.
+			if w.dirty[uid] {
+				w.pending.Seen = append(w.pending.Seen, *p)
+			}
 			delete(w.live, uid)
 			delete(w.dirty, uid)
 			w.pending.Ended[uid] = now
@@ -213,6 +232,8 @@ func (w *ClientPodWatcher) changed(p *corev1.Pod) {
 		if !w.full {
 			w.full = true
 			w.o.Log.Warn("kubernetes client pods: more pods than kept; the others are not matched to connections", "max", maxClientPods)
+			msg := fmt.Sprintf("kubernetes client pods: more than %d pods; the others are not matched to connections", maxClientPods)
+			w.o.Record(collectorEvent(w.o.Now(), KindClientPodsCapped, "", msg, map[string]any{"max": maxClientPods}))
 		}
 		return
 	}
@@ -228,14 +249,22 @@ func (w *ClientPodWatcher) changed(p *corev1.Pod) {
 // succeeded. A failed write is kept and merged into the next one.
 func (w *ClientPodWatcher) flush(ctx context.Context, touch bool) bool {
 	b := w.pending
-	b.At, b.Touch = w.o.Now(), touch
+	b.At = w.o.Now()
+	if touch {
+		for ns, h := range w.healthy {
+			if h.Load() {
+				b.Touch = append(b.Touch, ns)
+			}
+		}
+		slices.Sort(b.Touch)
+	}
 	for uid := range w.dirty {
 		if p := w.live[uid]; p != nil {
 			b.Seen = append(b.Seen, *p)
 		}
 	}
 	slices.SortFunc(b.Seen, func(x, y ClientPod) int { return strings.Compare(x.UID, y.UID) })
-	if len(b.Seen) == 0 && len(b.Ended) == 0 && len(b.Relists) == 0 && !b.Touch {
+	if len(b.Seen) == 0 && len(b.Ended) == 0 && len(b.Relists) == 0 && len(b.Touch) == 0 {
 		return true
 	}
 	if err := w.o.Write(ctx, b); err != nil {
@@ -245,6 +274,28 @@ func (w *ClientPodWatcher) flush(ctx context.Context, touch bool) bool {
 	w.pending = ClientPodBatch{Ended: map[string]time.Time{}}
 	w.dirty = map[string]bool{}
 	return true
+}
+
+// slimPod copies the fields clientPodOf, workloadOf and ended read, so
+// that a list of many pods does not hold their whole objects.
+func slimPod(p *corev1.Pod) *corev1.Pod {
+	out := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: p.Name, Namespace: p.Namespace, UID: p.UID},
+		Spec:       corev1.PodSpec{NodeName: p.Spec.NodeName, HostNetwork: p.Spec.HostNetwork},
+		Status:     corev1.PodStatus{Phase: p.Status.Phase, PodIP: p.Status.PodIP, PodIPs: p.Status.PodIPs, StartTime: p.Status.StartTime},
+	}
+	for _, k := range []string{"app.kubernetes.io/name", "pod-template-hash"} {
+		if v, ok := p.Labels[k]; ok {
+			if out.Labels == nil {
+				out.Labels = map[string]string{}
+			}
+			out.Labels[k] = v
+		}
+	}
+	if ref := metav1.GetControllerOf(p); ref != nil {
+		out.OwnerReferences = []metav1.OwnerReference{*ref}
+	}
+	return out
 }
 
 // ended reports a pod whose containers ended: it released its address.
@@ -311,9 +362,10 @@ func (w *ClientPodWatcher) source(ns string) *source {
 			w.explain(s.name, ns, err)
 			return nil, "", "", err
 		}
+		// Only what is kept of each pod outlives the page.
 		out := make([]runtime.Object, len(l.Items))
 		for i := range l.Items {
-			out[i] = &l.Items[i]
+			out[i] = slimPod(&l.Items[i])
 		}
 		return out, l.ResourceVersion, l.Continue, nil
 	}

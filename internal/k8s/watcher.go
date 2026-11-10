@@ -174,7 +174,7 @@ func (w *Watcher) apply(u update) {
 					pods = append(pods, p)
 				}
 			}
-			t.podsListed(u.src.ns, pods, u.initial)
+			t.podsListed(u.src.ns, pods, u.initial, u.truncated)
 		case "nodes":
 			nodes := make([]*corev1.Node, 0, len(u.listed))
 			for _, o := range u.listed {

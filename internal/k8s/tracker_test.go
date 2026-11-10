@@ -14,7 +14,7 @@ import (
 
 func TestInitialListsRecordNothing(t *testing.T) {
 	tr, s, _ := newTestTracker()
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true), natsPod("nats-1", "n1", false)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true), natsPod("nats-1", "n1", false)}, true, false)
 	tr.nodesListed([]*corev1.Node{node("n0", "pool-1", "v1.33.4"), node("n1", "pool-1", "v1.33.4")}, true)
 	if got := s.all(); len(got) != 0 {
 		t.Fatalf("initial lists recorded %v", s.kinds())
@@ -28,7 +28,7 @@ func TestPodReadinessAndServerName(t *testing.T) {
 	s := &sink{}
 	c := &clock{t: t0}
 	tr := newTracker(serverNameFunc("{namespace}-{pod}"), c.now, s.Record, nil)
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true, false)
 	tr.podChanged(natsPod("nats-0", "n0", false))
 	tr.podChanged(natsPod("nats-0", "n0", true))
 	evs := s.all()
@@ -47,7 +47,7 @@ func TestPodReadinessAndServerName(t *testing.T) {
 
 func TestPodRestartedScheduledDeleted(t *testing.T) {
 	tr, s, _ := newTestTracker()
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-1", "n1", true)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-1", "n1", true)}, true, false)
 	p := natsPod("nats-1", "n1", true)
 	p.Status.ContainerStatuses[0].RestartCount = 1
 	p.Status.ContainerStatuses[0].LastTerminationState.Terminated = &corev1.ContainerStateTerminated{Reason: "OOMKilled", ExitCode: 137,
@@ -76,7 +76,7 @@ func TestPodRestartedScheduledDeleted(t *testing.T) {
 
 func TestDrainDerivedFromCordonAndEviction(t *testing.T) {
 	tr, s, c := newTestTracker()
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true, false)
 	tr.nodesListed([]*corev1.Node{node("n0", "pool-1", "v1.33.4"), node("x9", "pool-other", "v1.33.4")}, true)
 
 	cordoned := node("n0", "pool-1", "v1.33.4")
@@ -133,7 +133,7 @@ func TestDrainDerivedFromCordonAndEviction(t *testing.T) {
 
 func TestAutoscalerTaintIsACordon(t *testing.T) {
 	tr, s, _ := newTestTracker()
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-2", "n2", true)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-2", "n2", true)}, true, false)
 	tr.nodesListed([]*corev1.Node{node("n2", "pool-1", "v1")}, true)
 	n := node("n2", "pool-1", "v1")
 	n.Spec.Taints = []corev1.Taint{{Key: autoscalerTaint, Effect: corev1.TaintEffectNoSchedule}}
@@ -147,7 +147,7 @@ func TestAutoscalerTaintIsACordon(t *testing.T) {
 func TestNodeChangesInANATSPool(t *testing.T) {
 	tr, s, c := newTestTracker()
 	tr.poolNodes = true
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true, false)
 	tr.nodesListed([]*corev1.Node{node("n0", "pool-1", "v1.33.4")}, true)
 	// Surge: a node is added to the pool, becomes ready later.
 	added := node("n3", "pool-1", "v1.33.5")
@@ -182,24 +182,34 @@ func TestNodeChangesInANATSPool(t *testing.T) {
 
 func TestRelistRecordsWhatChanged(t *testing.T) {
 	tr, s, _ := newTestTracker()
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true), natsPod("nats-1", "n1", true)}, true)
-	tr.podsListed("other", []*corev1.Pod{}, true)
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", false)}, false)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true), natsPod("nats-1", "n1", true)}, true, false)
+	tr.podsListed("other", []*corev1.Pod{}, true, false)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", false)}, false, false)
 	want := []string{KindPodNotReady, KindPodDeleted}
 	if got := s.kinds(); !slices.Equal(got, want) {
 		t.Fatalf("kinds %v, want %v", got, want)
 	}
 	// A relist of another namespace leaves the example pods alone.
 	s.reset()
-	tr.podsListed("other", nil, false)
+	tr.podsListed("other", nil, false, false)
 	if len(s.all()) != 0 {
 		t.Fatalf("other namespace relist recorded %v", s.kinds())
 	}
 }
 
+// A truncated relist deletes no pod it left out.
+func TestTruncatedRelistKeepsPods(t *testing.T) {
+	tr, s, _ := newTestTracker()
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true), natsPod("nats-1", "n1", true)}, true, false)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, false, true)
+	if len(s.all()) != 0 || tr.pods["example/nats-1"] == nil {
+		t.Fatalf("truncated relist recorded %v", s.kinds())
+	}
+}
+
 func TestEventsClassifiedAndDeduplicated(t *testing.T) {
 	tr, s, _ := newTestTracker()
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true, false)
 	tr.nodesListed([]*corev1.Node{node("n0", "pool-1", "v1")}, true)
 	at := t0.Add(time.Minute)
 	steps := []struct {
@@ -284,7 +294,7 @@ func TestSeenEventsAreNotStoredAgain(t *testing.T) {
 	s := &sink{}
 	c := &clock{t: t0}
 	tr := newTracker(serverNameFunc("{pod}"), c.now, s.Record, map[string]int64{"a": 2})
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true, false)
 	tr.eventObserved(kevent("a", "example", "Pod", "nats-0", "Killing", "Normal", "x", 2, t0))
 	if len(s.all()) != 0 {
 		t.Fatalf("seeded event stored again: %v", s.kinds())
@@ -314,7 +324,7 @@ func TestDrainRecordsTheCordonCause(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tr, s, c := newTestTracker()
-			tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true)
+			tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true, false)
 			tr.nodesListed([]*corev1.Node{node("n0", "pool-1", "v1")}, true)
 			n := node("n0", "pool-1", "v1")
 			tc.edit(n)
@@ -333,7 +343,7 @@ func TestDrainRecordsTheCordonCause(t *testing.T) {
 
 func TestNodesKeptOnAutopilot(t *testing.T) {
 	tr, s, c := newTestTracker()
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true, false)
 	tr.nodesListed([]*corev1.Node{node("n0", "nap-1", "v1"), node("x1", "nap-1", "v1")}, true)
 	// Without the pool rule the autoscaler's nodes of the same pool are
 	// not kept.
@@ -381,7 +391,7 @@ func TestClientPodFailureKinds(t *testing.T) {
 // restart for another reason is not.
 func TestOOMKillFromRestart(t *testing.T) {
 	tr, s, _ := newTestTracker()
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-1", "n1", true), natsPod("nats-2", "n1", true)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-1", "n1", true), natsPod("nats-2", "n1", true)}, true, false)
 	for name, reason := range map[string]string{"nats-1": "OOMKilled", "nats-2": "Error"} {
 		p := natsPod(name, "n1", true)
 		p.Status.ContainerStatuses[0].RestartCount = 1
@@ -404,7 +414,7 @@ func TestOOMKillFromRestart(t *testing.T) {
 // the node watch's events do, so that Replay counts it.
 func TestNodeUpgradeEventNamesNodeAndPool(t *testing.T) {
 	tr, s, _ := newTestTracker()
-	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true)
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true, false)
 	tr.nodesListed([]*corev1.Node{node("n0", "pool-1", "v1")}, true)
 	s.reset()
 	tr.eventObserved(kevent("k", "default", "Node", "n0", "NodeUpgrade", "Normal", "upgrading to 1.34", 1, t0.Add(time.Minute)))

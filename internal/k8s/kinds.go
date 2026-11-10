@@ -52,7 +52,10 @@ const (
 
 	// Collector events about the watches themselves.
 	KindNotWatching = "collector.k8s_not_watching"
-	KindGap         = "collector.k8s_gap"
+	// KindClientPodsCapped is recorded once when the client pod watch
+	// sees more pods than it keeps.
+	KindClientPodsCapped = "collector.k8s_client_pods_capped"
+	KindGap              = "collector.k8s_gap"
 )
 
 // podEventKinds maps the reasons of pod Events that have a kind of their

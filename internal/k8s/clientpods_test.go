@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -266,4 +268,61 @@ func (s *syncWriter) Write(p []byte) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.w.Write(p)
+}
+
+// flushed runs one flush of w and returns the batch written.
+func flushed(t *testing.T, w *ClientPodWatcher, touch bool) ClientPodBatch {
+	t.Helper()
+	got := &batches{}
+	w.o.Write = got.write
+	w.flush(context.Background(), touch)
+	if len(got.all) == 0 {
+		return ClientPodBatch{}
+	}
+	return got.all[0]
+}
+
+// A truncated list ends no pod; the touch names only the namespaces
+// whose watch is healthy; a pod that lived less than a flush is written
+// with its end.
+func TestClientPodWatcherApply(t *testing.T) {
+	c := &clock{t: t0}
+	w := NewClientPodWatcher(ClientPodOptions{Log: quietLog(), Now: c.now, Record: (&sink{}).Record})
+	w.healthy = map[string]*atomic.Bool{"shop": {}, "payments": {}}
+	w.healthy["shop"].Store(true)
+	src := &source{kind: "clientpods", ns: "shop"}
+	a, b := clientPod("shop", "a", "10.4.0.1", "", "", nil), clientPod("shop", "b", "10.4.0.2", "", "", nil)
+	w.apply(update{src: src, isList: true, listed: []runtime.Object{a, b}})
+	if x := flushed(t, w, true); len(x.Seen) != 2 || len(x.Relists) != 1 || !slices.Equal(x.Touch, []string{"shop"}) {
+		t.Fatalf("first list: %+v", x)
+	}
+	w.apply(update{src: src, isList: true, truncated: true, listed: []runtime.Object{a}})
+	if x := flushed(t, w, false); len(x.Relists) != 0 || w.live["uid-b"] == nil {
+		t.Fatalf("truncated list: %+v, b kept %v", x, w.live["uid-b"] != nil)
+	}
+	short := clientPod("shop", "job-x", "10.4.0.3", "Job", "job", nil)
+	w.apply(update{src: src, ev: watch.Event{Type: watch.Added, Object: short}})
+	w.apply(update{src: src, ev: watch.Event{Type: watch.Deleted, Object: short}})
+	x := flushed(t, w, false)
+	if len(x.Seen) != 1 || x.Seen[0].Name != "job-x" {
+		t.Fatalf("short pod not written: %+v", x)
+	}
+	if _, ok := x.Ended["uid-job-x"]; !ok {
+		t.Fatalf("short pod not ended: %+v", x)
+	}
+}
+
+// A listed pod keeps only what is matched on.
+func TestSlimPod(t *testing.T) {
+	p := clientPod("shop", "cart-6d9f-a", "10.4.0.1", "ReplicaSet", "cart-6d9f", map[string]string{"pod-template-hash": "6d9f", "app.kubernetes.io/name": "cart", "team": "x"})
+	p.Spec.Containers = []corev1.Container{{Name: "app", Image: "example.com/cart"}}
+	s := slimPod(p)
+	if len(s.Spec.Containers) != 0 || len(s.Labels) != 2 || clientPodOfEqual(clientPodOf(s), clientPodOf(p)) == false || ended(s) != ended(p) {
+		t.Fatalf("slim %+v", s)
+	}
+}
+
+func clientPodOfEqual(a, b ClientPod) bool {
+	return a.UID == b.UID && a.Name == b.Name && a.Namespace == b.Namespace && a.Node == b.Node && a.WorkloadKind == b.WorkloadKind &&
+		a.Workload == b.Workload && a.AppName == b.AppName && slices.Equal(a.IPs, b.IPs) && a.StartedAt.Equal(b.StartedAt) && a.HostNetwork == b.HostNetwork
 }

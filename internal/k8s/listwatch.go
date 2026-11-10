@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"sync/atomic"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,7 +58,10 @@ type update struct {
 	listed  []runtime.Object
 	isList  bool
 	initial bool
-	ev      watch.Event
+	// truncated is a list cut at the loop's page limit: the objects it
+	// leaves out may still exist.
+	truncated bool
+	ev        watch.Event
 }
 
 // loop lists and watches one source until ctx ends. It watches from the
@@ -82,6 +86,11 @@ type loop struct {
 	// warnEvery spaces the repeated failure logs; zero means the
 	// package's warnEvery.
 	warnEvery time.Duration
+	// maxPages bounds a (re)list; zero means maxListPages.
+	maxPages int
+	// healthy is set while the source has listed and is not failing; nil
+	// when nobody asks.
+	healthy *atomic.Bool
 
 	failingSince time.Time
 	notified     bool
@@ -101,14 +110,15 @@ func (l *loop) run(ctx context.Context) {
 	l.backoff = minBackoff
 	for ctx.Err() == nil {
 		if needList {
-			items, listRV, err := l.listAll(ctx)
+			items, listRV, truncated, err := l.listAll(ctx)
 			if err != nil {
 				l.fail(ctx, "list", err)
 				continue
 			}
-			if !l.send(ctx, update{src: l.src, listed: items, isList: true, initial: initial}) {
+			if !l.send(ctx, update{src: l.src, listed: items, isList: true, initial: initial, truncated: truncated}) {
 				return
 			}
+			l.setHealthy(true)
 			initial, needList, rv = false, false, listRV
 		}
 		timeout := int64(300 + rand.IntN(300))
@@ -193,27 +203,37 @@ func (l *loop) consume(ctx context.Context, w watch.Interface, rv string) (strin
 	}
 }
 
-// listAll lists every page, up to maxListPages.
-func (l *loop) listAll(ctx context.Context) ([]runtime.Object, string, error) {
-	var all []runtime.Object
-	var rv, cont string
+// listAll lists every page, up to the loop's page limit; truncated says
+// that pages were left.
+func (l *loop) listAll(ctx context.Context) (all []runtime.Object, rv string, truncated bool, err error) {
+	pages := maxListPages
+	if l.maxPages > 0 {
+		pages = l.maxPages
+	}
+	var cont string
 	for page := 0; ; page++ {
-		if page == maxListPages {
+		if page == pages {
 			l.log.Warn("kubernetes list truncated", "source", l.src.name, "objects", len(all))
-			return all, rv, nil
+			return all, rv, true, nil
 		}
 		items, pageRV, next, err := l.src.list(ctx, metav1.ListOptions{Limit: listPage, Continue: cont})
 		if err != nil {
-			return nil, "", err
+			return nil, "", false, err
 		}
 		if page == 0 {
 			rv = pageRV
 		}
 		all = append(all, items...)
 		if next == "" {
-			return all, rv, nil
+			return all, rv, false, nil
 		}
 		cont = next
+	}
+}
+
+func (l *loop) setHealthy(ok bool) {
+	if l.healthy != nil {
+		l.healthy.Store(ok)
 	}
 }
 
@@ -232,6 +252,7 @@ func (l *loop) fail(ctx context.Context, op string, err error) {
 	if ctx.Err() != nil {
 		return
 	}
+	l.setHealthy(false)
 	now := l.now()
 	if l.failingSince.IsZero() {
 		l.failingSince = now
@@ -262,6 +283,7 @@ func (l *loop) fail(ctx context.Context, op string, err error) {
 // recovered records the gap of a failure that lasted gapAfter.
 func (l *loop) recovered() {
 	l.backoff = minBackoff
+	l.setHealthy(true)
 	if l.failingSince.IsZero() {
 		return
 	}

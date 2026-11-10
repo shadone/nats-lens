@@ -90,6 +90,12 @@ func TestKubernetesClientPodWatchOptIn(t *testing.T) {
 			defer st.Close()
 			cart := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "cart-1", Namespace: "shop", UID: "uid-cart-1"},
 				Status: corev1.PodStatus{Phase: corev1.PodRunning, PodIPs: []corev1.PodIP{{IP: "10.4.0.1"}}}}
+			// A pod stored by an earlier run in a namespace no longer
+			// watched.
+			if err := st.WriteClientPods(ctx, store.ClientPodBatch{At: time.Now().Add(-time.Hour),
+				Seen: []store.ClientPod{{UID: "uid-old", Namespace: "old", Name: "old-1", IPs: []string{"10.9.0.1"}}}}); err != nil {
+				t.Fatal(err)
+			}
 			cs := fake.NewClientset(cart)
 			reqs := requests(cs)
 			defer func(old func(config.Kubernetes, string) (kubernetes.Interface, string, error)) { newK8sClient = old }(newK8sClient)
@@ -120,6 +126,13 @@ func TestKubernetesClientPodWatchOptIn(t *testing.T) {
 				time.Sleep(200 * time.Millisecond)
 			}
 			stop()
+			var live int
+			if err := st.DB().QueryRow(`SELECT count(*) FROM client_pods WHERE uid = 'uid-old' AND ended_at IS NULL`).Scan(&live); err != nil {
+				t.Fatal(err)
+			}
+			if wantLive := map[bool]int{false: 1, true: 0}[on]; live != wantLive {
+				t.Errorf("the earlier run's pod live %d, want %d", live, wantLive)
+			}
 			shop := false
 			for _, r := range reqs() {
 				if strings.Contains(r, " shop") {
