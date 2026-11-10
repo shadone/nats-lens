@@ -227,6 +227,7 @@ func (p *Provider) DataHistory(_ context.Context, req *v1.GetDataHistoryRequest)
 		at, kind := e.GetTime().AsTime(), e.GetKind()
 		gap := kind == "collector.gap" || kind == "collector.k8s_gap"
 		if e.GetSource() != v1.EventSource_EVENT_SOURCE_COLLECTOR || !slices.Contains(api.HistoryEventKinds, kind) || at.After(end) ||
+			api.IsClientPodWatchEvent(e) ||
 			(at.Before(start.Add(-api.HistoryEventsLookback)) && !(gap && !e.GetReceivedAt().AsTime().Before(start))) {
 			continue
 		}

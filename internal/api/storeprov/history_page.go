@@ -93,6 +93,7 @@ WITH s AS (
   SELECT e.*, coalesce(json_extract_string(e.raw, '$.connection'), '') AS conn FROM events e
   WHERE e.source = 'collector' AND e.time < ? AND e.kind IN ('collector.started', 'collector.disconnected', 'collector.not_connected',
       'collector.connection_closed', 'collector.reconnected', 'collector.k8s_not_watching', 'collector.k8s_gap')
+    AND NOT `+api.ClientPodWatchSQL+`
 ),
 open_conn AS (
   SELECT * FROM s
@@ -113,7 +114,7 @@ e AS (
   UNION ALL SELECT * EXCLUDE (conn) FROM open_k8s
   UNION ALL SELECT * FROM events e WHERE e.source = 'collector' AND e.time <= ?
     AND (e.time >= ? OR (e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.received_at >= ?))
-    AND e.kind IN (?`+strings.Repeat(", ?", len(kinds)-1)+`)
+    AND e.kind IN (?`+strings.Repeat(", ?", len(kinds)-1)+`) AND NOT `+api.ClientPodWatchSQL+`
 )
 SELECT `+eventCols+`, coalesce(e.raw::VARCHAR, '') FROM e
 ORDER BY e.time, e.id`, args...)

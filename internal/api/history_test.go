@@ -396,3 +396,17 @@ func TestDataHistoryEventsRowNamesFirstConnection(t *testing.T) {
 		t.Errorf("events rows: %v", rows)
 	}
 }
+
+// A client pod watch's failure opens no Kubernetes gap.
+func TestDataHistoryLeavesOutClientPodWatches(t *testing.T) {
+	f := hFacts()
+	f.Start, f.End = hAt(9, 0), hAt(12, 0)
+	f.Events = []*v1.Event{hEvent("1", "collector.k8s_not_watching", hAt(11, 40), hAt(11, 40), `{"source":"client pods in shop"}`),
+		hEvent("2", "collector.k8s_gap", hAt(10, 0), hAt(10, 5), `{"source":"client pods in shop"}`)}
+	if got := lines(api.FinishDataHistory(f)); len(got) != 0 {
+		t.Errorf("gaps %v, want none", got)
+	}
+	if !api.IsClientPodWatchEvent(f.Events[0]) || api.IsClientPodWatchEvent(hEvent("3", "collector.k8s_gap", hAt(10, 0), hAt(10, 5), `{"source":"pods in nats"}`)) {
+		t.Error("IsClientPodWatchEvent")
+	}
+}

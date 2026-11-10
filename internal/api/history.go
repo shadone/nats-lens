@@ -253,6 +253,10 @@ func historyGaps(f *HistoryFacts) (hatched, listed []historyGap) {
 	var k8s []historyGap
 	var notWatching *v1.Event
 	for _, e := range f.Events {
+		// A client pod watch's failure flags only Runs on.
+		if IsClientPodWatchEvent(e) {
+			continue
+		}
 		switch e.GetKind() {
 		case "collector.gap":
 			raw = append(raw, historyGap{kind: v1.HistoryGapKind_HISTORY_GAP_KIND_NOT_RUNNING, start: e.GetTime().AsTime(),

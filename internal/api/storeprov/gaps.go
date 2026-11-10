@@ -55,12 +55,13 @@ ORDER BY epoch`, a.Add(-reach), a.Add(-reach), b, b, reach.Microseconds())
 }
 
 // collectorGaps reads the times nats-lens was not running
-// (collector.gap) and Kubernetes was not watched (collector.k8s_gap) that
-// began by b and ended at or after from: each from its time to its
-// receipt, when the restarted collector recorded it.
+// (collector.gap) and Kubernetes was not watched (collector.k8s_gap, not
+// a client pod watch's) that began by b and ended at or after from: each
+// from its time to its receipt, when the restarted collector recorded it.
 func (p *Provider) collectorGaps(ctx context.Context, from, b time.Time) ([]api.ReplayGap, error) {
 	evs, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, e.received_at FROM events e
-WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.time <= ? AND e.received_at >= ? ORDER BY e.time, e.id`, b, from)
+WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND NOT `+api.ClientPodWatchSQL+` AND e.time <= ? AND e.received_at >= ?
+ORDER BY e.time, e.id`, b, from)
 	if err != nil {
 		return nil, fmt.Errorf("collector gaps: %w", err)
 	}

@@ -66,7 +66,7 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 	// ended after ReadFrom.
 	for i := len(all) - 1; i >= 0; i-- {
 		e := all[i]
-		if (e.GetKind() != "collector.gap" && e.GetKind() != "collector.k8s_gap") || e.GetTime().AsTime().After(b) ||
+		if (e.GetKind() != "collector.gap" && e.GetKind() != "collector.k8s_gap") || api.IsClientPodWatchEvent(e) || e.GetTime().AsTime().After(b) ||
 			e.GetReceivedAt().AsTime().Before(f.ReadFrom) {
 			continue
 		}
