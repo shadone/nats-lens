@@ -91,31 +91,7 @@ FROM obs o JOIN servers s USING (server_id) GROUP BY ALL`, append(window, f.Epoc
 	}); err != nil {
 		return err
 	}
-	if err := query("route drops", topologyWindow+`,
-rt AS (SELECT epoch, server_id, remote_id, `+nextSeen("server_id, rid")+` AS nxt
-  FROM routes WHERE remote_id IS NOT NULL AND epoch IN (SELECT epoch FROM ep)),
-ok AS (SELECT DISTINCT epoch, server_id FROM epoch_endpoints
-  WHERE endpoint = 'ROUTEZ' AND state = 'ok' AND epoch IN (SELECT epoch FROM ep)),
--- Per reporting server, remote and pair of collections: whether a route
--- it listed is gone, both ends answering ROUTEZ both times.
-obs AS (
-  SELECT r.server_id, r.remote_id, p.a, p.a_at >= ? AS recent, bool_or(r.nxt IS DISTINCT FROM p.b) AS dropped
-  FROM pairs p JOIN rt r ON r.epoch = p.a
-  JOIN ok oa ON oa.epoch = p.a AND oa.server_id = r.server_id
-  JOIN ok ob ON ob.epoch = p.b AND ob.server_id = r.server_id
-  JOIN ok ra ON ra.epoch = p.a AND ra.server_id = r.remote_id
-  JOIN ok rb ON rb.epoch = p.b AND rb.server_id = r.remote_id
-  GROUP BY ALL),
--- One count per pair of server names and pair of collections, whichever
--- end saw it.
-per AS (
-  SELECT least(s.server_name, x.server_name) AS sa, greatest(s.server_name, x.server_name) AS sb, o.a,
-    bool_or(o.recent) AS recent, bool_or(o.dropped) AS dropped
-  FROM obs o JOIN servers s ON s.server_id = o.server_id JOIN servers x ON x.server_id = o.remote_id
-  WHERE s.server_name <> x.server_name
-  GROUP BY ALL)
-SELECT sa, sb, count(*) FILTER (WHERE dropped AND recent), count(*) FILTER (WHERE dropped), bool_or(recent)
-FROM per GROUP BY sa, sb`, append(p.windowArgs(f), f.EpochAt.Add(-api.TopologyRecentWindow)), func(rows *sql.Rows) error {
+	if err := query("route drops", topologyWindow+routeDropsSQL, append(p.windowArgs(f), f.EpochAt.Add(-api.TopologyRecentWindow)), func(rows *sql.Rows) error {
 		d := api.TopologyRouteDrops{ObservedDay: true}
 		if err := rows.Scan(&d.A, &d.B, &d.Recent, &d.Day, &d.ObservedRecent); err != nil {
 			return err
@@ -173,3 +149,59 @@ const leafSite = `NOT coalesce(is_spoke, false)`
 func nextSeen(key string) string {
 	return `min(epoch) OVER (PARTITION BY ` + key + ` ORDER BY epoch RANGE BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING)`
 }
+
+// routeDropsSQL follows topologyWindow and counts route drops by the rule
+// of api.TopologyDrops, per pair of server names: the collections in the
+// last hour (its argument) and in the window in which a route of the pair
+// dropped, and whether a pair of collections in the last hour observed
+// one. As for leaf nodes, a route connection stored in every collection
+// from its first to its last can only have dropped after its last, which
+// an aggregate finds; the rare others are read row by row with a window
+// over the next epoch, so the window does not sort every route row.
+var routeDropsSQL = `,
+rt AS (SELECT epoch, server_id, rid, remote_id FROM routes WHERE remote_id IS NOT NULL AND epoch IN (SELECT epoch FROM ep)),
+ok AS (SELECT DISTINCT epoch, server_id FROM epoch_endpoints
+  WHERE endpoint = 'ROUTEZ' AND state = 'ok' AND epoch IN (SELECT epoch FROM ep)),
+-- A server that answered ROUTEZ at a and at the collection after it.
+good AS (
+  SELECT p.a, p.b, p.a_at >= ? AS recent, oa.server_id FROM pairs p
+  JOIN ok oa ON oa.epoch = p.a JOIN ok ob ON ob.epoch = p.b AND ob.server_id = oa.server_id),
+-- Server and remote pairs with a route between two collections both
+-- answered, and whether one such pair of collections is in the last hour.
+seen AS (
+  SELECT r.server_id, r.remote_id, bool_or(g.recent) AS recent FROM rt r
+  JOIN good g ON g.a = r.epoch AND g.server_id = r.server_id
+  JOIN good h ON h.a = r.epoch AND h.server_id = r.remote_id
+  GROUP BY ALL),
+pos AS (SELECT epoch, row_number() OVER (ORDER BY epoch) AS i FROM ep),
+conns AS (
+  SELECT c.*, c.n = c.d AND c.d = pl.i - pf.i + 1 AS unbroken FROM (
+    SELECT server_id, rid, remote_id, count(*) AS n, count(DISTINCT epoch) AS d, min(epoch) AS first, max(epoch) AS last
+    FROM rt GROUP BY ALL) c
+  JOIN pos pf ON pf.epoch = c.first JOIN pos pl ON pl.epoch = c.last),
+broken AS (
+  SELECT r.*, ` + nextSeen("server_id, rid, remote_id") + ` AS nxt FROM rt r
+  WHERE (server_id, rid, remote_id) IN (SELECT (server_id, rid, remote_id) FROM conns WHERE NOT unbroken)),
+-- Each pair of collections in which a route of a server and remote
+-- dropped: after the last row of an unbroken connection, or where a
+-- broken one's next row is not the next collection.
+dropped AS (
+  SELECT c.server_id, c.remote_id, g.a, g.recent FROM conns c
+  JOIN good g ON g.a = c.last AND g.server_id = c.server_id
+  JOIN good h ON h.a = c.last AND h.server_id = c.remote_id
+  WHERE c.unbroken
+  UNION
+  SELECT l.server_id, l.remote_id, g.a, g.recent FROM broken l
+  JOIN good g ON g.a = l.epoch AND g.server_id = l.server_id
+  JOIN good h ON h.a = l.epoch AND h.server_id = l.remote_id
+  WHERE l.nxt IS DISTINCT FROM g.b),
+named AS (
+  SELECT o.*, least(s.server_name, x.server_name) AS sa, greatest(s.server_name, x.server_name) AS sb
+  FROM (SELECT server_id, remote_id, NULL::BIGINT AS a, recent, false AS is_drop FROM seen
+        UNION ALL SELECT server_id, remote_id, a, recent, true AS is_drop FROM dropped) o
+  JOIN servers s ON s.server_id = o.server_id JOIN servers x ON x.server_id = o.remote_id
+  WHERE s.server_name <> x.server_name)
+SELECT sa, sb, count(DISTINCT a) FILTER (WHERE is_drop AND recent), count(DISTINCT a) FILTER (WHERE is_drop),
+  bool_or(recent) FILTER (WHERE NOT is_drop)
+FROM named GROUP BY sa, sb
+HAVING bool_or(NOT is_drop)`
