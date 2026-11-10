@@ -5,6 +5,8 @@ entity: stream
 category: storage
 severity: info
 kind: operational
+acceptable: true
+accept_review: growth
 description: >-
   The stream has no max_msgs, max_bytes or TTL (max_age), so it grows until the JetStream store of its servers is
   full. Deliberate for an archive, but then its growth needs watching (server-014). This holds for KV buckets and

@@ -205,7 +205,11 @@ type Mute struct {
 	// "growth changed from +2.1 MiB/day to +4.0 MiB/day over the last 7 days
 	// (+9.0 MiB in the last day)"; empty when a person
 	// lifted it or it ran out.
-	EndReason     string `protobuf:"bytes,12,opt,name=end_reason,json=endReason,proto3" json:"end_reason,omitempty"`
+	EndReason string `protobuf:"bytes,12,opt,name=end_reason,json=endReason,proto3" json:"end_reason,omitempty"`
+	// Whether nats-lens reviews this acceptance by the entity's growth, as
+	// its check says; false for a mute and for an acceptance that ends only
+	// at its review date.
+	GrowthReview  bool `protobuf:"varint,13,opt,name=growth_review,json=growthReview,proto3" json:"growth_review,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -324,6 +328,13 @@ func (x *Mute) GetEndReason() string {
 	return ""
 }
 
+func (x *Mute) GetGrowthReview() bool {
+	if x != nil {
+		return x.GrowthReview
+	}
+	return false
+}
+
 // One failing check for one entity.
 type Finding struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -373,8 +384,15 @@ type Finding struct {
 	// The acknowledgement of the current episode in force; unset when none
 	// is, and always for a resolved finding.
 	Acknowledgement *Acknowledgement `protobuf:"bytes,20,opt,name=acknowledgement,proto3" json:"acknowledgement,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Whether the check describes a configuration choice, so that this
+	// entity's finding may be accepted as by design (MuteFinding with
+	// accept); MuteFinding refuses an acceptance of any other check.
+	Acceptable bool `protobuf:"varint,21,opt,name=acceptable,proto3" json:"acceptable,omitempty"`
+	// Whether an acceptance of the check ends early when the entity's
+	// week's growth changes; false means it ends only at its review date.
+	GrowthReview  bool `protobuf:"varint,22,opt,name=growth_review,json=growthReview,proto3" json:"growth_review,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Finding) Reset() {
@@ -545,6 +563,20 @@ func (x *Finding) GetAcknowledgement() *Acknowledgement {
 		return x.Acknowledgement
 	}
 	return nil
+}
+
+func (x *Finding) GetAcceptable() bool {
+	if x != nil {
+		return x.Acceptable
+	}
+	return false
+}
+
+func (x *Finding) GetGrowthReview() bool {
+	if x != nil {
+		return x.GrowthReview
+	}
+	return false
 }
 
 // One change of a finding's state.
@@ -1487,7 +1519,7 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\adisplay\x18\x02 \x01(\tR\adisplay\x12\x1b\n" +
 	"\x06number\x18\x03 \x01(\x01H\x00R\x06number\x88\x01\x01\x12\x14\n" +
 	"\x05basis\x18\x04 \x01(\tR\x05basisB\t\n" +
-	"\a_number\"\xe1\x03\n" +
+	"\a_number\"\x86\x04\n" +
 	"\x04Mute\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1507,8 +1539,9 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	" \x01(\bR\baccepted\x12)\n" +
 	"\x0egrowth_per_day\x18\v \x01(\x01H\x00R\fgrowthPerDay\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"end_reason\x18\f \x01(\tR\tendReasonB\x11\n" +
-	"\x0f_growth_per_day\"\xac\a\n" +
+	"end_reason\x18\f \x01(\tR\tendReason\x12#\n" +
+	"\rgrowth_review\x18\r \x01(\bR\fgrowthReviewB\x11\n" +
+	"\x0f_growth_per_day\"\xf1\a\n" +
 	"\aFinding\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1533,7 +1566,11 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x15transitions_last_hour\x18\x11 \x01(\x05R\x13transitionsLastHour\x12C\n" +
 	"\x0fcondition_since\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\x0econditionSince\x12\x16\n" +
 	"\x06expiry\x18\x13 \x01(\bR\x06expiry\x12F\n" +
-	"\x0facknowledgement\x18\x14 \x01(\v2\x1c.natslens.v1.AcknowledgementR\x0facknowledgement\"\xf4\x01\n" +
+	"\x0facknowledgement\x18\x14 \x01(\v2\x1c.natslens.v1.AcknowledgementR\x0facknowledgement\x12\x1e\n" +
+	"\n" +
+	"acceptable\x18\x15 \x01(\bR\n" +
+	"acceptable\x12#\n" +
+	"\rgrowth_review\x18\x16 \x01(\bR\fgrowthReview\"\xf4\x01\n" +
 	"\x11FindingTransition\x12\x1d\n" +
 	"\n" +
 	"finding_id\x18\x01 \x01(\tR\tfindingId\x12.\n" +

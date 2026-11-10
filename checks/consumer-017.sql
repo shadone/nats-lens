@@ -6,6 +6,7 @@ category: consumers
 severity: warning
 severity_rule: info while no messages wait for the consumer (num_pending 0 on its leader, or no leader report)
 kind: operational
+acceptable: true
 thresholds:
   - name: max_paused
     default: 2h

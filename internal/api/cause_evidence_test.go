@@ -5,8 +5,10 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/apitest"
@@ -104,6 +106,58 @@ func TestListAssetPlacementRefused(t *testing.T) {
 		_, err := c.ListAssetPlacement(context.Background(), connect.NewRequest(&v1.ListAssetPlacementRequest{Entities: es}))
 		if codeOf(err) != connect.CodeInvalidArgument {
 			t.Errorf("%s: got %v, want invalid_argument", name, err)
+		}
+	}
+}
+
+// Only a check of a configuration choice can be accepted; any check can
+// still be muted.
+func TestAcceptOnlyAcceptableChecks(t *testing.T) {
+	_, c := apitest.Serve(t, fake.New(false))
+	ctx := context.Background()
+	e := stream("APP/order-jobs")
+	exp := timestamppb.New(fake.FixedNow.Add(90 * 24 * time.Hour))
+	for code, want := range map[string]connect.Code{"stream-002": connect.CodeInvalidArgument, "stream-001": connect.CodeInvalidArgument, "stream-018": 0} {
+		_, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: code, Entity: e, Reason: "r", MutedBy: "op", ExpiresAt: exp, Accept: true}))
+		if (want == 0) != (err == nil) || (err != nil && codeOf(err) != want) {
+			t.Errorf("accept %s: %v, want %v", code, err, want)
+		}
+	}
+	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "stream-002", Entity: e, Reason: "r", MutedBy: "op",
+		ExpiresAt: timestamppb.New(fake.FixedNow.Add(24 * time.Hour))})); err != nil {
+		t.Errorf("mute stream-002: %v", err)
+	}
+}
+
+// Findings and the catalog carry the attributes the UI offers acceptance by.
+func TestAcceptableOnFindingsAndCatalog(t *testing.T) {
+	_, c := apitest.ServeHandler(t, &api.Handler{Systems: fake.Demo(false)})
+	ctx := context.Background()
+	res, err := c.ListFindings(ctx, connect.NewRequest(&v1.ListFindingsRequest{IncludeMuted: true, PageSize: 500}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, f := range res.Msg.GetFindings() {
+		seen[f.GetCheckCode()] = true
+		want := f.GetCheckCode() == "stream-005"
+		if f.GetCheckCode() == "stream-005" && (!f.GetAcceptable() || !f.GetGrowthReview()) || f.GetCheckCode() == "stream-002" && f.GetAcceptable() {
+			t.Errorf("%s: acceptable %v, growth review %v", f.GetCheckCode(), f.GetAcceptable(), f.GetGrowthReview())
+		}
+		if m := f.GetMute(); m != nil && m.GetAccepted() && m.GetGrowthReview() != want {
+			t.Errorf("%s accepted: growth review %v", f.GetCheckCode(), m.GetGrowthReview())
+		}
+	}
+	if !seen["stream-005"] {
+		t.Fatal("no stream-005 finding in the demo")
+	}
+	defs, err := c.ListCheckDefinitions(ctx, connect.NewRequest(&v1.ListCheckDefinitionsRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range defs.Msg.GetDefinitions() {
+		if d.GetCode() == "stream-005" && (!d.GetAcceptable() || d.GetAcceptReview() != "growth") || d.GetCode() == "stream-002" && d.GetAcceptable() {
+			t.Errorf("%s: acceptable %v review %q", d.GetCode(), d.GetAcceptable(), d.GetAcceptReview())
 		}
 	}
 }

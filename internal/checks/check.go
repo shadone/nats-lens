@@ -58,6 +58,14 @@ type Check struct {
 	// them returns in the same epoch is dropped from this check's rows, as
 	// the other finding already says it.
 	SuppressedBy []string `yaml:"suppressed_by"`
+	// Acceptable marks a check whose finding describes a configuration
+	// choice that an operator may accept as by design for one entity; the
+	// API refuses to accept a finding of any other check.
+	Acceptable bool `yaml:"acceptable"`
+	// AcceptReview is how nats-lens reviews an acceptance before its review
+	// date: "growth" ends it when the entity's week's growth changes (a
+	// stream or a server); empty ends it only at its review date.
+	AcceptReview string `yaml:"accept_review"`
 
 	// SQL is the query after the header.
 	SQL string `yaml:"-"`
@@ -175,6 +183,21 @@ func (c *Check) validate() error {
 	case "operational", "trend":
 	default:
 		return fmt.Errorf("kind %q is not operational or trend", c.Kind)
+	}
+	switch c.AcceptReview {
+	case "":
+	case AcceptReviewGrowth:
+		if !c.Acceptable {
+			return fmt.Errorf("accept_review needs acceptable")
+		}
+		if c.Entity != "stream" && c.Entity != "server" {
+			return fmt.Errorf("accept_review growth needs a stream or server entity, whose growth nats-lens measures")
+		}
+	default:
+		return fmt.Errorf("accept_review %q is not growth", c.AcceptReview)
+	}
+	if c.Acceptable && c.Entity == "system" {
+		return fmt.Errorf("a system check cannot be acceptable: an acceptance covers one entity with a key")
 	}
 	if c.Lookback != "" {
 		d, err := config.ParseDuration(c.Lookback)

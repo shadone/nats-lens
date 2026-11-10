@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checkaccept"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/store"
 )
@@ -32,6 +33,7 @@ func muteProto(m store.Mute) *v1.Mute {
 	if m.EntityType != "" {
 		out.Entity = entityRef(m.EntityType, m.EntityKey)
 	}
+	api.MarkMute(out)
 	return out
 }
 
@@ -46,6 +48,8 @@ func (p *Provider) MuteFinding(ctx context.Context, req *v1.MuteFindingRequest) 
 	}
 	if req.GetAccept() {
 		m.Accepted = true
+	}
+	if req.GetAccept() && checkaccept.GrowthReview(m.CheckCode) {
 		g, err := p.acceptGrowth(ctx, m.CreatedAt, store.EntityKey{Type: m.EntityType, Key: m.EntityKey})
 		if err != nil {
 			return nil, err

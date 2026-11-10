@@ -148,13 +148,14 @@ func TestAcceptanceRecordsGrowth(t *testing.T) {
 	if m := accept("stream-005", v1.EntityType_ENTITY_TYPE_STREAM, "SHOP/order-archive"); m.GrowthPerDay == nil || *m.GrowthPerDay != 16*mib {
 		t.Errorf("stream growth = %v, want 16 MiB/day", m.GrowthPerDay)
 	}
-	if m := accept("server-014", v1.EntityType_ENTITY_TYPE_SERVER, "nats-0"); m.GrowthPerDay == nil || *m.GrowthPerDay != 30*mib {
-		t.Errorf("server growth = %v, want 30 MiB/day", m.GrowthPerDay)
+	// A check without the growth review records none, even for a growing stream.
+	if m := accept("stream-018", v1.EntityType_ENTITY_TYPE_STREAM, "SHOP/order-archive"); m.GrowthPerDay != nil || m.GetGrowthReview() {
+		t.Errorf("stream-018 growth = %v, review %v; want none", m.GrowthPerDay, m.GetGrowthReview())
 	}
 	if m := accept("stream-005", v1.EntityType_ENTITY_TYPE_STREAM, "SHOP/new-stream"); m.GrowthPerDay != nil {
 		t.Errorf("growth of a stream with 21 hours of data = %v, want none", *m.GrowthPerDay)
 	}
-	if m := accept("consumer-004", v1.EntityType_ENTITY_TYPE_CONSUMER, "SHOP/order-archive/worker"); m.GrowthPerDay != nil {
+	if m := accept("consumer-016", v1.EntityType_ENTITY_TYPE_CONSUMER, "SHOP/order-archive/worker"); m.GrowthPerDay != nil {
 		t.Errorf("consumer growth = %v, want none", *m.GrowthPerDay)
 	}
 	// A plain mute records none, even for a growing stream.

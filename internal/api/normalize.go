@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/shadone/nats-lens/internal/checkaccept"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -212,6 +213,8 @@ func normalizeMute(req *v1.MuteFindingRequest, now time.Time, user string) error
 	switch {
 	case req.GetAccept() && (req.GetEntity() == nil || req.GetEntity().GetType() == v1.EntityType_ENTITY_TYPE_SYSTEM):
 		return invalid("entity is required to accept a finding: an acceptance covers one entity with a key")
+	case req.GetAccept() && !checkaccept.Acceptable(req.GetCheckCode()):
+		return invalid("check %s cannot be accepted as by design: only a check of a configuration choice can, and this one reports a fault; mute it instead", req.GetCheckCode())
 	case req.GetAccept() && exp.Before(now.Add(MinAcceptLength)):
 		return invalid("expires_at, the review date, must be at least one day ahead")
 	case req.GetAccept() && exp.After(now.Add(MaxAcceptLength)):

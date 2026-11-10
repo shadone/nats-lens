@@ -172,8 +172,14 @@ type CheckDefinition struct {
 	Reference         []*CheckReferenceSection `protobuf:"bytes,16,rep,name=reference,proto3" json:"reference,omitempty"`
 	Disabled          *bool                    `protobuf:"varint,17,opt,name=disabled,proto3,oneof" json:"disabled,omitempty"`
 	EffectiveLookback *string                  `protobuf:"bytes,18,opt,name=effective_lookback,json=effectiveLookback,proto3,oneof" json:"effective_lookback,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Whether a finding of the check may be accepted as by design for one
+	// entity.
+	Acceptable bool `protobuf:"varint,19,opt,name=acceptable,proto3" json:"acceptable,omitempty"`
+	// How an acceptance is reviewed before its review date: "growth", or
+	// empty when it ends only at the review date.
+	AcceptReview  string `protobuf:"bytes,20,opt,name=accept_review,json=acceptReview,proto3" json:"accept_review,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CheckDefinition) Reset() {
@@ -332,6 +338,20 @@ func (x *CheckDefinition) GetEffectiveLookback() string {
 	return ""
 }
 
+func (x *CheckDefinition) GetAcceptable() bool {
+	if x != nil {
+		return x.Acceptable
+	}
+	return false
+}
+
+func (x *CheckDefinition) GetAcceptReview() string {
+	if x != nil {
+		return x.AcceptReview
+	}
+	return ""
+}
+
 type ListCheckDefinitionsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Empty selects the default system; unknown systems are invalid_argument.
@@ -477,7 +497,7 @@ const file_natslens_v1_checks_proto_rawDesc = "" +
 	"\x04unit\x18\x03 \x01(\tR\x04unit\x12 \n" +
 	"\vdescription\x18\x04 \x01(\tR\vdescription\x12,\n" +
 	"\x0feffective_value\x18\x05 \x01(\tH\x00R\x0eeffectiveValue\x88\x01\x01B\x12\n" +
-	"\x10_effective_value\"\xa6\x05\n" +
+	"\x10_effective_value\"\xeb\x05\n" +
 	"\x0fCheckDefinition\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
@@ -501,7 +521,11 @@ const file_natslens_v1_checks_proto_rawDesc = "" +
 	"\rsuppressed_by\x18\x0f \x03(\tR\fsuppressedBy\x12@\n" +
 	"\treference\x18\x10 \x03(\v2\".natslens.v1.CheckReferenceSectionR\treference\x12\x1f\n" +
 	"\bdisabled\x18\x11 \x01(\bH\x00R\bdisabled\x88\x01\x01\x122\n" +
-	"\x12effective_lookback\x18\x12 \x01(\tH\x01R\x11effectiveLookback\x88\x01\x01B\v\n" +
+	"\x12effective_lookback\x18\x12 \x01(\tH\x01R\x11effectiveLookback\x88\x01\x01\x12\x1e\n" +
+	"\n" +
+	"acceptable\x18\x13 \x01(\bR\n" +
+	"acceptable\x12#\n" +
+	"\raccept_review\x18\x14 \x01(\tR\facceptReviewB\v\n" +
 	"\t_disabledB\x15\n" +
 	"\x13_effective_lookback\"5\n" +
 	"\x1bListCheckDefinitionsRequest\x12\x16\n" +

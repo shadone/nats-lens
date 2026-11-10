@@ -5,6 +5,7 @@ entity: consumer
 category: health
 severity: info
 kind: operational
+acceptable: true
 description: >-
   A durable consumer is configured with one replica (num_replicas 1) while its stream has more. The consumer's
   state, its delivered position and acknowledgements, is kept on one server only: while that server restarts the

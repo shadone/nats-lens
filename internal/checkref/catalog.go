@@ -27,7 +27,7 @@ func Response(configured *checks.Set, state string) (*v1.ListCheckDefinitionsRes
 	for _, c := range defaults.Checks() {
 		d := &v1.CheckDefinition{Code: c.Code, Name: c.Name, Entity: c.Entity, Category: c.Category, Severity: c.Severity, SeverityRule: c.SeverityRule,
 			Kind: c.Kind, Lookback: c.Lookback, Description: c.Description, Remediation: c.Remediation, ValueName: c.ValueName, ValueBasis: c.ValueBasis,
-			RelatedConfig: c.RelatedConfig, SuppressedBy: c.SuppressedBy}
+			RelatedConfig: c.RelatedConfig, SuppressedBy: c.SuppressedBy, Acceptable: c.Acceptable, AcceptReview: c.AcceptReview}
 		if configured != nil {
 			disabled := configured.Disabled(c.Code)
 			d.Disabled = &disabled

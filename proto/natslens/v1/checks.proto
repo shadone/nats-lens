@@ -39,6 +39,12 @@ message CheckDefinition {
   repeated CheckReferenceSection reference = 16;
   optional bool disabled = 17;
   optional string effective_lookback = 18;
+  // Whether a finding of the check may be accepted as by design for one
+  // entity.
+  bool acceptable = 19;
+  // How an acceptance is reviewed before its review date: "growth", or
+  // empty when it ends only at the review date.
+  string accept_review = 20;
 }
 
 message ListCheckDefinitionsRequest {

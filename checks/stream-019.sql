@@ -5,6 +5,8 @@ entity: stream
 category: storage
 severity: info
 kind: operational
+acceptable: true
+accept_review: growth
 lookback: 10m
 thresholds:
   - name: min_revisions

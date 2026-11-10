@@ -8,6 +8,7 @@ severity_rule: >-
   info while it does not lose or keep anything: a work-queue stream that is empty, an interest stream that nothing
   was published to within the lookback
 kind: operational
+acceptable: true
 lookback: 10m
 description: >-
   A work-queue or interest stream has had no consumer in every leader report within the lookback, which cover at

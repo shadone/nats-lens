@@ -12,6 +12,7 @@ import (
 // js_storage continues at +10 MiB/day. Matched by name, the review keeps
 // the acceptance.
 func TestReviewFollowsAServerAcrossARestart(t *testing.T) {
+	withServerReview(t)
 	ctx := context.Background()
 	st, err := store.OpenPath(ctx, "")
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checkaccept"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -108,6 +109,12 @@ type storedMute struct {
 
 // view returns a copy of the mute as of the scenario s.
 func (sm *storedMute) view(s scen) *v1.Mute {
+	out := sm.viewAt(s)
+	api.MarkMute(out)
+	return out
+}
+
+func (sm *storedMute) viewAt(s scen) *v1.Mute {
 	if !sm.relative {
 		return proto.Clone(sm.m).(*v1.Mute)
 	}
@@ -151,7 +158,7 @@ func (p *Provider) MuteFinding(_ context.Context, req *v1.MuteFindingRequest) (*
 		Id: "", CheckCode: req.GetCheckCode(), Entity: muteEntity(req.GetEntity()), Reason: req.GetReason(),
 		MutedBy: req.GetMutedBy(), CreatedAt: ts(now), ExpiresAt: req.GetExpiresAt(), Accepted: req.GetAccept(),
 	}
-	if m.Accepted && req.GetEntity().GetType() == v1.EntityType_ENTITY_TYPE_STREAM {
+	if m.Accepted && checkaccept.GrowthReview(m.GetCheckCode()) && req.GetEntity().GetType() == v1.EntityType_ENTITY_TYPE_STREAM {
 		acc, name, _ := strings.Cut(req.GetEntity().GetKey(), "/")
 		if _, err := s.sc.findStream(acc, name); err == nil {
 			m.GrowthPerDay = s.growth(streamRef(name), &v1.TimeRange{Start: ts(now.Add(-api.AcceptGrowthWindow)), End: ts(now)})

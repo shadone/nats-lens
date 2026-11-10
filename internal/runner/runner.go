@@ -6,9 +6,11 @@ package runner
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checkaccept"
 	"github.com/shadone/nats-lens/internal/checks"
 	"github.com/shadone/nats-lens/internal/collect"
 	"github.com/shadone/nats-lens/internal/store"
@@ -232,6 +234,11 @@ func (r *Runner) sweep(ctx context.Context) error {
 	return nil
 }
 
+// growthReview reports whether an acceptance of the check code has the
+// growth review; tests widen it to exercise a server's review, which no
+// built-in check has.
+var growthReview = checkaccept.GrowthReview
+
 // ReviewResult is what one growth review did.
 type ReviewResult struct {
 	// Ended are the acceptances it ended, with their end reason.
@@ -242,7 +249,7 @@ type ReviewResult struct {
 }
 
 // ReviewAcceptances reviews every acceptance of a stream or server in
-// force at the epoch, by the entity's week's growth at the epoch's time
+// force at the epoch whose check has the growth review (checks.GrowthReview), by the entity's week's growth at the epoch's time
 // (api.WeeklyGrowth). An acceptance that recorded a growth is ended when
 // the growth now differs from it by more than api.GrowthChanged allows;
 // one that recorded none (the entity was under 8 days old) gets the growth
@@ -256,9 +263,16 @@ func ReviewAcceptances(ctx context.Context, st *store.Store, epoch int64, interv
 	if err != nil {
 		return res, err
 	}
-	ms, err := st.AcceptancesToReview(ctx, at)
-	if err != nil || len(ms) == 0 {
+	all, err := st.AcceptancesToReview(ctx, at)
+	if err != nil {
 		return res, err
+	}
+	// Only a check with the growth review ends early; an acceptance of any
+	// other check, including one stored before its check lost the review,
+	// ends at its review date.
+	ms := slices.DeleteFunc(all, func(m store.Mute) bool { return !growthReview(m.CheckCode) })
+	if len(ms) == 0 {
+		return res, nil
 	}
 	ents := make([]store.EntityKey, 0, len(ms))
 	for _, m := range ms {

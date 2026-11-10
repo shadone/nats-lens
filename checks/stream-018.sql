@@ -5,6 +5,7 @@ entity: stream
 category: storage
 severity: info
 kind: operational
+acceptable: true
 thresholds:
   - name: min_servers
     default: "3"

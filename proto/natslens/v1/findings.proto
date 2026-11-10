@@ -97,6 +97,11 @@ message Mute {
   // (+9.0 MiB in the last day)"; empty when a person
   // lifted it or it ran out.
   string end_reason = 12;
+
+  // Whether nats-lens reviews this acceptance by the entity's growth, as
+  // its check says; false for a mute and for an acceptance that ends only
+  // at its review date.
+  bool growth_review = 13;
 }
 
 // One failing check for one entity.
@@ -166,6 +171,15 @@ message Finding {
   // The acknowledgement of the current episode in force; unset when none
   // is, and always for a resolved finding.
   Acknowledgement acknowledgement = 20;
+
+  // Whether the check describes a configuration choice, so that this
+  // entity's finding may be accepted as by design (MuteFinding with
+  // accept); MuteFinding refuses an acceptance of any other check.
+  bool acceptable = 21;
+
+  // Whether an acceptance of the check ends early when the entity's
+  // week's growth changes; false means it ends only at its review date.
+  bool growth_review = 22;
 }
 
 // One change of a finding's state.
