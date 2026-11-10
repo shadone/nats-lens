@@ -101,15 +101,19 @@ export function SearchJump() {
   };
   const findingsQ = useFindingMatches(spec, ask, used && wantsRemote(settled, "finding"));
   const eventsQ = useEventMatches(spec, ask, used && wantsRemote(settled, "event"));
+  // The settled answer stands in while the text settles only if it was asked the same way.
+  const sameAsk = settled.kind === query.kind && settled.sinceMs === query.sinceMs;
   const groups = groupResults(
     query,
     names.data ?? [],
-    remote<Finding>(known && wantsRemote(query, "finding"), settling, settled.kind === query.kind, findingsQ),
-    remote<FeedEvent>(known && wantsRemote(query, "event"), settling, settled.kind === query.kind, eventsQ),
+    remote<Finding>(known && wantsRemote(query, "finding"), settling, sameAsk, findingsQ),
+    remote<FeedEvent>(known && wantsRemote(query, "event"), settling, sameAsk, eventsQ),
     serverNow(),
   );
+  // Kept rows answer the previous text: they are shown, never chosen.
   const options: Option[] = [];
   for (const g of groups) {
+    if (g.stale) continue;
     for (const row of g.rows) options.push({ id: `${listId}-${options.length}`, row });
     if (g.more) options.push({ id: `${listId}-${options.length}`, group: g });
   }
@@ -260,7 +264,12 @@ export function SearchJump() {
                 </div>
                 <ul role="group" aria-labelledby={`${listId}-g-${g.kind}`} aria-busy={g.stale ? true : undefined} className={g.stale ? "search-stale" : undefined}>
                   {g.rows.map((r) => (
-                    <li key={r.key} {...optionProps(rowOption(r), r.kind === "finding" ? "search-finding" : "")}>
+                    <li
+                      key={r.key}
+                      {...(g.stale
+                        ? { role: "option", "aria-disabled": true, "aria-selected": false, className: r.kind === "finding" ? "search-finding" : undefined, onMouseDown: (e: MouseEvent) => e.preventDefault() }
+                        : optionProps(rowOption(r), r.kind === "finding" ? "search-finding" : ""))}
+                    >
                       <span className="sr-only">{ROW_KIND_LABEL[r.kind]}</span>
                       <span className="sn">
                         {r.severity && <i className={`search-sev ${r.severity}`} aria-hidden="true" />}

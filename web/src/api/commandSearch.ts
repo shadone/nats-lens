@@ -2,7 +2,7 @@
 // filtered by text on the server. A query key per text, so a stale request
 // is cancelled when the text changes and its result is never shown for the
 // new text; while the next key loads, the previous rows stand in only for
-// the same system, range and narrowing.
+// the same system, range, since: window and narrowing.
 import { useQuery } from "@tanstack/react-query";
 import { serverNow } from "../lib/clock";
 import { rangeKey, resolveRange, type RangeSpec } from "../lib/timeRange";
@@ -41,7 +41,7 @@ function useRemote<T>(family: string, spec: RangeSpec, s: RemoteSearch, enabled:
     queryFn: ({ signal }) => load(sys, searchRange(spec, s.sinceMs), signal),
     enabled: enabled && known === true,
     staleTime: 30_000,
-    placeholderData: keepSameSystem(sys, { 2: range, 5: s.limit }),
+    placeholderData: keepSameSystem(sys, { 2: range, 4: s.sinceMs ?? 0, 5: s.limit }),
   });
 }
 

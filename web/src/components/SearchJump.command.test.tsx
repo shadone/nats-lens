@@ -246,4 +246,29 @@ describe("command bar", () => {
     expect(screen.queryByText("CONSUMER.DELETED")).toBeNull();
     expect(screen.getAllByText("Searching…")).toHaveLength(2);
   });
+
+  it("never chooses a kept row: Enter and a click do nothing until the new rows arrive", async () => {
+    ev.searchEvents.mockImplementation((_s, _r, t) => (t === "deleted" ? Promise.resolve(page([EVENT])) : new Promise(() => {})));
+    renderApp(<SearchJump />, "/?system=sys-a");
+    await userEvent.type(box(), "event: deleted");
+    await screen.findByText("CONSUMER.DELETED");
+    await userEvent.type(box(), "zzz");
+    const kept = screen.getByText("CONSUMER.DELETED").closest("li")!;
+    expect(kept).toHaveAttribute("aria-disabled", "true");
+    expect(box()).not.toHaveAttribute("aria-activedescendant");
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+    fireEvent.mouseDown(kept);
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/\?system=sys-a$/);
+  });
+
+  it("keeps no rows of another since: window", async () => {
+    ev.searchEvents.mockImplementation((_s, r) => (r.kind === "fixed" && r.to - r.from === 86_400_000 ? Promise.resolve(page([EVENT])) : new Promise(() => {})));
+    renderApp(<SearchJump />, "/?system=sys-a&range=7d");
+    await userEvent.type(box(), "event: deleted since:1d");
+    await screen.findByText("CONSUMER.DELETED");
+    fireEvent.change(box(), { target: { value: "event: deleted since:2h" } });
+    expect(screen.queryByText("CONSUMER.DELETED")).toBeNull();
+    await settle();
+    expect(screen.queryByText("CONSUMER.DELETED")).toBeNull();
+  });
 });
