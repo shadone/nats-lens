@@ -274,8 +274,9 @@ func appsPods() []appsPod {
 }
 
 // appsClientPods writes appsPods, and the client pod watches' records: the
-// watch in payments failing since 20 minutes before last, the one in shop
-// failing 5 hours before and back an hour later.
+// watch in payments failing since 21 minutes before last (recorded a
+// minute later), the one in shop failing 5 hours before and back an hour
+// later, and the watch over its 50,000 pods 2 hours before last.
 func appsClientPods(r rows, last time.Time) {
 	for _, p := range appsPods() {
 		cols := map[string]any{"uid": "uid-" + p.pod, "ip": p.ip, "namespace": p.ns, "pod": p.pod, "node": p.node, "workload_kind": p.kind,
@@ -287,9 +288,11 @@ func appsClientPods(r rows, last time.Time) {
 	}
 	watch := func(id int, kind, source string, at time.Time) {
 		r.add("events", map[string]any{"id": id, "time": at, "received_at": at, "source": "collector", "kind": kind,
-			"summary": kind + " " + source, "raw": fmt.Sprintf(`{"source":%q,"error":"Kubernetes API returned HTTP 403"}`, source)})
+			"summary": kind + " " + source, "raw": fmt.Sprintf(`{"source":%q,"error":"Kubernetes API returned HTTP 403","since":%q}`,
+				source, at.Add(-time.Minute).UTC().Format(time.RFC3339))})
 	}
 	watch(60, "collector.k8s_not_watching", "client pods in payments", last.Add(-20*time.Minute))
 	watch(61, "collector.k8s_not_watching", "client pods in shop", last.Add(-5*time.Hour))
 	watch(62, "collector.k8s_gap", "client pods in shop", last.Add(-4*time.Hour))
+	watch(63, "collector.k8s_client_pods_capped", "", last.Add(-2*time.Hour))
 }

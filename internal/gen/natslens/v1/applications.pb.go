@@ -961,7 +961,7 @@ type ClientPodWatchGap struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The watch, for example "client pods in shop".
 	Source string `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
-	// When it was first recorded as failing.
+	// When it began failing.
 	Since *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=since,proto3" json:"since,omitempty"`
 	// Why, for example "Kubernetes API returned HTTP 403".
 	Error         string `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
@@ -1287,8 +1287,12 @@ type GetApplicationsResponse struct {
 	ClientPodsWatched bool `protobuf:"varint,15,opt,name=client_pods_watched,json=clientPodsWatched,proto3" json:"client_pods_watched,omitempty"`
 	// The client pod watches failing at the epoch, by source.
 	ClientPodsUnwatched []*ClientPodWatchGap `protobuf:"bytes,16,rep,name=client_pods_unwatched,json=clientPodsUnwatched,proto3" json:"client_pods_unwatched,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Whether the client pod watch, since nats-lens last started up to the
+	// epoch, saw more pods than it keeps (50,000): the others match no
+	// connection.
+	ClientPodsCapped bool `protobuf:"varint,17,opt,name=client_pods_capped,json=clientPodsCapped,proto3" json:"client_pods_capped,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetApplicationsResponse) Reset() {
@@ -1433,6 +1437,13 @@ func (x *GetApplicationsResponse) GetClientPodsUnwatched() []*ClientPodWatchGap 
 	return nil
 }
 
+func (x *GetApplicationsResponse) GetClientPodsCapped() bool {
+	if x != nil {
+		return x.ClientPodsCapped
+	}
+	return false
+}
+
 var File_natslens_v1_applications_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_applications_proto_rawDesc = "" +
@@ -1560,7 +1571,7 @@ const file_natslens_v1_applications_proto_rawDesc = "" +
 	"\freconnecting\x18\x03 \x01(\x05H\x02R\freconnecting\x88\x01\x01B\x11\n" +
 	"\x0f_slow_consumersB\b\n" +
 	"\x06_staleB\x0f\n" +
-	"\r_reconnecting\"\xf4\x05\n" +
+	"\r_reconnecting\"\xa2\x06\n" +
 	"\x17GetApplicationsResponse\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x125\n" +
 	"\bepoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt\x12<\n" +
@@ -1578,7 +1589,8 @@ const file_natslens_v1_applications_proto_rawDesc = "" +
 	"\amissing\x18\r \x03(\tR\amissing\x12!\n" +
 	"\fcapture_gaps\x18\x0e \x01(\bR\vcaptureGaps\x12.\n" +
 	"\x13client_pods_watched\x18\x0f \x01(\bR\x11clientPodsWatched\x12R\n" +
-	"\x15client_pods_unwatched\x18\x10 \x03(\v2\x1e.natslens.v1.ClientPodWatchGapR\x13clientPodsUnwatchedBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\x15client_pods_unwatched\x18\x10 \x03(\v2\x1e.natslens.v1.ClientPodWatchGapR\x13clientPodsUnwatched\x12,\n" +
+	"\x12client_pods_capped\x18\x11 \x01(\bR\x10clientPodsCappedBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_applications_proto_rawDescOnce sync.Once

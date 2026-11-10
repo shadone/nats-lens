@@ -160,7 +160,10 @@ export function unwatchedText(gaps: ClientPodWatchGap[]): string {
 
 /** The footnote's line on Runs on, shown while client pods are watched. */
 export const RUNS_ON_FOOTNOTE =
-  "Runs on matches each connection's client address to the watched pod that held it at the collection. A connection through a proxy or NAT, from outside the cluster or from a namespace not watched, matches no pod; one from a host-network pod, or from an address two pods held, is not matched to one pod.";
+  "Runs on matches each connection's client address to the watched pod that held it when the collection started. A connection through a proxy or NAT, from outside the cluster or from a namespace not watched, matches no pod; one from a host-network pod, or from an address two pods held, is not matched to one pod. Workloads are named from the pod's owner name, not read from the cluster.";
+
+/** The notice when the client pod watch saw more pods than it keeps. */
+export const CLIENT_PODS_CAPPED = "nats-lens keeps at most 50,000 client pods and saw more since it started: connections from the others match no pod.";
 
 /** Hours of the 24 with a measurement. */
 export function hoursSet(t: AppHour[]): number {

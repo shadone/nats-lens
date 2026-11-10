@@ -77,6 +77,15 @@ describe("Applications Runs on", () => {
     expect(runsOnCell("order-service")).toHaveTextContent(/^No connection matched to a pod$/);
   });
 
+  it("says when the watch saw more client pods than it keeps", async () => {
+    getApps.mockResolvedValue({ ...watched(), clientPodsCapped: true });
+    renderApp(<Applications />, "/applications");
+    await screen.findByRole("table");
+    expect(screen.getByText(/^nats-lens keeps at most/).closest("p")).toHaveTextContent(
+      "Too many client pods. nats-lens keeps at most 50,000 client pods and saw more since it started: connections from the others match no pod.",
+    );
+  });
+
   it("names the client pod watch that was failing, and says in the footnote what matches", async () => {
     getApps.mockResolvedValue(watched());
     renderApp(<Applications />, "/applications");
@@ -84,6 +93,7 @@ describe("Applications Runs on", () => {
     expect(screen.getByText(/^nats-lens could not watch/).closest("p")).toHaveTextContent(
       "Client pods not watched. nats-lens could not watch the client pods in payments since 14:05 UTC (Kubernetes API returned HTTP 403): Runs on can miss the pods there.",
     );
-    expect(screen.getByText(/^Runs on matches each connection's client address/)).toBeInTheDocument();
+    expect(screen.getByText(/^Runs on matches each connection's client address/)).toHaveTextContent(/Workloads are named from the pod's owner name, not read from the cluster\.$/);
+    expect(screen.queryByText(/Too many client pods/)).toBeNull();
   });
 });

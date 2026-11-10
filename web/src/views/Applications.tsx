@@ -12,7 +12,7 @@ import { AppCards } from "../components/AppCards";
 import { AppTable } from "../components/AppTable";
 import { Empty, QueryView } from "../components/common";
 import { ReplayContextLink } from "../components/ReplayEntry";
-import { APPS_FOOTNOTE, CAPTURE_GAPS, CONNZ_CUT, emptyText, NO_EVENTS, partialText, RUNS_ON_FOOTNOTE, subtitleText, toolingHiddenText, trafficNote, unwatchedText } from "../lib/appsView";
+import { APPS_FOOTNOTE, CAPTURE_GAPS, CLIENT_PODS_CAPPED, CONNZ_CUT, emptyText, NO_EVENTS, partialText, RUNS_ON_FOOTNOTE, subtitleText, toolingHiddenText, trafficNote, unwatchedText } from "../lib/appsView";
 import { accountLabeller } from "../lib/view";
 
 function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: boolean; scope: string; names: Map<string, string> }) {
@@ -49,6 +49,11 @@ function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: bo
       {d.clientPodsWatched && d.clientPodsUnwatched.length > 0 && (
         <p className="ap-notice ap-notice-warn" role="note">
           <b>Client pods not watched.</b> {unwatchedText(d.clientPodsUnwatched)}
+        </p>
+      )}
+      {d.clientPodsWatched && d.clientPodsCapped && (
+        <p className="ap-notice ap-notice-warn" role="note">
+          <b>Too many client pods.</b> {CLIENT_PODS_CAPPED}
         </p>
       )}
       {!d.eventsCaptured && d.applications.length > 0 && (

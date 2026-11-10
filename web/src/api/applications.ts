@@ -157,6 +157,8 @@ export interface Applications {
   clientPodsWatched: boolean;
   /** The client pod watches failing at the collection. */
   clientPodsUnwatched: ClientPodWatchGap[];
+  /** The client pod watch saw more pods than it keeps: the others match no connection. */
+  clientPodsCapped: boolean;
 }
 
 /** A duration in milliseconds with its fraction: a round trip of 0.69 ms must not read as 1 ms. */
@@ -222,5 +224,6 @@ export function applications(r: GetApplicationsResponse): Applications {
     captureGaps: r.captureGaps,
     clientPodsWatched: r.clientPodsWatched,
     clientPodsUnwatched: r.clientPodsUnwatched.map((g) => ({ source: g.source, since: ms(g.since), error: g.error })),
+    clientPodsCapped: r.clientPodsCapped,
   };
 }

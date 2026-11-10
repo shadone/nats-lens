@@ -108,6 +108,9 @@ type ApplicationFacts struct {
 	ClientPodsWatched bool
 	// ClientPodsUnwatched are the client pod watches failing at the epoch.
 	ClientPodsUnwatched []*v1.ClientPodWatchGap
+	// ClientPodsCapped is whether the watch saw more pods than it keeps
+	// since nats-lens last started before the epoch.
+	ClientPodsCapped bool
 }
 
 // ClientPodFact is the pod a connection's client address belonged to at
@@ -207,7 +210,7 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 		EventsCaptured: f.EventsCaptured, CaptureGaps: f.EventsCaptured && f.CaptureGaps, Partial: len(f.Missing) > 0,
 		Missing: slices.Compact(slices.Sorted(slices.Values(f.Missing))), ClientPodsWatched: f.ClientPodsWatched}
 	if f.ClientPodsWatched {
-		res.ClientPodsUnwatched = f.ClientPodsUnwatched
+		res.ClientPodsUnwatched, res.ClientPodsCapped = f.ClientPodsUnwatched, f.ClientPodsCapped
 	}
 	in := func(acc string) bool { return account == "" || AccountOf(acc) == account }
 	groups := map[string]*appGroup{}

@@ -261,7 +261,7 @@ message ClientPodWatchGap {
   // The watch, for example "client pods in shop".
   string source = 1;
 
-  // When it was first recorded as failing.
+  // When it began failing.
   google.protobuf.Timestamp since = 2;
 
   // Why, for example "Kubernetes API returned HTTP 403".
@@ -379,4 +379,9 @@ message GetApplicationsResponse {
 
   // The client pod watches failing at the epoch, by source.
   repeated ClientPodWatchGap client_pods_unwatched = 16;
+
+  // Whether the client pod watch, since nats-lens last started up to the
+  // epoch, saw more pods than it keeps (50,000): the others match no
+  // connection.
+  bool client_pods_capped = 17;
 }

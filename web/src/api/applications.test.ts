@@ -91,6 +91,7 @@ describe("applications Runs on", () => {
       }),
     );
     expect(d.clientPodsWatched).toBe(true);
+    expect(d.clientPodsCapped).toBe(false);
     expect(d.clientPodsUnwatched).toEqual([{ source: "client pods in shop", since: AT - 60_000, error: "Kubernetes API returned HTTP 403" }]);
     expect(d.applications[0].runsOn).toEqual({
       matched: 2,

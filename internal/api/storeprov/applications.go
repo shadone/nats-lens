@@ -70,6 +70,12 @@ SELECT EXISTS (SELECT 1 FROM server_stats WHERE epoch = $1 AND connz_total IS NO
 		if f.ClientPodsUnwatched, err = p.clientPodsUnwatched(ctx, e.startedAt); err != nil {
 			return nil, err
 		}
+		if err := p.db().QueryRowContext(ctx, `
+SELECT EXISTS (SELECT 1 FROM events c WHERE c.kind = 'collector.k8s_client_pods_capped' AND c.received_at <= $1
+  AND c.received_at >= coalesce((SELECT max(s.received_at) FROM events s WHERE s.kind = 'collector.started' AND s.received_at <= $1),
+    TIMESTAMP '1970-01-01'))`, e.startedAt.UTC()).Scan(&f.ClientPodsCapped); err != nil {
+			return nil, fmt.Errorf("client pods capped: %w", err)
+		}
 	}
 	return f, nil
 }
@@ -119,7 +125,8 @@ GROUP BY ALL`, us(e.startedAt), us(e.startedAt), e.epoch, account, account)
 	return rows.Err()
 }
 
-// clientPodsUnwatched are the client pod watches failing at at: those
+// clientPodsUnwatched are the client pod watches failing at at, since
+// the failure began (the event's raw since, else its time): those
 // whose latest collector.k8s_not_watching received up to at was followed
 // by no collector.k8s_gap of the same watch and no collector.started.
 // Order is by when they were received, as a gap's time is its start.
@@ -127,11 +134,11 @@ func (p *Provider) clientPodsUnwatched(ctx context.Context, at time.Time) ([]*v1
 	rows, err := p.db().QueryContext(ctx, `
 WITH s AS (
   SELECT e.id, e.kind, e.time, e.received_at, coalesce(json_extract_string(e.raw, '$.source'), '') AS src,
-    coalesce(json_extract_string(e.raw, '$.error'), '') AS error
+    coalesce(json_extract_string(e.raw, '$.error'), '') AS error, coalesce(json_extract_string(e.raw, '$.since'), '') AS since
   FROM events e
   WHERE e.source = 'collector' AND e.kind IN ('collector.started', 'collector.k8s_gap', 'collector.k8s_not_watching') AND e.received_at <= ?
 )
-SELECT n.src, n.time, n.error FROM s n
+SELECT n.src, n.time, n.error, n.since FROM s n
 WHERE n.kind = 'collector.k8s_not_watching' AND n.src LIKE 'client pods %'
   AND NOT EXISTS (SELECT 1 FROM s r WHERE r.received_at > n.received_at
     AND (r.kind = 'collector.started' OR (r.kind = 'collector.k8s_gap' AND r.src = n.src)))
@@ -145,8 +152,13 @@ ORDER BY n.src`, at.UTC())
 	for rows.Next() {
 		var g v1.ClientPodWatchGap
 		var since time.Time
-		if err := rows.Scan(&g.Source, &since, &g.Error); err != nil {
+		var began string
+		if err := rows.Scan(&g.Source, &since, &g.Error, &began); err != nil {
 			return nil, err
+		}
+		// The failure began gap_after before it was recorded.
+		if t, err := time.Parse(time.RFC3339Nano, began); err == nil && t.Before(since) {
+			since = t
 		}
 		g.Since = timestamppb.New(since.UTC())
 		out = append(out, &g)

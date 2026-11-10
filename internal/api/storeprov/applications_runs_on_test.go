@@ -18,7 +18,7 @@ func TestStoreApplicationsRunsOn(t *testing.T) {
 		t.Fatal("client pods not watched")
 	}
 	if u := res.GetClientPodsUnwatched(); len(u) != 1 || u[0].GetSource() != "client pods in payments" ||
-		!u[0].GetSince().AsTime().Equal(appsLast.Add(-20*time.Minute)) || u[0].GetError() != "Kubernetes API returned HTTP 403" {
+		!u[0].GetSince().AsTime().Equal(appsLast.Add(-21*time.Minute)) || !res.GetClientPodsCapped() || u[0].GetError() != "Kubernetes API returned HTTP 403" {
 		t.Fatalf("unwatched %v", u)
 	}
 	rw := appNamed(res, "resize-worker").GetRunsOn()
@@ -45,8 +45,8 @@ func TestStoreApplicationsRunsOn(t *testing.T) {
 	// Three hours before, rw-a's address was rw-a-old's, on node-3; no
 	// watch was failing.
 	past := appsPage(t, c, appsLast.Add(-3*time.Hour+time.Minute), "", false)
-	if len(past.GetClientPodsUnwatched()) != 0 {
-		t.Errorf("unwatched then: %v", past.GetClientPodsUnwatched())
+	if len(past.GetClientPodsUnwatched()) != 0 || past.GetClientPodsCapped() {
+		t.Errorf("unwatched then: %v, capped %v", past.GetClientPodsUnwatched(), past.GetClientPodsCapped())
 	}
 	if p := appNamed(past, "resize-worker").GetRunsOn(); p.GetMatched() != 2 || !slices.Equal(p.GetNodes(), []string{"node-2", "node-3"}) {
 		t.Errorf("resize-worker then %v", p)
