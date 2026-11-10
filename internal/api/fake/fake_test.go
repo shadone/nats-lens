@@ -425,7 +425,7 @@ func TestAcceptManyAndReviewList(t *testing.T) {
 	before := must(c.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{}))).GetTotalCount()
 	ms := must(c.AcceptFindings(ctx, connect.NewRequest(&v1.AcceptFindingsRequest{CheckCode: "stream-005",
 		Entities: []*v1.EntityRef{{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-archive"}},
-		Reason: "kept on purpose", MutedBy: "op", ExpiresAt: timestamppb.New(fake.FixedNow.Add(26 * time.Hour))}))).GetMutes()
+		Reason:   "kept on purpose", MutedBy: "op", ExpiresAt: timestamppb.New(fake.FixedNow.Add(26 * time.Hour))}))).GetMutes()
 	if len(ms) != 1 || ms[0].GetId() == "" || ms[0].GetEntity().GetKey() != "APP/order-archive" || !ms[0].GetGrowthReview() || ms[0].GrowthPerDay == nil {
 		t.Fatalf("accepted = %v", ms)
 	}

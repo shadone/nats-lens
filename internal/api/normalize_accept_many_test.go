@@ -36,10 +36,12 @@ func TestNormalizeAcceptMany(t *testing.T) {
 		t.Fatalf("%d entities: %v", MaxAcceptBatch, err)
 	}
 	bad := map[string]func(*v1.AcceptFindingsRequest){
-		"no entity":           func(m *v1.AcceptFindingsRequest) { m.Entities = nil },
-		"too many":            func(m *v1.AcceptFindingsRequest) { m.Entities = many },
-		"twice":               func(m *v1.AcceptFindingsRequest) { m.Entities = []*v1.EntityRef{consumer("a"), consumer("a")} },
-		"system":              func(m *v1.AcceptFindingsRequest) { m.Entities[1] = &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM} },
+		"no entity": func(m *v1.AcceptFindingsRequest) { m.Entities = nil },
+		"too many":  func(m *v1.AcceptFindingsRequest) { m.Entities = many },
+		"twice":     func(m *v1.AcceptFindingsRequest) { m.Entities = []*v1.EntityRef{consumer("a"), consumer("a")} },
+		"system": func(m *v1.AcceptFindingsRequest) {
+			m.Entities[1] = &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM}
+		},
 		"empty entity":        func(m *v1.AcceptFindingsRequest) { m.Entities[1] = &v1.EntityRef{} },
 		"not acceptable":      func(m *v1.AcceptFindingsRequest) { m.CheckCode = "consumer-001" },
 		"review under a day":  func(m *v1.AcceptFindingsRequest) { m.ExpiresAt = tsp(now.Add(23 * time.Hour)) },
