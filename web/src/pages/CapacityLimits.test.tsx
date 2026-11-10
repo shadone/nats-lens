@@ -48,12 +48,18 @@ describe("Capacity memory stores", () => {
 
   it("counts the servers that hold nothing in memory instead of giving them cards", async () => {
     const d = prod();
+    // nats-1 is a server of the page that holds no memory: the API leaves
+    // it out of memoryStores and counts it, so it has a file store card and
+    // no memory card.
     d.memoryStores = [store("nats-0", { used: 38 * MIB, limit: GIB })];
     d.memoryStoresEmpty = 21;
+    d.servers = [store("nats-0"), store("nats-1", { used: 0 })];
     getCapacity.mockResolvedValue(d);
     renderApp(<Capacity />, "/capacity");
     const group = within(await screen.findByRole("region", { name: "Memory stores" }));
     expect(group.getByText("21 servers hold nothing in memory and have no card.")).toBeInTheDocument();
+    expect(group.getByRole("region", { name: "Memory store nats-0" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Server nats-1" })).toBeInTheDocument();
     expect(group.queryByRole("region", { name: "Memory store nats-1" })).toBeNull();
   });
 

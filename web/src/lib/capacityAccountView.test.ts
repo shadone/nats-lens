@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GIB, MIB, stream } from "../test/fixtures/capacity";
-import { memoryEmptyLine, accountAsStore, boundText, fillsSoonText, growthLine, nextLimitText, storeUse, unboundedText } from "./capacityView";
+import { accountAsStore, boundText, fillsSoonText, growthLine, memoryEmptyLine, nextLimitText, storeUse, unboundedText } from "./capacityView";
 
 const limit = 50 * GIB;
 
