@@ -205,3 +205,26 @@ func TestTopologyReplication(t *testing.T) {
 		t.Errorf("replication =\n%v\nwant\n%v", got, want)
 	}
 }
+
+// A route of a server whose process started within the restart window
+// before the earlier collection counts no drop and no observation; after
+// the window it counts.
+func TestTopologyRouteDropsRestartWindow(t *testing.T) {
+	ids := answering("e0#1", "e1#1")
+	h := routeHistory(ids, []api.TopologyRouteConn{rconn("e0", "e1", 1), rconn("e1", "e0", 1)}, []api.TopologyRouteConn{rconn("e0", "e1", 2), rconn("e1", "e0", 2)})
+	last := h[len(h)-1]
+	count := func(startedAgo time.Duration) []string {
+		rules := api.TopologyDropRules{RestartWindow: 10 * time.Minute, Started: map[string]time.Time{"e1#1": h[0].At.Add(-startedAgo)}}
+		var out []string
+		for _, r := range api.CountTopologyDropsWith(h, 30*time.Second, last.Epoch, last.At, rules).Routes {
+			out = append(out, fmt.Sprintf("%s-%s %d/%d", r.A, r.B, r.Recent, r.Day))
+		}
+		return out
+	}
+	if got := count(5 * time.Minute); len(got) != 0 {
+		t.Errorf("e1 started 5 minutes before: %v, want no observation", got)
+	}
+	if got, want := count(15*time.Minute), []string{"e0-e1 1/1"}; !slices.Equal(got, want) {
+		t.Errorf("e1 started 15 minutes before: %v, want %v", got, want)
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -470,7 +471,11 @@ func (p *Provider) Topology(_ context.Context, req *v1.GetTopologyRequest) (*api
 		history = append(history, c)
 		prev = c
 	}
-	f.Drops = api.CountTopologyDrops(history, sampleEvery, epoch, at)
+	started := map[string]time.Time{}
+	for _, sp := range p.sc.servers {
+		started[sp.id] = s.started(sp)
+	}
+	f.Drops = api.CountTopologyDropsWith(history, sampleEvery, epoch, at, api.TopologyDropRules{RestartWindow: checks.DefaultRestartWindow, Started: started})
 	f.Replication = s.replication(at)
 	return f, nil
 }

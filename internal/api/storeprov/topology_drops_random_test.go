@@ -12,6 +12,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/storeprov"
+	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -58,7 +59,7 @@ func rndSteps(rng *rand.Rand, edgeSubMs bool) time.Duration {
 	}
 }
 
-func rndBuild(t *testing.T, seed int64, edgeSubMs bool) (*storeprov.Provider, []rndEpoch) {
+func rndBuild(t *testing.T, seed int64, edgeSubMs bool) (*storeprov.Provider, []rndEpoch, map[string]time.Time) {
 	rng := rand.New(rand.NewSource(seed))
 	st := emptyStore(t)
 	r := rows{t, st}
@@ -69,6 +70,7 @@ func rndBuild(t *testing.T, seed int64, edgeSubMs bool) (*storeprov.Provider, []
 	type srv struct {
 		name        string
 		first, last int64
+		start       time.Time
 	}
 	servers := map[string]*srv{}
 	cids := map[string]int64{} // id|gateway -> cid
@@ -112,7 +114,9 @@ func rndBuild(t *testing.T, seed int64, edgeSubMs bool) (*storeprov.Provider, []
 			}
 			id := idOf(n)
 			if servers[id] == nil {
-				servers[id] = &srv{name: n, first: e}
+				// Started up to 20 minutes before its first collection, so
+				// some route pairs fall in the restart window.
+				servers[id] = &srv{name: n, first: e, start: at.Add(-time.Duration(rrng.Intn(1200)) * time.Second)}
 			}
 			servers[id].last = e
 		}
@@ -279,11 +283,13 @@ func rndBuild(t *testing.T, seed int64, edgeSubMs bool) (*storeprov.Provider, []
 		r.add("leafnodes", map[string]any{"epoch": e, "server_id": idOf("s1"), "lid": 900000 + e, "name": "hub-x", "account": "A", "is_spoke": true})
 		hist = append(hist, ep)
 	}
+	started := map[string]time.Time{}
 	for id, s := range servers {
 		r.add("servers", map[string]any{"server_id": id, "server_name": s.name, "cluster": clusterOf[s.name], "first_epoch": s.first,
-			"last_epoch": s.last, "first_seen_at": at, "last_seen_at": at})
+			"last_epoch": s.last, "first_seen_at": at, "last_seen_at": at, "start_time": s.start})
+		started[id] = s.start
 	}
-	return &storeprov.Provider{St: st, Interval: 30 * time.Second}, hist
+	return &storeprov.Provider{St: st, Interval: 30 * time.Second}, hist, started
 }
 
 func rndNorm(d api.TopologyDrops) string {
@@ -306,7 +312,7 @@ func rndNorm(d api.TopologyDrops) string {
 }
 
 func rndCompare(t *testing.T, seed int64, edgeSubMs bool) int {
-	p, hist := rndBuild(t, seed, edgeSubMs)
+	p, hist, started := rndBuild(t, seed, edgeSubMs)
 	mismatches := 0
 	for i := range hist {
 		E := hist[i]
@@ -325,7 +331,7 @@ func rndCompare(t *testing.T, seed int64, edgeSubMs bool) int {
 			h = append(h, api.TopologyCollection{Epoch: c.n, At: c.at, Gatewayz: c.ok["GATEWAYZ"], Leafz: c.ok["LEAFZ"], Gateways: c.gw, Leafnodes: c.lf,
 				Routez: c.ok["ROUTEZ"], Routes: c.rt})
 		}
-		goD := api.CountTopologyDrops(h, 30*time.Second, E.n, E.at)
+		goD := api.CountTopologyDropsWith(h, 30*time.Second, E.n, E.at, api.TopologyDropRules{RestartWindow: checks.DefaultRestartWindow, Started: started})
 		a, b := rndNorm(f.Drops), rndNorm(goD)
 		if a != b {
 			mismatches++

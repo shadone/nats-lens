@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checks"
 	"github.com/shadone/nats-lens/internal/leafhealth"
 )
 
@@ -91,7 +93,7 @@ FROM obs o JOIN servers s USING (server_id) GROUP BY ALL`, append(window, f.Epoc
 	}); err != nil {
 		return err
 	}
-	if err := query("route drops", topologyWindow+routeDropsSQL, append(p.windowArgs(f), f.EpochAt.Add(-api.TopologyRecentWindow)), func(rows *sql.Rows) error {
+	if err := query("route drops", topologyWindow+routeDropsSQL, append(p.windowArgs(f), f.EpochAt.Add(-api.TopologyRecentWindow), p.restartWindow().Microseconds()), func(rows *sql.Rows) error {
 		d := api.TopologyRouteDrops{ObservedDay: true}
 		if err := rows.Scan(&d.A, &d.B, &d.Recent, &d.Day, &d.ObservedRecent); err != nil {
 			return err
@@ -152,7 +154,8 @@ func nextSeen(key string) string {
 
 // routeDropsSQL follows topologyWindow and counts route drops by the rule
 // of api.TopologyDrops, per pair of server names: the collections in the
-// last hour (its argument) and in the window in which a route of the pair
+// last hour (its first argument; the second is the restart window in
+// microseconds) and in the window in which a route of the pair
 // dropped, and whether a pair of collections in the last hour observed
 // one. As for leaf nodes, a route connection stored in every collection
 // from its first to its last can only have dropped after its last, which
@@ -162,10 +165,14 @@ var routeDropsSQL = `,
 rt AS (SELECT epoch, server_id, rid, remote_id FROM routes WHERE remote_id IS NOT NULL AND epoch IN (SELECT epoch FROM ep)),
 ok AS (SELECT DISTINCT epoch, server_id FROM epoch_endpoints
   WHERE endpoint = 'ROUTEZ' AND state = 'ok' AND epoch IN (SELECT epoch FROM ep)),
--- A server that answered ROUTEZ at a and at the collection after it.
+-- A server that answered ROUTEZ at a and at the collection after it, and
+-- whose process did not start within the restart window (microseconds,
+-- the second argument) before a.
 good AS (
   SELECT p.a, p.b, p.a_at >= ? AS recent, oa.server_id FROM pairs p
-  JOIN ok oa ON oa.epoch = p.a JOIN ok ob ON ob.epoch = p.b AND ob.server_id = oa.server_id),
+  JOIN ok oa ON oa.epoch = p.a JOIN ok ob ON ob.epoch = p.b AND ob.server_id = oa.server_id
+  JOIN servers sv ON sv.server_id = oa.server_id
+  WHERE NOT coalesce(sv.start_time > p.a_at - to_microseconds(?::BIGINT), false)),
 -- Server and remote pairs with a route between two collections both
 -- answered, and whether one such pair of collections is in the last hour.
 seen AS (
@@ -205,3 +212,12 @@ SELECT sa, sb, count(DISTINCT a) FILTER (WHERE is_drop AND recent), count(DISTIN
   bool_or(recent) FILTER (WHERE NOT is_drop)
 FROM named GROUP BY sa, sb
 HAVING bool_or(NOT is_drop)`
+
+// restartWindow is how long after a process started its routes count no
+// drop: checks.restart_window, else its default.
+func (p *Provider) restartWindow() time.Duration {
+	if p.Checks != nil {
+		return p.Checks.RestartWindow()
+	}
+	return checks.DefaultRestartWindow
+}

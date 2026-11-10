@@ -24,7 +24,10 @@ import (
 // many of the pair's pooled or pinned routes went, as both ends list
 // every route and a pool or a restarting link replaces them together. A
 // gap, a failed reply and a restart (a new server ID, of either end for
-// a route) count no drop. A pair of collections counts in a window when
+// a route) count no drop; nor does a route whose server or remote process
+// started within the restart window before the earlier collection, as
+// routes are replaced while a cluster settles after a start (see
+// TopologyDropRules). A pair of collections counts in a window when
 // its earlier collection lies in it.
 type TopologyDrops struct {
 	// WindowStart is the oldest collection of the window; zero without
@@ -104,10 +107,32 @@ type TopologyCollection struct {
 	Leafnodes []TopologyLeafRow
 }
 
+// TopologyDropRules are the settings of the drop rule beyond the
+// collections: a route whose server or remote process (by server ID in
+// Started) started less than RestartWindow before the earlier of two
+// collections counts neither a drop nor an observation for that pair of
+// collections. Zero counts every route.
+type TopologyDropRules struct {
+	RestartWindow time.Duration
+	Started       map[string]time.Time
+}
+
+// restarting reports whether the process id started less than the
+// restart window before t.
+func (r TopologyDropRules) restarting(id string, t time.Time) bool {
+	at, ok := r.Started[id]
+	return ok && r.RestartWindow > 0 && at.After(t.Add(-r.RestartWindow))
+}
+
 // CountTopologyDrops counts the drops of a history by the rule of
-// TopologyDrops. history runs oldest first up to the collection of epoch,
-// which starts at epochAt.
+// TopologyDrops without a restart window. history runs oldest first up to
+// the collection of epoch, which starts at epochAt.
 func CountTopologyDrops(history []TopologyCollection, interval time.Duration, epoch int64, epochAt time.Time) TopologyDrops {
+	return CountTopologyDropsWith(history, interval, epoch, epochAt, TopologyDropRules{})
+}
+
+// CountTopologyDropsWith is CountTopologyDrops with the rules.
+func CountTopologyDropsWith(history []TopologyCollection, interval time.Duration, epoch int64, epochAt time.Time, rules TopologyDropRules) TopologyDrops {
 	var d TopologyDrops
 	if len(history) == 0 {
 		return d
@@ -167,7 +192,7 @@ func CountTopologyDrops(history []TopologyCollection, interval time.Duration, ep
 				g.Recent++
 			}
 		}
-		countRouteDrops(routes, a, b, inHour)
+		countRouteDrops(routes, a, b, inHour, rules)
 		now := map[leafSite]map[leafConn]bool{}
 		for _, r := range b.Leafnodes {
 			if now[r.site()] == nil {
@@ -210,7 +235,7 @@ func CountTopologyDrops(history []TopologyCollection, interval time.Duration, ep
 
 // countRouteDrops adds the route drops between consecutive collections a
 // and b to counts, keyed by pair of server names.
-func countRouteDrops(counts map[[2]string]*TopologyRouteDrops, a, b TopologyCollection, inHour bool) {
+func countRouteDrops(counts map[[2]string]*TopologyRouteDrops, a, b TopologyCollection, inHour bool, rules TopologyDropRules) {
 	type conn struct {
 		server string
 		rid    int64
@@ -221,7 +246,8 @@ func countRouteDrops(counts map[[2]string]*TopologyRouteDrops, a, b TopologyColl
 	}
 	dropped := map[[2]string]bool{}
 	for _, r := range a.Routes {
-		if r.RemoteID == "" || !a.Routez[r.ServerID] || !b.Routez[r.ServerID] || !a.Routez[r.RemoteID] || !b.Routez[r.RemoteID] {
+		if r.RemoteID == "" || !a.Routez[r.ServerID] || !b.Routez[r.ServerID] || !a.Routez[r.RemoteID] || !b.Routez[r.RemoteID] ||
+			rules.restarting(r.ServerID, a.At) || rules.restarting(r.RemoteID, a.At) {
 			continue
 		}
 		k := pairOf(r.Server, r.Remote)
