@@ -39,6 +39,8 @@ describe("muteView", () => {
     expect(baselineText(acceptance({ growthPerDay: undefined }), fmtGrowth)).toBe("No growth baseline is recorded yet: growth is recorded once the stream has 8 days of history.");
     expect(baselineText(acceptance({ accepted: false }), fmtGrowth)).toBe("");
     expect(baselineText(acceptance({ entity: undefined }), fmtGrowth)).toBe("");
+    // An acceptance of a check without the growth review ends only at its review date.
+    expect(baselineText(acceptance({ checkCode: "stream-018", growthReview: undefined }), fmtGrowth)).toBe("");
   });
 
   it("says the review cannot run under a retention shorter than it needs", () => {

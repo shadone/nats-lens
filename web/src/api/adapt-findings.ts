@@ -41,6 +41,7 @@ export function mute(m: PMute | undefined): Mute | undefined {
     accepted: m.accepted,
     growthPerDay: m.growthPerDay,
     endReason: m.endReason,
+    ...(m.growthReview ? { growthReview: true } : {}),
   };
 }
 
@@ -74,6 +75,8 @@ export function finding(f: PFinding): Finding {
     acknowledgement: acknowledgement(f.acknowledgement),
     transitionsLastHour: f.transitionsLastHour,
     ...(f.expiry ? { expiry: true } : {}),
+    ...(f.acceptable ? { acceptable: true } : {}),
+    ...(f.growthReview ? { growthReview: true } : {}),
   };
 }
 

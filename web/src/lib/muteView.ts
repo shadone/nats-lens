@@ -54,7 +54,7 @@ function fmtRetention(ms: number): string {
  */
 export function baselineText(m: Mute, fmt: (perDay: number) => string, retentionMs = 0): string {
   const what = m.entity?.kind === "stream" ? "stream" : m.entity?.kind === "server" ? "server" : "";
-  if (!m.accepted || !what) return "";
+  if (!m.accepted || !what || !m.growthReview) return "";
   if (m.growthPerDay !== undefined) {
     // A stream's rate is one copy's, as the end reason's is; the Capacity page's /day counts every replica.
     const measure = what === "stream" ? " per copy (the Capacity page's /day counts every replica)" : "";

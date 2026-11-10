@@ -393,6 +393,7 @@ describe("FindingDetail of an accepted finding", () => {
     unmutedBy: "",
     accepted: true,
     endReason: "",
+    growthReview: true,
   };
 
   it("reads as accepted, with its review date and an End acceptance button", async () => {

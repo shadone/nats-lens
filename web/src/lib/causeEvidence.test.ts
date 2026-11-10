@@ -113,12 +113,13 @@ describe("cliCheck", () => {
 });
 
 describe("acceptable", () => {
-  it("offers acceptance for a warning or info on one entity, never a critical, the system or a muted finding", () => {
-    expect(acceptable(f("w", consumer("a")))).toBe(true);
-    expect(acceptable(f("i", ent("server", "nats-0"), { severity: "info" }))).toBe(true);
-    expect(acceptable(f("c", consumer("a"), { severity: "critical" }))).toBe(false);
-    expect(acceptable(f("s", undefined))).toBe(false);
-    expect(acceptable(f("s", ent("system", "")))).toBe(false);
-    expect(acceptable(f("m", consumer("a"), { mute: { id: "1" } as unknown as Finding["mute"] }))).toBe(false);
+  it("offers acceptance for a finding of an acceptable check on one entity, never another check, the system or a muted finding", () => {
+    const ok = { acceptable: true };
+    expect(acceptable(f("w", consumer("a"), { ...ok, checkCode: "consumer-016" }))).toBe(true);
+    expect(acceptable(f("x", consumer("a")))).toBe(false);
+    expect(acceptable(f("i", ent("server", "nats-0"), { severity: "info" }))).toBe(false);
+    expect(acceptable(f("s", undefined, ok))).toBe(false);
+    expect(acceptable(f("s", ent("system", ""), ok))).toBe(false);
+    expect(acceptable(f("m", consumer("a"), { ...ok, mute: { id: "1" } as unknown as Finding["mute"] }))).toBe(false);
   });
 });

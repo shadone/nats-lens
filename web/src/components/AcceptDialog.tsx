@@ -20,6 +20,8 @@ export interface AcceptTarget {
   checkCode: string;
   checkName: string;
   entity: Entity;
+  /** The acceptance ends early when the entity's growth changes, as its check says. */
+  growthReview: boolean;
 }
 
 export function AcceptDialog({ target, onClose, onAccepted }: { target: AcceptTarget | undefined; onClose: () => void; onAccepted?: (findingId: string, m: Mute) => void }) {
@@ -135,7 +137,7 @@ function AcceptBody({
       {need.iap && <p className="hint">The acceptance is recorded as your IAP identity.</p>}
       <p className="hint">
         The finding leaves the Overview until the review date.
-        {(target.entity.kind === "stream" || target.entity.kind === "server") && " nats-lens ends the acceptance early when its growth over a week changes by more than half."}
+        {target.growthReview && " nats-lens ends the acceptance early when its growth over a week changes by more than half."}
       </p>
       {mute.error && (
         <p className="field-err" role="alert">

@@ -37,6 +37,8 @@ function acceptTarget(s: CapacityStream): AcceptTarget {
     checkCode: ACCEPT_CHECK.code,
     checkName: ACCEPT_CHECK.name,
     entity: { kind: "stream", key: rowKey(s), name: s.stream, account: s.account, accountName: s.accountName || undefined, stream: s.stream, consumer: "", server: "" },
+    // stream-005's acceptance ends early when the stream's growth changes.
+    growthReview: true,
   };
 }
 

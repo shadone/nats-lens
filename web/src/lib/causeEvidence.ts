@@ -161,10 +161,10 @@ export function cliCheck(findings: Finding[], system: string): CliCheck | undefi
 }
 
 /**
- * Whether the Overview offers to accept the finding as by design: an
- * acceptance covers one entity, never the system, and a critical finding
- * is an outage to fix rather than a design to record.
+ * Whether the Overview offers to accept the finding as by design: its
+ * check describes a configuration choice (the catalog's acceptable, which
+ * the API enforces), it names one entity, and it is not muted already.
  */
 export function acceptable(f: Finding): boolean {
-  return f.severity !== "critical" && !!f.entity && f.entity.kind !== "system" && f.entity.kind !== "unknown" && !f.mute;
+  return !!f.acceptable && !!f.entity && f.entity.kind !== "system" && f.entity.kind !== "unknown" && !f.mute;
 }

@@ -84,14 +84,22 @@ describe("Overview cause evidence", () => {
     expect(within(card).getByText("nats consumer report -- order-jobs")).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "Copy nats CLI check" })).toBeInTheDocument();
     expect(within(card).getByText("Run with a nats context for account APP on the default system.")).toBeInTheDocument();
-    fireEvent.click(within(card).getByRole("button", { name: "Accept consumer-009 on audit-writer as by design" }));
+    // consumer-009 reports a fault, not a configuration choice.
+    expect(within(card).queryByRole("button", { name: /^Accept/ })).toBeNull();
+  });
+
+  it("offers acceptance for a check of a configuration choice, without the growth review it lacks", async () => {
+    mock([finding("c16", consumerEnt("resize-worker"), { severity: "info", checkCode: "consumer-016", checkName: "Single replica on a replicated stream", acceptable: true })]);
+    renderApp(<Overview />);
+    const card = await screen.findByRole("article", { name: "Single replica on a replicated stream: 1 finding" });
+    fireEvent.click(within(card).getByRole("button", { name: "Accept consumer-016 on resize-worker as by design" }));
     const dialog = await screen.findByRole("dialog", { name: "Accept as by design" });
-    expect(dialog).toHaveTextContent("Accepts consumer-009 Consumer creation time differs across servers for audit-writer");
-    // A consumer has no growth review.
+    expect(dialog).toHaveTextContent("Accepts consumer-016 Single replica on a replicated stream for resize-worker");
+    expect(dialog).toHaveTextContent("The finding leaves the Overview until the review date.");
     expect(dialog).not.toHaveTextContent("growth over a week");
   });
 
-  it("offers no acceptance for a critical finding", async () => {
+  it("offers no acceptance for a fault, even one it would allow by severity", async () => {
     mock([finding("crit", consumerEnt("resize-worker"), { severity: "critical", checkCode: "consumer-001", checkName: "Consumer quorum lost" })]);
     renderApp(<Overview />);
     const card = await screen.findByRole("article", { name: "Consumer quorum lost: 1 finding" });

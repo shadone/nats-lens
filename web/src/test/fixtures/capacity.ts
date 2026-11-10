@@ -63,6 +63,7 @@ export function acceptance(o: Partial<Mute> = {}): Mute {
     accepted: true,
     growthPerDay: 1024,
     endReason: "",
+    growthReview: true,
     ...o,
   };
 }

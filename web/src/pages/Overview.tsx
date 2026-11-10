@@ -25,7 +25,7 @@ import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 
 /** The finding an acceptance from a card covers. */
 function acceptTarget(f: Finding): AcceptTarget {
-  return { findingId: f.id, checkCode: f.checkCode, checkName: f.checkName, entity: f.entity! };
+  return { findingId: f.id, checkCode: f.checkCode, checkName: f.checkName, entity: f.entity!, growthReview: !!f.growthReview };
 }
 
 function Causes({ onMute }: { onMute: (f: Finding) => void }) {

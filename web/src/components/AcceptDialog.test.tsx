@@ -17,6 +17,7 @@ const target: AcceptTarget = {
   checkCode: "stream-005",
   checkName: "Stream without any limit",
   entity: { kind: "stream", key: "APP/order-archive", name: "order-archive", account: "APP", stream: "order-archive", consumer: "", server: "" },
+  growthReview: true,
 };
 
 const NOW = Date.parse("2026-10-21T14:30:00Z");

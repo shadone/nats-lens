@@ -71,6 +71,8 @@ export interface Mute {
   growthPerDay?: number;
   /** Why nats-lens ended the acceptance early; empty otherwise. */
   endReason: string;
+  /** An acceptance that ends early when its entity's growth changes, as its check says. */
+  growthReview?: boolean;
 }
 
 export interface Acknowledgement {
@@ -110,6 +112,10 @@ export interface Finding {
   transitionsLastHour: number;
   /** The check warns of an expiry (a certificate or a JWT): at warning it ranks after the other warnings; at critical as any critical finding. */
   expiry?: boolean;
+  /** The check describes a configuration choice: the finding may be accepted as by design. */
+  acceptable?: boolean;
+  /** An acceptance of the check ends early when the entity's growth changes. */
+  growthReview?: boolean;
 }
 
 export interface Transition {
