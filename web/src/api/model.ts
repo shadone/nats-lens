@@ -135,6 +135,8 @@ export interface Tally {
   flapping: number;
   resolved24h: number;
   acknowledged?: number;
+  /** Firing findings under an acceptance as by design; counted in muted as well. */
+  accepted?: number;
 }
 
 export type Unit = "count" | "bytes" | "per_second" | "percent" | "seconds" | "bytes_per_day" | "bytes_per_second" | "unknown";

@@ -97,6 +97,7 @@ export function tally(t: FindingTally | undefined): Tally {
     flapping: t?.flapping ?? 0,
     resolved24h: t?.resolved24h ?? 0,
     acknowledged: t?.acknowledged ?? 0,
+    accepted: t?.accepted ?? 0,
   };
 }
 

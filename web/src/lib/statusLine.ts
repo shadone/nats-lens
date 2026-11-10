@@ -30,3 +30,14 @@ export function statusLine(t: Tally, f: Freshness | undefined, live: boolean, no
   if (t.warning > 0) return { level: "warning", text: "Needs attention", badges };
   return { level: "ok", text: "Serving normally", badges };
 }
+
+/**
+ * The firing findings kept out of the status, plain mutes apart from
+ * acceptances: "2 muted · 3 accepted", "2 muted", "3 accepted"; empty
+ * when there are none. The tally counts acceptances within muted.
+ */
+export function quietCount(t: Tally): string {
+  const accepted = Math.min(t.accepted ?? 0, t.muted);
+  const muted = t.muted - accepted;
+  return [muted > 0 ? `${muted} muted` : "", accepted > 0 ? `${accepted} accepted` : ""].filter(Boolean).join(" · ");
+}
