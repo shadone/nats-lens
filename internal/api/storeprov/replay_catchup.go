@@ -16,7 +16,12 @@ import (
 // behind nor current, and a collection without one, are skipped; a
 // current report ends the run. Each run comes with the first collection
 // after it and the first that reported the replica current, both up to
-// B. At most replayRowLimit runs, the earliest first.
+// B. Only the runs FinishReplay may keep are read (api.ReplayCatchUp):
+// two collections or more with a peak lag of at least api.CatchUpMinLag
+// (or none), or a run that starts within ReplayEpochReach intervals of a
+// restarted process's first collection; at most replayRowLimit of them,
+// the earliest first. Only the replicas some report shows not current
+// are followed, so that a day of collections reads few rows.
 func (p *Provider) replayCatchUps(ctx context.Context, f *api.ReplayFacts, names map[string]string) error {
 	from := f.A
 	if f.EpochA != 0 {
@@ -24,33 +29,48 @@ func (p *Provider) replayCatchUps(ctx context.Context, f *api.ReplayFacts, names
 	}
 	rows, err := p.db().QueryContext(ctx, `
 WITH ep AS (SELECT epoch, started_at FROM epochs WHERE started_at >= $1 AND started_at <= $2),
+cand_s AS (
+    SELECT DISTINCT r.account, r.stream, r.peer_name FROM stream_replicas r
+    WHERE r.epoch IN (SELECT epoch FROM ep) AND NOT coalesce(r.offline, false) AND (NOT r.current OR (r.current IS NULL AND r.lag > 0))
+),
+cand_c AS (
+    SELECT DISTINCT r.account, r.stream, r.consumer, r.peer_name FROM consumer_replicas r
+    WHERE r.epoch IN (SELECT epoch FROM ep) AND NOT coalesce(r.offline, false) AND (NOT r.current OR (r.current IS NULL AND r.lag > 0))
+),
+srep AS (
+    SELECT r.* FROM stream_replicas r JOIN cand_s c ON c.account = r.account AND c.stream = r.stream AND c.peer_name = r.peer_name
+    WHERE r.epoch IN (SELECT epoch FROM ep)
+),
+crep AS (
+    SELECT r.* FROM consumer_replicas r
+    JOIN cand_c c ON c.account = r.account AND c.stream = r.stream AND c.consumer = r.consumer AND c.peer_name = r.peer_name
+    WHERE r.epoch IN (SELECT epoch FROM ep)
+),
 sheld AS (
     SELECT DISTINCT x.epoch, s.server_name, x.account, x.stream FROM stream_stats x JOIN servers s USING (server_id)
-    WHERE x.epoch IN (SELECT epoch FROM ep)
+    WHERE x.epoch IN (SELECT epoch FROM ep) AND (x.account, x.stream) IN (SELECT account, stream FROM cand_s)
 ),
 cheld AS (
     SELECT DISTINCT x.epoch, s.server_name, x.account, x.stream, x.consumer FROM consumer_stats x JOIN servers s USING (server_id)
-    WHERE x.epoch IN (SELECT epoch FROM ep)
+    WHERE x.epoch IN (SELECT epoch FROM ep) AND (x.account, x.stream, x.consumer) IN (SELECT account, stream, consumer FROM cand_c)
 ),
 obs AS (
     SELECT r.epoch, r.peer_name AS server, r.account, r.stream, '' AS consumer,
         bool_or(NOT coalesce(r.offline, false) AND (NOT r.current OR (r.current IS NULL AND r.lag > 0))) AS behind,
         bool_or(NOT coalesce(r.offline, false) AND r.current) AS cur, max(r.lag) AS lag
-    FROM stream_replicas r
+    FROM srep r
     JOIN stream_stats l ON l.epoch = r.epoch AND l.server_id = r.server_id AND l.account = r.account AND l.stream = r.stream AND l.is_leader
     JOIN sheld h ON h.epoch = r.epoch AND h.server_name = r.peer_name AND h.account = r.account AND h.stream = r.stream
-    WHERE r.epoch IN (SELECT epoch FROM ep)
     GROUP BY ALL
     UNION ALL
     SELECT r.epoch, r.peer_name, r.account, r.stream, r.consumer,
         bool_or(NOT coalesce(r.offline, false) AND (NOT r.current OR (r.current IS NULL AND r.lag > 0))),
         bool_or(NOT coalesce(r.offline, false) AND r.current), max(r.lag)
-    FROM consumer_replicas r
+    FROM crep r
     JOIN consumer_stats l ON l.epoch = r.epoch AND l.server_id = r.server_id AND l.account = r.account AND l.stream = r.stream
         AND l.consumer = r.consumer AND l.is_leader
     JOIN cheld h ON h.epoch = r.epoch AND h.server_name = r.peer_name AND h.account = r.account AND h.stream = r.stream
         AND h.consumer = r.consumer
-    WHERE r.epoch IN (SELECT epoch FROM ep)
     GROUP BY ALL
 ),
 st AS (
@@ -62,13 +82,16 @@ seq AS (
     SELECT st.*, sum(CASE WHEN state = 'current' THEN 1 ELSE 0 END) OVER (PARTITION BY server, account, stream, consumer ORDER BY epoch) AS grp
     FROM st
     WHERE state IS NOT NULL
-      AND (server, account, stream, consumer) IN (SELECT server, account, stream, consumer FROM st WHERE state = 'behind')
 ),
 runs AS (
     SELECT server, account, stream, consumer, grp, min(epoch) AS first_epoch, max(epoch) AS last_epoch, count(*) AS n,
         max(lag) AS peak, list(lag ORDER BY epoch DESC)[1] AS last_lag
     FROM seq WHERE state = 'behind'
     GROUP BY ALL
+),
+restarted AS (
+    SELECT s.server_name, s.first_seen_at FROM servers s
+    WHERE EXISTS (SELECT 1 FROM servers o WHERE o.server_name = s.server_name AND o.first_epoch < s.first_epoch)
 )
 SELECT r.server, r.account, r.stream, r.consumer, r.first_epoch, fe.started_at, r.last_epoch, le.started_at, r.n, r.peak, r.last_lag,
     nx.epoch, nx.started_at, c.epoch, ce.started_at
@@ -79,8 +102,11 @@ LEFT JOIN ep nx ON nx.epoch = (SELECT min(epoch) FROM ep WHERE epoch > r.last_ep
 LEFT JOIN seq c ON c.state = 'current' AND c.grp = r.grp + 1 AND c.server = r.server AND c.account = r.account AND c.stream = r.stream
     AND c.consumer = r.consumer
 LEFT JOIN ep ce ON ce.epoch = c.epoch
+WHERE (r.n >= 2 AND (r.peak IS NULL OR r.peak >= $4))
+   OR EXISTS (SELECT 1 FROM restarted x WHERE x.server_name = r.server AND fe.started_at >= x.first_seen_at
+       AND fe.started_at <= x.first_seen_at + to_microseconds($5::BIGINT))
 ORDER BY fe.started_at, r.server, r.account, r.stream, r.consumer
-LIMIT $3`, from, f.B, replayRowLimit+1)
+LIMIT $3`, from, f.B, replayRowLimit+1, api.CatchUpMinLag, (api.ReplayEpochReach * p.Interval).Microseconds())
 	if err != nil {
 		return fmt.Errorf("replay catch-ups: %w", err)
 	}

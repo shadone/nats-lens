@@ -24,7 +24,8 @@ import (
 //     of its new process: kept; current at 8.
 //   - nats-2's ORDERS replica: behind at 12 and 13, not reporting
 //     ORDERS itself at 14, current at 15: the end is hidden. Behind
-//     again at 20 alone, current at 21: a burst.
+//     again at 20 alone, current at 21: a burst, which the store does
+//     not read.
 //   - nats-2's PAY replica: behind at 19 to 21, current at 26 after the
 //     time without collections: the end is hidden.
 //   - nats-2's KV_cfg replica: behind at 28 to 30, still at B.
@@ -156,7 +157,6 @@ func TestReplayCatchUpsFromStore(t *testing.T) {
 		"nats-1 AAPP/ORDERS/worker 7-7 n1 peak 40 last 40 next 8 current 8",
 		"nats-2 AAPP/KV_cfg 28-30 n3 peak 18420 last 18420 next 0 current 0",
 		"nats-2 AAPP/ORDERS 12-13 n2 peak 2500 last 2500 next 14 current 15",
-		"nats-2 AAPP/ORDERS 20-20 n1 peak 2500 last 2500 next 21 current 21",
 		"nats-2 AAPP/PAY 19-21 n3 peak 7000 last 7000 next 26 current 26",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
@@ -176,9 +176,11 @@ func TestReplayCatchUpsFromStore(t *testing.T) {
 	wantSteps := []string{
 		"nats-1 catches up 1 stream and 1 consumer | Replicas of ORDERS and worker on ORDERS. Current again by 09:04:30. " +
 			"The slowest, ORDERS, took 2 min and was at most 300 operations behind.",
-		"nats-2 still catching up at B: KV_cfg 18,420 operations behind | Replicas of ORDERS, PAY and KV_cfg. " +
-			"2 streams were current by 09:12:30, but when they caught up was not observed: " +
-			"the leader did not report the replica from 09:06:30 to 09:07:00. Behind at B: KV_cfg.",
+		"nats-2 falls behind on 1 stream | Replicas of ORDERS. 1 stream was current by 09:07:00, but when it caught up was not observed: " +
+			"the replica was not reported behind or current in the collection of 09:06:30.",
+		"nats-2 falls behind on 1 stream | Replicas of PAY. 1 stream was current by 09:12:30, but when it caught up was not observed: " +
+			"no collection from 09:10:00 to 09:12:30.",
+		"nats-2 still catching up at B: KV_cfg 18,420 operations behind | Replicas of KV_cfg.",
 	}
 	if strings.Join(steps, "\n") != strings.Join(wantSteps, "\n") {
 		t.Errorf("steps:\n%s\nwant\n%s", strings.Join(steps, "\n"), strings.Join(wantSteps, "\n"))
@@ -193,6 +195,20 @@ func TestReplayCatchUpsReadLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(f.CatchUps) != 2 || !f.CatchUpsTruncated || f.CatchUps[0].FromEpoch != 7 {
+		t.Errorf("catch-ups %d, truncated %v", len(f.CatchUps), f.CatchUpsTruncated)
+	}
+}
+
+// The bursts the steps leave out do not use up the read limit: the five
+// runs kept fit a limit of five.
+func TestReplayCatchUpsLimitCountsKeptRuns(t *testing.T) {
+	p := catchUpStore(t)
+	defer storeprov.SetReplayRowLimit(5)()
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(30)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.CatchUps) != 5 || f.CatchUpsTruncated {
 		t.Errorf("catch-ups %d, truncated %v", len(f.CatchUps), f.CatchUpsTruncated)
 	}
 }
