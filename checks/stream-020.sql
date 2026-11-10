@@ -9,6 +9,7 @@ severity_rule: >-
   was published to within the lookback
 kind: operational
 acceptable: true
+accept_review: growth
 lookback: 10m
 description: >-
   A work-queue or interest stream has had no consumer in every leader report within the lookback, which cover at

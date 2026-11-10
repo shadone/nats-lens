@@ -15,7 +15,7 @@ func TestBuiltinAcceptance(t *testing.T) {
 		if !checkaccept.Acceptable(c) {
 			t.Errorf("%s is not acceptable", c)
 		}
-		if want := c == "stream-005" || c == "stream-019"; checkaccept.GrowthReview(c) != want {
+		if want := c == "stream-005" || c == "stream-019" || c == "stream-020"; checkaccept.GrowthReview(c) != want {
 			t.Errorf("%s growth review = %v, want %v", c, checkaccept.GrowthReview(c), want)
 		}
 	}
