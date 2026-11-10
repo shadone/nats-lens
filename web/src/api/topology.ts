@@ -17,10 +17,13 @@ export interface TopologyServer {
   metaLeader: boolean;
   /** Resident memory of the process; undefined when not reported and for a missing server. */
   memBytes?: number;
-  /** Far above the other servers' memory, as server-008 judges it by default. */
-  memHigh: boolean;
   jsMemoryBytes?: number;
   jsMaxMemoryBytes?: number;
+  /** The firing server-008 finding, else server-007 when the memory store is the fuller one; empty without one. */
+  memoryFindingId: string;
+  memoryFindingCode: string;
+  /** Muted or accepted. */
+  memoryFindingQuiet: boolean;
 }
 
 export interface TopologyCluster {
@@ -80,8 +83,15 @@ export interface TopologyReplication {
   lastActiveMs?: number;
   neverHeard: boolean;
   error: string;
-  notActive: boolean;
-  fallingBehind: boolean;
+  /** Tells two sources of one origin apart; empty for a mirror. */
+  sourceId: string;
+  filterSubject: string;
+  /** The firing stream-017/stream-015 (mirror) or stream-023/stream-022 (source) finding; empty without one. */
+  findingId: string;
+  findingCode: string;
+  findingDetail: string;
+  /** Muted or accepted. */
+  findingQuiet: boolean;
 }
 
 export interface TopologyLeafnode {
@@ -120,7 +130,7 @@ export interface Topology {
   unobserved: TopologyUnobserved[];
   dropsWindowStart?: number;
   collectIntervalMs?: number;
-  /** Mirrors and sources between clusters, those with a warning first. */
+  /** Mirrors and sources between clusters, those with a finding not muted first. */
   replication: TopologyReplication[];
 }
 
@@ -136,9 +146,11 @@ export function topology(r: GetTopologyResponse): Topology {
         missing: s.missing,
         metaLeader: s.metaLeader,
         memBytes: optN(s.memBytes),
-        memHigh: s.memHigh,
         jsMemoryBytes: optN(s.jsMemoryBytes),
         jsMaxMemoryBytes: optN(s.jsMaxMemoryBytes),
+        memoryFindingId: s.memoryFindingId,
+        memoryFindingCode: s.memoryFindingCode,
+        memoryFindingQuiet: s.memoryFindingQuiet,
       })),
       metaLeader: c.metaLeader,
       streamsLed: c.streamsLed,
@@ -205,8 +217,12 @@ export function topology(r: GetTopologyResponse): Topology {
       lastActiveMs: rtt(x.lastActive),
       neverHeard: x.neverHeard,
       error: x.error,
-      notActive: x.notActive,
-      fallingBehind: x.fallingBehind,
+      sourceId: x.sourceId,
+      filterSubject: x.filterSubject,
+      findingId: x.findingId,
+      findingCode: x.findingCode,
+      findingDetail: x.findingDetail,
+      findingQuiet: x.findingQuiet,
     })),
   };
 }

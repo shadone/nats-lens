@@ -3,8 +3,8 @@
 import type { ReactNode } from "react";
 import type { TopologyCluster, TopologyLeafnode, TopologyReplication, TopologyRoute } from "../api/topology";
 import { fmtBytes, fmtInt, fmtShortDuration, shortWhen } from "../lib/format";
-import { clusterLabel, lastHeard, replicationProblem, replicationWarns } from "../lib/topologyView";
-import { serverPath, streamPath } from "../lib/view";
+import { clusterLabel, lastHeard, replicationWarns } from "../lib/topologyView";
+import { findingPath, serverPath, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { Num, RLink } from "./common";
 
@@ -265,11 +265,11 @@ export function ReplicationTable({ rows }: { rows: TopologyReplication[] }) {
           </thead>
           <tbody>
             {rows.map((r) => {
-              const problem = replicationProblem(r);
               const heard = lastHeard(r);
-              const noLeader = r.leader === "" ? "no leader" : "not reported";
+              const unreported = r.leader === "" ? "leader not reported" : "not reported";
+              const warns = replicationWarns(r);
               return (
-                <tr key={`${r.account}|${r.stream}|${r.kind}|${r.originStream}`} className={replicationWarns(r) ? "warn" : undefined}>
+                <tr key={`${r.account}|${r.stream}|${r.kind}|${r.originStream}|${r.sourceId}`} className={warns ? "warn" : undefined}>
                   <th scope="row" className="mono">
                     <span className="tm-nw">
                       <StreamLink account={r.account} stream={r.originStream} /> on {clusterLabel(r.originCluster)}
@@ -278,13 +278,17 @@ export function ReplicationTable({ rows }: { rows: TopologyReplication[] }) {
                     <span className="tm-nw">
                       <StreamLink account={r.account} stream={r.stream} /> on {clusterLabel(r.cluster)}
                     </span>
-                    {problem && <small>{problem}</small>}
+                    {r.filterSubject && <small>filter {r.filterSubject}</small>}
+                    {r.findingId && (
+                      <small>
+                        <RLink to={findingPath(r.findingId)}>{r.findingCode}</RLink>
+                        {r.findingQuiet ? " (muted)" : ""}: {r.findingDetail}
+                      </small>
+                    )}
                   </th>
                   <td>{r.kind === "mirror" ? "Mirror" : "Source"}</td>
-                  <td className={`mono${r.fallingBehind ? " tp-warn" : ""}`}>
-                    {r.lag === undefined ? <Unset why={noLeader} /> : fmtInt(r.lag)}
-                  </td>
-                  <td className={`mono${r.notActive ? " tp-warn" : ""}`}>{heard ?? <Unset why={noLeader} />}</td>
+                  <td className="mono">{r.lag === undefined ? <Unset why={unreported} /> : fmtInt(r.lag)}</td>
+                  <td className="mono">{heard ?? <Unset why={unreported} />}</td>
                   <td className="mono">
                     <AccountName id={r.account} name={r.accountName} />
                   </td>
@@ -294,7 +298,7 @@ export function ReplicationTable({ rows }: { rows: TopologyReplication[] }) {
           </tbody>
         </table>
       </div>
-      <p className="tp-foot">Lag and last heard are the copying stream leader&apos;s report. Mirrors and sources inside one cluster are not listed.</p>
+      <p className="tp-foot">Lag and last heard are the copying stream leader&apos;s report; a row is in the warning colour while a stream check fires about it. Mirrors and sources inside one cluster are not listed.</p>
     </Card>
   );
 }

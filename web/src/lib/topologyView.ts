@@ -167,37 +167,28 @@ export function routeLineParts(c: TopologyCluster, routes: TopologyRoute[]): { p
   return { parts, warn: drops > 0 || down > 0 };
 }
 
-/** The share of its limit at which a JetStream memory store is high: server-007's default warn_ratio. */
-export const JS_MEMORY_WARN = 0.75;
+/**
+ * The JetStream memory store against its limit in words, and "JS 4%", its
+ * share, at least 1%, only when it holds anything; undefined when not
+ * reported.
+ */
+export function jsMemoryShare(s: TopologyServer): { short?: string; text: string } | undefined {
+  if (s.jsMemoryBytes === undefined || s.jsMaxMemoryBytes === undefined || s.jsMaxMemoryBytes <= 0) return undefined;
+  const text = `JetStream memory ${fmtBytes(s.jsMemoryBytes)} of ${fmtBytes(s.jsMaxMemoryBytes)}`;
+  if (s.jsMemoryBytes <= 0) return { text };
+  return { short: `JS ${Math.max(1, Math.round((s.jsMemoryBytes / s.jsMaxMemoryBytes) * 100))}%`, text };
+}
 
-/** A server chip's memory figure and the reason it is in the warning colour, if any. */
-export function serverMemory(s: TopologyServer): { text?: string; warn?: string; title?: string } {
+/** A server chip's memory figure, its JetStream memory store, and the finding that puts it in the warning colour, if any. */
+export function serverMemory(s: TopologyServer): { text?: string; js?: { short?: string; text: string }; warn?: string } {
   if (s.memBytes === undefined) return {};
-  const text = fmtBytes(s.memBytes);
-  const parts = [`memory ${text}`];
-  let warn: string | undefined;
-  if (s.memHigh) warn = "memory far above the other servers";
-  if (s.jsMemoryBytes !== undefined && s.jsMaxMemoryBytes !== undefined && s.jsMaxMemoryBytes > 0) {
-    const share = s.jsMemoryBytes / s.jsMaxMemoryBytes;
-    parts.push(`JetStream memory ${fmtBytes(s.jsMemoryBytes)} of ${fmtBytes(s.jsMaxMemoryBytes)}`);
-    if (share >= JS_MEMORY_WARN) warn ??= `JetStream memory ${Math.floor(share * 100)}% of its limit`;
-  }
-  return { text, warn, title: parts.join("; ") };
+  const warn = s.memoryFindingId && !s.memoryFindingQuiet ? `${s.memoryFindingCode} fires` : undefined;
+  return { text: fmtBytes(s.memBytes), js: jsMemoryShare(s), warn };
 }
 
-/** Whether a mirror or source between clusters is drawn in the warning colour. */
+/** Whether a mirror or source between clusters is drawn in the warning colour: a finding about it fires and is not muted. */
 export function replicationWarns(r: TopologyReplication): boolean {
-  return r.error !== "" || r.notActive || r.fallingBehind;
-}
-
-/** What is wrong with a copy, in words: "falling behind: 1,500 messages, 1,200 in the collection before". */
-export function replicationProblem(r: TopologyReplication): string | undefined {
-  const parts: string[] = [];
-  if (r.notActive) parts.push(r.neverHeard ? "never heard from its origin" : `not heard from its origin for ${fmtDuration(r.lastActiveMs ?? 0)}`);
-  if (r.fallingBehind && r.lag !== undefined && r.lagBefore !== undefined)
-    parts.push(`falling behind: ${plural(r.lag, "message")}, ${fmtInt(r.lagBefore)} in the collection before`);
-  if (r.error) parts.push(`error: ${r.error}`);
-  return parts.length > 0 ? parts.join("; ") : undefined;
+  return r.findingId !== "" && !r.findingQuiet;
 }
 
 /** "0.8 s ago", "never", or undefined when not reported. */

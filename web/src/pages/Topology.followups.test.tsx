@@ -3,7 +3,7 @@ import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as requests from "../api/requests";
 import type { Topology as TopologyData } from "../api/topology";
-import { lastHeard, replicationProblem, routeLineParts, serverMemory } from "../lib/topologyView";
+import { lastHeard, routeLineParts, serverMemory } from "../lib/topologyView";
 import { cluster, copy, global, route } from "../test/fixtures/topology";
 import { renderApp } from "../test/render";
 import { Topology } from "./Topology";
@@ -21,10 +21,21 @@ function followups(): TopologyData {
   t.routes.push(route("us", "nats-us-0", "nats-us-2", { rttMs: undefined, pendingBytes: undefined, pool: undefined, down: true, drops1h: 0, drops24h: 1, reportedBy: [] }));
   const eu = t.clusters[1];
   eu.servers = eu.servers.map((s, i) => ({ ...s, memBytes: (100 + 10 * i) * MIB, jsMemoryBytes: 0, jsMaxMemoryBytes: 2048 * MIB }));
-  eu.servers[3] = { ...eu.servers[3], memBytes: 900 * MIB, memHigh: true };
+  eu.servers[2] = { ...eu.servers[2], jsMemoryBytes: 80 * MIB };
+  eu.servers[3] = { ...eu.servers[3], memBytes: 900 * MIB, memoryFindingId: "server-008:nats-eu-3", memoryFindingCode: "server-008" };
+  eu.servers[1] = { ...eu.servers[1], memoryFindingId: "server-007:nats-eu-1", memoryFindingCode: "server-007", memoryFindingQuiet: true };
   t.replication = [
-    copy("search-index", "ap", "catalog-changes", "us", { kind: "source", lag: 18_400, lagBefore: 12_100, fallingBehind: true }),
-    copy("order-archive", "ap", "order-events", "eu"),
+    copy("search-index", "ap", "catalog-changes", "us", {
+      kind: "source",
+      sourceId: "a1",
+      lag: 18_400,
+      lagBefore: 12_100,
+      findingId: "stream-022:APP/search-index",
+      findingCode: "stream-022",
+      findingDetail: "Leader nats-ap-0: catalog-changes: not heard from its origin for 3m.",
+    }),
+    copy("search-index", "ap", "catalog-changes", "us", { kind: "source", sourceId: "b2", filterSubject: "catalog.eu.>" }),
+    copy("order-archive", "ap", "order-events", "eu", { leader: "", lag: undefined, lastActiveMs: undefined }),
   ];
   return t;
 }
@@ -70,34 +81,53 @@ describe("Topology follow-ups", () => {
     expect(cells[4]).toHaveTextContent(/^– down$/);
   });
 
-  it("shows each server's memory under its name and marks one far above the others", async () => {
+  it("shows each server's memory and JetStream share, and the memory finding beside the chip", async () => {
     vi.mocked(requests.getTopology).mockResolvedValue(followups());
     renderApp(<Topology />, "/topology");
     const map = await region(/Map of clusters/);
-    const plain = await map.findByRole("link", { name: "nats-eu-0, memory 100 MiB" });
+    const plain = await map.findByRole("link", { name: "nats-eu-0, memory 100 MiB; JetStream memory 0 B of 2 GiB" });
     expect(plain).not.toHaveClass("warn");
-    expect(plain).toHaveTextContent("nats-eu-0100 MiB");
-    const high = map.getByRole("link", { name: "nats-eu-3, memory 900 MiB, memory far above the other servers" });
+    const shown = (el: HTMLElement) => [...el.querySelectorAll(".tm-mem")].map((e) => e.textContent);
+    expect(shown(plain)).toEqual(["100 MiB"]);
+    // The JetStream share is visible when the store holds anything.
+    const js = map.getByRole("link", { name: "nats-eu-2, memory 120 MiB; JetStream memory 80 MiB of 2 GiB" });
+    expect(shown(js)).toEqual(["120 MiB", "JS 4%"]);
+    const high = map.getByRole("link", { name: "nats-eu-3, memory 900 MiB; JetStream memory 0 B of 2 GiB, server-008 fires" });
     expect(high).toHaveClass("warn");
-    expect(high).toHaveAttribute("title", "nats-eu-3: memory far above the other servers: memory 900 MiB; JetStream memory 0 B of 2 GiB");
-    // A server without a reading has no figure.
+    const finding = map.getByRole("link", { name: "server-008" });
+    expect(finding).toHaveAttribute("href", "/findings/server-008%3Anats-eu-3");
+    expect(finding).toHaveClass("tp-warn");
+    // A muted finding is linked, not in the warning colour.
+    expect(map.getByRole("link", { name: /^nats-eu-1, memory 110 MiB/ })).not.toHaveClass("warn");
+    const quietLink = map.getByRole("link", { name: /^server-007/ });
+    expect(quietLink).toHaveTextContent("server-007 (muted)");
+    expect(quietLink).not.toHaveClass("tp-warn");
     expect(map.getByRole("link", { name: "nats-ap-0" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Capacity" })).toHaveAttribute("href", "/capacity");
   });
 
-  it("lists mirrors and sources between clusters, those with a warning first, and notes them on the cluster", async () => {
+  it("lists mirrors and sources between clusters, those with a finding first, and notes them on the cluster", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(requests.getTopology).mockResolvedValue(followups());
     renderApp(<Topology />, "/topology");
     const table = await screen.findByRole("region", { name: "Replication between clusters" });
+    // Two sources of one origin keep keys of their own.
+    expect(errors.mock.calls.filter((c) => String(c[0]).includes("same key"))).toEqual([]);
+    errors.mockRestore();
     const rows = within(table).getAllByRole("row").slice(1);
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
     expect(rows[0]).toHaveClass("warn");
     expect(within(rows[0]).getByRole("rowheader")).toHaveTextContent(
-      "catalog-changes on us → search-index on apfalling behind: 18,400 messages, 12,100 in the collection before",
+      "catalog-changes on us → search-index on apstream-022: Leader nats-ap-0: catalog-changes: not heard from its origin for 3m.",
     );
+    expect(within(rows[0]).getByRole("link", { name: "stream-022" })).toHaveAttribute("href", "/findings/stream-022%3AAPP%2Fsearch-index");
     expect(within(rows[0]).getAllByRole("cell").map((c) => c.textContent)).toEqual(["Source", "18,400", "800 ms ago", "APP"]);
+    // A second source of the same origin, told apart by its filter.
     expect(rows[1]).not.toHaveClass("warn");
-    expect(within(rows[1]).getByRole("link", { name: "order-events" })).toHaveAttribute("href", "/streams/APP/order-events");
+    expect(within(rows[1]).getByRole("rowheader")).toHaveTextContent("filter catalog.eu.>");
+    // Without the leader's report.
+    expect(within(rows[2]).getAllByRole("cell")[1]).toHaveTextContent(/^– leader not reported$/);
+    expect(within(rows[2]).getByRole("link", { name: "order-events" })).toHaveAttribute("href", "/streams/APP/order-events");
     const ap = (await region(/Map of clusters/)).getByRole("button", { name: "ap, show its routes" }).closest(".tm-box")!;
     expect(ap.querySelector(".tm-note")).toHaveTextContent("4 streams led · gateway to us dropping · mirrors from eu · sources from us");
   });
@@ -111,21 +141,17 @@ describe("Topology follow-ups", () => {
 });
 
 describe("topology view rules", () => {
-  it("words a copy's problems and when it last heard", () => {
-    expect(replicationProblem(copy("a", "ap", "b", "eu"))).toBeUndefined();
-    expect(replicationProblem(copy("a", "ap", "b", "eu", { notActive: true, lastActiveMs: 190_000 }))).toBe("not heard from its origin for 3m");
-    expect(replicationProblem(copy("a", "ap", "b", "eu", { notActive: true, neverHeard: true, lastActiveMs: undefined }))).toBe("never heard from its origin");
-    expect(replicationProblem(copy("a", "ap", "b", "eu", { error: "stream not found" }))).toBe("error: stream not found");
+  it("words when a copy last heard", () => {
     expect(lastHeard(copy("a", "ap", "b", "eu", { lastActiveMs: 1200 }))).toBe("1.2 s ago");
     expect(lastHeard(copy("a", "ap", "b", "eu", { lastActiveMs: 190_000 }))).toBe("3m ago");
     expect(lastHeard(copy("a", "ap", "b", "eu", { neverHeard: true, lastActiveMs: undefined }))).toBe("never");
     expect(lastHeard(copy("a", "ap", "b", "eu", { lastActiveMs: undefined }))).toBeUndefined();
   });
 
-  it("marks a JetStream memory store at 75% of its limit, and nothing without a reading", () => {
-    const s = { name: "n", missing: false, metaLeader: false, memHigh: false, memBytes: 100 * MIB, jsMemoryBytes: 1536 * MIB, jsMaxMemoryBytes: 2048 * MIB };
-    expect(serverMemory(s).warn).toBe("JetStream memory 75% of its limit");
-    expect(serverMemory({ ...s, jsMemoryBytes: 1535 * MIB }).warn).toBeUndefined();
+  it("gives the JetStream share at least 1% when the store holds anything, and nothing without a reading", () => {
+    const s = { name: "n", missing: false, metaLeader: false, memBytes: 100 * MIB, jsMemoryBytes: 1 * MIB, jsMaxMemoryBytes: 2048 * MIB, memoryFindingId: "", memoryFindingCode: "", memoryFindingQuiet: false };
+    expect(serverMemory(s)).toEqual({ text: "100 MiB", js: { short: "JS 1%", text: "JetStream memory 1 MiB of 2 GiB" }, warn: undefined });
+    expect(serverMemory({ ...s, jsMemoryBytes: 0 }).js).toEqual({ text: "JetStream memory 0 B of 2 GiB" });
     expect(serverMemory({ ...s, memBytes: undefined })).toEqual({});
   });
 

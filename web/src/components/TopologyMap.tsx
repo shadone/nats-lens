@@ -24,7 +24,7 @@ import {
   rowLayout,
   serverMemory,
 } from "../lib/topologyView";
-import { serverPath } from "../lib/view";
+import { findingPath, serverPath } from "../lib/view";
 import { Num, RLink } from "./common";
 
 interface Props {
@@ -219,21 +219,31 @@ function ClusterBox(p: { c: TopologyCluster; t: Topology; dropping: Set<string>;
         {c.servers.map((s) => {
           const mem = serverMemory(s);
           const why = s.missing ? "missing" : p.dropping.has(s.name) ? "gateway dropping" : (mem.warn ?? "");
-          const title = [s.name, why, mem.title].filter(Boolean).join(": ");
+          const facts = [mem.text && `memory ${mem.text}`, mem.js?.text].filter(Boolean).join("; ");
+          const title = [s.name, why, facts].filter(Boolean).join(": ");
           return (
             <li key={s.name}>
               <RLink to={serverPath(s.name)} className={`tm-chip mono${why ? " warn" : ""}`} title={title}>
                 {s.name}
                 {mem.text && (
-                  <>
-                    <span className="tm-mem" aria-hidden="true">
-                      {mem.text}
-                    </span>
-                    <span className="sr-only">{`, memory ${mem.text}`}</span>
-                  </>
+                  <span className="tm-mem" aria-hidden="true">
+                    {mem.text}
+                  </span>
                 )}
+                {mem.js?.short && (
+                  <span className="tm-mem" aria-hidden="true">
+                    {mem.js.short}
+                  </span>
+                )}
+                {facts && <span className="sr-only">{`, ${facts}`}</span>}
                 {why && <span className="sr-only">{`, ${why}`}</span>}
               </RLink>
+              {s.memoryFindingId && (
+                <RLink to={findingPath(s.memoryFindingId)} className={`tm-finding mono${s.memoryFindingQuiet ? "" : " tp-warn"}`}>
+                  {s.memoryFindingCode}
+                  {s.memoryFindingQuiet && <span className="sr-only">{" (muted)"}</span>}
+                </RLink>
+              )}
             </li>
           );
         })}
