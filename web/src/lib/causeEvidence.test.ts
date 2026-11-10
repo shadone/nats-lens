@@ -68,6 +68,12 @@ describe("serverRows", () => {
     expect(unplaced.map((x) => x.id)).toEqual(["g"]);
     expect(rows.map((r) => `${r.server}:${r.assets[0].state}`).sort()).toEqual(["nats-1:connection", "nats-2:server"]);
   });
+
+  it("counts a stream the answer does not hold yet neither as placed nor as unplaced", () => {
+    const { rows, unplaced } = serverRows([f("x", ent("stream", "APP/new"))], new Map());
+    expect(rows).toEqual([]);
+    expect(unplaced).toEqual([]);
+  });
 });
 
 describe("evidenceEntities", () => {

@@ -50,8 +50,8 @@ const TROUBLED: PlacementStateName[] = ["behind", "offline", "missing", "disagre
 /**
  * The servers that hold the findings' assets, most troubled first, then
  * the one that leads the most, then the one that holds the most, then by
- * name; and the streams and consumers no server holds in the newest
- * collection. A server finding is on its server, a connection's on the
+ * name; and the streams and consumers the placement reports no server
+ * holds in the newest collection. A server finding is on its server, a connection's on the
  * server it is connected to; accounts, clients and the system are on none.
  */
 export function serverRows(findings: Finding[], placement: Map<string, AssetPlacement>): { rows: ServerRow[]; unplaced: Finding[] } {
@@ -69,8 +69,10 @@ export function serverRows(findings: Finding[], placement: Map<string, AssetPlac
     if (e?.kind === "server") add(e.server || e.key, { finding: f, state: "server" });
     else if (e?.kind === "connection" && e.server) add(e.server, { finding: f, state: "connection" });
     else if (placed(e)) {
+      // An asset the answer does not hold yet, as while a placeholder stands in, is neither placed nor unplaced.
       const p = placement.get(e.key);
-      if (!p?.reported) unplaced.push(f);
+      if (!p) continue;
+      if (!p.reported) unplaced.push(f);
       else for (const r of p.replicas) if (r.server) add(r.server, { finding: f, state: r.state });
     }
   }
