@@ -44,7 +44,8 @@ describe("withGlobal", () => {
     for (const to of ["/servers", "/servers/nats-1", "/servers/slow-consumers"]) expect(withGlobal(to, g)).toBe(`${to}?system=a&account=APP`);
     // The Overview applies it to its findings and lists; its Timeline pages read the whole system.
     expect(withGlobal("/", g)).toBe("/?system=a&account=APP");
-    for (const to of ["/timeline/events", "/streams", "/findings", "/events", "/fleet"]) expect(withGlobal(to, g)).toBe(`${to}?system=a`);
+    expect(withGlobal("/findings?check=consumer-009", g)).toBe("/findings?check=consumer-009&system=a&account=APP");
+    for (const to of ["/timeline/events", "/streams", "/events", "/fleet"]) expect(withGlobal(to, g)).toBe(`${to}?system=a`);
   });
 
   it("leaves a link alone without global parameters", () => {

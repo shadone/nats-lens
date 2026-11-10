@@ -141,6 +141,13 @@ describe("Overview findings by account", () => {
     await waitFor(() => expect(screen.queryByText("Across accounts")).toBeNull());
   });
 
+  it("keeps the account on the card's link to the rest of its findings", async () => {
+    mock(Array.from({ length: 9 }, (_, i) => finding(`c${i}`, consumerEnt(`w${i}`))));
+    renderApp(<Overview />, "/?account=APP");
+    const more = await screen.findByRole("link", { name: "1 more" });
+    expect(more.getAttribute("href")).toBe("/findings?check=consumer-009&account=APP");
+  });
+
   it("says one finding in the singular and nothing unscoped", async () => {
     mock([finding("srv", serverEnt("nats-eu-2"), { checkCode: "server-001", checkName: "Server not reporting" })], 1);
     renderApp(<Overview />, "/?account=APP");

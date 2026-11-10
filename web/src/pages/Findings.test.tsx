@@ -132,3 +132,15 @@ it.each([
  m.listFindings.mockClear().mockResolvedValue(page([]));m.listMutes.mockResolvedValue(page([]));renderApp(<Findings/>,`/findings?sev=${encodeURIComponent(raw)}`);
  await waitFor(()=>expect(m.listFindings).toHaveBeenCalled());expect(m.listFindings.mock.calls.at(-1)?.[2].severities).toEqual(want);
 });
+
+describe("Findings in an account scope", () => {
+  it("asks for the scoped account's findings, counts the others and offers all accounts", async () => {
+    vi.mocked(m.listFindings).mockResolvedValue({ ...page([finding(acceptance())]), otherAccountCount: 3 });
+    vi.mocked(m.listMutes).mockResolvedValue(page([]));
+    renderApp(<Findings />, "/findings?account=APP&check=stream-005");
+    expect(await screen.findByText(/3 findings of other accounts are not shown; findings of servers, clients and the system are, as they concern every account\./)).toBeInTheDocument();
+    expect(vi.mocked(m.listFindings).mock.calls[0][2]).toMatchObject({ account: "APP", checkCode: "stream-005" });
+    screen.getByRole("button", { name: "Show all accounts" }).click();
+    await waitFor(() => expect(vi.mocked(m.listFindings).mock.calls.at(-1)?.[2]).toMatchObject({ account: "" }));
+  });
+});

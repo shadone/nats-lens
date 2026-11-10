@@ -14,7 +14,7 @@ import { fmtDuration, isoMinute } from "../lib/format";
 import { accountLabeller, entityName, LEVEL_LABEL } from "../lib/view";
 import { endedByLens, muteActive, muteBy, reviewOn, sentence } from "../lib/muteView";
 import { usePageTitle } from "../lib/usePageTitle";
-import { useSystem } from "../lib/useSystem";
+import { useAccountScope, useSystem } from "../lib/useSystem";
 import { rangeKey } from "../lib/timeRange";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 
@@ -133,8 +133,10 @@ export function Findings() {
   const check = params.get("check") ?? "";
   const [checkText, setCheckText] = useState(check);
   const [muteAccounts, setMuteAccounts] = useState<Entity[]>([]);
-  const pager = usePager([useSystem(), sev.join(), stateId, muted, check, rangeKey(spec)].join("|"));
+  const [account, setAccount] = useAccountScope();
+  const pager = usePager([useSystem(), sev.join(), stateId, muted, check, account, rangeKey(spec)].join("|"));
   const q = useFindings(spec, {
+    account,
     severities: sev,
     states: STATES.find((s) => s.id === stateId)!.states,
     includeMuted: muted,
@@ -198,11 +200,19 @@ export function Findings() {
           return (
             <div className="card others">
               {page.items.length === 0 ? (
-                <Empty>{stateId === "open" && sev.length === 0 && !check ? "All clear: no finding fires in this range." : "No findings match these filters."}</Empty>
+                <Empty>{stateId === "open" && sev.length === 0 && !check && !account ? "All clear: no finding fires in this range." : "No findings match these filters."}</Empty>
               ) : (
                 page.items.map((f) => <FindingRow key={f.id} f={f} end={end} rangeStart={start} label={label} />)
               )}
               <Pager page={pager.page} next={page.nextPageToken} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} total={page.totalCount} shown={page.items.length} />
+              {account && (page.otherAccountCount ?? 0) > 0 && (
+                <p className="muted-note">
+                  {page.otherAccountCount === 1 ? "1 finding of another account is" : `${page.otherAccountCount} findings of other accounts are`} not shown; findings of servers, clients and the system are, as they concern every account.{" "}
+                  <button type="button" className="linkish" onClick={() => setAccount("")}>
+                    Show all accounts
+                  </button>
+                </p>
+              )}
             </div>
           );
         }}

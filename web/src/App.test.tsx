@@ -181,7 +181,7 @@ describe("sidebar", () => {
     for (const a of within(nav()).getAllByRole("link")) {
       const p = params(a.getAttribute("href"));
       const name = a.textContent?.replace(/\d+$/, "");
-      const scoped = ["Overview", "Checks", "Servers", "Subjects", "Micro services", "Applications", "Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
+      const scoped = ["Overview", "Findings", "Checks", "Servers", "Subjects", "Micro services", "Applications", "Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
       expect([name, p.get("system"), p.get("range"), p.get("account")]).toEqual([name, "example-global", "6h", scoped]);
     }
   });
@@ -539,7 +539,7 @@ describe("header", () => {
   });
 
   it("shows the account scope only on pages that apply it", async () => {
-    for (const [path, shown] of [["/consumers", true], ["/connections", true], ["/kv-stores", true], ["/object-stores", true], ["/servers", false], ["/streams", false], ["/", true], ["/timeline/events", false], ["/consumers/APP/order-jobs/resize-worker", false]] as const) {
+    for (const [path, shown] of [["/consumers", true], ["/connections", true], ["/kv-stores", true], ["/object-stores", true], ["/servers", false], ["/streams", false], ["/", true], ["/findings", true], ["/timeline/events", false], ["/consumers/APP/order-jobs/resize-worker", false]] as const) {
       const { unmount } = renderApp(<App />, `${path}?system=example-prod`);
       expect([path, screen.queryByRole("button", { name: /accounts|^Account:/ }) !== null]).toEqual([path, shown]);
       unmount();
