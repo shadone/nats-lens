@@ -161,6 +161,19 @@ func TestCreateMuteRefusesAnAcceptedEntity(t *testing.T) {
 			t.Fatalf("mute %s %q: %v", m.CheckCode, m.EntityKey, err)
 		}
 	}
+	// An acceptance past its review date blocks nothing, from the
+	// moment it expires.
+	addFinding(t, s, "consumer-016", "consumer", "APP/orders/b", "firing")
+	short := acc
+	short.EntityKey, short.ExpiresAt = "APP/orders/b", t0.Add(3*time.Hour)
+	if _, err := s.CreateAcceptances(ctx, []Mute{short}, t0); err != nil {
+		t.Fatal(err)
+	}
+	expired := plain
+	expired.EntityKey, expired.CreatedAt, expired.ExpiresAt = "APP/orders/b", t0.Add(3*time.Hour), t0.Add(4*time.Hour)
+	if _, err := s.CreateMute(ctx, expired); err != nil {
+		t.Fatalf("mute at the acceptance's review date: %v", err)
+	}
 	if _, err := s.UnmuteMute(ctx, got[0].ID, "op", t0.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
