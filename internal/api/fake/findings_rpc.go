@@ -18,8 +18,13 @@ import (
 func (p *Provider) ListFindings(_ context.Context, req *v1.ListFindingsRequest) (*v1.ListFindingsResponse, error) {
 	s := p.scen()
 	var out []*v1.Finding
+	other := 0
 	for _, f := range p.findings(s) {
-		if keepFinding(f, req) {
+		switch {
+		case !keepFinding(f, req):
+		case api.OtherAccount(f, req.GetAccount()):
+			other++
+		default:
 			out = append(out, f)
 		}
 	}
@@ -27,7 +32,7 @@ func (p *Provider) ListFindings(_ context.Context, req *v1.ListFindingsRequest) 
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ListFindingsResponse{Findings: page, NextPageToken: next, TotalCount: int32(len(out))}, nil
+	return &v1.ListFindingsResponse{Findings: page, NextPageToken: next, TotalCount: int32(len(out)), OtherAccountCount: int32(other)}, nil
 }
 
 func keepFinding(f *v1.Finding, req *v1.ListFindingsRequest) bool {

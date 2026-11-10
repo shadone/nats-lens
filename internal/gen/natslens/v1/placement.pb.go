@@ -752,6 +752,204 @@ func (x *PlacementObservation) GetDiffers() []string {
 	return nil
 }
 
+// Request for where a few streams and consumers sit: the servers that hold
+// their replicas in the range's newest epoch.
+type ListAssetPlacementRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Range whose newest epoch is read. Unset means the last 24 hours up to
+	// now.
+	Range *TimeRange `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System string `protobuf:"bytes,2,opt,name=system,proto3" json:"system,omitempty"`
+	// Streams and consumers, by type and key; at most 200, no other type.
+	// A repeated entity is answered once.
+	Entities      []*EntityRef `protobuf:"bytes,3,rep,name=entities,proto3" json:"entities,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAssetPlacementRequest) Reset() {
+	*x = ListAssetPlacementRequest{}
+	mi := &file_natslens_v1_placement_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAssetPlacementRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAssetPlacementRequest) ProtoMessage() {}
+
+func (x *ListAssetPlacementRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_placement_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAssetPlacementRequest.ProtoReflect.Descriptor instead.
+func (*ListAssetPlacementRequest) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_placement_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListAssetPlacementRequest) GetRange() *TimeRange {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
+func (x *ListAssetPlacementRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
+func (x *ListAssetPlacementRequest) GetEntities() []*EntityRef {
+	if x != nil {
+		return x.Entities
+	}
+	return nil
+}
+
+// Where one stream or consumer sits.
+type AssetPlacement struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The stream or consumer, as asked.
+	Entity *EntityRef `protobuf:"bytes,1,opt,name=entity,proto3" json:"entity,omitempty"`
+	// Whether a server reports the asset, or its leader names a replica of
+	// it, in the epoch read; false leaves leader and replicas empty.
+	Reported bool `protobuf:"varint,2,opt,name=reported,proto3" json:"reported,omitempty"`
+	// Server name of the leader; empty without one.
+	Leader string `protobuf:"bytes,3,opt,name=leader,proto3" json:"leader,omitempty"`
+	// One entry per server that holds or is assigned a replica, by the
+	// rule of the placement matrix's cells: the leader first, the rest by
+	// server name. Configured replicas that no server names are left out.
+	Replicas      []*ReplicaPlacement `protobuf:"bytes,4,rep,name=replicas,proto3" json:"replicas,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssetPlacement) Reset() {
+	*x = AssetPlacement{}
+	mi := &file_natslens_v1_placement_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssetPlacement) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssetPlacement) ProtoMessage() {}
+
+func (x *AssetPlacement) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_placement_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssetPlacement.ProtoReflect.Descriptor instead.
+func (*AssetPlacement) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_placement_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *AssetPlacement) GetEntity() *EntityRef {
+	if x != nil {
+		return x.Entity
+	}
+	return nil
+}
+
+func (x *AssetPlacement) GetReported() bool {
+	if x != nil {
+		return x.Reported
+	}
+	return false
+}
+
+func (x *AssetPlacement) GetLeader() string {
+	if x != nil {
+		return x.Leader
+	}
+	return ""
+}
+
+func (x *AssetPlacement) GetReplicas() []*ReplicaPlacement {
+	if x != nil {
+		return x.Replicas
+	}
+	return nil
+}
+
+// The placement of the assets asked for, in the order asked.
+type ListAssetPlacementResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One entry per distinct entity of the request.
+	Assets []*AssetPlacement `protobuf:"bytes,1,rep,name=assets,proto3" json:"assets,omitempty"`
+	// When the epoch read started; unset when the range holds none.
+	EpochAt       *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=epoch_at,json=epochAt,proto3" json:"epoch_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAssetPlacementResponse) Reset() {
+	*x = ListAssetPlacementResponse{}
+	mi := &file_natslens_v1_placement_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAssetPlacementResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAssetPlacementResponse) ProtoMessage() {}
+
+func (x *ListAssetPlacementResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_placement_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAssetPlacementResponse.ProtoReflect.Descriptor instead.
+func (*ListAssetPlacementResponse) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_placement_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ListAssetPlacementResponse) GetAssets() []*AssetPlacement {
+	if x != nil {
+		return x.Assets
+	}
+	return nil
+}
+
+func (x *ListAssetPlacementResponse) GetEpochAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EpochAt
+	}
+	return nil
+}
+
 var File_natslens_v1_placement_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_placement_proto_rawDesc = "" +
@@ -821,7 +1019,19 @@ const file_natslens_v1_placement_proto_rawDesc = "" +
 	"\ttruncated\x18\x06 \x01(\bR\ttruncated\x12\x1a\n" +
 	"\bboundary\x18\a \x01(\tR\bboundary\x121\n" +
 	"\x05state\x18\b \x01(\x0e2\x1b.natslens.v1.PlacementStateR\x05state\x12\x18\n" +
-	"\adiffers\x18\t \x03(\tR\adiffers*\xc2\x01\n" +
+	"\adiffers\x18\t \x03(\tR\adiffers\"\x95\x01\n" +
+	"\x19ListAssetPlacementRequest\x12,\n" +
+	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x16\n" +
+	"\x06system\x18\x02 \x01(\tR\x06system\x122\n" +
+	"\bentities\x18\x03 \x03(\v2\x16.natslens.v1.EntityRefR\bentities\"\xaf\x01\n" +
+	"\x0eAssetPlacement\x12.\n" +
+	"\x06entity\x18\x01 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12\x1a\n" +
+	"\breported\x18\x02 \x01(\bR\breported\x12\x16\n" +
+	"\x06leader\x18\x03 \x01(\tR\x06leader\x129\n" +
+	"\breplicas\x18\x04 \x03(\v2\x1d.natslens.v1.ReplicaPlacementR\breplicas\"\x88\x01\n" +
+	"\x1aListAssetPlacementResponse\x123\n" +
+	"\x06assets\x18\x01 \x03(\v2\x1b.natslens.v1.AssetPlacementR\x06assets\x125\n" +
+	"\bepoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt*\xc2\x01\n" +
 	"\x0fPlacementFilter\x12 \n" +
 	"\x1cPLACEMENT_FILTER_UNSPECIFIED\x10\x00\x12%\n" +
 	"!PLACEMENT_FILTER_SERVERS_DISAGREE\x10\x01\x12#\n" +
@@ -842,43 +1052,53 @@ func file_natslens_v1_placement_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_placement_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_natslens_v1_placement_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_natslens_v1_placement_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_natslens_v1_placement_proto_goTypes = []any{
-	(PlacementFilter)(0),          // 0: natslens.v1.PlacementFilter
-	(*PlacementCell)(nil),         // 1: natslens.v1.PlacementCell
-	(*PlacementAsset)(nil),        // 2: natslens.v1.PlacementAsset
-	(*PlacementCounts)(nil),       // 3: natslens.v1.PlacementCounts
-	(*GetPlacementRequest)(nil),   // 4: natslens.v1.GetPlacementRequest
-	(*GetPlacementResponse)(nil),  // 5: natslens.v1.GetPlacementResponse
-	(*PlacementObservation)(nil),  // 6: natslens.v1.PlacementObservation
-	(PlacementState)(0),           // 7: natslens.v1.PlacementState
-	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
-	(*EntityRef)(nil),             // 9: natslens.v1.EntityRef
-	(*TimeRange)(nil),             // 10: natslens.v1.TimeRange
-	(*ServerSummary)(nil),         // 11: natslens.v1.ServerSummary
+	(PlacementFilter)(0),               // 0: natslens.v1.PlacementFilter
+	(*PlacementCell)(nil),              // 1: natslens.v1.PlacementCell
+	(*PlacementAsset)(nil),             // 2: natslens.v1.PlacementAsset
+	(*PlacementCounts)(nil),            // 3: natslens.v1.PlacementCounts
+	(*GetPlacementRequest)(nil),        // 4: natslens.v1.GetPlacementRequest
+	(*GetPlacementResponse)(nil),       // 5: natslens.v1.GetPlacementResponse
+	(*PlacementObservation)(nil),       // 6: natslens.v1.PlacementObservation
+	(*ListAssetPlacementRequest)(nil),  // 7: natslens.v1.ListAssetPlacementRequest
+	(*AssetPlacement)(nil),             // 8: natslens.v1.AssetPlacement
+	(*ListAssetPlacementResponse)(nil), // 9: natslens.v1.ListAssetPlacementResponse
+	(PlacementState)(0),                // 10: natslens.v1.PlacementState
+	(*timestamppb.Timestamp)(nil),      // 11: google.protobuf.Timestamp
+	(*EntityRef)(nil),                  // 12: natslens.v1.EntityRef
+	(*TimeRange)(nil),                  // 13: natslens.v1.TimeRange
+	(*ServerSummary)(nil),              // 14: natslens.v1.ServerSummary
+	(*ReplicaPlacement)(nil),           // 15: natslens.v1.ReplicaPlacement
 }
 var file_natslens_v1_placement_proto_depIdxs = []int32{
-	7,  // 0: natslens.v1.PlacementCell.state:type_name -> natslens.v1.PlacementState
-	8,  // 1: natslens.v1.PlacementCell.created:type_name -> google.protobuf.Timestamp
-	9,  // 2: natslens.v1.PlacementAsset.entity:type_name -> natslens.v1.EntityRef
-	8,  // 3: natslens.v1.PlacementAsset.leader_since:type_name -> google.protobuf.Timestamp
+	10, // 0: natslens.v1.PlacementCell.state:type_name -> natslens.v1.PlacementState
+	11, // 1: natslens.v1.PlacementCell.created:type_name -> google.protobuf.Timestamp
+	12, // 2: natslens.v1.PlacementAsset.entity:type_name -> natslens.v1.EntityRef
+	11, // 3: natslens.v1.PlacementAsset.leader_since:type_name -> google.protobuf.Timestamp
 	1,  // 4: natslens.v1.PlacementAsset.cells:type_name -> natslens.v1.PlacementCell
 	2,  // 5: natslens.v1.PlacementAsset.consumers:type_name -> natslens.v1.PlacementAsset
-	10, // 6: natslens.v1.GetPlacementRequest.range:type_name -> natslens.v1.TimeRange
+	13, // 6: natslens.v1.GetPlacementRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 7: natslens.v1.GetPlacementRequest.filter:type_name -> natslens.v1.PlacementFilter
-	11, // 8: natslens.v1.GetPlacementResponse.servers:type_name -> natslens.v1.ServerSummary
+	14, // 8: natslens.v1.GetPlacementResponse.servers:type_name -> natslens.v1.ServerSummary
 	2,  // 9: natslens.v1.GetPlacementResponse.streams:type_name -> natslens.v1.PlacementAsset
 	3,  // 10: natslens.v1.GetPlacementResponse.counts:type_name -> natslens.v1.PlacementCounts
-	8,  // 11: natslens.v1.GetPlacementResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	11, // 11: natslens.v1.GetPlacementResponse.epoch_at:type_name -> google.protobuf.Timestamp
 	6,  // 12: natslens.v1.GetPlacementResponse.observation:type_name -> natslens.v1.PlacementObservation
-	8,  // 13: natslens.v1.PlacementObservation.as_of:type_name -> google.protobuf.Timestamp
-	8,  // 14: natslens.v1.PlacementObservation.since:type_name -> google.protobuf.Timestamp
-	7,  // 15: natslens.v1.PlacementObservation.state:type_name -> natslens.v1.PlacementState
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	11, // 13: natslens.v1.PlacementObservation.as_of:type_name -> google.protobuf.Timestamp
+	11, // 14: natslens.v1.PlacementObservation.since:type_name -> google.protobuf.Timestamp
+	10, // 15: natslens.v1.PlacementObservation.state:type_name -> natslens.v1.PlacementState
+	13, // 16: natslens.v1.ListAssetPlacementRequest.range:type_name -> natslens.v1.TimeRange
+	12, // 17: natslens.v1.ListAssetPlacementRequest.entities:type_name -> natslens.v1.EntityRef
+	12, // 18: natslens.v1.AssetPlacement.entity:type_name -> natslens.v1.EntityRef
+	15, // 19: natslens.v1.AssetPlacement.replicas:type_name -> natslens.v1.ReplicaPlacement
+	8,  // 20: natslens.v1.ListAssetPlacementResponse.assets:type_name -> natslens.v1.AssetPlacement
+	11, // 21: natslens.v1.ListAssetPlacementResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_placement_proto_init() }
@@ -896,7 +1116,7 @@ func file_natslens_v1_placement_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_placement_proto_rawDesc), len(file_natslens_v1_placement_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   6,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

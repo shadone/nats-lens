@@ -766,7 +766,14 @@ type ListFindingsRequest struct {
 	// account, stream, consumer or server) contains this text, ignoring
 	// case. Empty means all; at most 256 characters, surrounding spaces
 	// dropped.
-	Text          string `protobuf:"bytes,10,opt,name=text,proto3" json:"text,omitempty"`
+	Text string `protobuf:"bytes,10,opt,name=text,proto3" json:"text,omitempty"`
+	// Only findings that concern this account, as the servers report it
+	// (the account ID in operator mode): findings of the account itself and
+	// of its streams and consumers, and findings whose entity belongs to no
+	// one account (servers, clients, connections and the system), which
+	// concern every account. Empty means every account; at most 256
+	// characters.
+	Account       string `protobuf:"bytes,11,opt,name=account,proto3" json:"account,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -871,6 +878,13 @@ func (x *ListFindingsRequest) GetText() string {
 	return ""
 }
 
+func (x *ListFindingsRequest) GetAccount() string {
+	if x != nil {
+		return x.Account
+	}
+	return ""
+}
+
 // Findings, worst first: unmuted before muted, then by severity, then the
 // longest firing first.
 type ListFindingsResponse struct {
@@ -880,9 +894,12 @@ type ListFindingsResponse struct {
 	// Token for the next page; empty on the last page.
 	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	// Number of findings that match the filters, across pages.
-	TotalCount    int32 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	TotalCount int32 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// With account set: the findings that match every other filter but
+	// belong to another account, left out. Zero without account.
+	OtherAccountCount int32 `protobuf:"varint,4,opt,name=other_account_count,json=otherAccountCount,proto3" json:"other_account_count,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ListFindingsResponse) Reset() {
@@ -932,6 +949,13 @@ func (x *ListFindingsResponse) GetNextPageToken() string {
 func (x *ListFindingsResponse) GetTotalCount() int32 {
 	if x != nil {
 		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *ListFindingsResponse) GetOtherAccountCount() int32 {
+	if x != nil {
+		return x.OtherAccountCount
 	}
 	return 0
 }
@@ -1525,7 +1549,7 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x05muted\x18\x04 \x01(\x05R\x05muted\x12\x1a\n" +
 	"\bflapping\x18\x05 \x01(\x05R\bflapping\x12!\n" +
 	"\fresolved_24h\x18\x06 \x01(\x05R\vresolved24h\x12\"\n" +
-	"\facknowledged\x18\a \x01(\x05R\facknowledged\"\x89\x03\n" +
+	"\facknowledged\x18\a \x01(\x05R\facknowledged\"\xa3\x03\n" +
 	"\x13ListFindingsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x121\n" +
 	"\x06states\x18\x02 \x03(\x0e2\x19.natslens.v1.FindingStateR\x06states\x125\n" +
@@ -1541,12 +1565,14 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"page_token\x18\b \x01(\tR\tpageToken\x12\x16\n" +
 	"\x06system\x18\t \x01(\tR\x06system\x12\x12\n" +
 	"\x04text\x18\n" +
-	" \x01(\tR\x04text\"\x91\x01\n" +
+	" \x01(\tR\x04text\x12\x18\n" +
+	"\aaccount\x18\v \x01(\tR\aaccount\"\xc1\x01\n" +
 	"\x14ListFindingsResponse\x120\n" +
 	"\bfindings\x18\x01 \x03(\v2\x14.natslens.v1.FindingR\bfindings\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
-	"totalCount\";\n" +
+	"totalCount\x12.\n" +
+	"\x13other_account_count\x18\x04 \x01(\x05R\x11otherAccountCount\";\n" +
 	"\x11GetFindingRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06system\x18\x02 \x01(\tR\x06system\"\x86\x01\n" +

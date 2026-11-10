@@ -6,7 +6,7 @@ import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2"
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { EntityRef, PlacementState, TimeRange } from "./common_pb";
+import type { EntityRef, PlacementState, ReplicaPlacement, TimeRange } from "./common_pb";
 import { file_natslens_v1_common } from "./common_pb";
 import type { ServerSummary } from "./servers_pb";
 import { file_natslens_v1_servers } from "./servers_pb";
@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/placement.proto.
  */
 export const file_natslens_v1_placement: GenFile = /*@__PURE__*/
-  fileDesc("ChtuYXRzbGVucy92MS9wbGFjZW1lbnQucHJvdG8SC25hdHNsZW5zLnYxIq0DCg1QbGFjZW1lbnRDZWxsEg4KBnNlcnZlchgBIAEoCRIqCgVzdGF0ZRgCIAEoDjIbLm5hdHNsZW5zLnYxLlBsYWNlbWVudFN0YXRlEisKB2NyZWF0ZWQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NvbmZpZ19oYXNoGAQgASgJEhAKA2xhZxgFIAEoA0gAiAEBEhUKCG1lc3NhZ2VzGAYgASgDSAGIAQESFgoJZmlyc3Rfc2VxGAcgASgDSAKIAQESFQoIbGFzdF9zZXEYCCABKANIA4gBARIhChRkZWxpdmVyZWRfc3RyZWFtX3NlcRgJIAEoA0gEiAEBEiEKFGFja19mbG9vcl9zdHJlYW1fc2VxGAogASgDSAWIAQESDwoHZGlmZmVycxgLIAMoCRINCgVwZWVycxgMIAMoCUIGCgRfbGFnQgsKCV9tZXNzYWdlc0IMCgpfZmlyc3Rfc2VxQgsKCV9sYXN0X3NlcUIXChVfZGVsaXZlcmVkX3N0cmVhbV9zZXFCFwoVX2Fja19mbG9vcl9zdHJlYW1fc2VxIusCCg5QbGFjZW1lbnRBc3NldBImCgZlbnRpdHkYASABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSFQoIcmVwbGljYXMYAiABKAVIAIgBARIOCgZsZWFkZXIYAyABKAkSMAoMbGVhZGVyX3NpbmNlGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIpCgVjZWxscxgFIAMoCzIaLm5hdHNsZW5zLnYxLlBsYWNlbWVudENlbGwSEAoIdW5wbGFjZWQYBiABKAUSGAoQc2VydmVyc19kaXNhZ3JlZRgHIAEoCBIVCghtZXNzYWdlcxgIIAEoA0gBiAEBEg8KB2R1cmFibGUYCSABKAgSDwoHbWF0Y2hlcxgKIAEoCBIuCgljb25zdW1lcnMYCyADKAsyGy5uYXRzbGVucy52MS5QbGFjZW1lbnRBc3NldEILCglfcmVwbGljYXNCCwoJX21lc3NhZ2VzInkKD1BsYWNlbWVudENvdW50cxILCgNhbGwYASABKAUSGAoQc2VydmVyc19kaXNhZ3JlZRgCIAEoBRIWCg5yZXBsaWNhX2JlaGluZBgDIAEoBRIPCgdtaXNzaW5nGAQgASgFEhYKDnNpbmdsZV9yZXBsaWNhGAUgASgFIqsBChNHZXRQbGFjZW1lbnRSZXF1ZXN0EiUKBXJhbmdlGAEgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg4KBnN5c3RlbRgCIAEoCRIsCgZmaWx0ZXIYAyABKA4yHC5uYXRzbGVucy52MS5QbGFjZW1lbnRGaWx0ZXISFgoOc2VsZWN0ZWRfYXNzZXQYBCABKAkSFwoPc2VsZWN0ZWRfc2VydmVyGAUgASgJIoUCChRHZXRQbGFjZW1lbnRSZXNwb25zZRIrCgdzZXJ2ZXJzGAEgAygLMhoubmF0c2xlbnMudjEuU2VydmVyU3VtbWFyeRIsCgdzdHJlYW1zGAIgAygLMhsubmF0c2xlbnMudjEuUGxhY2VtZW50QXNzZXQSLAoGY291bnRzGAMgASgLMhwubmF0c2xlbnMudjEuUGxhY2VtZW50Q291bnRzEiwKCGVwb2NoX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBI2CgtvYnNlcnZhdGlvbhgFIAEoCzIhLm5hdHNsZW5zLnYxLlBsYWNlbWVudE9ic2VydmF0aW9uIv4BChRQbGFjZW1lbnRPYnNlcnZhdGlvbhINCgVhc3NldBgBIAEoCRIOCgZzZXJ2ZXIYAiABKAkSKQoFYXNfb2YYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEikKBXNpbmNlGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdzYW1wbGVzGAUgASgFEhEKCXRydW5jYXRlZBgGIAEoCBIQCghib3VuZGFyeRgHIAEoCRIqCgVzdGF0ZRgIIAEoDjIbLm5hdHNsZW5zLnYxLlBsYWNlbWVudFN0YXRlEg8KB2RpZmZlcnMYCSADKAkqwgEKD1BsYWNlbWVudEZpbHRlchIgChxQTEFDRU1FTlRfRklMVEVSX1VOU1BFQ0lGSUVEEAASJQohUExBQ0VNRU5UX0ZJTFRFUl9TRVJWRVJTX0RJU0FHUkVFEAESIwofUExBQ0VNRU5UX0ZJTFRFUl9SRVBMSUNBX0JFSElORBACEhwKGFBMQUNFTUVOVF9GSUxURVJfTUlTU0lORxADEiMKH1BMQUNFTUVOVF9GSUxURVJfU0lOR0xFX1JFUExJQ0EQBEJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_servers]);
+  fileDesc("ChtuYXRzbGVucy92MS9wbGFjZW1lbnQucHJvdG8SC25hdHNsZW5zLnYxIq0DCg1QbGFjZW1lbnRDZWxsEg4KBnNlcnZlchgBIAEoCRIqCgVzdGF0ZRgCIAEoDjIbLm5hdHNsZW5zLnYxLlBsYWNlbWVudFN0YXRlEisKB2NyZWF0ZWQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NvbmZpZ19oYXNoGAQgASgJEhAKA2xhZxgFIAEoA0gAiAEBEhUKCG1lc3NhZ2VzGAYgASgDSAGIAQESFgoJZmlyc3Rfc2VxGAcgASgDSAKIAQESFQoIbGFzdF9zZXEYCCABKANIA4gBARIhChRkZWxpdmVyZWRfc3RyZWFtX3NlcRgJIAEoA0gEiAEBEiEKFGFja19mbG9vcl9zdHJlYW1fc2VxGAogASgDSAWIAQESDwoHZGlmZmVycxgLIAMoCRINCgVwZWVycxgMIAMoCUIGCgRfbGFnQgsKCV9tZXNzYWdlc0IMCgpfZmlyc3Rfc2VxQgsKCV9sYXN0X3NlcUIXChVfZGVsaXZlcmVkX3N0cmVhbV9zZXFCFwoVX2Fja19mbG9vcl9zdHJlYW1fc2VxIusCCg5QbGFjZW1lbnRBc3NldBImCgZlbnRpdHkYASABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSFQoIcmVwbGljYXMYAiABKAVIAIgBARIOCgZsZWFkZXIYAyABKAkSMAoMbGVhZGVyX3NpbmNlGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIpCgVjZWxscxgFIAMoCzIaLm5hdHNsZW5zLnYxLlBsYWNlbWVudENlbGwSEAoIdW5wbGFjZWQYBiABKAUSGAoQc2VydmVyc19kaXNhZ3JlZRgHIAEoCBIVCghtZXNzYWdlcxgIIAEoA0gBiAEBEg8KB2R1cmFibGUYCSABKAgSDwoHbWF0Y2hlcxgKIAEoCBIuCgljb25zdW1lcnMYCyADKAsyGy5uYXRzbGVucy52MS5QbGFjZW1lbnRBc3NldEILCglfcmVwbGljYXNCCwoJX21lc3NhZ2VzInkKD1BsYWNlbWVudENvdW50cxILCgNhbGwYASABKAUSGAoQc2VydmVyc19kaXNhZ3JlZRgCIAEoBRIWCg5yZXBsaWNhX2JlaGluZBgDIAEoBRIPCgdtaXNzaW5nGAQgASgFEhYKDnNpbmdsZV9yZXBsaWNhGAUgASgFIqsBChNHZXRQbGFjZW1lbnRSZXF1ZXN0EiUKBXJhbmdlGAEgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg4KBnN5c3RlbRgCIAEoCRIsCgZmaWx0ZXIYAyABKA4yHC5uYXRzbGVucy52MS5QbGFjZW1lbnRGaWx0ZXISFgoOc2VsZWN0ZWRfYXNzZXQYBCABKAkSFwoPc2VsZWN0ZWRfc2VydmVyGAUgASgJIoUCChRHZXRQbGFjZW1lbnRSZXNwb25zZRIrCgdzZXJ2ZXJzGAEgAygLMhoubmF0c2xlbnMudjEuU2VydmVyU3VtbWFyeRIsCgdzdHJlYW1zGAIgAygLMhsubmF0c2xlbnMudjEuUGxhY2VtZW50QXNzZXQSLAoGY291bnRzGAMgASgLMhwubmF0c2xlbnMudjEuUGxhY2VtZW50Q291bnRzEiwKCGVwb2NoX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBI2CgtvYnNlcnZhdGlvbhgFIAEoCzIhLm5hdHNsZW5zLnYxLlBsYWNlbWVudE9ic2VydmF0aW9uIv4BChRQbGFjZW1lbnRPYnNlcnZhdGlvbhINCgVhc3NldBgBIAEoCRIOCgZzZXJ2ZXIYAiABKAkSKQoFYXNfb2YYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEikKBXNpbmNlGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdzYW1wbGVzGAUgASgFEhEKCXRydW5jYXRlZBgGIAEoCBIQCghib3VuZGFyeRgHIAEoCRIqCgVzdGF0ZRgIIAEoDjIbLm5hdHNsZW5zLnYxLlBsYWNlbWVudFN0YXRlEg8KB2RpZmZlcnMYCSADKAkifAoZTGlzdEFzc2V0UGxhY2VtZW50UmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIOCgZzeXN0ZW0YAiABKAkSKAoIZW50aXRpZXMYAyADKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYiiwEKDkFzc2V0UGxhY2VtZW50EiYKBmVudGl0eRgBIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhIQCghyZXBvcnRlZBgCIAEoCBIOCgZsZWFkZXIYAyABKAkSLwoIcmVwbGljYXMYBCADKAsyHS5uYXRzbGVucy52MS5SZXBsaWNhUGxhY2VtZW50IncKGkxpc3RBc3NldFBsYWNlbWVudFJlc3BvbnNlEisKBmFzc2V0cxgBIAMoCzIbLm5hdHNsZW5zLnYxLkFzc2V0UGxhY2VtZW50EiwKCGVwb2NoX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCrCAQoPUGxhY2VtZW50RmlsdGVyEiAKHFBMQUNFTUVOVF9GSUxURVJfVU5TUEVDSUZJRUQQABIlCiFQTEFDRU1FTlRfRklMVEVSX1NFUlZFUlNfRElTQUdSRUUQARIjCh9QTEFDRU1FTlRfRklMVEVSX1JFUExJQ0FfQkVISU5EEAISHAoYUExBQ0VNRU5UX0ZJTFRFUl9NSVNTSU5HEAMSIwofUExBQ0VNRU5UX0ZJTFRFUl9TSU5HTEVfUkVQTElDQRAEQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_servers]);
 
 /**
  * One server's view of a stream or consumer.
@@ -450,6 +450,117 @@ export type PlacementObservation = Message<"natslens.v1.PlacementObservation"> &
  */
 export const PlacementObservationSchema: GenMessage<PlacementObservation> = /*@__PURE__*/
   messageDesc(file_natslens_v1_placement, 5);
+
+/**
+ * Request for where a few streams and consumers sit: the servers that hold
+ * their replicas in the range's newest epoch.
+ *
+ * @generated from message natslens.v1.ListAssetPlacementRequest
+ */
+export type ListAssetPlacementRequest = Message<"natslens.v1.ListAssetPlacementRequest"> & {
+  /**
+   * Range whose newest epoch is read. Unset means the last 24 hours up to
+   * now.
+   *
+   * @generated from field: natslens.v1.TimeRange range = 1;
+   */
+  range?: TimeRange | undefined;
+
+  /**
+   * System ID, as ListSystems returns it. Empty means the default system.
+   *
+   * @generated from field: string system = 2;
+   */
+  system: string;
+
+  /**
+   * Streams and consumers, by type and key; at most 200, no other type.
+   * A repeated entity is answered once.
+   *
+   * @generated from field: repeated natslens.v1.EntityRef entities = 3;
+   */
+  entities: EntityRef[];
+};
+
+/**
+ * Describes the message natslens.v1.ListAssetPlacementRequest.
+ * Use `create(ListAssetPlacementRequestSchema)` to create a new message.
+ */
+export const ListAssetPlacementRequestSchema: GenMessage<ListAssetPlacementRequest> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_placement, 6);
+
+/**
+ * Where one stream or consumer sits.
+ *
+ * @generated from message natslens.v1.AssetPlacement
+ */
+export type AssetPlacement = Message<"natslens.v1.AssetPlacement"> & {
+  /**
+   * The stream or consumer, as asked.
+   *
+   * @generated from field: natslens.v1.EntityRef entity = 1;
+   */
+  entity?: EntityRef | undefined;
+
+  /**
+   * Whether a server reports the asset, or its leader names a replica of
+   * it, in the epoch read; false leaves leader and replicas empty.
+   *
+   * @generated from field: bool reported = 2;
+   */
+  reported: boolean;
+
+  /**
+   * Server name of the leader; empty without one.
+   *
+   * @generated from field: string leader = 3;
+   */
+  leader: string;
+
+  /**
+   * One entry per server that holds or is assigned a replica, by the
+   * rule of the placement matrix's cells: the leader first, the rest by
+   * server name. Configured replicas that no server names are left out.
+   *
+   * @generated from field: repeated natslens.v1.ReplicaPlacement replicas = 4;
+   */
+  replicas: ReplicaPlacement[];
+};
+
+/**
+ * Describes the message natslens.v1.AssetPlacement.
+ * Use `create(AssetPlacementSchema)` to create a new message.
+ */
+export const AssetPlacementSchema: GenMessage<AssetPlacement> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_placement, 7);
+
+/**
+ * The placement of the assets asked for, in the order asked.
+ *
+ * @generated from message natslens.v1.ListAssetPlacementResponse
+ */
+export type ListAssetPlacementResponse = Message<"natslens.v1.ListAssetPlacementResponse"> & {
+  /**
+   * One entry per distinct entity of the request.
+   *
+   * @generated from field: repeated natslens.v1.AssetPlacement assets = 1;
+   */
+  assets: AssetPlacement[];
+
+  /**
+   * When the epoch read started; unset when the range holds none.
+   *
+   * @generated from field: google.protobuf.Timestamp epoch_at = 2;
+   */
+  epochAt?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message natslens.v1.ListAssetPlacementResponse.
+ * Use `create(ListAssetPlacementResponseSchema)` to create a new message.
+ */
+export const ListAssetPlacementResponseSchema: GenMessage<ListAssetPlacementResponse> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_placement, 8);
 
 /**
  * Which assets a placement matrix lists.

@@ -229,6 +229,7 @@ func (h *Handler) ListFindings(ctx context.Context, req *connect.Request[v1.List
 			func() error { return maxLen("severities", len(m.GetSeverities()), MaxEnumFilters) },
 			func() error { return checkEntity("entity", m.GetEntity(), true) },
 			func() error { return searchText(&m.Text) },
+			func() error { return checkAccountFilter(m.GetAccount()) },
 		)
 	}, on(Provider.ListFindings))
 }
@@ -405,6 +406,15 @@ func (h *Handler) GetPlacement(ctx context.Context, req *connect.Request[v1.GetP
 		}
 		return FinishPlacement(res, m.GetFilter()), nil
 	})
+}
+
+func (h *Handler) ListAssetPlacement(ctx context.Context, req *connect.Request[v1.ListAssetPlacementRequest]) (*connect.Response[v1.ListAssetPlacementResponse], error) {
+	return call(ctx, h, "ListAssetPlacement", req.Msg, func(p Provider, m *v1.ListAssetPlacementRequest) error {
+		return all(
+			func() error { return withRange(p, &m.Range) },
+			func() error { return checkAssetPlacement(m) },
+		)
+	}, on(Provider.ListAssetPlacement))
 }
 
 func (h *Handler) ListServers(ctx context.Context, req *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error) {

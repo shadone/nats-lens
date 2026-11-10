@@ -256,8 +256,13 @@ func (p *Provider) ListFindings(ctx context.Context, req *v1.ListFindingsRequest
 		return nil, err
 	}
 	var out []*v1.Finding
+	other := 0
 	for _, f := range all {
-		if keepFinding(f, req) {
+		switch {
+		case !keepFinding(f, req):
+		case api.OtherAccount(f, req.GetAccount()):
+			other++
+		default:
 			out = append(out, f)
 		}
 	}
@@ -265,7 +270,7 @@ func (p *Provider) ListFindings(ctx context.Context, req *v1.ListFindingsRequest
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ListFindingsResponse{Findings: page, NextPageToken: next, TotalCount: int32(len(out))}, nil
+	return &v1.ListFindingsResponse{Findings: page, NextPageToken: next, TotalCount: int32(len(out)), OtherAccountCount: int32(other)}, nil
 }
 
 // GetFinding reads one finding with its newest 100 transitions.

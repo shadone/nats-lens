@@ -78,6 +78,10 @@ type Provider interface {
 	// newest epoch with its cells, unfiltered and in any order; the
 	// handler applies the filter and counts with FinishPlacement.
 	GetPlacement(ctx context.Context, req *v1.GetPlacementRequest) (*v1.GetPlacementResponse, error)
+	// ListAssetPlacement returns, for each distinct entity of the request
+	// (DistinctAssets), in that order, the servers that hold it in the
+	// range's newest epoch, cell for cell as GetPlacement places them.
+	ListAssetPlacement(ctx context.Context, req *v1.ListAssetPlacementRequest) (*v1.ListAssetPlacementResponse, error)
 	// Replay reads the facts of the story between the request's A and B,
 	// which the handler has checked and clamped to Now; the handler words
 	// them with FinishReplay. A older than the retention is ErrInvalid.

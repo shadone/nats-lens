@@ -195,3 +195,45 @@ message PlacementObservation {
   PlacementState state = 8;
   repeated string differs = 9;
 }
+
+// Request for where a few streams and consumers sit: the servers that hold
+// their replicas in the range's newest epoch.
+message ListAssetPlacementRequest {
+  // Range whose newest epoch is read. Unset means the last 24 hours up to
+  // now.
+  TimeRange range = 1;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 2;
+
+  // Streams and consumers, by type and key; at most 200, no other type.
+  // A repeated entity is answered once.
+  repeated EntityRef entities = 3;
+}
+
+// Where one stream or consumer sits.
+message AssetPlacement {
+  // The stream or consumer, as asked.
+  EntityRef entity = 1;
+
+  // Whether a server reports the asset, or its leader names a replica of
+  // it, in the epoch read; false leaves leader and replicas empty.
+  bool reported = 2;
+
+  // Server name of the leader; empty without one.
+  string leader = 3;
+
+  // One entry per server that holds or is assigned a replica, by the
+  // rule of the placement matrix's cells: the leader first, the rest by
+  // server name. Configured replicas that no server names are left out.
+  repeated ReplicaPlacement replicas = 4;
+}
+
+// The placement of the assets asked for, in the order asked.
+message ListAssetPlacementResponse {
+  // One entry per distinct entity of the request.
+  repeated AssetPlacement assets = 1;
+
+  // When the epoch read started; unset when the range holds none.
+  google.protobuf.Timestamp epoch_at = 2;
+}

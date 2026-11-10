@@ -140,6 +140,12 @@ service LensService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
+  // The servers that hold a few streams and consumers, as the placement
+  // matrix places them: a bounded read for the assets a view shows.
+  rpc ListAssetPlacement(ListAssetPlacementRequest) returns (ListAssetPlacementResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
   // What changed between two moments, and in what order: steps built
   // from collections, events and findings, with counts and the assets
   // gone in between. A and B are at most 24 hours apart and within the

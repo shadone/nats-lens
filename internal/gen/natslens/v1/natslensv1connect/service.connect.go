@@ -82,6 +82,9 @@ const (
 	// LensServiceGetPlacementProcedure is the fully-qualified name of the LensService's GetPlacement
 	// RPC.
 	LensServiceGetPlacementProcedure = "/natslens.v1.LensService/GetPlacement"
+	// LensServiceListAssetPlacementProcedure is the fully-qualified name of the LensService's
+	// ListAssetPlacement RPC.
+	LensServiceListAssetPlacementProcedure = "/natslens.v1.LensService/ListAssetPlacement"
 	// LensServiceGetReplayProcedure is the fully-qualified name of the LensService's GetReplay RPC.
 	LensServiceGetReplayProcedure = "/natslens.v1.LensService/GetReplay"
 	// LensServiceGetTopologyProcedure is the fully-qualified name of the LensService's GetTopology RPC.
@@ -199,6 +202,9 @@ type LensServiceClient interface {
 	// Every stream and durable consumer as each server sees it: one cell
 	// per server that holds or is assigned a replica, with filter counts.
 	GetPlacement(context.Context, *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error)
+	// The servers that hold a few streams and consumers, as the placement
+	// matrix places them: a bounded read for the assets a view shows.
+	ListAssetPlacement(context.Context, *connect.Request[v1.ListAssetPlacementRequest]) (*connect.Response[v1.ListAssetPlacementResponse], error)
 	// What changed between two moments, and in what order: steps built
 	// from collections, events and findings, with counts and the assets
 	// gone in between. A and B are at most 24 hours apart and within the
@@ -431,6 +437,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		listAssetPlacement: connect.NewClient[v1.ListAssetPlacementRequest, v1.ListAssetPlacementResponse](
+			httpClient,
+			baseURL+LensServiceListAssetPlacementProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListAssetPlacement")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		getReplay: connect.NewClient[v1.GetReplayRequest, v1.GetReplayResponse](
 			httpClient,
 			baseURL+LensServiceGetReplayProcedure,
@@ -636,6 +649,7 @@ type lensServiceClient struct {
 	listConsumers                *connect.Client[v1.ListConsumersRequest, v1.ListConsumersResponse]
 	getConsumer                  *connect.Client[v1.GetConsumerRequest, v1.GetConsumerResponse]
 	getPlacement                 *connect.Client[v1.GetPlacementRequest, v1.GetPlacementResponse]
+	listAssetPlacement           *connect.Client[v1.ListAssetPlacementRequest, v1.ListAssetPlacementResponse]
 	getReplay                    *connect.Client[v1.GetReplayRequest, v1.GetReplayResponse]
 	getTopology                  *connect.Client[v1.GetTopologyRequest, v1.GetTopologyResponse]
 	getAccountsAndAuth           *connect.Client[v1.GetAccountsAndAuthRequest, v1.GetAccountsAndAuthResponse]
@@ -762,6 +776,11 @@ func (c *lensServiceClient) GetConsumer(ctx context.Context, req *connect.Reques
 // GetPlacement calls natslens.v1.LensService.GetPlacement.
 func (c *lensServiceClient) GetPlacement(ctx context.Context, req *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error) {
 	return c.getPlacement.CallUnary(ctx, req)
+}
+
+// ListAssetPlacement calls natslens.v1.LensService.ListAssetPlacement.
+func (c *lensServiceClient) ListAssetPlacement(ctx context.Context, req *connect.Request[v1.ListAssetPlacementRequest]) (*connect.Response[v1.ListAssetPlacementResponse], error) {
+	return c.listAssetPlacement.CallUnary(ctx, req)
 }
 
 // GetReplay calls natslens.v1.LensService.GetReplay.
@@ -939,6 +958,9 @@ type LensServiceHandler interface {
 	// Every stream and durable consumer as each server sees it: one cell
 	// per server that holds or is assigned a replica, with filter counts.
 	GetPlacement(context.Context, *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error)
+	// The servers that hold a few streams and consumers, as the placement
+	// matrix places them: a bounded read for the assets a view shows.
+	ListAssetPlacement(context.Context, *connect.Request[v1.ListAssetPlacementRequest]) (*connect.Response[v1.ListAssetPlacementResponse], error)
 	// What changed between two moments, and in what order: steps built
 	// from collections, events and findings, with counts and the assets
 	// gone in between. A and B are at most 24 hours apart and within the
@@ -1167,6 +1189,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceListAssetPlacementHandler := connect.NewUnaryHandler(
+		LensServiceListAssetPlacementProcedure,
+		svc.ListAssetPlacement,
+		connect.WithSchema(lensServiceMethods.ByName("ListAssetPlacement")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceGetReplayHandler := connect.NewUnaryHandler(
 		LensServiceGetReplayProcedure,
 		svc.GetReplay,
@@ -1389,6 +1418,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetConsumerHandler.ServeHTTP(w, r)
 		case LensServiceGetPlacementProcedure:
 			lensServiceGetPlacementHandler.ServeHTTP(w, r)
+		case LensServiceListAssetPlacementProcedure:
+			lensServiceListAssetPlacementHandler.ServeHTTP(w, r)
 		case LensServiceGetReplayProcedure:
 			lensServiceGetReplayHandler.ServeHTTP(w, r)
 		case LensServiceGetTopologyProcedure:
@@ -1528,6 +1559,10 @@ func (UnimplementedLensServiceHandler) GetConsumer(context.Context, *connect.Req
 
 func (UnimplementedLensServiceHandler) GetPlacement(context.Context, *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetPlacement is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) ListAssetPlacement(context.Context, *connect.Request[v1.ListAssetPlacementRequest]) (*connect.Response[v1.ListAssetPlacementResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListAssetPlacement is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) GetReplay(context.Context, *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error) {

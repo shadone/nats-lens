@@ -249,6 +249,14 @@ message ListFindingsRequest {
   // case. Empty means all; at most 256 characters, surrounding spaces
   // dropped.
   string text = 10;
+
+  // Only findings that concern this account, as the servers report it
+  // (the account ID in operator mode): findings of the account itself and
+  // of its streams and consumers, and findings whose entity belongs to no
+  // one account (servers, clients, connections and the system), which
+  // concern every account. Empty means every account; at most 256
+  // characters.
+  string account = 11;
 }
 
 // Findings, worst first: unmuted before muted, then by severity, then the
@@ -262,6 +270,10 @@ message ListFindingsResponse {
 
   // Number of findings that match the filters, across pages.
   int32 total_count = 3;
+
+  // With account set: the findings that match every other filter but
+  // belong to another account, left out. Zero without account.
+  int32 other_account_count = 4;
 }
 
 // Request for one finding.
