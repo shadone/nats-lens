@@ -11,7 +11,7 @@ import (
 // The server route, not a cooperative client, must reject every write.
 func TestInvestigationMethodBoundary(t *testing.T) {
 	h := NewMux(&Handler{}, fstest.MapFS{"index.html": {Data: []byte("app")}})
-	for _, method := range []string{"MuteFinding", "UnmuteFinding", "AcknowledgeFinding", "EndAcknowledgement", "ExecuteSQL", "GetFutureMethod"} {
+	for _, method := range []string{"MuteFinding", "UnmuteFinding", "AcknowledgeFinding", "EndAcknowledgement", "AcceptFindings", "ListAcceptances", "ExecuteSQL", "GetFutureMethod"} {
 		for _, verb := range []string{"POST", "GET"} {
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, httptest.NewRequest(verb, "/api/read-only/natslens.v1.LensService/"+method, strings.NewReader("{}")))
