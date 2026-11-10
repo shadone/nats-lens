@@ -54,7 +54,8 @@ type catchUpAsset struct {
 }
 
 // catchUpSummary is how one catch-up episode of a server ended, for the
-// restart step it follows.
+// restart steps it overlaps: from its start to end (B while a replica is
+// still behind there).
 type catchUpSummary struct {
 	from, end time.Time
 	behind    bool // a replica still behind at B
@@ -164,7 +165,11 @@ func (b *replayBuilder) catchUps() map[string][]catchUpSummary {
 			assets := b.catchUpAssets(ep)
 			d := b.catchUpStep(server, assets)
 			b.add(d)
-			out[server] = append(out[server], catchUpSummary{from: d.time, end: d.end,
+			end := d.end
+			if d.openAtB {
+				end = b.f.B
+			}
+			out[server] = append(out[server], catchUpSummary{from: d.time, end: end,
 				behind:  slices.ContainsFunc(assets, func(a *catchUpAsset) bool { return a.end == behindAtB }),
 				allSeen: !slices.ContainsFunc(assets, func(a *catchUpAsset) bool { return a.end != caughtUp })})
 		}
@@ -465,22 +470,41 @@ func digits(n int64) string {
 	return string(out)
 }
 
-// catchUpRestartText ties a restart to the catch-up episode of its
-// server that started in its window, from the old process's last answer
-// to the restart window after the new one's first: "Its replicas were
-// current again by 09:09:00."; empty when there is none.
+// catchUpRestartText ties a restart to the catch-ups of its server that
+// were under way in its window, from the old process's last answer to the
+// restart window after the new one's first or the server's next restart,
+// whichever comes first: a replica behind across the
+// restart counts as much as one behind after it. "Its replicas were still
+// catching up at B." when one is, else by the latest end: "Its replicas
+// were current again by 09:09:00.", or that it was not observed; empty
+// when there is none.
 func (b *replayBuilder) catchUpRestartText(r ReplayRestart) string {
-	i := slices.IndexFunc(b.catchUp[r.Server], func(c catchUpSummary) bool {
-		return !c.from.Before(r.LastSeen) && !c.from.After(r.FirstSeen.Add(b.f.RestartWindow))
-	})
-	if i < 0 {
-		return ""
+	// The window ends early at the server's next restart, whose own
+	// catch-ups start after it.
+	until := r.FirstSeen.Add(b.f.RestartWindow)
+	for _, o := range b.f.Restarts {
+		if o.Server == r.Server && o.LastSeen.After(r.LastSeen) && !o.LastSeen.After(until) {
+			until = o.LastSeen.Add(-time.Nanosecond)
+		}
 	}
-	switch c := b.catchUp[r.Server][i]; {
-	case c.behind:
+	var last *catchUpSummary
+	behind := false
+	for i, c := range b.catchUp[r.Server] {
+		if c.from.After(until) || c.end.Before(r.LastSeen) {
+			continue
+		}
+		behind = behind || c.behind
+		if last == nil || c.end.After(last.end) {
+			last = &b.catchUp[r.Server][i]
+		}
+	}
+	switch {
+	case last == nil:
+		return ""
+	case behind:
 		return "Its replicas were still catching up at B."
-	case c.allSeen:
-		return "Its replicas were current again by " + clockText(c.end) + "."
+	case last.allSeen:
+		return "Its replicas were current again by " + clockText(last.end) + "."
 	}
 	return "When its replicas were current again was not observed."
 }
