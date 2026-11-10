@@ -286,7 +286,7 @@ export function ReplicationTable({ rows }: { rows: TopologyReplication[] }) {
                         {quietLabel(r.findingQuiet, r.findingAccepted)}: {r.findingDetail}
                       </small>
                     )}
-                    {!r.findingId && r.error && <small>error reported by the leader: {r.error}</small>}
+                    {r.error && !r.findingDetail.includes(r.error) && <small>error reported by the leader: {r.error}</small>}
                   </th>
                   <td>{r.kind === "mirror" ? "Mirror" : "Source"}</td>
                   <td className="mono">{r.lag === undefined ? <Unset why={unreported} /> : fmtInt(r.lag)}</td>

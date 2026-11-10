@@ -53,6 +53,14 @@ function followups(): TopologyData {
       findingAccepted: true,
     }),
     copy("stock-index", "ap", "stock", "us", { kind: "source", sourceId: "d4", error: "consumer deleted" }),
+    copy("fee-index", "ap", "fees", "us", {
+      kind: "source",
+      sourceId: "e5",
+      error: "consumer deleted",
+      findingId: "stream-023:APP/fee-index",
+      findingCode: "stream-023",
+      findingDetail: "Leader nats-ap-0: fees: consumer deleted.",
+    }),
   ];
   return t;
 }
@@ -136,7 +144,7 @@ describe("Topology follow-ups", () => {
     expect(errors.mock.calls.filter((c) => String(c[0]).includes("same key"))).toEqual([]);
     errors.mockRestore();
     const rows = within(table).getAllByRole("row").slice(1);
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(6);
     expect(rows[0]).toHaveClass("warn");
     expect(within(rows[0]).getByRole("rowheader")).toHaveTextContent(
       "catalog-changes on us → search-index on apstream-022: Leader nats-ap-0: catalog-changes: not heard from its origin for 3m.",
@@ -154,12 +162,16 @@ describe("Topology follow-ups", () => {
     const accepted = rows.find((r) => r.textContent?.includes("price-index"))!;
     expect(accepted).not.toHaveClass("warn");
     expect(within(accepted).getByRole("rowheader")).toHaveTextContent("stream-022 (accepted): Leader nats-ap-0");
-    expect(within(accepted).getByRole("rowheader")).not.toHaveTextContent("error reported");
+    // Its detail does not hold the leader's error, which shows as well.
+    expect(within(accepted).getByRole("rowheader")).toHaveTextContent("error reported by the leader: stream not found");
     expect(within(accepted).getAllByRole("cell")[1]).toHaveTextContent(/^– not in the leader's report$/);
     // An error the leader reports, with no finding yet: plain text, not the warning colour.
     const erring = rows.find((r) => r.textContent?.includes("stock-index"))!;
     expect(erring).not.toHaveClass("warn");
     expect(within(erring).getByRole("rowheader")).toHaveTextContent("error reported by the leader: consumer deleted");
+    // A finding whose detail holds the error does not repeat it.
+    const covered = rows.find((r) => r.textContent?.includes("fee-index"))!;
+    expect(within(covered).getByRole("rowheader")).not.toHaveTextContent("error reported by the leader");
     const ap = (await region(/Map of clusters/)).getByRole("button", { name: "ap, show its routes" }).closest(".tm-box")!;
     expect(ap.querySelector(".tm-note")).toHaveTextContent("4 streams led · gateway to us dropping · mirrors from eu · sources from us");
   });
