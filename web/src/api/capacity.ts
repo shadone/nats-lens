@@ -28,7 +28,7 @@ export interface ServerStore {
 }
 
 export type StreamKind = "stream" | "kv" | "object";
-export type LimitKind = "none" | "empty" | "age" | "messages" | "bytes" | "perSubject" | "unknown";
+export type LimitKind = "none" | "empty" | "age" | "messages" | "bytes" | "perSubject" | "account" | "unknown";
 export type LimitState = "steady" | "refusing" | "reaches" | "notReached" | "notForecast" | undefined;
 export type Status = "fillsSoon" | "accepted" | "declared" | "muted" | "awaiting" | "unbounded" | "bounded" | "unknown";
 
@@ -70,6 +70,21 @@ export interface CapacityStream {
   mute?: Mute;
   /** "inventory" or "writer_ttls" when declared. */
   declaredReason: string;
+  /** The account JWT's JetStream limit for the stream's storage, over replicas, shared by the account's streams; undefined without one. */
+  accountLimit?: number;
+}
+
+/** One account's JetStream limit for one storage, from its JWT. */
+export interface AccountStore {
+  account: string;
+  accountName: string;
+  storage: "file" | "memory";
+  /** Over replicas, the largest any server reports; undefined when no server reported the account. */
+  used?: number;
+  limit: number;
+  /** Bytes per day over the range; undefined under 6 hours of data. */
+  perDay?: number;
+  daysToFull?: number;
 }
 
 export interface Capacity {
@@ -78,6 +93,9 @@ export interface Capacity {
   epochAt?: number;
   servers: ServerStore[];
   serversWithoutJetstream: number;
+  /** Each server's memory store; empty when no server holds memory in use and no stream uses memory storage. */
+  memoryStores: ServerStore[];
+  accountStores: AccountStore[];
   streams: CapacityStream[];
   streamsTotal: number;
   /** The first collection the growth reads. */
@@ -99,6 +117,7 @@ const LIMIT: Record<NextLimitKind, LimitKind> = {
   [NextLimitKind.MESSAGES]: "messages",
   [NextLimitKind.BYTES]: "bytes",
   [NextLimitKind.PER_SUBJECT]: "perSubject",
+  [NextLimitKind.ACCOUNT]: "account",
 };
 
 const STATE: Record<NextLimitState, LimitState> = {
@@ -121,24 +140,38 @@ const STATUS: Record<CapacityStatus, Status> = {
   [CapacityStatus.BOUNDED]: "bounded",
 };
 
+function serverStore(s: GetCapacityResponse["servers"][number]): ServerStore {
+  return {
+    name: s.serverName,
+    cluster: s.cluster,
+    reported: s.reported,
+    used: optN(s.used),
+    limit: optN(s.limit),
+    perDay: s.perDay,
+    daysToFull: s.daysToFull,
+    findingId: s.findingId,
+    findingCode: s.findingCode,
+    findingSeverity: optSeverity(s.findingSeverity),
+    findingDays: s.findingDays,
+  };
+}
+
 export function capacity(r: GetCapacityResponse): Capacity {
   return {
     collected: r.epoch !== 0n,
     epochAt: ms(r.epochAt),
-    servers: r.servers.map((s) => ({
-      name: s.serverName,
-      cluster: s.cluster,
-      reported: s.reported,
-      used: optN(s.used),
-      limit: optN(s.limit),
-      perDay: s.perDay,
-      daysToFull: s.daysToFull,
-      findingId: s.findingId,
-      findingCode: s.findingCode,
-      findingSeverity: optSeverity(s.findingSeverity),
-      findingDays: s.findingDays,
-    })),
+    servers: r.servers.map(serverStore),
     serversWithoutJetstream: r.serversWithoutJetstream,
+    memoryStores: r.memoryStores.map(serverStore),
+    accountStores: r.accountStores.map((a) => ({
+      account: a.account,
+      accountName: a.accountName,
+      storage: a.storage === "memory" ? "memory" : "file",
+      used: optN(a.used),
+      limit: Number(a.limit),
+      perDay: a.perDay,
+      daysToFull: a.daysToFull,
+    })),
     streams: r.streams.map((s) => ({
       account: s.account,
       accountName: s.accountName,
@@ -172,6 +205,7 @@ export function capacity(r: GetCapacityResponse): Capacity {
       findingDays: s.findingDays,
       mute: mute(s.mute),
       declaredReason: s.declaredReason,
+      accountLimit: optN(s.accountLimit),
     })),
     streamsTotal: r.streamsTotal,
     growthFrom: ms(r.growthFrom),

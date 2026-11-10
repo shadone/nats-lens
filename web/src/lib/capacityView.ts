@@ -1,7 +1,7 @@
 // Words and numbers of the Capacity page, from the view model of
 // api/capacity.ts. A value the server left unset gives an en dash or no
 // words, never 0.
-import type { Capacity, CapacityStream, ServerStore } from "../api/capacity";
+import type { AccountStore, Capacity, CapacityStream, ServerStore } from "../api/capacity";
 import { fmtBytes, fmtGrowth, fmtInt, isoDate, isoMinute } from "./format";
 
 export const DASH = "–";
@@ -60,7 +60,7 @@ export interface StoreUse {
 }
 
 /** A reported card's use against its limit; undefined when not reported. */
-export function storeUse(s: ServerStore): StoreUse | undefined {
+export function storeUse(s: Pick<ServerStore, "reported" | "used" | "limit">): StoreUse | undefined {
   if (!s.reported || s.used === undefined) return undefined;
   if (s.limit === undefined || s.limit <= 0) return { used: fmtBytes(s.used), of: "no limit reported" };
   const pct = (s.used / s.limit) * 100;
@@ -73,8 +73,10 @@ export function storeTone(s: ServerStore): "warn" | "crit" | undefined {
   return s.findingSeverity === "critical" ? "crit" : s.findingSeverity === "warning" ? "warn" : undefined;
 }
 
+type Growth = Pick<ServerStore, "perDay" | "daysToFull">;
+
 /** When the store fills at the card's growth, in words; empty when the card has a rate but no limit. */
-export function timeToFull(s: ServerStore): string {
+export function timeToFull(s: Growth): string {
   if (s.perDay === undefined) return "not enough history for a rate (6 hours needed)";
   if (s.perDay <= 0) return "not growing";
   if (s.daysToFull === undefined) return "";
@@ -83,11 +85,26 @@ export function timeToFull(s: ServerStore): string {
 }
 
 /** "+17 MiB/day · full in more than 5 years at this rate"; undefined for a card not reported. */
-export function growthLine(s: ServerStore): string | undefined {
+export function growthLine(s: Growth & { reported: boolean }): string | undefined {
   if (!s.reported) return undefined;
   const ttf = timeToFull(s);
   if (s.perDay === undefined) return ttf;
   return [`${fmtGrowth(s.perDay)}/day`, ttf].filter(Boolean).join(" · ");
+}
+
+/** An account card's heading: "JetStream file limit" or "JetStream memory limit". */
+export function accountStoreTitle(a: AccountStore): string {
+  return a.storage === "memory" ? "JetStream memory limit" : "JetStream file limit";
+}
+
+/** An account card read as a store: reported when a server reported the account's use. */
+export function accountAsStore(a: AccountStore): { reported: boolean; used?: number; limit: number; perDay?: number; daysToFull?: number } {
+  return { reported: a.used !== undefined, used: a.used, limit: a.limit, perDay: a.perDay, daysToFull: a.daysToFull };
+}
+
+/** The account limit as a stream's bound: "account limit 500 GiB (shared)". */
+export function accountBoundText(limit: number): string {
+  return `account limit ${fmtBytes(limit)} (shared)`;
 }
 
 /** The finding link's words: "store full soon: 14 days by server-014". */
@@ -134,8 +151,19 @@ export function kindLine(s: CapacityStream): string {
   return parts.join(" · ");
 }
 
-/** The limits that are set, in the order age, messages, bytes, per subject; "nothing (keeps all)" without one. */
+/**
+ * The limits that are set, in the order age, messages, bytes, per subject; "nothing (keeps all)" without one.
+ * A stream without an age, message or byte limit of its own whose account JWT sets a limit names that limit,
+ * shared by the account's streams, in place of "nothing (keeps all)" or after its per-subject bound.
+ */
 export function boundText(s: CapacityStream): string {
+  const own = ownBoundText(s);
+  if (s.accountLimit === undefined || isBounded(s)) return own;
+  const account = accountBoundText(s.accountLimit);
+  return own.startsWith("nothing (keeps all)") ? own.replace("nothing (keeps all)", account) : `${own}, ${account}`;
+}
+
+function ownBoundText(s: CapacityStream): string {
   const msgs = s.maxMsgs !== undefined ? `${fmtLimitCount(s.maxMsgs)} msgs` : undefined;
   const bytes = s.maxBytes !== undefined ? fmtBytes(s.maxBytes) : undefined;
   if (s.kind === "kv" || s.kind === "object") {
@@ -209,6 +237,8 @@ function limitLabel(s: CapacityStream): string {
       return s.maxMsgs !== undefined ? `${fmtLimitCount(s.maxMsgs)} msgs` : "messages";
     case "bytes":
       return s.maxBytes !== undefined ? fmtBytes(s.maxBytes) : "bytes";
+    case "account":
+      return s.accountLimit !== undefined ? accountBoundText(s.accountLimit) : "account limit (shared)";
     default:
       return "";
   }
@@ -227,6 +257,8 @@ export function nextLimitText(s: CapacityStream): { text: string; crit: boolean 
     case "refusing":
       return { text: `${label}: reached, refuses new messages`, crit: true };
     case "reaches":
+      if (n.limit === "account")
+        return { text: `${label}: account full in ${n.days !== undefined ? daysWords(n.days) : "an unknown time"}`, crit: false };
       return {
         text: `${label}: in ${n.days !== undefined ? daysWords(n.days) : "an unknown time"}${n.discardNew ? ", then refuses new messages" : ""}`,
         crit: false,
@@ -236,6 +268,11 @@ export function nextLimitText(s: CapacityStream): { text: string; crit: boolean 
     default:
       return { text: DASH, crit: false };
   }
+}
+
+/** The status of an unbounded row: "account limit only" when its account JWT sets a limit for its storage. */
+export function unboundedText(s: CapacityStream): string {
+  return s.accountLimit !== undefined ? "account limit only" : "unbounded";
 }
 
 /** Words under a declared row. */
@@ -252,13 +289,18 @@ export function mutedUntil(expiresAt: number | undefined): string {
 
 /** A fills-soon row's tag: the check's own days, else the page's forecast. */
 export function fillsSoonText(s: CapacityStream): string {
-  const days = s.findingDays ?? (s.next.state === "reaches" ? s.next.days : undefined);
+  const days = s.findingDays ?? (s.next.state === "reaches" && s.next.limit !== "account" ? s.next.days : undefined);
   return days !== undefined ? `full in ${daysWords(days)}` : "full soon";
 }
 
 /** Whether any card or row has a growth rate: under 6 hours of history none has. */
 export function hasRate(d: Capacity): boolean {
-  return d.servers.some((s) => s.perDay !== undefined) || d.streams.some((s) => s.bytesPerDay !== undefined);
+  return (
+    d.servers.some((s) => s.perDay !== undefined) ||
+    d.memoryStores.some((s) => s.perDay !== undefined) ||
+    d.accountStores.some((a) => a.perDay !== undefined) ||
+    d.streams.some((s) => s.bytesPerDay !== undefined)
+  );
 }
 
 /** The header line: what the page covers, and since when growth is read, or that no rate exists yet. */

@@ -8,6 +8,33 @@ import { capacity } from "./capacity";
 const AT = Date.parse("2026-10-21T12:00:00Z");
 
 describe("capacity", () => {
+  it("reads memory stores, account limits and a stream's account limit", () => {
+    const d = capacity(
+      create(GetCapacityResponseSchema, {
+        epoch: 7n,
+        epochAt: timestampFromMs(AT),
+        memoryStores: [{ serverName: "nats-0", cluster: "c", reported: true, used: 0n, perDay: 0 }],
+        accountStores: [
+          { account: "A", accountName: "APP", storage: "file", used: 400n, limit: 1000n, perDay: 100, daysToFull: 6 },
+          { account: "A", storage: "memory", limit: 50n },
+        ],
+        streams: [
+          { account: "A", stream: "open", accountLimit: 1000n, nextLimit: { limit: NextLimitKind.ACCOUNT, state: NextLimitState.REACHES, days: 6, discardNew: true } },
+          { account: "A", stream: "plain" },
+        ],
+      }),
+    );
+    expect(d.memoryStores).toEqual([expect.objectContaining({ name: "nats-0", used: 0, limit: undefined, perDay: 0, findingId: "" })]);
+    expect(d.accountStores).toEqual([
+      { account: "A", accountName: "APP", storage: "file", used: 400, limit: 1000, perDay: 100, daysToFull: 6 },
+      { account: "A", accountName: "", storage: "memory", used: undefined, limit: 50, perDay: undefined, daysToFull: undefined },
+    ]);
+    expect(d.streams[0].accountLimit).toBe(1000);
+    expect(d.streams[0].next).toEqual({ limit: "account", state: "reaches", days: 6, discardNew: true });
+    expect(d.streams[1].accountLimit).toBeUndefined();
+  });
+
+
   it("reads an empty response as no collection", () => {
     const d = capacity(create(GetCapacityResponseSchema, {}));
     expect(d.collected).toBe(false);

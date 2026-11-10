@@ -74,3 +74,5 @@
 .cap-history-pages { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-3); }
 .cap-server > .tc { border: 0; box-shadow: none; margin-top: var(--sp-3); }
 @media (max-width: 48rem) { .cap-history-expanded { grid-template-columns: minmax(0, 1fr); } }
+.cap-section { margin: var(--sp-5) 0 var(--sp-2); font: 500 var(--fs-md)/1.3 var(--sans); }
+.cap-section-note { margin: 0 0 var(--sp-3); }

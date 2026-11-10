@@ -17,6 +17,7 @@ import {
   nextLimitText,
   perDayTimesR,
   sizeTimesR,
+  unboundedText,
 } from "../lib/capacityView";
 import { fmtBytes, fmtGrowth, fmtInt } from "../lib/format";
 import { muteBy, reviewOn, sentence } from "../lib/muteView";
@@ -101,7 +102,7 @@ function StatusCell({ s, onAccept }: { s: CapacityStream; onAccept: (s: Capacity
         </>
       );
     case "unbounded":
-      return <span className="cap-quiet">unbounded</span>;
+      return <span className="cap-quiet">{unboundedText(s)}</span>;
     case "bounded":
       return (
         <span className="cap-ok">

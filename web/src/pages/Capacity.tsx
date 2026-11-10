@@ -7,6 +7,7 @@ import { useCapacity } from "../api/queries";
 import {CapacityContributors} from "../components/CapacityContributors";
 import { TotalCapacityHistory } from "../components/CapacityHistory";
 import { ServerCards } from "../components/CapacityServers";
+import { AccountCards } from "../components/CapacityAccounts";
 import { StreamsTable } from "../components/CapacityStreams";
 import { Empty, QueryView } from "../components/common";
 import { CAPACITY_SUBTITLE, hasRate, headerLine } from "../lib/capacityView";
@@ -54,6 +55,14 @@ export function Capacity() {
             <>
               <TotalCapacityHistory />
               <ServerCards servers={r.servers} withoutJetstream={r.serversWithoutJetstream} />
+              {r.memoryStores.length > 0 && (
+                <section aria-label="Memory stores">
+                  <h2 className="cap-section">Memory stores</h2>
+                  <p className="cap-note cap-section-note">Memory stores hold the streams with memory storage; their bytes are not in the file store cards or totals.</p>
+                  <ServerCards servers={r.memoryStores} withoutJetstream={0} memory />
+                </section>
+              )}
+              <AccountCards accounts={r.accountStores} />
               <StreamsTable key={system} d={r} answeredAt={q.dataUpdatedAt} live={spec.kind === "live"} />
             </>
           ) : (
