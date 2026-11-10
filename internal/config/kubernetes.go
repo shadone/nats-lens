@@ -47,7 +47,22 @@ type Kubernetes struct {
 	// failed scheduling, crash loops and OOM kills are drawn on the
 	// timeline. Empty matches none.
 	ClientPods string `yaml:"client_pods"`
+	// ClientPodWatch turns on the watch of the pods of NATS clients, which
+	// gives the Applications page where each application runs. Off unless
+	// set: no request is made for client pods and no permission is needed.
+	ClientPodWatch ClientPodWatch `yaml:"client_pod_watch"`
 }
+
+// ClientPodWatch lists where the pods of NATS clients are watched: in
+// Namespaces (a Role in each suffices), or in every namespace with
+// AllNamespaces (needs a ClusterRole). Neither set means no watch.
+type ClientPodWatch struct {
+	Namespaces    []string `yaml:"namespaces"`
+	AllNamespaces bool     `yaml:"all_namespaces"`
+}
+
+// On reports whether client pods are watched.
+func (c ClientPodWatch) On() bool { return c.AllNamespaces || len(c.Namespaces) > 0 }
 
 // ClientPodsPattern returns ClientPods compiled; nil when empty or
 // invalid (validation reports an invalid one).
@@ -81,6 +96,7 @@ func (k Kubernetes) validate(events Events) []error {
 	if _, err := regexp.Compile(k.ClientPods); err != nil {
 		errs = append(errs, fmt.Errorf("kubernetes.client_pods: %w", err))
 	}
+	errs = append(errs, k.ClientPodWatch.validate(k.Enabled)...)
 	if !k.Enabled {
 		return errs
 	}
@@ -102,6 +118,25 @@ func (k Kubernetes) validate(events Events) []error {
 	for i, ns := range k.Namespaces {
 		if strings.TrimSpace(ns) == "" {
 			errs = append(errs, fmt.Errorf("kubernetes.namespaces[%d] is empty", i))
+		}
+	}
+	return errs
+}
+
+func (c ClientPodWatch) validate(enabled bool) []error {
+	var errs []error
+	if !c.On() {
+		return nil
+	}
+	if !enabled {
+		errs = append(errs, errors.New("kubernetes.client_pod_watch needs kubernetes.enabled"))
+	}
+	if c.AllNamespaces && len(c.Namespaces) > 0 {
+		errs = append(errs, errors.New("kubernetes.client_pod_watch: set namespaces or all_namespaces, not both"))
+	}
+	for i, ns := range c.Namespaces {
+		if strings.TrimSpace(ns) == "" {
+			errs = append(errs, fmt.Errorf("kubernetes.client_pod_watch.namespaces[%d] is empty", i))
 		}
 	}
 	return errs

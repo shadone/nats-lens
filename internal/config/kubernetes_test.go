@@ -83,3 +83,48 @@ func TestKubernetesClientPodsPattern(t *testing.T) {
 		t.Error("invalid pattern accepted")
 	}
 }
+
+func TestKubernetesClientPodWatch(t *testing.T) {
+	t.Setenv(PasswordEnv, "")
+	cfg, err := Parse("natslens", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Kubernetes.ClientPodWatch.On() {
+		t.Fatalf("on by default: %+v", cfg.Kubernetes.ClientPodWatch)
+	}
+	p := writeFile(t, "kubernetes:\n  enabled: true\n  client_pod_watch:\n    namespaces: [shop, payments]\n")
+	cfg, err = Parse("natslens", []string{"-config", p})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := cfg.Kubernetes.ClientPodWatch; !w.On() || w.AllNamespaces || len(w.Namespaces) != 2 || w.Namespaces[1] != "payments" {
+		t.Fatalf("file: %+v", w)
+	}
+	cases := map[string]struct {
+		w       ClientPodWatch
+		enabled bool
+		want    string
+	}{
+		"needs the watcher": {ClientPodWatch{Namespaces: []string{"shop"}}, false, "needs kubernetes.enabled"},
+		"both":              {ClientPodWatch{Namespaces: []string{"shop"}, AllNamespaces: true}, true, "not both"},
+		"empty namespace":   {ClientPodWatch{Namespaces: []string{"shop", " "}}, true, "namespaces[1]"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			c := Default()
+			c.Kubernetes.Enabled = tc.enabled
+			c.Kubernetes.ClientPodWatch = tc.w
+			err := c.Validate()
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("got %v, want %q", err, tc.want)
+			}
+		})
+	}
+	c := Default()
+	c.Kubernetes.Enabled = true
+	c.Kubernetes.ClientPodWatch = ClientPodWatch{AllNamespaces: true}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("all namespaces: %v", err)
+	}
+}
