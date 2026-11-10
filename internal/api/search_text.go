@@ -40,12 +40,14 @@ func FindingHasText(f *v1.Finding, text string) bool {
 		e.GetStream(), e.GetConsumer(), e.GetServer())
 }
 
-// EventHasText is the text filter of ListEvents: the kind, the server,
-// account, stream, consumer or client name, a finding event's finding ID
-// or the ID of a finding the event raised contains the text.
-func EventHasText(e *v1.Event, text string) bool {
-	if ContainsText(text, e.GetKind(), e.GetServer(), e.GetAccount(), e.GetStream(), e.GetConsumer(),
-		e.GetClientName(), e.GetTransition().GetFindingId()) {
+// EventHasText is the text filter of ListEvents: the kind, the reason, the
+// server, account (its ID or readable name), stream, consumer or client
+// name, a Kubernetes event's object (namespace/name, as its summary names
+// it), a finding event's finding ID or the ID of a finding the event raised
+// contains the text. The event carries no object, so the caller passes it.
+func EventHasText(e *v1.Event, text, object string) bool {
+	if ContainsText(text, e.GetKind(), e.GetReason(), e.GetServer(), e.GetAccount(), e.GetAccountName(), e.GetStream(),
+		e.GetConsumer(), e.GetClientName(), object, e.GetTransition().GetFindingId()) {
 		return true
 	}
 	for _, f := range e.GetRaised() {

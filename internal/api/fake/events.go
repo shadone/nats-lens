@@ -300,7 +300,7 @@ func keepEvent(e *v1.Event, req *v1.ListEventsRequest) bool {
 	if req.GetClientName() != "" && e.GetClientName() != req.GetClientName() {
 		return false
 	}
-	if !api.EventHasText(e, req.GetText()) {
+	if !api.EventHasText(e, req.GetText(), objectOf(e)) {
 		return false
 	}
 	w := req.GetEntity()
@@ -334,6 +334,9 @@ func (p *Provider) ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*
 		return nil, err
 	}
 	all := selectedDemoEvents(capture.events, req.SelectedIds)
+	if req.GetText() != "" {
+		all = p.namedAccounts(ctx, all)
+	}
 	res, err := p.listEventsAt(req, all)
 	if err == nil {
 		res.SelectedIds = append([]string(nil), req.SelectedIds...)
@@ -416,4 +419,34 @@ func (p *Provider) GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.G
 		return res, nil
 	}
 	return nil, fmt.Errorf("event %q: %w", req.GetId(), api.ErrNotFound)
+}
+
+// objectOf is a Kubernetes event's object for the text filter, as its
+// summary names it; other events have none.
+func objectOf(e *v1.Event) string {
+	if e.GetSource() == srcK8s {
+		return subject(e)
+	}
+	return ""
+}
+
+// namedAccounts returns the events with account_name set where the
+// account has a readable name, as the handler sets it on the response, so
+// that the text filter matches it. Events that change are copies: the
+// scenario's events are shared between requests.
+func (p *Provider) namedAccounts(ctx context.Context, evs []*v1.Event) []*v1.Event {
+	names, _ := p.AccountNames(ctx)
+	if len(names) == 0 {
+		return evs
+	}
+	out := make([]*v1.Event, len(evs))
+	for i, e := range evs {
+		out[i] = e
+		if n := names[e.GetAccount()]; n != "" && e.GetAccountName() == "" {
+			c := proto.Clone(e).(*v1.Event)
+			c.AccountName = n
+			out[i] = c
+		}
+	}
+	return out
 }

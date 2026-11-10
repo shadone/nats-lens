@@ -33,3 +33,14 @@ func TestDemoText(t *testing.T) {
 		t.Errorf("unmatched text: %d events", none.GetTotalCount())
 	}
 }
+
+// A Kubernetes event is found by the reason its row shows and by its
+// object, namespace/name, which only its summary carries.
+func TestDemoTextKubernetes(t *testing.T) {
+	c := client(t)
+	for text, want := range map[string]int32{"Unhealthy": 3, "failedscheduling": 5, "shop/resize-worker": 8} {
+		if got := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Text: text}))).GetTotalCount(); got != want {
+			t.Errorf("%q: %d events, want %d", text, got, want)
+		}
+	}
+}

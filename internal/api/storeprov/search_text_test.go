@@ -119,3 +119,35 @@ func TestEventsTextMatchesCausedFinding(t *testing.T) {
 		t.Fatalf("consumer.deleted %d not among %v", deleted, res.GetEvents())
 	}
 }
+
+// The text filter also matches the reason, a Kubernetes event's object as
+// namespace/name, and an account's readable name in operator mode.
+func TestEventsTextMatchesReasonObjectAndAccountName(t *testing.T) {
+	st := emptyStore(t)
+	if _, err := st.DB().Exec(`INSERT INTO accounts(account, account_name, is_system, first_epoch, last_epoch)
+VALUES ('ADSUPPLIERSKEY', 'Suppliers', false, 1, 1)`); err != nil {
+		t.Fatal(err)
+	}
+	probe := ev(0, events.SourceK8s, "k8s.pod.not_ready")
+	probe.Reason, probe.Summary = "Unhealthy", "pod shop/resize-worker-6c9d4-x2k4l Unhealthy: Readiness probe failed"
+	probe.Raw = json.RawMessage(`{"reason":"Unhealthy","object":{"kind":"Pod","namespace":"shop","name":"resize-worker-6c9d4-x2k4l"}}`)
+	node := ev(1, events.SourceK8s, "k8s.node.not_ready")
+	node.Reason, node.Raw = "NodeNotReady", json.RawMessage(`{"object":{"kind":"Node","namespace":"","name":"pool-a-node-1"}}`)
+	operator := ev(2, events.SourceJetStream, "stream.created")
+	operator.Account, operator.Stream = "ADSUPPLIERSKEY", "invoices"
+	write(t, st, probe, node, operator)
+	c := serveTooling(t, st)
+	for text, want := range map[string]int32{
+		"unhealthy":          1,
+		"shop/resize-worker": 1,
+		"pool-a-node":        1,
+		"suppliers":          1,
+		"adsuppliers":        1,
+		"shop/pool":          0,
+	} {
+		res := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Range: wide(), Text: text})))
+		if res.GetTotalCount() != want {
+			t.Errorf("%q: %d, want %d", text, res.GetTotalCount(), want)
+		}
+	}
+}

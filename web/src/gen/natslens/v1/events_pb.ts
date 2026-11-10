@@ -319,11 +319,12 @@ export type ListEventsRequest = Message<"natslens.v1.ListEventsRequest"> & {
   eventReadId?: bigint | undefined;
 
   /**
-   * Only events whose kind, server, account, stream, consumer, client
-   * name, finding ID (for a finding event) or ID of a finding it caused
-   * contains this text, ignoring case. Empty means all; at most 256 characters, surrounding spaces
-   * dropped. It is a filter like the others: facets and the histogram
-   * count with it, total_unfiltered without it.
+   * Only events whose kind, reason, server, account (ID or readable name),
+   * stream, consumer, client name, Kubernetes object (namespace/name),
+   * finding ID (for a finding event) or ID of a finding it caused contains
+   * this text, ignoring case. Empty means all; at most 256 characters,
+   * surrounding spaces dropped. It is a filter like the others: facets and
+   * the histogram count with it, total_unfiltered without it.
    *
    * @generated from field: string text = 15;
    */

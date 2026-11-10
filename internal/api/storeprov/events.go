@@ -156,6 +156,10 @@ func eventFilter(req *v1.ListEventsRequest) (string, []any) {
 const eventText = `(contains(lower(e.kind), ?) OR contains(lower(coalesce(e.server_name, '')), ?)
   OR contains(lower(coalesce(e.account, '')), ?) OR contains(lower(coalesce(e.stream, '')), ?)
   OR contains(lower(coalesce(e.consumer, '')), ?) OR contains(lower(coalesce(e.client_name, '')), ?)
+  OR contains(lower(coalesce(e.reason, '')), ?)
+  OR e.account IN (SELECT account FROM accounts WHERE account_name IS NOT NULL AND contains(lower(account_name), ?))
+  OR (e.source = 'k8s' AND contains(lower(coalesce(concat_ws('/', nullif(json_extract_string(e.raw, '$.object.namespace'), ''),
+    json_extract_string(e.raw, '$.object.name')), '')), ?))
   OR (e.source = 'finding' AND contains(lower(coalesce(json_extract_string(e.raw, '$.finding_id'), '')), ?))
   OR e.id IN (SELECT cause_event_id FROM findings WHERE cause_event_id IS NOT NULL AND contains(lower(id), ?)))`
 

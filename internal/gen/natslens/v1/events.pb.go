@@ -379,11 +379,12 @@ type ListEventsRequest struct {
 	SelectedIds []string `protobuf:"bytes,13,rep,name=selected_ids,json=selectedIds,proto3" json:"selected_ids,omitempty"`
 	// Captured event membership. A known zero excludes all events.
 	EventReadId *int64 `protobuf:"varint,14,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
-	// Only events whose kind, server, account, stream, consumer, client
-	// name, finding ID (for a finding event) or ID of a finding it caused
-	// contains this text, ignoring case. Empty means all; at most 256 characters, surrounding spaces
-	// dropped. It is a filter like the others: facets and the histogram
-	// count with it, total_unfiltered without it.
+	// Only events whose kind, reason, server, account (ID or readable name),
+	// stream, consumer, client name, Kubernetes object (namespace/name),
+	// finding ID (for a finding event) or ID of a finding it caused contains
+	// this text, ignoring case. Empty means all; at most 256 characters,
+	// surrounding spaces dropped. It is a filter like the others: facets and
+	// the histogram count with it, total_unfiltered without it.
 	Text          string `protobuf:"bytes,15,opt,name=text,proto3" json:"text,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
