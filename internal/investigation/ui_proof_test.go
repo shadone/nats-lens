@@ -44,6 +44,7 @@ func TestUIEntityAndEnumProof(t *testing.T) {
 		{"ListFindings", "/findings", `{"states":[987]}`, true},
 		{"ListFindings", "/findings", `{"states":["FINDING_STATE_FIRING","FINDING_STATE_CHANGED","FINDING_STATE_FLAPPING","FINDING_STATE_RESOLVED"]}`, false},
 		{"ListFindings", "/findings", `{"states":[]}`, false},
+		{"ListFindings", "/findings?account=APP", `{"account":"APP"}`, false},
 		{"ListConsumers", "/consumers", `{"sort":987}`, true},
 		{"GetSubjects", "/subjects", `{"filter":987}`, true},
 		{"GetPlacement", "/placement", `{"filter":987}`, true},
@@ -219,6 +220,36 @@ func TestTimelineRowCoverageOptionIsNotAnEncodedUIPredicate(t *testing.T) {
 		}
 		if !strings.Contains(strings.Join(proveUILinkScope("GetStatusTimeline", req.ProtoReflect(), c), " "), "includeOk") {
 			t.Fatalf("includeOk=%v silently treated as page-equivalent", value)
+		}
+	}
+}
+
+// Another account than the link's is reproducible too: the effective
+// context, and so its link, takes the request's account, as the Findings
+// page applies ?account=.
+func TestUIFindingsAccountFollowsTheRequest(t *testing.T) {
+	for _, tc := range []struct{ path, request, want string }{
+		{"/findings?account=APP&system=shop", `{"account":"SUPPLIERS"}`, "SUPPLIERS"},
+		{"/findings?system=shop", `{"account":"APP"}`, "APP"},
+	} {
+		c, err := ContextFromURL("https://lens.example.com"+tc.path, "https://lens.example.com", fixtureNow())
+		if err != nil {
+			t.Fatal(err)
+		}
+		req, _, err := Prepare("ListFindings", c, []byte(tc.request))
+		if err != nil {
+			t.Fatal(err)
+		}
+		effective, limits, err := effectiveContext("ListFindings", c, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		link, err := effective.Link(c.Deployment)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(limits) > 0 || effective.Account != tc.want || !strings.Contains(link, "account="+tc.want) {
+			t.Errorf("%s %s: account %q, link %s, limits %v", tc.path, tc.request, effective.Account, link, limits)
 		}
 	}
 }

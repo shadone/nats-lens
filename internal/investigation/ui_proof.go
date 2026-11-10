@@ -20,7 +20,7 @@ var uiPredicates = map[string]string{
 	"GetLensInfo": "system", "ListSystems": "range", "ListCheckDefinitions": "system",
 	"GetOverview": "system range", "GetShellStatus": "system range",
 	"GetTimeSeries": "system range entity", "GetTimeSeriesBatch": "system range",
-	"ListFindings": "system range states severities include_muted check_code", "GetFinding": "system id", "GetOnCall": "system finding_id",
+	"ListFindings": "system range states severities include_muted check_code account", "GetFinding": "system id", "GetOnCall": "system finding_id",
 	"ListEvents": "system range entity sources kinds client_name hide_routine fold_repeats", "GetEvent": "system id",
 	"GetStatusTimeline": "system range", "ListServers": "system range", "GetServer": "system range name", "ListAccounts": "system range",
 	"ListConnections": "system range server account name_contains include_tooling",
@@ -36,7 +36,7 @@ var uiPredicates = map[string]string{
 var uiDefaultOnly = map[string]string{
 	"ListSystems":      "strip_buckets",
 	"GetStorageChange": "page_token",
-	"ListFindings":     "entity page_token text account", "ListEvents": "page_token include_facets histogram_buckets selected_ids event_read_id text",
+	"ListFindings":     "entity page_token text", "ListEvents": "page_token include_facets histogram_buckets selected_ids event_read_id text",
 	"GetEvent":          "event_read_id",
 	"GetStatusTimeline": "entity event_read_id", "ListConnections": "page_token", "ListStreams": "account page_token summary_only",
 	"ListConsumers": "page_token", "GetDataHistory": "server", "GetPlacement": "selected_asset selected_server",
