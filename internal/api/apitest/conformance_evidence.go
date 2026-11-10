@@ -82,6 +82,9 @@ func assetPlacementAgrees(q Q) string {
 			got := res.GetAssets()[i]
 			var want, have []string
 			for _, c := range a.GetCells() {
+				if c.GetServer() == "" {
+					continue
+				}
 				want = append(want, c.GetServer()+" "+c.GetState().String())
 			}
 			for _, r := range got.GetReplicas() {

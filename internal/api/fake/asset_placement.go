@@ -31,6 +31,10 @@ func (p *Provider) ListAssetPlacement(ctx context.Context, req *v1.ListAssetPlac
 		if a := byKey[prefix+e.GetKey()]; a != nil {
 			out.Leader = a.GetLeader()
 			for _, c := range a.GetCells() {
+				// A replica no server names has no row by server.
+				if c.GetServer() == "" {
+					continue
+				}
 				out.Replicas = append(out.Replicas, &v1.ReplicaPlacement{Server: c.GetServer(), State: c.GetState()})
 			}
 		}
