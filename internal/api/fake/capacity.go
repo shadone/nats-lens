@@ -136,6 +136,8 @@ func (p *Provider) capacityAt(s scen, req *v1.GetCapacityRequest) (*api.Capacity
 		if !s.offline(sv.name, at) {
 			x.Reported, x.Used, x.Limit = true, ptr(sv.store), ptr(sv.maxStore)
 			x.MemUsed, x.MemLimit = ptr(s.sc.memStore(sv.name)), ptr(sv.maxMemStore)
+		} else {
+			x.MemLast = s.lastMemory(sv.name, f.GrowthFrom, at)
 		}
 		f.Servers = append(f.Servers, x)
 	}
@@ -165,4 +167,16 @@ func (p *Provider) capacityAt(s scen, req *v1.GetCapacityRequest) (*api.Capacity
 		f.Accounts = append(f.Accounts, x)
 	}
 	return f, nil
+}
+
+// lastMemory is a server's newest memory store reading from from up to
+// at, as the store reads it for a server the epoch lacks: the newest
+// sample on the series' grid; nil when it answered in none of them.
+func (s scen) lastMemory(server string, from, at time.Time) *int64 {
+	for c := api.BucketStart(at, sampleEvery); !c.Before(from); c = c.Add(-sampleEvery) {
+		if v, ok := s.sc.value(fakeServerMemStore, serverRef(server), s.clock(c)); ok {
+			return ptr(int64(v))
+		}
+	}
+	return nil
 }

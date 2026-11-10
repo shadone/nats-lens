@@ -161,13 +161,13 @@ func TestDemoCapacityGlobal(t *testing.T) {
 	if by["KV_session-cache"].GetAccountLimit() != 16<<30 {
 		t.Errorf("KV_session-cache = %v", by["KV_session-cache"])
 	}
-	// Memory cards for the three servers of KV_session-cache and for
-	// nats-us-4, which did not report; the other 20 hold none.
+	// Memory cards for the three servers of KV_session-cache; the other 21
+	// hold none, nats-us-4 by its last reading before it stopped answering.
 	memory := map[string]*v1.ServerStore{}
 	for _, m := range res.GetMemoryStores() {
 		memory[m.GetServerName()] = m
 	}
-	if len(memory) != 4 || memory["nats-us-4"] == nil || memory["nats-us-4"].GetReported() || res.GetMemoryStoresEmpty() != 20 {
+	if len(memory) != 3 || memory["nats-us-4"] != nil || res.GetMemoryStoresEmpty() != 21 {
 		t.Errorf("global memory stores = %v, %d empty", res.GetMemoryStores(), res.GetMemoryStoresEmpty())
 	}
 	for _, n := range []string{"nats-eu-0", "nats-eu-3", "nats-eu-6"} {

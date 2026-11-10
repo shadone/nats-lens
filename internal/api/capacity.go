@@ -79,6 +79,11 @@ type ServerStoreFact struct {
 	// MemUsed, MemLimit and MemPerDay are the same of the memory store.
 	MemUsed, MemLimit *int64
 	MemPerDay         *float64
+	// MemLast is, for a server not reported in the epoch, its newest
+	// memory store reading from the growth's first collection
+	// (GrowthStart) up to the range's end; nil without one, and for a
+	// server reported.
+	MemLast *int64
 }
 
 // AccountStoreFact is one account's JetStream use against its JWT's
@@ -194,17 +199,21 @@ func serverStore(s ServerStoreFact, firing map[string]*v1.Finding) *v1.ServerSto
 
 // memoryStores are the servers' memory store cards, when MemoryShown;
 // none otherwise, so a system that keeps everything on file shows no
-// memory cards. Then a card goes to
-// each server that holds memory and to each that did not answer (its
-// memory is unknown); the servers that answered holding none are only
-// counted, in empty.
+// memory cards. Then a card goes to each server that holds memory
+// (HoldsMemory): one that answered with memory in use, or one not
+// reported whose last reading held memory. The servers that answered
+// holding none, and those not reported whose last reading held none, are
+// only counted, in empty; a server not reported without a reading in the
+// range is neither, as its memory is unknown.
 func memoryStores(f *CapacityFacts) (cards []*v1.ServerStore, empty int32) {
 	if !MemoryShown(f) {
 		return nil, 0
 	}
 	for _, s := range f.Servers {
-		if s.Reported && !HoldsMemory(s) {
-			empty++
+		if !HoldsMemory(s) {
+			if s.Reported || s.MemLast != nil {
+				empty++
+			}
 			continue
 		}
 		m := &v1.ServerStore{ServerName: s.Name, Cluster: s.Cluster, Reported: s.Reported}
@@ -217,18 +226,20 @@ func memoryStores(f *CapacityFacts) (cards []*v1.ServerStore, empty int32) {
 	return cards, empty
 }
 
-// MemoryShown is whether the page shows memory store cards: a server that
-// answered holds memory in use, or a memory stream of the epoch holds
-// bytes (its servers may all have missed the collection).
+// MemoryShown is whether the page shows memory store cards: a server
+// holds memory (HoldsMemory).
 func MemoryShown(f *CapacityFacts) bool {
-	return slices.ContainsFunc(f.Servers, HoldsMemory) || slices.ContainsFunc(f.Streams, func(s CapacityStreamFact) bool {
-		return s.Storage == StorageMemory && s.Bytes != nil && *s.Bytes > 0
-	})
+	return slices.ContainsFunc(f.Servers, HoldsMemory)
 }
 
-// HoldsMemory is whether a server that answered holds memory in use.
+// HoldsMemory is whether a server holds memory in use: one that answered
+// in the epoch by its reading there, one not reported by its last reading
+// in the range (MemLast).
 func HoldsMemory(s ServerStoreFact) bool {
-	return s.Reported && s.MemUsed != nil && *s.MemUsed > 0
+	if !s.Reported {
+		return s.MemLast != nil && *s.MemLast > 0
+	}
+	return s.MemUsed != nil && *s.MemUsed > 0
 }
 
 // accountStores are the account cards: one per account and storage whose

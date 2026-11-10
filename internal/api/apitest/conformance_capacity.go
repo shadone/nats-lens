@@ -87,6 +87,28 @@ func capacityRows() []State {
 			}
 			return ""
 		}},
+		{"a Capacity memory group that counts a server not reported by its last reading", func(q Q) string {
+			res := q.capacity()
+			if len(res.GetMemoryStores()) == 0 {
+				return ""
+			}
+			carded := map[string]bool{}
+			for _, m := range res.GetMemoryStores() {
+				carded[m.GetServerName()] = true
+			}
+			var missing string
+			for _, s := range res.GetServers() {
+				if !s.GetReported() && !carded[s.GetServerName()] {
+					missing = s.GetServerName()
+				}
+			}
+			// Every server without a card is counted: also the one not
+			// reported, by its last reading in the range.
+			if missing == "" || int(res.GetMemoryStoresEmpty()) != len(res.GetServers())-len(carded) {
+				return ""
+			}
+			return missing
+		}},
 		{"a Capacity account card with its use, limit and time to full", func(q Q) string {
 			for _, a := range q.capacity().GetAccountStores() {
 				if a.Used != nil && a.GetLimit() > 0 && a.GetPerDay() > 0 && a.DaysToFull != nil {

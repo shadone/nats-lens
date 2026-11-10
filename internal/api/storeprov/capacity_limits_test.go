@@ -145,3 +145,70 @@ func TestCapacityLimitsFromStore(t *testing.T) {
 		}
 	}
 }
+
+// missingMemoryStore is 6 hours of epochs, 10 minutes apart, ending at
+// last: nats-0 answers every epoch holding no memory; nats-1 holds the R1
+// memory bucket KV_presence (4 KiB) and nats-2 holds no memory, and both
+// are missing from the newest epoch.
+func missingMemoryStore(t *testing.T, last time.Time) *store.Store {
+	t.Helper()
+	st := emptyStore(t)
+	r := rows{t, st}
+	const epochs = 37
+	at := func(e int64) time.Time { return last.Add(-time.Duration(epochs-e) * capStep) }
+	for i := range 3 {
+		r.add("servers", map[string]any{"server_id": fmt.Sprintf("S%d", i), "server_name": fmt.Sprintf("nats-%d", i), "cluster": "c1",
+			"jetstream": true, "first_epoch": 1, "last_epoch": epochs, "first_seen_at": at(1), "last_seen_at": at(epochs)})
+	}
+	r.add("streams", map[string]any{"account": "APP", "stream": "KV_presence", "first_epoch": 1, "last_epoch": epochs - 1})
+	r.add("stream_config", map[string]any{"server_id": "S1", "account": "APP", "stream": "KV_presence", "first_epoch": 1, "last_epoch": epochs - 1,
+		"config_hash": "h", "retention": "limits", "storage": "memory", "replicas": 1, "max_msgs": -1, "max_bytes": -1,
+		"max_age_ns": int64(time.Minute), "max_msgs_per_subject": 1, "discard": "new"})
+	for e := int64(1); e <= epochs; e++ {
+		missing := "[]"
+		if e == epochs {
+			missing = "['nats-1', 'nats-2']"
+		}
+		if _, err := st.DB().Exec(fmt.Sprintf(`INSERT INTO epochs VALUES (?, ?, ?, 0, 3, 3, ['nats-0', 'nats-1', 'nats-2'], [], %s, 0, ?, [], NULL)`, missing),
+			e, at(e), at(e).Add(time.Second), e == epochs); err != nil {
+			t.Fatal(err)
+		}
+		r.add("server_stats", map[string]any{"epoch": e, "server_id": "S0", "js_enabled": true, "js_storage": int64(1 << 30), "js_max_storage": int64(10 << 30),
+			"js_memory": 0, "js_max_memory": int64(1 << 30)})
+		if e == epochs {
+			continue
+		}
+		for i, mem := range []int64{4096, 0} {
+			r.add("server_stats", map[string]any{"epoch": e, "server_id": fmt.Sprintf("S%d", i+1), "js_enabled": true, "js_storage": int64(1 << 30),
+				"js_max_storage": int64(10 << 30), "js_memory": mem, "js_max_memory": int64(1 << 30)})
+		}
+		r.add("stream_stats", map[string]any{"epoch": e, "server_id": "S1", "account": "APP", "stream": "KV_presence", "is_leader": true,
+			"leader": "nats-1", "messages": 4, "bytes": 4096, "first_ts": at(e).Add(-time.Minute)})
+	}
+	return st
+}
+
+// The memory group stays when the only holder of a memory bucket missed
+// the newest collection: by its last reading it keeps a "not reported"
+// card, while the bucket itself is absent from the epoch's streams; the
+// server that last held none is counted.
+func TestCapacityMemoryHolderMissingFromStore(t *testing.T) {
+	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
+	st := missingMemoryStore(t, last)
+	if _, err := st.DB().Exec(`SET GLOBAL TimeZone = 'Pacific/Honolulu'`); err != nil {
+		t.Fatal(err)
+	}
+	clock := last.Add(30 * time.Second)
+	_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: capStep, Live: true, Clock: func() time.Time { return clock }, Retention: 14 * day})
+	rng := &v1.TimeRange{Start: timestamppb.New(last.Add(-24 * time.Hour)), End: timestamppb.New(last.Add(time.Minute))}
+	res := must(c.GetCapacity(ctx, connect.NewRequest(&v1.GetCapacityRequest{Range: rng})))
+	for _, s := range res.GetStreams() {
+		if s.GetStream() == "KV_presence" {
+			t.Errorf("KV_presence is listed; its only replica missed the collection")
+		}
+	}
+	m := res.GetMemoryStores()
+	if len(m) != 1 || m[0].GetServerName() != "nats-1" || m[0].GetReported() || res.GetMemoryStoresEmpty() != 2 {
+		t.Errorf("memory stores = %v, %d empty", m, res.GetMemoryStoresEmpty())
+	}
+}

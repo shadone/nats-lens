@@ -30,12 +30,10 @@ func (p *Provider) Capacity(ctx context.Context, req *v1.GetCapacityRequest) (*a
 		return nil, fmt.Errorf("capacity growth start: %w", err)
 	}
 	f.GrowthFrom = ntime(from)
-	// Streams first: whether the servers' memory growth is read depends on
-	// them (api.MemoryShown).
-	if err := p.capacityStreams(ctx, f, start, end); err != nil {
+	if err := p.capacityServers(ctx, f, start, end); err != nil {
 		return nil, err
 	}
-	if err := p.capacityServers(ctx, f, start, end); err != nil {
+	if err := p.capacityStreams(ctx, f, start, end); err != nil {
 		return nil, err
 	}
 	if err := p.capacityAccounts(ctx, f, start, end); err != nil {
@@ -64,10 +62,17 @@ WITH cur AS (
 ), known AS (
     SELECT server_name AS name, arg_max(cluster, last_epoch) AS cluster, arg_max(jetstream, last_epoch) AS js
     FROM servers WHERE first_epoch <= $1 GROUP BY server_name
+), last_mem AS (
+    -- The newest memory reading of each server from the growth's first
+    -- collection up to the range's end, for a server the epoch lacks.
+    SELECT s.server_name AS name, arg_max(st.js_memory, e.started_at) AS mem
+    FROM server_stats st JOIN servers s USING (server_id) JOIN epochs e USING (epoch)
+    WHERE e.started_at >= $2 AND e.started_at < $3 AND st.js_memory IS NOT NULL
+    GROUP BY s.server_name
 )
-SELECT n.name, coalesce(nullif(c.cluster, ''), k.cluster, ''), c.enabled, c.used, c.lim, k.js, c.mem, c.mem_lim
-FROM names n LEFT JOIN cur c USING (name) LEFT JOIN known k USING (name)
-ORDER BY n.name`, f.Epoch)
+SELECT n.name, coalesce(nullif(c.cluster, ''), k.cluster, ''), c.enabled, c.used, c.lim, k.js, c.mem, c.mem_lim, l.mem
+FROM names n LEFT JOIN cur c USING (name) LEFT JOIN known k USING (name) LEFT JOIN last_mem l USING (name)
+ORDER BY n.name`, f.Epoch, api.GrowthStart(start, end, p.Interval), end)
 	if err != nil {
 		return fmt.Errorf("capacity servers: %w", err)
 	}
@@ -75,8 +80,8 @@ ORDER BY n.name`, f.Epoch)
 	for rows.Next() {
 		var s api.ServerStoreFact
 		var enabled, js sql.NullBool
-		var used, lim, mem, memLim sql.NullInt64
-		if err := rows.Scan(&s.Name, &s.Cluster, &enabled, &used, &lim, &js, &mem, &memLim); err != nil {
+		var used, lim, mem, memLim, last sql.NullInt64
+		if err := rows.Scan(&s.Name, &s.Cluster, &enabled, &used, &lim, &js, &mem, &memLim, &last); err != nil {
 			return err
 		}
 		switch {
@@ -86,6 +91,9 @@ ORDER BY n.name`, f.Epoch)
 		}
 		s.Reported, s.Used, s.Limit = used.Valid, int64Ptr(used), int64Ptr(lim)
 		s.MemUsed, s.MemLimit = int64Ptr(mem), int64Ptr(memLim)
+		if !s.Reported {
+			s.MemLast = int64Ptr(last)
+		}
 		f.Servers = append(f.Servers, s)
 	}
 	if err := rows.Err(); err != nil {

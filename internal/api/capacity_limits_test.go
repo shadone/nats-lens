@@ -13,15 +13,18 @@ func jwt(disk, mem int64) *api.AccountDetails {
 }
 
 // Memory store cards follow the file store cards' rules, without
-// findings. They appear only when a server that answered holds memory;
-// then a server that answered without memory is counted, not carded, and
-// one not reported keeps its card.
+// findings. They appear only when a server holds memory; then a server
+// that answered without memory is counted, not carded. A server not
+// reported is carded when its last reading held memory, counted when it
+// held none, and left out without a reading.
 func TestCapacityMemoryStores(t *testing.T) {
 	servers := []api.ServerStoreFact{
 		{Name: "a", Reported: true, Used: i64(1), Limit: i64(10), MemUsed: i64(100), MemLimit: i64(1000), MemPerDay: f64(30)},
 		{Name: "b", Reported: true, Used: i64(1), Limit: i64(10), MemUsed: i64(0), MemLimit: i64(1000), MemPerDay: f64(0)},
-		{Name: "c", MemPerDay: f64(5)},
+		{Name: "c", MemPerDay: f64(5), MemLast: i64(64)},
 		{Name: "d", Reported: true, Used: i64(1), Limit: i64(10), MemUsed: i64(7), MemLimit: i64(0)},
+		{Name: "e", MemLast: i64(0)},
+		{Name: "f"},
 	}
 	f := &api.CapacityFacts{Epoch: 1, EpochAt: capAt, Servers: servers,
 		Findings: []*v1.Finding{{Id: "server-007:a", CheckCode: api.CheckStoreHigh, Entity: &v1.EntityRef{Key: "a"}, State: v1.FindingState_FINDING_STATE_FIRING}}}
@@ -30,7 +33,7 @@ func TestCapacityMemoryStores(t *testing.T) {
 	for _, m := range res.GetMemoryStores() {
 		by[m.GetServerName()] = m
 	}
-	if len(by) != 3 || by["b"] != nil || res.GetMemoryStoresEmpty() != 1 {
+	if len(by) != 3 || by["b"] != nil || by["e"] != nil || by["f"] != nil || res.GetMemoryStoresEmpty() != 2 {
 		t.Fatalf("memory stores = %v, %d empty", res.GetMemoryStores(), res.GetMemoryStoresEmpty())
 	}
 	if a := by["a"]; a.GetUsed() != 100 || a.GetLimit() != 1000 || a.GetDaysToFull() != 30 || a.GetFindingId() != "" {
@@ -45,24 +48,24 @@ func TestCapacityMemoryStores(t *testing.T) {
 	if res.GetServers()[0].GetFindingId() != "server-007:a" {
 		t.Errorf("file card a = %v", res.GetServers()[0])
 	}
-	// Without memory in use, no cards and no count, also with a memory
-	// stream that holds nothing.
-	f.Servers[0].MemUsed, f.Servers[3].MemUsed = i64(0), i64(0)
-	f.Streams = []api.CapacityStreamFact{{Account: "APP", Stream: "s", Storage: "memory", Bytes: i64(0)}}
+	// Without memory anywhere, no cards and no count, also with a memory
+	// stream that holds bytes: the servers' readings decide.
+	f.Servers[0].MemUsed, f.Servers[2].MemLast, f.Servers[3].MemUsed = i64(0), i64(0), i64(0)
+	f.Streams = []api.CapacityStreamFact{{Account: "APP", Stream: "s", Storage: "memory", Bytes: i64(10)}}
 	if res := api.FinishCapacity(f); len(res.GetMemoryStores()) != 0 || res.GetMemoryStoresEmpty() != 0 {
 		t.Errorf("memory stores without memory = %v, %d empty", res.GetMemoryStores(), res.GetMemoryStoresEmpty())
 	}
 }
 
-// A memory stream with bytes shows the group even when every server that
-// holds it missed the collection: its not-reported card stays visible.
+// The group stays when every server that holds memory missed the
+// collection: a not-reported server whose last reading held memory gets
+// its card.
 func TestCapacityMemoryStoresWhileHoldersMissing(t *testing.T) {
 	f := &api.CapacityFacts{Epoch: 1, EpochAt: capAt,
 		Servers: []api.ServerStoreFact{
 			{Name: "nats-0", Reported: true, Used: i64(1), Limit: i64(10), MemUsed: i64(0), MemLimit: i64(1000)},
-			{Name: "nats-1"},
+			{Name: "nats-1", MemLast: i64(4096)},
 		},
-		Streams: []api.CapacityStreamFact{{Account: "APP", Stream: "KV_presence", Storage: "memory", Bytes: i64(4096)}},
 	}
 	res := api.FinishCapacity(f)
 	if m := res.GetMemoryStores(); len(m) != 1 || m[0].GetServerName() != "nats-1" || m[0].GetReported() || res.GetMemoryStoresEmpty() != 1 {
