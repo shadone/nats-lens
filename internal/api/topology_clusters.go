@@ -8,40 +8,52 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// Memory far above the other servers, as server-008 judges it by default:
-// at least MemHighMinBytes and more than MemHighMultiplier times the median
-// of the other servers that report it.
+// The checks whose findings Topology shows.
 const (
-	MemHighMinBytes   = 512 << 20
-	MemHighMultiplier = 1.5
+	CheckMemoryHigh    = "server-008"
+	CheckMirrorLagging = "stream-015"
+	CheckMirrorError   = "stream-017"
+	CheckSourceSilent  = "stream-022"
+	CheckSourceError   = "stream-023"
 )
 
-// memHigh reports whether s's memory is far above the other servers'.
-func memHigh(s TopologyServerFact, servers []TopologyServerFact) bool {
-	if s.Mem == nil || *s.Mem < MemHighMinBytes {
-		return false
-	}
-	var others []float64
-	for _, o := range servers {
-		if o.Name != s.Name && !o.Missing && o.Mem != nil {
-			others = append(others, float64(*o.Mem))
+// topologyFindings are the firing findings by check code and entity key.
+func topologyFindings(fs []*v1.Finding) map[string][]*v1.Finding {
+	out := map[string][]*v1.Finding{}
+	for _, x := range fs {
+		if x.GetState() == v1.FindingState_FINDING_STATE_RESOLVED {
+			continue
 		}
+		k := x.GetCheckCode() + ":" + x.GetEntity().GetKey()
+		out[k] = append(out[k], x)
 	}
-	if len(others) == 0 {
-		return false
+	return out
+}
+
+// quiet reports whether a finding is muted, an acceptance included.
+func quiet(x *v1.Finding) bool { return x.GetMute() != nil }
+
+// memoryFinding is the finding about s's memory: server-008, else
+// server-007 when the JetStream memory store is at least as full as the
+// file store, which server-007 also judges.
+func memoryFinding(s TopologyServerFact, firing map[string][]*v1.Finding) *v1.Finding {
+	if fs := firing[CheckMemoryHigh+":"+s.Name]; len(fs) > 0 {
+		return fs[0]
 	}
-	slices.Sort(others)
-	n := len(others)
-	median := others[n/2]
-	if n%2 == 0 {
-		median = (others[n/2-1] + others[n/2]) / 2
+	fs := firing[CheckStoreHigh+":"+s.Name]
+	if len(fs) == 0 || s.JSMemory == nil || s.JSMaxMemory == nil || *s.JSMaxMemory <= 0 {
+		return nil
 	}
-	return median > 0 && float64(*s.Mem) > MemHighMultiplier*median
+	mem := float64(*s.JSMemory) / float64(*s.JSMaxMemory)
+	if s.JSStorage != nil && s.JSMaxStorage != nil && *s.JSMaxStorage > 0 && float64(*s.JSStorage)/float64(*s.JSMaxStorage) > mem {
+		return nil
+	}
+	return fs[0]
 }
 
 // topologyClusters builds one cluster per cluster name of the servers,
 // with the leaf node sites on each counted by name.
-func topologyClusters(f *TopologyFacts, servers []TopologyServerFact, leafs []*v1.TopologyLeafnode) []*v1.TopologyCluster {
+func topologyClusters(f *TopologyFacts, servers []TopologyServerFact, leafs []*v1.TopologyLeafnode, firing map[string][]*v1.Finding) []*v1.TopologyCluster {
 	byName := map[string]*v1.TopologyCluster{}
 	clusterOf := map[string]string{}
 	places := map[string][]string{}
@@ -58,7 +70,9 @@ func topologyClusters(f *TopologyFacts, servers []TopologyServerFact, leafs []*v
 		ts := &v1.TopologyServer{Name: s.Name, Missing: s.Missing, MetaLeader: lead}
 		if !s.Missing {
 			ts.MemBytes, ts.JsMemoryBytes, ts.JsMaxMemoryBytes = s.Mem, s.JSMemory, s.JSMaxMemory
-			ts.MemHigh = memHigh(s, servers)
+			if x := memoryFinding(s, firing); x != nil {
+				ts.MemoryFindingId, ts.MemoryFindingCode, ts.MemoryFindingSeverity, ts.MemoryFindingQuiet = x.GetId(), x.GetCheckCode(), x.GetSeverity(), quiet(x)
+			}
 		}
 		c.Servers = append(c.Servers, ts)
 		c.MetaLeader = c.MetaLeader || lead

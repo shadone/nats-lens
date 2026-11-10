@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
 // rconn is server's route connection rid to remote; IDs are the names
@@ -137,70 +138,79 @@ func TestTopologyRouteDropsResponse(t *testing.T) {
 	}
 }
 
-// Memory is far above the others at 512 MiB and more than 1.5 times the
-// median of the other servers that report it; a missing server's memory
-// is not sent and does not count.
-func TestTopologyMemHigh(t *testing.T) {
+// finding is a firing finding of code about entity key.
+func finding(code, key string, mod ...func(*v1.Finding)) *v1.Finding {
+	x := &v1.Finding{Id: code + ":" + key, CheckCode: code, Entity: &v1.EntityRef{Key: key}, State: v1.FindingState_FINDING_STATE_FIRING,
+		Severity: v1.Severity_SEVERITY_WARNING, Detail: code + " on " + key}
+	for _, m := range mod {
+		m(x)
+	}
+	return x
+}
+
+func muted(x *v1.Finding) { x.Mute = &v1.Mute{Reason: "known"} }
+
+// A server's memory finding is server-008, else server-007 when the
+// JetStream memory store is at least as full as the file store; a muted
+// one is quiet, a resolved one and a missing server's are not shown.
+func TestTopologyMemoryFinding(t *testing.T) {
 	const mib = 1 << 20
 	f := topoFacts()
-	for i, m := range []int64{200, 210, 900, 220, 2000, 230} {
-		f.Servers[i].Mem = i64(m * mib)
+	for i := range f.Servers {
+		f.Servers[i].Mem = i64(200 * mib)
+		f.Servers[i].JSMemory, f.Servers[i].JSMaxMemory = i64(80*mib), i64(100*mib)
+		f.Servers[i].JSStorage, f.Servers[i].JSMaxStorage = i64(10*mib), i64(100*mib)
 	}
-	f.Servers[4].Missing = true
-	f.Servers[5].Mem = nil
-	high := map[string]bool{}
-	mem := map[string]bool{}
+	f.Servers[1].JSStorage = i64(90 * mib) // e1: the file store is fuller
+	f.Servers[4].Missing = true            // u1
+	f.Findings = []*v1.Finding{
+		finding("server-007", "e0"), finding("server-007", "e1"), finding("server-008", "e2"), finding("server-007", "e2"),
+		finding("server-008", "u0", muted), finding("server-008", "u1"),
+		finding("server-008", "u2", func(x *v1.Finding) { x.State = v1.FindingState_FINDING_STATE_RESOLVED }),
+	}
+	got := map[string]string{}
 	for _, c := range api.FinishTopology(f).GetClusters() {
 		for _, s := range c.GetServers() {
-			high[s.GetName()], mem[s.GetName()] = s.GetMemHigh(), s.MemBytes != nil
+			got[s.GetName()] = fmt.Sprintf("%s %v", s.GetMemoryFindingId(), s.GetMemoryFindingQuiet())
 		}
 	}
-	if !high["e2"] || high["e0"] || high["u1"] || mem["u1"] || mem["u2"] {
-		t.Errorf("high %v, reported %v", high, mem)
-	}
-	// 400 MiB is twice the others' median, but under 512 MiB.
-	f.Servers[2].Mem = i64(400 * mib)
-	for _, c := range api.FinishTopology(f).GetClusters() {
-		for _, s := range c.GetServers() {
-			if s.GetMemHigh() {
-				t.Errorf("%s high at 400 MiB", s.GetName())
-			}
-		}
+	want := map[string]string{"e0": "server-007:e0 false", "e1": " false", "e2": "server-008:e2 false", "u0": "server-008:u0 true", "u1": " false", "u2": " false"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("memory findings = %v, want %v", got, want)
 	}
 }
 
-// Only copies between two clusters are listed; a copy is not active after
-// 2 minutes without hearing from its origin, or never heard twice, and
-// falls behind at 1000 messages and more than before; warnings first.
+// Only copies between two clusters are listed; a mirror carries
+// stream-017, else stream-015; a source stream-023, else stream-022 when
+// its source_ids name it or name none; findings not muted sort first.
 func TestTopologyReplication(t *testing.T) {
-	d := func(v time.Duration) *time.Duration { return &v }
 	f := topoFacts()
-	base := api.TopologyReplicationFact{Account: "APP", Kind: api.ReplicationSource, Cluster: "ap", OriginCluster: "eu", Leader: "a0"}
-	with := func(stream string, mod func(*api.TopologyReplicationFact)) api.TopologyReplicationFact {
-		x := base
-		x.Stream, x.Origin = stream, stream+"-origin"
-		mod(&x)
-		return x
+	copyOf := func(stream, kind, origin, id string) api.TopologyReplicationFact {
+		return api.TopologyReplicationFact{Account: "APP", Stream: stream, Cluster: "ap", Kind: kind, Origin: origin, OriginCluster: "eu", Leader: "a0", SourceID: id}
 	}
+	local := copyOf("local", api.ReplicationMirror, "o", "")
+	local.OriginCluster = "ap"
 	f.Replication = []api.TopologyReplicationFact{
-		with("a-ok", func(x *api.TopologyReplicationFact) { x.Lag, x.LagBefore, x.Active = i64(5), i64(900), d(time.Second) }),
-		with("b-same-cluster", func(x *api.TopologyReplicationFact) { x.OriginCluster = "ap" }),
-		with("c-unknown", func(x *api.TopologyReplicationFact) { x.OriginCluster = "" }),
-		with("d-quiet", func(x *api.TopologyReplicationFact) { x.Active = d(3 * time.Minute) }),
-		with("e-never-once", func(x *api.TopologyReplicationFact) { x.Active, x.ActiveBefore = d(-1), d(time.Second) }),
-		with("f-never-twice", func(x *api.TopologyReplicationFact) { x.Active, x.ActiveBefore = d(-1), d(-1) }),
-		with("g-behind", func(x *api.TopologyReplicationFact) { x.Lag, x.LagBefore = i64(1500), i64(1200) }),
-		with("h-small", func(x *api.TopologyReplicationFact) { x.Lag, x.LagBefore = i64(999), i64(10) }),
-		with("i-error", func(x *api.TopologyReplicationFact) { x.Error = "stream not found" }),
+		copyOf("a-mirror", api.ReplicationMirror, "o", ""), copyOf("b-mirror", api.ReplicationMirror, "o", ""), copyOf("c-mirror", api.ReplicationMirror, "o", ""),
+		copyOf("d-src", api.ReplicationSource, "x", "id-x"), copyOf("d-src", api.ReplicationSource, "y", "id-y"),
+		copyOf("e-src", api.ReplicationSource, "z", "id-z"), local,
+	}
+	ids := func(v string) func(*v1.Finding) {
+		return func(x *v1.Finding) { x.RelatedConfig = []*v1.ConfigValue{{Key: "source_ids", Value: v}} }
+	}
+	f.Findings = []*v1.Finding{
+		finding("stream-015", "APP/b-mirror"), finding("stream-017", "APP/b-mirror"),
+		finding("stream-015", "APP/c-mirror", muted),
+		finding("stream-022", "APP/d-src", ids("id-y,id-w")),
+		finding("stream-022", "APP/e-src"),
+		finding("stream-015", "APP/local"),
 	}
 	var got []string
 	for _, r := range api.FinishTopology(f).GetReplication() {
-		got = append(got, fmt.Sprintf("%s %v %v %v %v", r.GetStream(), r.GetNotActive(), r.GetFallingBehind(), r.GetNeverHeard(), r.GetLastActive() != nil))
+		got = append(got, fmt.Sprintf("%s<%s %s %v", r.GetStream(), r.GetOriginStream(), r.GetFindingCode(), r.GetFindingQuiet()))
 	}
-	want := []string{
-		"d-quiet true false false true", "f-never-twice true false true false", "g-behind false true false false", "i-error false false false false",
-		"a-ok false false false true", "e-never-once false false true false", "h-small false false false false",
-	}
+	want := []string{"b-mirror<o stream-017 false", "d-src<y stream-022 false", "e-src<z stream-022 false",
+		"a-mirror<o  false", "c-mirror<o stream-015 true", "d-src<x  false"}
 	if !slices.Equal(got, want) {
 		t.Errorf("replication =\n%v\nwant\n%v", got, want)
 	}

@@ -33,7 +33,10 @@ func (p *Provider) Topology(ctx context.Context, req *v1.GetTopologyRequest) (*a
 			return nil, err
 		}
 	}
-	f.MetaLeader, err = p.metaLeaderAt(ctx, e.epoch)
+	if f.MetaLeader, err = p.metaLeaderAt(ctx, e.epoch); err != nil {
+		return nil, err
+	}
+	f.Findings, err = p.firingFindings(ctx, req.GetRange())
 	return f, err
 }
 
@@ -63,7 +66,7 @@ procs AS (
   SELECT s.*, row_number() OVER (PARTITION BY server_name ORDER BY last_epoch DESC) AS rn
   FROM servers s WHERE first_epoch <= ? AND server_name IN (SELECT name FROM names))
 SELECT n.name, coalesce(p.cluster, ''), coalesce(p.tags, []), list_contains((SELECT missing_names FROM e), n.name),
-  ss.js_streams_leader, ss.mem_bytes, ss.js_memory, ss.js_max_memory
+  ss.js_streams_leader, ss.mem_bytes, ss.js_memory, ss.js_max_memory, ss.js_storage, ss.js_max_storage
 FROM names n
 LEFT JOIN procs p ON p.server_name = n.name AND p.rn = 1
 LEFT JOIN server_stats ss ON ss.server_id = p.server_id AND ss.epoch = ?
@@ -76,11 +79,12 @@ ORDER BY n.name`, f.Epoch, f.Epoch, f.Epoch)
 		var s api.TopologyServerFact
 		var tags []any
 		var led sql.NullInt32
-		var mem, jsMem, jsMax sql.NullInt64
-		if err := rows.Scan(&s.Name, &s.Cluster, &tags, &s.Missing, &led, &mem, &jsMem, &jsMax); err != nil {
+		var mem, jsMem, jsMax, jsFile, jsFileMax sql.NullInt64
+		if err := rows.Scan(&s.Name, &s.Cluster, &tags, &s.Missing, &led, &mem, &jsMem, &jsMax, &jsFile, &jsFileMax); err != nil {
 			return err
 		}
 		s.Mem, s.JSMemory, s.JSMaxMemory = int64Ptr(mem), int64Ptr(jsMem), int64Ptr(jsMax)
+		s.JSStorage, s.JSMaxStorage = int64Ptr(jsFile), int64Ptr(jsFileMax)
 		s.Tags = strs(tags)
 		if led.Valid {
 			s.StreamsLed = &led.Int32

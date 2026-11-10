@@ -6,7 +6,7 @@ import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_duration, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { TimeRange } from "./common_pb";
+import type { Severity, TimeRange } from "./common_pb";
 import { file_natslens_v1_common } from "./common_pb";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/topology.proto.
  */
 export const file_natslens_v1_topology: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS90b3BvbG9neS5wcm90bxILbmF0c2xlbnMudjEiSwoSR2V0VG9wb2xvZ3lSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSLoAQoOVG9wb2xvZ3lTZXJ2ZXISDAoEbmFtZRgBIAEoCRIPCgdtaXNzaW5nGAIgASgIEhMKC21ldGFfbGVhZGVyGAMgASgIEhYKCW1lbV9ieXRlcxgEIAEoA0gAiAEBEhAKCG1lbV9oaWdoGAUgASgIEhwKD2pzX21lbW9yeV9ieXRlcxgGIAEoA0gBiAEBEiAKE2pzX21heF9tZW1vcnlfYnl0ZXMYByABKANIAogBAUIMCgpfbWVtX2J5dGVzQhIKEF9qc19tZW1vcnlfYnl0ZXNCFgoUX2pzX21heF9tZW1vcnlfYnl0ZXMilwIKD1RvcG9sb2d5Q2x1c3RlchIMCgRuYW1lGAEgASgJEg0KBXBsYWNlGAIgASgJEiwKB3NlcnZlcnMYAyADKAsyGy5uYXRzbGVucy52MS5Ub3BvbG9neVNlcnZlchITCgttZXRhX2xlYWRlchgEIAEoCBIYCgtzdHJlYW1zX2xlZBgFIAEoBUgAiAEBEiAKE2xlYWZub2Rlc19jb25uZWN0ZWQYBiABKAVIAYgBARIkChdsZWFmbm9kZXNfbm90X2Nvbm5lY3RlZBgHIAEoBUgCiAEBQg4KDF9zdHJlYW1zX2xlZEIWChRfbGVhZm5vZGVzX2Nvbm5lY3RlZEIaChhfbGVhZm5vZGVzX25vdF9jb25uZWN0ZWQiywIKD1RvcG9sb2d5R2F0ZXdheRIRCgljbHVzdGVyX2EYASABKAkSEQoJY2x1c3Rlcl9iGAIgASgJEhMKC2Nvbm5lY3Rpb25zGAMgASgFEhAKCGV4cGVjdGVkGAQgASgFEioKB3J0dF9tYXgYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SLQoKcnR0X21lZGlhbhgGIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1wZW5kaW5nX2J5dGVzGAcgASgDSACIAQESFQoIZHJvcHNfMWgYCCABKAVIAYgBARIWCglkcm9wc18yNGgYCSABKAVIAogBARIYChBkcm9wcGluZ19zZXJ2ZXJzGAogAygJQhAKDl9wZW5kaW5nX2J5dGVzQgsKCV9kcm9wc18xaEIMCgpfZHJvcHNfMjRoIt0CCg1Ub3BvbG9neVJvdXRlEg8KB2NsdXN0ZXIYASABKAkSEAoIc2VydmVyX2EYAiABKAkSEAoIc2VydmVyX2IYAyABKAkSJgoDcnR0GAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhoKDXBlbmRpbmdfYnl0ZXMYBSABKANIAIgBARIRCgRwb29sGAYgASgFSAGIAQESFwoPcGlubmVkX2FjY291bnRzGAcgAygJEhEKCW9uZV9zaWRlZBgIIAEoCBIMCgRzbG93GAkgASgIEhMKC3JlcG9ydGVkX2J5GAogAygJEhUKCGRyb3BzXzFoGAsgASgFSAKIAQESFgoJZHJvcHNfMjRoGAwgASgFSAOIAQESDAoEZG93bhgNIAEoCEIQCg5fcGVuZGluZ19ieXRlc0IHCgVfcG9vbEILCglfZHJvcHNfMWhCDAoKX2Ryb3BzXzI0aCL0AgoQVG9wb2xvZ3lMZWFmbm9kZRIMCgRuYW1lGAEgASgJEg8KB2FjY291bnQYAiABKAkSFAoMYWNjb3VudF9uYW1lGAMgASgJEhIKCmh1Yl9zZXJ2ZXIYBCABKAkSEwoLaHViX2NsdXN0ZXIYBSABKAkSEQoJY29ubmVjdGVkGAYgASgIEiYKA3J0dBgHIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1zdWJzY3JpcHRpb25zGAggASgDSACIAQESFgoJZHJvcHNfMjRoGAkgASgFSAGIAQESLQoJbGFzdF9zZWVuGAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBITCgtjb21wcmVzc2lvbhgLIAEoCRITCgtodWJfc2VydmVycxgMIAMoCRIaChJjb25uZWN0aW9uX3Vua25vd24YDSABKAhCEAoOX3N1YnNjcmlwdGlvbnNCDAoKX2Ryb3BzXzI0aCLsAgoTVG9wb2xvZ3lSZXBsaWNhdGlvbhIPCgdhY2NvdW50GAEgASgJEhQKDGFjY291bnRfbmFtZRgCIAEoCRIOCgZzdHJlYW0YAyABKAkSDwoHY2x1c3RlchgEIAEoCRIVCg1vcmlnaW5fc3RyZWFtGAUgASgJEhYKDm9yaWdpbl9jbHVzdGVyGAYgASgJEgwKBGtpbmQYByABKAkSDgoGbGVhZGVyGAggASgJEhAKA2xhZxgJIAEoA0gAiAEBEhcKCmxhZ19iZWZvcmUYCiABKANIAYgBARIuCgtsYXN0X2FjdGl2ZRgLIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhITCgtuZXZlcl9oZWFyZBgMIAEoCBINCgVlcnJvchgNIAEoCRISCgpub3RfYWN0aXZlGA4gASgIEhYKDmZhbGxpbmdfYmVoaW5kGA8gASgIQgYKBF9sYWdCDQoLX2xhZ19iZWZvcmUiNwoSVG9wb2xvZ3lVbm9ic2VydmVkEhAKCGVuZHBvaW50GAEgASgJEg8KB3NlcnZlcnMYAiADKAkiggQKE0dldFRvcG9sb2d5UmVzcG9uc2USDQoFZXBvY2gYASABKAMSLAoIZXBvY2hfYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCGNsdXN0ZXJzGAMgAygLMhwubmF0c2xlbnMudjEuVG9wb2xvZ3lDbHVzdGVyEi4KCGdhdGV3YXlzGAQgAygLMhwubmF0c2xlbnMudjEuVG9wb2xvZ3lHYXRld2F5EioKBnJvdXRlcxgFIAMoCzIaLm5hdHNsZW5zLnYxLlRvcG9sb2d5Um91dGUSMAoJbGVhZm5vZGVzGAYgAygLMh0ubmF0c2xlbnMudjEuVG9wb2xvZ3lMZWFmbm9kZRIXCg9sZWFmbm9kZXNfdG90YWwYByABKAUSMwoKdW5vYnNlcnZlZBgIIAMoCzIfLm5hdHNsZW5zLnYxLlRvcG9sb2d5VW5vYnNlcnZlZBI2ChJkcm9wc193aW5kb3dfc3RhcnQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjMKEGNvbGxlY3RfaW50ZXJ2YWwYCiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SNQoLcmVwbGljYXRpb24YCyADKAsyIC5uYXRzbGVucy52MS5Ub3BvbG9neVJlcGxpY2F0aW9uQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChpuYXRzbGVucy92MS90b3BvbG9neS5wcm90bxILbmF0c2xlbnMudjEiSwoSR2V0VG9wb2xvZ3lSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSL0AgoOVG9wb2xvZ3lTZXJ2ZXISDAoEbmFtZRgBIAEoCRIPCgdtaXNzaW5nGAIgASgIEhMKC21ldGFfbGVhZGVyGAMgASgIEhYKCW1lbV9ieXRlcxgEIAEoA0gAiAEBEhwKD2pzX21lbW9yeV9ieXRlcxgGIAEoA0gBiAEBEiAKE2pzX21heF9tZW1vcnlfYnl0ZXMYByABKANIAogBARIZChFtZW1vcnlfZmluZGluZ19pZBgIIAEoCRIbChNtZW1vcnlfZmluZGluZ19jb2RlGAkgASgJEjYKF21lbW9yeV9maW5kaW5nX3NldmVyaXR5GAogASgOMhUubmF0c2xlbnMudjEuU2V2ZXJpdHkSHAoUbWVtb3J5X2ZpbmRpbmdfcXVpZXQYCyABKAhCDAoKX21lbV9ieXRlc0ISChBfanNfbWVtb3J5X2J5dGVzQhYKFF9qc19tYXhfbWVtb3J5X2J5dGVzSgQIBRAGUghtZW1faGlnaCKXAgoPVG9wb2xvZ3lDbHVzdGVyEgwKBG5hbWUYASABKAkSDQoFcGxhY2UYAiABKAkSLAoHc2VydmVycxgDIAMoCzIbLm5hdHNsZW5zLnYxLlRvcG9sb2d5U2VydmVyEhMKC21ldGFfbGVhZGVyGAQgASgIEhgKC3N0cmVhbXNfbGVkGAUgASgFSACIAQESIAoTbGVhZm5vZGVzX2Nvbm5lY3RlZBgGIAEoBUgBiAEBEiQKF2xlYWZub2Rlc19ub3RfY29ubmVjdGVkGAcgASgFSAKIAQFCDgoMX3N0cmVhbXNfbGVkQhYKFF9sZWFmbm9kZXNfY29ubmVjdGVkQhoKGF9sZWFmbm9kZXNfbm90X2Nvbm5lY3RlZCLLAgoPVG9wb2xvZ3lHYXRld2F5EhEKCWNsdXN0ZXJfYRgBIAEoCRIRCgljbHVzdGVyX2IYAiABKAkSEwoLY29ubmVjdGlvbnMYAyABKAUSEAoIZXhwZWN0ZWQYBCABKAUSKgoHcnR0X21heBgFIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhItCgpydHRfbWVkaWFuGAYgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhoKDXBlbmRpbmdfYnl0ZXMYByABKANIAIgBARIVCghkcm9wc18xaBgIIAEoBUgBiAEBEhYKCWRyb3BzXzI0aBgJIAEoBUgCiAEBEhgKEGRyb3BwaW5nX3NlcnZlcnMYCiADKAlCEAoOX3BlbmRpbmdfYnl0ZXNCCwoJX2Ryb3BzXzFoQgwKCl9kcm9wc18yNGgi3QIKDVRvcG9sb2d5Um91dGUSDwoHY2x1c3RlchgBIAEoCRIQCghzZXJ2ZXJfYRgCIAEoCRIQCghzZXJ2ZXJfYhgDIAEoCRImCgNydHQYBCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SGgoNcGVuZGluZ19ieXRlcxgFIAEoA0gAiAEBEhEKBHBvb2wYBiABKAVIAYgBARIXCg9waW5uZWRfYWNjb3VudHMYByADKAkSEQoJb25lX3NpZGVkGAggASgIEgwKBHNsb3cYCSABKAgSEwoLcmVwb3J0ZWRfYnkYCiADKAkSFQoIZHJvcHNfMWgYCyABKAVIAogBARIWCglkcm9wc18yNGgYDCABKAVIA4gBARIMCgRkb3duGA0gASgIQhAKDl9wZW5kaW5nX2J5dGVzQgcKBV9wb29sQgsKCV9kcm9wc18xaEIMCgpfZHJvcHNfMjRoIvQCChBUb3BvbG9neUxlYWZub2RlEgwKBG5hbWUYASABKAkSDwoHYWNjb3VudBgCIAEoCRIUCgxhY2NvdW50X25hbWUYAyABKAkSEgoKaHViX3NlcnZlchgEIAEoCRITCgtodWJfY2x1c3RlchgFIAEoCRIRCgljb25uZWN0ZWQYBiABKAgSJgoDcnR0GAcgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhoKDXN1YnNjcmlwdGlvbnMYCCABKANIAIgBARIWCglkcm9wc18yNGgYCSABKAVIAYgBARItCglsYXN0X3NlZW4YCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NvbXByZXNzaW9uGAsgASgJEhMKC2h1Yl9zZXJ2ZXJzGAwgAygJEhoKEmNvbm5lY3Rpb25fdW5rbm93bhgNIAEoCEIQCg5fc3Vic2NyaXB0aW9uc0IMCgpfZHJvcHNfMjRoIp0EChNUb3BvbG9neVJlcGxpY2F0aW9uEg8KB2FjY291bnQYASABKAkSFAoMYWNjb3VudF9uYW1lGAIgASgJEg4KBnN0cmVhbRgDIAEoCRIPCgdjbHVzdGVyGAQgASgJEhUKDW9yaWdpbl9zdHJlYW0YBSABKAkSFgoOb3JpZ2luX2NsdXN0ZXIYBiABKAkSDAoEa2luZBgHIAEoCRIOCgZsZWFkZXIYCCABKAkSEAoDbGFnGAkgASgDSACIAQESFwoKbGFnX2JlZm9yZRgKIAEoA0gBiAEBEi4KC2xhc3RfYWN0aXZlGAsgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhMKC25ldmVyX2hlYXJkGAwgASgIEg0KBWVycm9yGA0gASgJEhEKCXNvdXJjZV9pZBgQIAEoCRIWCg5maWx0ZXJfc3ViamVjdBgRIAEoCRISCgpmaW5kaW5nX2lkGBIgASgJEhQKDGZpbmRpbmdfY29kZRgTIAEoCRIvChBmaW5kaW5nX3NldmVyaXR5GBQgASgOMhUubmF0c2xlbnMudjEuU2V2ZXJpdHkSFgoOZmluZGluZ19kZXRhaWwYFSABKAkSFQoNZmluZGluZ19xdWlldBgWIAEoCEIGCgRfbGFnQg0KC19sYWdfYmVmb3JlSgQIDhAPSgQIDxAQUgpub3RfYWN0aXZlUg5mYWxsaW5nX2JlaGluZCI3ChJUb3BvbG9neVVub2JzZXJ2ZWQSEAoIZW5kcG9pbnQYASABKAkSDwoHc2VydmVycxgCIAMoCSKCBAoTR2V0VG9wb2xvZ3lSZXNwb25zZRINCgVlcG9jaBgBIAEoAxIsCghlcG9jaF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoIY2x1c3RlcnMYAyADKAsyHC5uYXRzbGVucy52MS5Ub3BvbG9neUNsdXN0ZXISLgoIZ2F0ZXdheXMYBCADKAsyHC5uYXRzbGVucy52MS5Ub3BvbG9neUdhdGV3YXkSKgoGcm91dGVzGAUgAygLMhoubmF0c2xlbnMudjEuVG9wb2xvZ3lSb3V0ZRIwCglsZWFmbm9kZXMYBiADKAsyHS5uYXRzbGVucy52MS5Ub3BvbG9neUxlYWZub2RlEhcKD2xlYWZub2Rlc190b3RhbBgHIAEoBRIzCgp1bm9ic2VydmVkGAggAygLMh8ubmF0c2xlbnMudjEuVG9wb2xvZ3lVbm9ic2VydmVkEjYKEmRyb3BzX3dpbmRvd19zdGFydBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMwoQY29sbGVjdF9pbnRlcnZhbBgKIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhI1CgtyZXBsaWNhdGlvbhgLIAMoCzIgLm5hdHNsZW5zLnYxLlRvcG9sb2d5UmVwbGljYXRpb25CQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * Request for how the servers of a system connect.
@@ -81,15 +81,6 @@ export type TopologyServer = Message<"natslens.v1.TopologyServer"> & {
   memBytes?: bigint | undefined;
 
   /**
-   * Whether mem_bytes is far above the other servers: at least 512 MiB
-   * and more than 1.5 times the median of the other servers of the system
-   * that report it, the defaults of server-008.
-   *
-   * @generated from field: bool mem_high = 5;
-   */
-  memHigh: boolean;
-
-  /**
    * JetStream memory store in use and its limit (max_memory_store),
    * bytes; unset when not reported.
    *
@@ -101,6 +92,37 @@ export type TopologyServer = Message<"natslens.v1.TopologyServer"> & {
    * @generated from field: optional int64 js_max_memory_bytes = 7;
    */
   jsMaxMemoryBytes?: bigint | undefined;
+
+  /**
+   * The finding about the server's memory that fires in the epoch:
+   * server-008 (memory far above the other servers), else server-007 when
+   * the JetStream memory store is at least as full as the file store.
+   * Empty when none fires.
+   *
+   * @generated from field: string memory_finding_id = 8;
+   */
+  memoryFindingId: string;
+
+  /**
+   * Check code of that finding.
+   *
+   * @generated from field: string memory_finding_code = 9;
+   */
+  memoryFindingCode: string;
+
+  /**
+   * Severity of that finding.
+   *
+   * @generated from field: natslens.v1.Severity memory_finding_severity = 10;
+   */
+  memoryFindingSeverity: Severity;
+
+  /**
+   * Whether that finding is muted or accepted.
+   *
+   * @generated from field: bool memory_finding_quiet = 11;
+   */
+  memoryFindingQuiet: boolean;
 };
 
 /**
@@ -617,21 +639,53 @@ export type TopologyReplication = Message<"natslens.v1.TopologyReplication"> & {
   error: string;
 
   /**
-   * Whether the copy is not hearing from its origin: nothing for more
-   * than 2 minutes, or never heard in the epoch and the collection
-   * before.
+   * The source's identity (a hash of its configuration), to tell two
+   * sources of one origin apart; empty for a mirror.
    *
-   * @generated from field: bool not_active = 14;
+   * @generated from field: string source_id = 16;
    */
-  notActive: boolean;
+  sourceId: string;
 
   /**
-   * Whether the copy falls behind: its lag is at least 1000 messages and
-   * higher than in the collection before.
+   * The subject filter of the source or mirror; empty without one.
    *
-   * @generated from field: bool falling_behind = 15;
+   * @generated from field: string filter_subject = 17;
    */
-  fallingBehind: boolean;
+  filterSubject: string;
+
+  /**
+   * The finding about the copy that fires in the epoch: for a mirror
+   * stream-017 (error), else stream-015 (lagging or not hearing); for a
+   * source stream-023 (error), else stream-022 (not hearing), when the
+   * finding names this source or names none. Empty when none fires.
+   *
+   * @generated from field: string finding_id = 18;
+   */
+  findingId: string;
+
+  /**
+   * Check code, severity and detail of that finding.
+   *
+   * @generated from field: string finding_code = 19;
+   */
+  findingCode: string;
+
+  /**
+   * @generated from field: natslens.v1.Severity finding_severity = 20;
+   */
+  findingSeverity: Severity;
+
+  /**
+   * @generated from field: string finding_detail = 21;
+   */
+  findingDetail: string;
+
+  /**
+   * Whether that finding is muted or accepted.
+   *
+   * @generated from field: bool finding_quiet = 22;
+   */
+  findingQuiet: boolean;
 };
 
 /**
@@ -758,8 +812,8 @@ export type GetTopologyResponse = Message<"natslens.v1.GetTopologyResponse"> & {
   collectInterval?: Duration | undefined;
 
   /**
-   * Mirrors and sources between clusters: those with an error, not
-   * active or falling behind first, then by cluster, stream and origin.
+   * Mirrors and sources between clusters: those with a finding that is
+   * not muted or accepted first, then by cluster, stream and origin.
    *
    * @generated from field: repeated natslens.v1.TopologyReplication replication = 11;
    */

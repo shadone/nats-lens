@@ -91,16 +91,23 @@ type TopologyServer struct {
 	// Resident memory of the server process (VARZ mem), bytes; unset when
 	// not reported and for a missing server.
 	MemBytes *int64 `protobuf:"varint,4,opt,name=mem_bytes,json=memBytes,proto3,oneof" json:"mem_bytes,omitempty"`
-	// Whether mem_bytes is far above the other servers: at least 512 MiB
-	// and more than 1.5 times the median of the other servers of the system
-	// that report it, the defaults of server-008.
-	MemHigh bool `protobuf:"varint,5,opt,name=mem_high,json=memHigh,proto3" json:"mem_high,omitempty"`
 	// JetStream memory store in use and its limit (max_memory_store),
 	// bytes; unset when not reported.
 	JsMemoryBytes    *int64 `protobuf:"varint,6,opt,name=js_memory_bytes,json=jsMemoryBytes,proto3,oneof" json:"js_memory_bytes,omitempty"`
 	JsMaxMemoryBytes *int64 `protobuf:"varint,7,opt,name=js_max_memory_bytes,json=jsMaxMemoryBytes,proto3,oneof" json:"js_max_memory_bytes,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// The finding about the server's memory that fires in the epoch:
+	// server-008 (memory far above the other servers), else server-007 when
+	// the JetStream memory store is at least as full as the file store.
+	// Empty when none fires.
+	MemoryFindingId string `protobuf:"bytes,8,opt,name=memory_finding_id,json=memoryFindingId,proto3" json:"memory_finding_id,omitempty"`
+	// Check code of that finding.
+	MemoryFindingCode string `protobuf:"bytes,9,opt,name=memory_finding_code,json=memoryFindingCode,proto3" json:"memory_finding_code,omitempty"`
+	// Severity of that finding.
+	MemoryFindingSeverity Severity `protobuf:"varint,10,opt,name=memory_finding_severity,json=memoryFindingSeverity,proto3,enum=natslens.v1.Severity" json:"memory_finding_severity,omitempty"`
+	// Whether that finding is muted or accepted.
+	MemoryFindingQuiet bool `protobuf:"varint,11,opt,name=memory_finding_quiet,json=memoryFindingQuiet,proto3" json:"memory_finding_quiet,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *TopologyServer) Reset() {
@@ -161,13 +168,6 @@ func (x *TopologyServer) GetMemBytes() int64 {
 	return 0
 }
 
-func (x *TopologyServer) GetMemHigh() bool {
-	if x != nil {
-		return x.MemHigh
-	}
-	return false
-}
-
 func (x *TopologyServer) GetJsMemoryBytes() int64 {
 	if x != nil && x.JsMemoryBytes != nil {
 		return *x.JsMemoryBytes
@@ -180,6 +180,34 @@ func (x *TopologyServer) GetJsMaxMemoryBytes() int64 {
 		return *x.JsMaxMemoryBytes
 	}
 	return 0
+}
+
+func (x *TopologyServer) GetMemoryFindingId() string {
+	if x != nil {
+		return x.MemoryFindingId
+	}
+	return ""
+}
+
+func (x *TopologyServer) GetMemoryFindingCode() string {
+	if x != nil {
+		return x.MemoryFindingCode
+	}
+	return ""
+}
+
+func (x *TopologyServer) GetMemoryFindingSeverity() Severity {
+	if x != nil {
+		return x.MemoryFindingSeverity
+	}
+	return Severity_SEVERITY_UNSPECIFIED
+}
+
+func (x *TopologyServer) GetMemoryFindingQuiet() bool {
+	if x != nil {
+		return x.MemoryFindingQuiet
+	}
+	return false
 }
 
 // One cluster of a system: its servers and what sits on it.
@@ -802,13 +830,22 @@ type TopologyReplication struct {
 	NeverHeard bool `protobuf:"varint,12,opt,name=never_heard,json=neverHeard,proto3" json:"never_heard,omitempty"`
 	// Error the leader reports for the copy; empty without one.
 	Error string `protobuf:"bytes,13,opt,name=error,proto3" json:"error,omitempty"`
-	// Whether the copy is not hearing from its origin: nothing for more
-	// than 2 minutes, or never heard in the epoch and the collection
-	// before.
-	NotActive bool `protobuf:"varint,14,opt,name=not_active,json=notActive,proto3" json:"not_active,omitempty"`
-	// Whether the copy falls behind: its lag is at least 1000 messages and
-	// higher than in the collection before.
-	FallingBehind bool `protobuf:"varint,15,opt,name=falling_behind,json=fallingBehind,proto3" json:"falling_behind,omitempty"`
+	// The source's identity (a hash of its configuration), to tell two
+	// sources of one origin apart; empty for a mirror.
+	SourceId string `protobuf:"bytes,16,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
+	// The subject filter of the source or mirror; empty without one.
+	FilterSubject string `protobuf:"bytes,17,opt,name=filter_subject,json=filterSubject,proto3" json:"filter_subject,omitempty"`
+	// The finding about the copy that fires in the epoch: for a mirror
+	// stream-017 (error), else stream-015 (lagging or not hearing); for a
+	// source stream-023 (error), else stream-022 (not hearing), when the
+	// finding names this source or names none. Empty when none fires.
+	FindingId string `protobuf:"bytes,18,opt,name=finding_id,json=findingId,proto3" json:"finding_id,omitempty"`
+	// Check code, severity and detail of that finding.
+	FindingCode     string   `protobuf:"bytes,19,opt,name=finding_code,json=findingCode,proto3" json:"finding_code,omitempty"`
+	FindingSeverity Severity `protobuf:"varint,20,opt,name=finding_severity,json=findingSeverity,proto3,enum=natslens.v1.Severity" json:"finding_severity,omitempty"`
+	FindingDetail   string   `protobuf:"bytes,21,opt,name=finding_detail,json=findingDetail,proto3" json:"finding_detail,omitempty"`
+	// Whether that finding is muted or accepted.
+	FindingQuiet  bool `protobuf:"varint,22,opt,name=finding_quiet,json=findingQuiet,proto3" json:"finding_quiet,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -934,16 +971,51 @@ func (x *TopologyReplication) GetError() string {
 	return ""
 }
 
-func (x *TopologyReplication) GetNotActive() bool {
+func (x *TopologyReplication) GetSourceId() string {
 	if x != nil {
-		return x.NotActive
+		return x.SourceId
 	}
-	return false
+	return ""
 }
 
-func (x *TopologyReplication) GetFallingBehind() bool {
+func (x *TopologyReplication) GetFilterSubject() string {
 	if x != nil {
-		return x.FallingBehind
+		return x.FilterSubject
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetFindingId() string {
+	if x != nil {
+		return x.FindingId
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetFindingCode() string {
+	if x != nil {
+		return x.FindingCode
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetFindingSeverity() Severity {
+	if x != nil {
+		return x.FindingSeverity
+	}
+	return Severity_SEVERITY_UNSPECIFIED
+}
+
+func (x *TopologyReplication) GetFindingDetail() string {
+	if x != nil {
+		return x.FindingDetail
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetFindingQuiet() bool {
+	if x != nil {
+		return x.FindingQuiet
 	}
 	return false
 }
@@ -1038,8 +1110,8 @@ type GetTopologyResponse struct {
 	// Time between collections: a drop and reconnect within one is seen
 	// only as a new connection ID.
 	CollectInterval *durationpb.Duration `protobuf:"bytes,10,opt,name=collect_interval,json=collectInterval,proto3" json:"collect_interval,omitempty"`
-	// Mirrors and sources between clusters: those with an error, not
-	// active or falling behind first, then by cluster, stream and origin.
+	// Mirrors and sources between clusters: those with a finding that is
+	// not muted or accepted first, then by cluster, stream and origin.
 	Replication   []*TopologyReplication `protobuf:"bytes,11,rep,name=replication,proto3" json:"replication,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1159,20 +1231,24 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"\x1anatslens/v1/topology.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"Z\n" +
 	"\x12GetTopologyRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
-	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xb7\x02\n" +
+	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\x89\x04\n" +
 	"\x0eTopologyServer\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\amissing\x18\x02 \x01(\bR\amissing\x12\x1f\n" +
 	"\vmeta_leader\x18\x03 \x01(\bR\n" +
 	"metaLeader\x12 \n" +
-	"\tmem_bytes\x18\x04 \x01(\x03H\x00R\bmemBytes\x88\x01\x01\x12\x19\n" +
-	"\bmem_high\x18\x05 \x01(\bR\amemHigh\x12+\n" +
+	"\tmem_bytes\x18\x04 \x01(\x03H\x00R\bmemBytes\x88\x01\x01\x12+\n" +
 	"\x0fjs_memory_bytes\x18\x06 \x01(\x03H\x01R\rjsMemoryBytes\x88\x01\x01\x122\n" +
-	"\x13js_max_memory_bytes\x18\a \x01(\x03H\x02R\x10jsMaxMemoryBytes\x88\x01\x01B\f\n" +
+	"\x13js_max_memory_bytes\x18\a \x01(\x03H\x02R\x10jsMaxMemoryBytes\x88\x01\x01\x12*\n" +
+	"\x11memory_finding_id\x18\b \x01(\tR\x0fmemoryFindingId\x12.\n" +
+	"\x13memory_finding_code\x18\t \x01(\tR\x11memoryFindingCode\x12M\n" +
+	"\x17memory_finding_severity\x18\n" +
+	" \x01(\x0e2\x15.natslens.v1.SeverityR\x15memoryFindingSeverity\x120\n" +
+	"\x14memory_finding_quiet\x18\v \x01(\bR\x12memoryFindingQuietB\f\n" +
 	"\n" +
 	"_mem_bytesB\x12\n" +
 	"\x10_js_memory_bytesB\x16\n" +
-	"\x14_js_max_memory_bytes\"\xf0\x02\n" +
+	"\x14_js_max_memory_bytesJ\x04\b\x05\x10\x06R\bmem_high\"\xf0\x02\n" +
 	"\x0fTopologyCluster\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05place\x18\x02 \x01(\tR\x05place\x125\n" +
@@ -1244,7 +1320,7 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"\x12connection_unknown\x18\r \x01(\bR\x11connectionUnknownB\x10\n" +
 	"\x0e_subscriptionsB\f\n" +
 	"\n" +
-	"_drops_24h\"\x87\x04\n" +
+	"_drops_24h\"\xfd\x05\n" +
 	"\x13TopologyReplication\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
 	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12\x16\n" +
@@ -1262,12 +1338,18 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"lastActive\x12\x1f\n" +
 	"\vnever_heard\x18\f \x01(\bR\n" +
 	"neverHeard\x12\x14\n" +
-	"\x05error\x18\r \x01(\tR\x05error\x12\x1d\n" +
+	"\x05error\x18\r \x01(\tR\x05error\x12\x1b\n" +
+	"\tsource_id\x18\x10 \x01(\tR\bsourceId\x12%\n" +
+	"\x0efilter_subject\x18\x11 \x01(\tR\rfilterSubject\x12\x1d\n" +
 	"\n" +
-	"not_active\x18\x0e \x01(\bR\tnotActive\x12%\n" +
-	"\x0efalling_behind\x18\x0f \x01(\bR\rfallingBehindB\x06\n" +
+	"finding_id\x18\x12 \x01(\tR\tfindingId\x12!\n" +
+	"\ffinding_code\x18\x13 \x01(\tR\vfindingCode\x12@\n" +
+	"\x10finding_severity\x18\x14 \x01(\x0e2\x15.natslens.v1.SeverityR\x0ffindingSeverity\x12%\n" +
+	"\x0efinding_detail\x18\x15 \x01(\tR\rfindingDetail\x12#\n" +
+	"\rfinding_quiet\x18\x16 \x01(\bR\ffindingQuietB\x06\n" +
 	"\x04_lagB\r\n" +
-	"\v_lag_before\"J\n" +
+	"\v_lag_beforeJ\x04\b\x0e\x10\x0fJ\x04\b\x0f\x10\x10R\n" +
+	"not_activeR\x0efalling_behind\"J\n" +
 	"\x12TopologyUnobserved\x12\x1a\n" +
 	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x18\n" +
 	"\aservers\x18\x02 \x03(\tR\aservers\"\x85\x05\n" +
@@ -1311,32 +1393,35 @@ var file_natslens_v1_topology_proto_goTypes = []any{
 	(*TopologyUnobserved)(nil),    // 7: natslens.v1.TopologyUnobserved
 	(*GetTopologyResponse)(nil),   // 8: natslens.v1.GetTopologyResponse
 	(*TimeRange)(nil),             // 9: natslens.v1.TimeRange
-	(*durationpb.Duration)(nil),   // 10: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
+	(Severity)(0),                 // 10: natslens.v1.Severity
+	(*durationpb.Duration)(nil),   // 11: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
 }
 var file_natslens_v1_topology_proto_depIdxs = []int32{
 	9,  // 0: natslens.v1.GetTopologyRequest.range:type_name -> natslens.v1.TimeRange
-	1,  // 1: natslens.v1.TopologyCluster.servers:type_name -> natslens.v1.TopologyServer
-	10, // 2: natslens.v1.TopologyGateway.rtt_max:type_name -> google.protobuf.Duration
-	10, // 3: natslens.v1.TopologyGateway.rtt_median:type_name -> google.protobuf.Duration
-	10, // 4: natslens.v1.TopologyRoute.rtt:type_name -> google.protobuf.Duration
-	10, // 5: natslens.v1.TopologyLeafnode.rtt:type_name -> google.protobuf.Duration
-	11, // 6: natslens.v1.TopologyLeafnode.last_seen:type_name -> google.protobuf.Timestamp
-	10, // 7: natslens.v1.TopologyReplication.last_active:type_name -> google.protobuf.Duration
-	11, // 8: natslens.v1.GetTopologyResponse.epoch_at:type_name -> google.protobuf.Timestamp
-	2,  // 9: natslens.v1.GetTopologyResponse.clusters:type_name -> natslens.v1.TopologyCluster
-	3,  // 10: natslens.v1.GetTopologyResponse.gateways:type_name -> natslens.v1.TopologyGateway
-	4,  // 11: natslens.v1.GetTopologyResponse.routes:type_name -> natslens.v1.TopologyRoute
-	5,  // 12: natslens.v1.GetTopologyResponse.leafnodes:type_name -> natslens.v1.TopologyLeafnode
-	7,  // 13: natslens.v1.GetTopologyResponse.unobserved:type_name -> natslens.v1.TopologyUnobserved
-	11, // 14: natslens.v1.GetTopologyResponse.drops_window_start:type_name -> google.protobuf.Timestamp
-	10, // 15: natslens.v1.GetTopologyResponse.collect_interval:type_name -> google.protobuf.Duration
-	6,  // 16: natslens.v1.GetTopologyResponse.replication:type_name -> natslens.v1.TopologyReplication
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	10, // 1: natslens.v1.TopologyServer.memory_finding_severity:type_name -> natslens.v1.Severity
+	1,  // 2: natslens.v1.TopologyCluster.servers:type_name -> natslens.v1.TopologyServer
+	11, // 3: natslens.v1.TopologyGateway.rtt_max:type_name -> google.protobuf.Duration
+	11, // 4: natslens.v1.TopologyGateway.rtt_median:type_name -> google.protobuf.Duration
+	11, // 5: natslens.v1.TopologyRoute.rtt:type_name -> google.protobuf.Duration
+	11, // 6: natslens.v1.TopologyLeafnode.rtt:type_name -> google.protobuf.Duration
+	12, // 7: natslens.v1.TopologyLeafnode.last_seen:type_name -> google.protobuf.Timestamp
+	11, // 8: natslens.v1.TopologyReplication.last_active:type_name -> google.protobuf.Duration
+	10, // 9: natslens.v1.TopologyReplication.finding_severity:type_name -> natslens.v1.Severity
+	12, // 10: natslens.v1.GetTopologyResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	2,  // 11: natslens.v1.GetTopologyResponse.clusters:type_name -> natslens.v1.TopologyCluster
+	3,  // 12: natslens.v1.GetTopologyResponse.gateways:type_name -> natslens.v1.TopologyGateway
+	4,  // 13: natslens.v1.GetTopologyResponse.routes:type_name -> natslens.v1.TopologyRoute
+	5,  // 14: natslens.v1.GetTopologyResponse.leafnodes:type_name -> natslens.v1.TopologyLeafnode
+	7,  // 15: natslens.v1.GetTopologyResponse.unobserved:type_name -> natslens.v1.TopologyUnobserved
+	12, // 16: natslens.v1.GetTopologyResponse.drops_window_start:type_name -> google.protobuf.Timestamp
+	11, // 17: natslens.v1.GetTopologyResponse.collect_interval:type_name -> google.protobuf.Duration
+	6,  // 18: natslens.v1.GetTopologyResponse.replication:type_name -> natslens.v1.TopologyReplication
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_topology_proto_init() }

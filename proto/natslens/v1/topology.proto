@@ -33,15 +33,28 @@ message TopologyServer {
   // not reported and for a missing server.
   optional int64 mem_bytes = 4;
 
-  // Whether mem_bytes is far above the other servers: at least 512 MiB
-  // and more than 1.5 times the median of the other servers of the system
-  // that report it, the defaults of server-008.
-  bool mem_high = 5;
+  reserved 5;
+  reserved "mem_high";
 
   // JetStream memory store in use and its limit (max_memory_store),
   // bytes; unset when not reported.
   optional int64 js_memory_bytes = 6;
   optional int64 js_max_memory_bytes = 7;
+
+  // The finding about the server's memory that fires in the epoch:
+  // server-008 (memory far above the other servers), else server-007 when
+  // the JetStream memory store is at least as full as the file store.
+  // Empty when none fires.
+  string memory_finding_id = 8;
+
+  // Check code of that finding.
+  string memory_finding_code = 9;
+
+  // Severity of that finding.
+  Severity memory_finding_severity = 10;
+
+  // Whether that finding is muted or accepted.
+  bool memory_finding_quiet = 11;
 }
 
 // One cluster of a system: its servers and what sits on it.
@@ -278,14 +291,29 @@ message TopologyReplication {
   // Error the leader reports for the copy; empty without one.
   string error = 13;
 
-  // Whether the copy is not hearing from its origin: nothing for more
-  // than 2 minutes, or never heard in the epoch and the collection
-  // before.
-  bool not_active = 14;
+  reserved 14, 15;
+  reserved "not_active", "falling_behind";
 
-  // Whether the copy falls behind: its lag is at least 1000 messages and
-  // higher than in the collection before.
-  bool falling_behind = 15;
+  // The source's identity (a hash of its configuration), to tell two
+  // sources of one origin apart; empty for a mirror.
+  string source_id = 16;
+
+  // The subject filter of the source or mirror; empty without one.
+  string filter_subject = 17;
+
+  // The finding about the copy that fires in the epoch: for a mirror
+  // stream-017 (error), else stream-015 (lagging or not hearing); for a
+  // source stream-023 (error), else stream-022 (not hearing), when the
+  // finding names this source or names none. Empty when none fires.
+  string finding_id = 18;
+
+  // Check code, severity and detail of that finding.
+  string finding_code = 19;
+  Severity finding_severity = 20;
+  string finding_detail = 21;
+
+  // Whether that finding is muted or accepted.
+  bool finding_quiet = 22;
 }
 
 // Servers whose reply to one monitoring request is missing or in error in
@@ -341,7 +369,7 @@ message GetTopologyResponse {
   // only as a new connection ID.
   google.protobuf.Duration collect_interval = 10;
 
-  // Mirrors and sources between clusters: those with an error, not
-  // active or falling behind first, then by cluster, stream and origin.
+  // Mirrors and sources between clusters: those with a finding that is
+  // not muted or accepted first, then by cluster, stream and origin.
   repeated TopologyReplication replication = 11;
 }

@@ -12,41 +12,47 @@ import (
 
 // replicationQuery lists, for one epoch, every mirror and source of a
 // stream that some server reports, with the cluster of the copying stream
-// and of its origin in the same account, and the leader's report of the
-// copy. A copy whose configuration names an external origin (another
-// account or domain) is left out, as is one whose origin no server
-// reports. The cluster of a stream is the one its leader's report gives,
-// else any replica's, else the reporting server's.
+// and of its origin in the same account and JetStream domain, and the
+// leader's report of the copy. A copy whose configuration names an
+// external origin (another account or domain) is left out, as is one
+// whose origin no server reports. A stream is keyed by the reporting
+// server's domain, account and name, as two domains of one system can
+// hold streams of one name in one account; its cluster is the one its
+// leader's report gives, else any replica's, else the reporting
+// server's.
 const replicationQuery = `
 WITH ss AS (
-  SELECT ss.*, s.server_name, coalesce(nullif(ss.cluster, ''), s.cluster, '') AS placed
+  SELECT ss.*, s.server_name, coalesce(s.domain, '') AS domain, coalesce(nullif(ss.cluster, ''), s.cluster, '') AS placed
   FROM stream_stats ss JOIN servers s USING (server_id) WHERE ss.epoch = $1),
 place AS (
-  SELECT account, stream, placed, CASE WHEN is_leader THEN server_name ELSE '' END AS leader, server_id,
+  SELECT domain, account, stream, placed, CASE WHEN is_leader THEN server_name ELSE '' END AS leader, server_id,
     is_leader, mirror_lag, mirror_active_ns, coalesce(mirror_error, '') AS mirror_error
   FROM ss
-  QUALIFY row_number() OVER (PARTITION BY account, stream ORDER BY coalesce(is_leader, false) DESC, server_id) = 1),
+  QUALIFY row_number() OVER (PARTITION BY domain, account, stream ORDER BY coalesce(is_leader, false) DESC, server_id) = 1),
 cfg AS (
-  SELECT c.account, c.stream, c.mirror, json_extract(c.config, '$.mirror.external') IS NOT NULL AS external
+  SELECT p.domain, c.account, c.stream, c.mirror, json_extract(c.config, '$.mirror.external') IS NOT NULL AS external,
+    coalesce(json_extract_string(c.config, '$.mirror.filter_subject'), '') AS filter
   FROM stream_config c JOIN place p ON p.account = c.account AND p.stream = c.stream
+  JOIN servers cs ON cs.server_id = c.server_id AND coalesce(cs.domain, '') = p.domain
   WHERE c.first_epoch <= $1 AND c.last_epoch >= $1 AND coalesce(c.mirror, '') <> ''
-  QUALIFY row_number() OVER (PARTITION BY c.account, c.stream ORDER BY c.server_id = p.server_id DESC, c.server_id) = 1),
+  QUALIFY row_number() OVER (PARTITION BY p.domain, c.account, c.stream ORDER BY c.server_id = p.server_id DESC, c.server_id) = 1),
 mirrors AS (
-  SELECT p.account, p.stream, p.placed, 'mirror' AS kind, c.mirror AS origin, '' AS key, p.leader,
+  SELECT p.domain, p.account, p.stream, p.placed, 'mirror' AS kind, c.mirror AS origin, '' AS key, c.filter, p.leader,
     CASE WHEN p.is_leader THEN p.mirror_lag END AS lag, CASE WHEN p.is_leader THEN p.mirror_active_ns END AS active_ns,
     CASE WHEN p.is_leader THEN p.mirror_error ELSE '' END AS error
-  FROM place p JOIN cfg c USING (account, stream) WHERE NOT c.external),
+  FROM place p JOIN cfg c USING (domain, account, stream) WHERE NOT c.external),
 srcs AS (
-  SELECT p.account, p.stream, p.placed, 'source' AS kind, x.name AS origin, x.source_id AS key, p.leader,
+  SELECT p.domain, p.account, p.stream, p.placed, 'source' AS kind, x.name AS origin, x.source_id AS key, x.filter_subject AS filter, p.leader,
     CASE WHEN x.reported AND p.is_leader THEN CAST(x.lag AS BIGINT) END AS lag,
     CASE WHEN x.reported AND p.is_leader THEN x.active_ns END AS active_ns,
     CASE WHEN x.reported AND p.is_leader THEN coalesce(x.error, '') ELSE '' END AS error
   FROM place p JOIN stream_source_stats x ON x.epoch = $1 AND x.account = p.account AND x.stream = p.stream
+  JOIN servers xs ON xs.server_id = x.server_id AND coalesce(xs.domain, '') = p.domain
   WHERE json_extract(x.config, '$.external') IS NULL
-  QUALIFY row_number() OVER (PARTITION BY p.account, p.stream, x.source_id ORDER BY x.server_id = p.server_id DESC, x.server_id) = 1),
+  QUALIFY row_number() OVER (PARTITION BY p.domain, p.account, p.stream, x.source_id ORDER BY x.server_id = p.server_id DESC, x.server_id) = 1),
 copies AS (SELECT * FROM mirrors UNION ALL SELECT * FROM srcs)
-SELECT c.account, c.stream, c.placed, c.kind, c.origin, o.placed, c.key, c.leader, c.lag, c.active_ns, c.error
-FROM copies c JOIN place o ON o.account = c.account AND o.stream = c.origin`
+SELECT c.account, c.stream, c.placed, c.kind, c.origin, o.placed, c.key, c.filter, c.leader, c.lag, c.active_ns, c.error
+FROM copies c JOIN place o ON o.domain = c.domain AND o.account = c.account AND o.stream = c.origin`
 
 type replicationRow struct {
 	fact api.TopologyReplicationFact
@@ -109,10 +115,11 @@ func (p *Provider) replicationRows(ctx context.Context, epoch int64) ([]replicat
 		var r replicationRow
 		var lag, active sql.NullInt64
 		f := &r.fact
-		if err := rows.Scan(&f.Account, &f.Stream, &f.Cluster, &f.Kind, &f.Origin, &f.OriginCluster, &r.key, &f.Leader,
+		if err := rows.Scan(&f.Account, &f.Stream, &f.Cluster, &f.Kind, &f.Origin, &f.OriginCluster, &r.key, &f.Filter, &f.Leader,
 			&lag, &active, &f.Error); err != nil {
 			return nil, err
 		}
+		f.SourceID = r.key
 		f.Lag, f.Active = int64Ptr(lag), durPtr(active)
 		out = append(out, r)
 	}

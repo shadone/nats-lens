@@ -2,6 +2,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	"hash/fnv"
 	"slices"
 	"time"
@@ -431,6 +432,7 @@ func (p *Provider) Topology(_ context.Context, req *v1.GetTopologyRequest) (*api
 		streams, _ := s.leads(sp, at)
 		sf.StreamsLed = ptr(streams)
 		sf.Mem, sf.JSMemory, sf.JSMaxMemory = ptr(sp.mem), ptr(s.sc.memStore(sp.name)), ptr(sp.maxMemStore)
+		sf.JSStorage, sf.JSMaxStorage = ptr(sp.store), ptr(sp.maxStore)
 		f.Servers = append(f.Servers, sf)
 		for _, e := range []string{api.EndpointRoutez, api.EndpointGatewayz, api.EndpointLeafz} {
 			f.Answered[e] = append(f.Answered[e], sp.name)
@@ -477,6 +479,7 @@ func (p *Provider) Topology(_ context.Context, req *v1.GetTopologyRequest) (*api
 	}
 	f.Drops = api.CountTopologyDropsWith(history, sampleEvery, epoch, at, api.TopologyDropRules{RestartWindow: checks.DefaultRestartWindow, Started: started})
 	f.Replication = s.replication(at)
+	f.Findings = current(p.findings(s), req.GetRange())
 	return f, nil
 }
 
@@ -509,6 +512,9 @@ func (s scen) replication(at time.Time) []api.TopologyReplicationFact {
 			}
 			f := api.TopologyReplicationFact{Account: Account, Stream: sp.name, Cluster: clusterOf(sp), Kind: kind,
 				Origin: o, OriginCluster: clusterOf(origin), Leader: s.streamLeaderAt(sp, at)}
+			if kind == api.ReplicationSource {
+				f.SourceID = sourceID(o)
+			}
 			if f.Leader != "" {
 				key := sp.name + "<" + o
 				f.Lag, f.Active = report(key, at)
@@ -518,4 +524,12 @@ func (s scen) replication(at time.Time) []api.TopologyReplicationFact {
 		}
 	}
 	return out
+}
+
+// sourceID stands for the hash of a source's configuration that the
+// collector stores: the demo's sources have only a name.
+func sourceID(origin string) string {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(`{"name":"` + origin + `"}`))
+	return fmt.Sprintf("%016x", h.Sum64())
 }

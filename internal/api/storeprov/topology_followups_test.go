@@ -17,11 +17,15 @@ import (
 //     3 (one drop). nats-eu-2 restarted before epoch 4 (no drop on its
 //     pairs); in epoch 5 neither nats-eu-0 nor nats-eu-2 lists the other
 //     (one drop, and the pair is down).
-//   - Memory in epoch 5: nats-eu-2 at 1 GiB, the others about 210 MiB.
+//   - Memory in epoch 5: nats-eu-2 at 1 GiB, the others about 210 MiB,
+//     with server-008 firing on nats-eu-2.
 //   - Streams: ORDERS in eu; ARCHIVE in ap mirrors it, 1,500 behind after
 //     1,200; EXT in ap mirrors it from an external API; IDX in ap sources
 //     it and GONE (no server reports GONE), never having heard from
-//     ORDERS; LOCAL in eu mirrors it.
+//     ORDERS; LOCAL in eu mirrors it. stream-015 fires on ARCHIVE and
+//     stream-022 on IDX, naming its ORDERS source. A leaf node server of
+//     the JetStream domain leaf, in cluster edge, leads a stream ORDERS of
+//     its own, which is no origin of the copies in the default domain.
 func followupStore(t *testing.T, last time.Time) *store.Store {
 	t.Helper()
 	st := emptyStore(t)
@@ -45,6 +49,8 @@ func followupStore(t *testing.T, last time.Time) *store.Store {
 		}
 		return ""
 	}
+	r.add("servers", map[string]any{"server_id": "A1", "server_name": "nats-leaf-0", "cluster": "edge", "domain": "leaf",
+		"first_epoch": 1, "last_epoch": 5, "first_seen_at": at(1), "last_seen_at": at(5)})
 	route := func(e int64, from, to string, rid int64) {
 		r.add("routes", map[string]any{"epoch": e, "server_id": idOf(from, e), "rid": rid, "remote_id": idOf(to, e), "remote_name": to,
 			"rtt_ns": int64(400 * time.Microsecond)})
@@ -88,6 +94,7 @@ func followupStore(t *testing.T, last time.Time) *store.Store {
 				"cluster": cluster, "is_leader": true, "mirror_lag": lag, "mirror_active_ns": active})
 		}
 		stat("ORDERS", "nats-eu-0", "eu", nil, nil)
+		r.add("stream_stats", map[string]any{"epoch": e, "server_id": "A1", "account": "APP", "stream": "ORDERS", "cluster": "edge", "is_leader": true})
 		stat("ARCHIVE", "nats-ap-0", "ap", 1200+300*(e-4), int64(time.Second))
 		stat("EXT", "nats-ap-0", "ap", 0, int64(time.Second))
 		stat("IDX", "nats-ap-0", "ap", nil, nil)
@@ -108,6 +115,14 @@ func followupStore(t *testing.T, last time.Time) *store.Store {
 		r.add("stream_config", map[string]any{"server_id": server, "account": "APP", "stream": stream, "first_epoch": 1, "last_epoch": 5,
 			"config_hash": "h-" + stream, "mirror": "ORDERS", "config": cfg})
 	}
+	finding := func(code, entityType, key, related string) {
+		r.add("findings", map[string]any{"id": code + ":" + key, "check_code": code, "entity_type": entityType, "entity_key": key,
+			"severity": "warning", "state": "firing", "last_transition": "firing", "since": at(4), "since_epoch": 4, "transitioned_at": at(4),
+			"last_seen_epoch": 5, "updated_epoch": 5, "detail": code + " detail", "related_config": related})
+	}
+	finding("server-008", "server", "nats-eu-2", "{}")
+	finding("stream-015", "stream", "APP/ARCHIVE", "{}")
+	finding("stream-022", "stream", "APP/IDX", `{"source_ids":"id-ORDERS"}`)
 	return st
 }
 
@@ -133,21 +148,21 @@ func TestTopologyFollowupsFromStore(t *testing.T) {
 	high := map[string]string{}
 	for _, c := range res.GetClusters() {
 		for _, s := range c.GetServers() {
-			high[s.GetName()] = fmt.Sprintf("%d %v %d/%d", s.GetMemBytes()>>20, s.GetMemHigh(), s.GetJsMemoryBytes()>>20, s.GetJsMaxMemoryBytes()>>20)
+			high[s.GetName()] = fmt.Sprintf("%d %q %d/%d", s.GetMemBytes()>>20, s.GetMemoryFindingId(), s.GetJsMemoryBytes()>>20, s.GetJsMaxMemoryBytes()>>20)
 		}
 	}
-	if high["nats-eu-2"] != "1024 true 64/1024" || high["nats-eu-1"] != "210 false 64/1024" {
+	if high["nats-eu-2"] != `1024 "server-008:nats-eu-2" 64/1024` || high["nats-eu-1"] != `210 "" 64/1024` {
 		t.Errorf("memory = %v", high)
 	}
 
 	var repl []string
 	for _, x := range res.GetReplication() {
-		repl = append(repl, fmt.Sprintf("%s %s@%s <- %s@%s lag %d before %d behind %v quiet %v never %v", x.GetKind(), x.GetStream(), x.GetCluster(),
-			x.GetOriginStream(), x.GetOriginCluster(), x.GetLag(), x.GetLagBefore(), x.GetFallingBehind(), x.GetNotActive(), x.GetNeverHeard()))
+		repl = append(repl, fmt.Sprintf("%s %s@%s <- %s@%s lag %d before %d never %v source %q finding %q", x.GetKind(), x.GetStream(), x.GetCluster(),
+			x.GetOriginStream(), x.GetOriginCluster(), x.GetLag(), x.GetLagBefore(), x.GetNeverHeard(), x.GetSourceId(), x.GetFindingId()))
 	}
 	wantRepl := []string{
-		"mirror ARCHIVE@ap <- ORDERS@eu lag 1500 before 1200 behind true quiet false never false",
-		"source IDX@ap <- ORDERS@eu lag 0 before 0 behind false quiet true never true",
+		`mirror ARCHIVE@ap <- ORDERS@eu lag 1500 before 1200 never false source "" finding "stream-015:APP/ARCHIVE"`,
+		`source IDX@ap <- ORDERS@eu lag 0 before 0 never true source "id-ORDERS" finding "stream-022:APP/IDX"`,
 	}
 	if !slices.Equal(repl, wantRepl) {
 		t.Errorf("replication =\n%v\nwant\n%v", repl, wantRepl)

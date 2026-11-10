@@ -38,7 +38,7 @@ func TestGlobalTopologyReplication(t *testing.T) {
 	res := topology(t, demo(t), fake.GlobalSystem, nil)
 	var got []string
 	for _, r := range res.GetReplication() {
-		if r.Lag == nil || r.LagBefore == nil || r.GetLastActive() == nil || r.GetNotActive() || r.GetFallingBehind() || r.GetLeader() == "" {
+		if r.Lag == nil || r.LagBefore == nil || r.GetLastActive() == nil || r.GetFindingId() != "" || r.GetLeader() == "" {
 			t.Errorf("%s: %v", r.GetStream(), r)
 		}
 		got = append(got, fmt.Sprintf("%s %s@%s <- %s@%s", r.GetKind(), r.GetStream(), r.GetCluster(), r.GetOriginStream(), r.GetOriginCluster()))
@@ -55,8 +55,8 @@ func TestGlobalTopologyMemory(t *testing.T) {
 	res := topology(t, demo(t), fake.GlobalSystem, nil)
 	for _, c := range res.GetClusters() {
 		for _, s := range c.GetServers() {
-			if s.GetMissing() != (s.MemBytes == nil) || s.GetMissing() != (s.JsMaxMemoryBytes == nil) || s.GetMemHigh() {
-				t.Errorf("%s: missing %v mem %v js max %v high %v", s.GetName(), s.GetMissing(), s.MemBytes, s.JsMaxMemoryBytes, s.GetMemHigh())
+			if s.GetMissing() != (s.MemBytes == nil) || s.GetMissing() != (s.JsMaxMemoryBytes == nil) || s.GetMemoryFindingId() != "" {
+				t.Errorf("%s: missing %v mem %v js max %v finding %q", s.GetName(), s.GetMissing(), s.MemBytes, s.JsMaxMemoryBytes, s.GetMemoryFindingId())
 			}
 		}
 	}

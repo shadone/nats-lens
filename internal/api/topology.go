@@ -67,6 +67,10 @@ type TopologyFacts struct {
 	// Earlier is the collection the slow rule compares the epoch with;
 	// nil when there is none.
 	Earlier *TopologyEarlier
+	// Findings are the findings firing at the range's end, with the mute
+	// or acceptance in force; only server-007, server-008, stream-015,
+	// stream-017, stream-022 and stream-023 are read.
+	Findings []*v1.Finding
 	// Replication are the mirrors and sources of the epoch's streams whose
 	// origin is placed, in any cluster; FinishTopology keeps those
 	// between clusters.
@@ -97,8 +101,9 @@ type TopologyServerFact struct {
 	// StreamsLed is the streams the server leads; nil when not reported.
 	StreamsLed *int32
 	// Mem is the resident memory of the process, JSMemory and JSMaxMemory
-	// its JetStream memory store and limit, bytes; nil when not reported.
-	Mem, JSMemory, JSMaxMemory *int64
+	// its JetStream memory store and limit, JSStorage and JSMaxStorage its
+	// file store and limit, bytes; nil when not reported.
+	Mem, JSMemory, JSMaxMemory, JSStorage, JSMaxStorage *int64
 }
 
 // TopologyRouteRow is one route as its reporting server lists it.
@@ -207,9 +212,10 @@ func FinishTopology(f *TopologyFacts) *v1.GetTopologyResponse {
 	leafs := topologyLeafnodes(f, servers)
 	res.LeafnodesTotal = int32(len(leafs))
 	res.Leafnodes = leafs[:min(len(leafs), MaxTopologyLeafnodes)]
-	res.Clusters = topologyClusters(f, servers, leafs)
+	firing := topologyFindings(f.Findings)
+	res.Clusters = topologyClusters(f, servers, leafs, firing)
 	res.Unobserved = topologyUnobserved(f, servers)
-	res.Replication = topologyReplication(f.Replication)
+	res.Replication = topologyReplication(f.Replication, firing)
 	return res
 }
 
