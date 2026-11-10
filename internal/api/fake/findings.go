@@ -189,6 +189,9 @@ func tally(all []*v1.Finding, r *v1.TimeRange) *v1.FindingTally {
 		if f.GetAcknowledgement() != nil {
 			t.Acknowledged++
 		}
+		if f.GetMute().GetAccepted() {
+			t.Accepted++
+		}
 		switch {
 		case f.GetMute() != nil:
 			t.Muted++

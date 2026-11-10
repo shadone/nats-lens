@@ -152,6 +152,17 @@ func (sm *storedMute) covers(f *v1.Finding) bool {
 // records the stream's growth over the 24 hours before now, by the rule of
 // the store; the growth review that may end it is not simulated.
 func (p *Provider) MuteFinding(_ context.Context, req *v1.MuteFindingRequest) (*v1.Mute, error) {
+	m := p.newMute(req)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	m.Id = strconv.Itoa(p.nextID)
+	p.nextID++
+	p.mutes = keepNewest(append(p.mutes, &storedMute{m: m}), p.seededMutes)
+	return proto.Clone(m).(*v1.Mute), nil
+}
+
+// newMute is the mute a request makes, without an ID.
+func (p *Provider) newMute(req *v1.MuteFindingRequest) *v1.Mute {
 	s := p.scen()
 	now := s.now
 	m := &v1.Mute{
@@ -164,12 +175,7 @@ func (p *Provider) MuteFinding(_ context.Context, req *v1.MuteFindingRequest) (*
 			m.GrowthPerDay = s.growth(streamRef(name), &v1.TimeRange{Start: ts(now.Add(-api.AcceptGrowthWindow)), End: ts(now)})
 		}
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	m.Id = strconv.Itoa(p.nextID)
-	p.nextID++
-	p.mutes = keepNewest(append(p.mutes, &storedMute{m: m}), p.seededMutes)
-	return proto.Clone(m).(*v1.Mute), nil
+	return m
 }
 
 // UnmuteFinding lifts an active mute.

@@ -414,3 +414,23 @@ func TestAcceptRecordsGrowth(t *testing.T) {
 		t.Errorf("server acceptance in the demo records %v, want none", s.GetGrowthPerDay())
 	}
 }
+
+// The demo accepts several entities at once, as the store does, and lists
+// acceptances for review soonest first, following the account.
+func TestAcceptManyAndReviewList(t *testing.T) {
+	c := client(t)
+	before := must(c.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{}))).GetTotalCount()
+	ms := must(c.AcceptFindings(ctx, connect.NewRequest(&v1.AcceptFindingsRequest{CheckCode: "stream-005",
+		Entities: []*v1.EntityRef{{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-archive"}, {Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "OTHER/x"}},
+		Reason: "kept on purpose", MutedBy: "op", ExpiresAt: timestamppb.New(fake.FixedNow.Add(26 * time.Hour))}))).GetMutes()
+	if len(ms) != 2 || ms[0].GetId() == ms[1].GetId() || ms[0].GetEntity().GetKey() != "APP/order-archive" || !ms[0].GetGrowthReview() || ms[0].GrowthPerDay == nil {
+		t.Fatalf("accepted = %v", ms)
+	}
+	list := must(c.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{})))
+	if list.GetTotalCount() != before+2 || list.GetAcceptances()[0].GetId() != ms[0].GetId() {
+		t.Fatalf("review list = %v, want the review in 26 hours first", list.GetAcceptances())
+	}
+	if n := must(c.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{Account: "APP"}))).GetOtherAccountCount(); n < 1 {
+		t.Errorf("scoped to APP: %d other acceptances, want OTHER/x among them", n)
+	}
+}

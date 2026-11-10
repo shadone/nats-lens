@@ -56,6 +56,11 @@ type Provider interface {
 	// ErrFailedPrecondition for one that no longer applies.
 	UnmuteFinding(ctx context.Context, req *v1.UnmuteFindingRequest) (*v1.Mute, error)
 	ListMutes(ctx context.Context, req *v1.ListMutesRequest) (*v1.ListMutesResponse, error)
+	// AcceptFindings stores one acceptance per entity of the request, all
+	// or none; the handler has checked every entity, the reason, the review
+	// date and set muted_by.
+	AcceptFindings(ctx context.Context, req *v1.AcceptFindingsRequest) ([]*v1.Mute, error)
+	ListAcceptances(ctx context.Context, req *v1.ListAcceptancesRequest) (*v1.ListAcceptancesResponse, error)
 	// AcknowledgeFinding stores an acknowledgement of the finding's
 	// current episode; the handler has checked the note and the quiet and
 	// set acked_by. ErrNotFound for an unknown finding,

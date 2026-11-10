@@ -38,6 +38,8 @@ const (
 	// date, from now.
 	MinAcceptLength = 24 * time.Hour
 	MaxAcceptLength = 365 * 24 * time.Hour
+	// MaxAcceptBatch bounds the entities of one AcceptFindings call.
+	MaxAcceptBatch = 100
 	// MaxNoteLength bounds an acknowledgement's note; MinAckQuiet and
 	// MaxAckQuiet its quiet time.
 	MaxNoteLength = 500
@@ -236,6 +238,34 @@ func normalizeMute(req *v1.MuteFindingRequest, now time.Time, user string) error
 	}
 	req.MutedBy, err = text("muted_by", req.GetMutedBy(), MaxNameLength)
 	return err
+}
+
+// normalizeAcceptMany checks an AcceptFindings request as MuteFinding with
+// accept checks each of its entities: 1 to MaxAcceptBatch entities, each
+// once. It truncates the review date and sets muted_by as normalizeMute
+// does.
+func normalizeAcceptMany(req *v1.AcceptFindingsRequest, now time.Time, user string) error {
+	n := len(req.GetEntities())
+	if n == 0 || n > MaxAcceptBatch {
+		return invalid("entities must name 1 to %d entities", MaxAcceptBatch)
+	}
+	seen := make(map[string]bool, n)
+	var one *v1.MuteFindingRequest
+	for i, e := range req.GetEntities() {
+		m := &v1.MuteFindingRequest{CheckCode: req.GetCheckCode(), Entity: e, Reason: req.GetReason(),
+			ExpiresAt: req.GetExpiresAt(), MutedBy: req.GetMutedBy(), Accept: true}
+		if err := normalizeMute(m, now, user); err != nil {
+			return fmt.Errorf("entities[%d]: %w", i, err)
+		}
+		k := e.GetType().String() + "\x00" + e.GetKey()
+		if seen[k] {
+			return invalid("entities[%d]: %s is named twice", i, e.GetKey())
+		}
+		seen[k] = true
+		one = m
+	}
+	req.Reason, req.ExpiresAt, req.MutedBy = one.GetReason(), one.GetExpiresAt(), one.GetMutedBy()
+	return nil
 }
 
 func normalizeUnmute(req *v1.UnmuteFindingRequest, user string) error {

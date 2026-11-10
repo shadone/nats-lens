@@ -60,6 +60,12 @@ const (
 	LensServiceEndAcknowledgementProcedure = "/natslens.v1.LensService/EndAcknowledgement"
 	// LensServiceListMutesProcedure is the fully-qualified name of the LensService's ListMutes RPC.
 	LensServiceListMutesProcedure = "/natslens.v1.LensService/ListMutes"
+	// LensServiceAcceptFindingsProcedure is the fully-qualified name of the LensService's
+	// AcceptFindings RPC.
+	LensServiceAcceptFindingsProcedure = "/natslens.v1.LensService/AcceptFindings"
+	// LensServiceListAcceptancesProcedure is the fully-qualified name of the LensService's
+	// ListAcceptances RPC.
+	LensServiceListAcceptancesProcedure = "/natslens.v1.LensService/ListAcceptances"
 	// LensServiceGetTimeWindowsProcedure is the fully-qualified name of the LensService's
 	// GetTimeWindows RPC.
 	LensServiceGetTimeWindowsProcedure = "/natslens.v1.LensService/GetTimeWindows"
@@ -183,6 +189,11 @@ type LensServiceClient interface {
 	EndAcknowledgement(context.Context, *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error)
 	// Mutes, active or all.
 	ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error)
+	// Accepts one check's findings as by design on several entities at
+	// once: one acceptance per entity, all stored or none.
+	AcceptFindings(context.Context, *connect.Request[v1.AcceptFindingsRequest]) (*connect.Response[v1.AcceptFindingsResponse], error)
+	// Acceptances as by design, the soonest review first.
+	ListAcceptances(context.Context, *connect.Request[v1.ListAcceptancesRequest]) (*connect.Response[v1.ListAcceptancesResponse], error)
 	// System-wide chart window annotations, without Overview or check-state work.
 	GetTimeWindows(context.Context, *connect.Request[v1.GetTimeWindowsRequest]) (*connect.Response[v1.GetTimeWindowsResponse], error)
 	// Worst state per check per time bucket, with event lanes.
@@ -371,6 +382,19 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+LensServiceListMutesProcedure,
 			connect.WithSchema(lensServiceMethods.ByName("ListMutes")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		acceptFindings: connect.NewClient[v1.AcceptFindingsRequest, v1.AcceptFindingsResponse](
+			httpClient,
+			baseURL+LensServiceAcceptFindingsProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("AcceptFindings")),
+			connect.WithClientOptions(opts...),
+		),
+		listAcceptances: connect.NewClient[v1.ListAcceptancesRequest, v1.ListAcceptancesResponse](
+			httpClient,
+			baseURL+LensServiceListAcceptancesProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListAcceptances")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -640,6 +664,8 @@ type lensServiceClient struct {
 	acknowledgeFinding           *connect.Client[v1.AcknowledgeFindingRequest, v1.AcknowledgeFindingResponse]
 	endAcknowledgement           *connect.Client[v1.EndAcknowledgementRequest, v1.EndAcknowledgementResponse]
 	listMutes                    *connect.Client[v1.ListMutesRequest, v1.ListMutesResponse]
+	acceptFindings               *connect.Client[v1.AcceptFindingsRequest, v1.AcceptFindingsResponse]
+	listAcceptances              *connect.Client[v1.ListAcceptancesRequest, v1.ListAcceptancesResponse]
 	getTimeWindows               *connect.Client[v1.GetTimeWindowsRequest, v1.GetTimeWindowsResponse]
 	getStatusTimeline            *connect.Client[v1.GetStatusTimelineRequest, v1.GetStatusTimelineResponse]
 	listEvents                   *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
@@ -731,6 +757,16 @@ func (c *lensServiceClient) EndAcknowledgement(ctx context.Context, req *connect
 // ListMutes calls natslens.v1.LensService.ListMutes.
 func (c *lensServiceClient) ListMutes(ctx context.Context, req *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error) {
 	return c.listMutes.CallUnary(ctx, req)
+}
+
+// AcceptFindings calls natslens.v1.LensService.AcceptFindings.
+func (c *lensServiceClient) AcceptFindings(ctx context.Context, req *connect.Request[v1.AcceptFindingsRequest]) (*connect.Response[v1.AcceptFindingsResponse], error) {
+	return c.acceptFindings.CallUnary(ctx, req)
+}
+
+// ListAcceptances calls natslens.v1.LensService.ListAcceptances.
+func (c *lensServiceClient) ListAcceptances(ctx context.Context, req *connect.Request[v1.ListAcceptancesRequest]) (*connect.Response[v1.ListAcceptancesResponse], error) {
+	return c.listAcceptances.CallUnary(ctx, req)
 }
 
 // GetTimeWindows calls natslens.v1.LensService.GetTimeWindows.
@@ -939,6 +975,11 @@ type LensServiceHandler interface {
 	EndAcknowledgement(context.Context, *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error)
 	// Mutes, active or all.
 	ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error)
+	// Accepts one check's findings as by design on several entities at
+	// once: one acceptance per entity, all stored or none.
+	AcceptFindings(context.Context, *connect.Request[v1.AcceptFindingsRequest]) (*connect.Response[v1.AcceptFindingsResponse], error)
+	// Acceptances as by design, the soonest review first.
+	ListAcceptances(context.Context, *connect.Request[v1.ListAcceptancesRequest]) (*connect.Response[v1.ListAcceptancesResponse], error)
 	// System-wide chart window annotations, without Overview or check-state work.
 	GetTimeWindows(context.Context, *connect.Request[v1.GetTimeWindowsRequest]) (*connect.Response[v1.GetTimeWindowsResponse], error)
 	// Worst state per check per time bucket, with event lanes.
@@ -1123,6 +1164,19 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		LensServiceListMutesProcedure,
 		svc.ListMutes,
 		connect.WithSchema(lensServiceMethods.ByName("ListMutes")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceAcceptFindingsHandler := connect.NewUnaryHandler(
+		LensServiceAcceptFindingsProcedure,
+		svc.AcceptFindings,
+		connect.WithSchema(lensServiceMethods.ByName("AcceptFindings")),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceListAcceptancesHandler := connect.NewUnaryHandler(
+		LensServiceListAcceptancesProcedure,
+		svc.ListAcceptances,
+		connect.WithSchema(lensServiceMethods.ByName("ListAcceptances")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -1400,6 +1454,10 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceEndAcknowledgementHandler.ServeHTTP(w, r)
 		case LensServiceListMutesProcedure:
 			lensServiceListMutesHandler.ServeHTTP(w, r)
+		case LensServiceAcceptFindingsProcedure:
+			lensServiceAcceptFindingsHandler.ServeHTTP(w, r)
+		case LensServiceListAcceptancesProcedure:
+			lensServiceListAcceptancesHandler.ServeHTTP(w, r)
 		case LensServiceGetTimeWindowsProcedure:
 			lensServiceGetTimeWindowsHandler.ServeHTTP(w, r)
 		case LensServiceGetStatusTimelineProcedure:
@@ -1523,6 +1581,14 @@ func (UnimplementedLensServiceHandler) EndAcknowledgement(context.Context, *conn
 
 func (UnimplementedLensServiceHandler) ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListMutes is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) AcceptFindings(context.Context, *connect.Request[v1.AcceptFindingsRequest]) (*connect.Response[v1.AcceptFindingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.AcceptFindings is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) ListAcceptances(context.Context, *connect.Request[v1.ListAcceptancesRequest]) (*connect.Response[v1.ListAcceptancesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListAcceptances is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) GetTimeWindows(context.Context, *connect.Request[v1.GetTimeWindowsRequest]) (*connect.Response[v1.GetTimeWindowsResponse], error) {

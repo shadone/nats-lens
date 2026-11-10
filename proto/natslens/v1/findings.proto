@@ -225,6 +225,11 @@ message FindingTally {
   // Findings that fire now with an acknowledgement in force, muted or not;
   // they are counted above as well.
   int32 acknowledged = 7;
+
+  // Findings that fire now under an acceptance as by design. An acceptance
+  // is a mute, so they are counted in muted as well; muted - accepted is
+  // the findings under a plain mute.
+  int32 accepted = 8;
 }
 
 // Request for findings.
@@ -395,4 +400,79 @@ message ListMutesResponse {
 
   // Number of mutes that match the filters, across pages.
   int32 total_count = 3;
+}
+
+// Request to accept one check's findings as by design on several entities
+// at once, with one reason and one review date.
+message AcceptFindingsRequest {
+  // Check code, in the form <entity>-<three digits>; the check must be
+  // acceptable, as MuteFinding with accept requires.
+  string check_code = 1;
+
+  // The entities to accept the check for: at least one, at most 100, each
+  // once, none the system. Each gets an acceptance of its own, as
+  // MuteFinding with accept makes it.
+  repeated EntityRef entities = 2;
+
+  // Why. Required; at most 1000 characters. Recorded on every acceptance.
+  string reason = 3;
+
+  // The review date, truncated to whole seconds: at least one day and at
+  // most 365 days ahead.
+  google.protobuf.Timestamp expires_at = 4;
+
+  // Who accepts, at most 256 characters. Required when the server is not
+  // configured for IAP; ignored when it is, and the verified IAP user is
+  // recorded instead.
+  string muted_by = 5;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 6;
+}
+
+// The created acceptances, in the order of the request's entities. Either
+// every acceptance is stored or none is.
+message AcceptFindingsResponse {
+  // One acceptance per entity of the request.
+  repeated Mute mutes = 1;
+}
+
+// Request for the acceptances as by design.
+message ListAcceptancesRequest {
+  // Whether to include acceptances that ended: at their review date, by a
+  // person, or by nats-lens when the entity's growth changed.
+  bool include_ended = 1;
+
+  // Only acceptances that concern this account, as ListFindings' account
+  // filter reads it: of the account itself and of its streams and
+  // consumers, and of entities of no one account (servers, clients,
+  // connections). Empty means every account; at most 256 characters.
+  string account = 2;
+
+  // Largest number of acceptances to return. Zero means 100; at most 500.
+  int32 page_size = 3;
+
+  // Token from a previous response, to read the next page with the same
+  // filters.
+  string page_token = 4;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 5;
+}
+
+// Acceptances in force first, the soonest review date first; then, with
+// include_ended, the ended ones, the latest end first.
+message ListAcceptancesResponse {
+  // The acceptances of this page; each has accepted set.
+  repeated Mute acceptances = 1;
+
+  // Token for the next page; empty on the last page.
+  string next_page_token = 2;
+
+  // Number of acceptances that match the filters, across pages.
+  int32 total_count = 3;
+
+  // With account set: the acceptances that match every other filter but
+  // belong to another account, left out. Zero without account.
+  int32 other_account_count = 4;
 }

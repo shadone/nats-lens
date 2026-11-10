@@ -70,23 +70,33 @@ func (p *Provider) MuteFinding(ctx context.Context, req *v1.MuteFindingRequest) 
 // without one or under 8 days of data, and the review then records it
 // later as the baseline.
 func (p *Provider) acceptGrowth(ctx context.Context, now time.Time, e store.EntityKey) (*float64, error) {
+	g, err := p.acceptGrowths(ctx, now, []store.EntityKey{e})
+	return g[e], err
+}
+
+// acceptGrowths is acceptGrowth for several entities, read in one query;
+// an entity without a rate has no entry.
+func (p *Provider) acceptGrowths(ctx context.Context, now time.Time, ents []store.EntityKey) (map[store.EntityKey]*float64, error) {
 	var spans []store.Span
 	for _, sp := range api.AcceptGrowthSpans(now) {
 		spans = append(spans, store.Span{From: sp.From, To: sp.To})
 	}
 	width := api.AcceptGrowthWidth(p.Interval)
-	pts, err := p.St.GrowthPoints(ctx, spans, width, []store.EntityKey{e})
+	pts, err := p.St.GrowthPoints(ctx, spans, width, ents)
 	if err != nil {
 		return nil, err
 	}
-	s := make([]api.Sample, 0, len(pts[e]))
-	for _, pt := range pts[e] {
-		s = append(s, api.Sample{T: pt.T, V: pt.V})
+	out := map[store.EntityKey]*float64{}
+	for e, ps := range pts {
+		s := make([]api.Sample, 0, len(ps))
+		for _, pt := range ps {
+			s = append(s, api.Sample{T: pt.T, V: pt.V})
+		}
+		if g := api.WeeklyGrowth(s, now, width); g != nil {
+			out[e] = &g.PerDay
+		}
 	}
-	if g := api.WeeklyGrowth(s, now, width); g != nil {
-		return &g.PerDay, nil
-	}
-	return nil, nil
+	return out, nil
 }
 
 // UnmuteFinding lifts an active mute.

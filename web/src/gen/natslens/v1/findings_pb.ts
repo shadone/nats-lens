@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/findings.proto.
  */
 export const file_natslens_v1_findings: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS9maW5kaW5ncy5wcm90bxILbmF0c2xlbnMudjEiXAoMRmluZGluZ1ZhbHVlEgwKBG5hbWUYASABKAkSDwoHZGlzcGxheRgCIAEoCRITCgZudW1iZXIYAyABKAFIAIgBARINCgViYXNpcxgEIAEoCUIJCgdfbnVtYmVyIoEDCgRNdXRlEgoKAmlkGAEgASgJEhIKCmNoZWNrX2NvZGUYAiABKAkSJgoGZW50aXR5GAMgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEg4KBnJlYXNvbhgEIAEoCRIQCghtdXRlZF9ieRgFIAEoCRIuCgpjcmVhdGVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpleHBpcmVzX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1bm11dGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBISCgp1bm11dGVkX2J5GAkgASgJEhAKCGFjY2VwdGVkGAogASgIEhsKDmdyb3d0aF9wZXJfZGF5GAsgASgBSACIAQESEgoKZW5kX3JlYXNvbhgMIAEoCRIVCg1ncm93dGhfcmV2aWV3GA0gASgIQhEKD19ncm93dGhfcGVyX2RheSL2BQoHRmluZGluZxIKCgJpZBgBIAEoCRISCgpjaGVja19jb2RlGAIgASgJEhIKCmNoZWNrX25hbWUYAyABKAkSJwoIc2V2ZXJpdHkYBCABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRIoCgVzdGF0ZRgFIAEoDjIZLm5hdHNsZW5zLnYxLkZpbmRpbmdTdGF0ZRImCgZlbnRpdHkYBiABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSKQoFc2luY2UYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjMKD3RyYW5zaXRpb25lZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLcmVzb2x2ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg4KBmRldGFpbBgKIAEoCRIoCgV2YWx1ZRgLIAEoCzIZLm5hdHNsZW5zLnYxLkZpbmRpbmdWYWx1ZRITCgtyZW1lZGlhdGlvbhgMIAEoCRIwCg5yZWxhdGVkX2NvbmZpZxgNIAMoCzIYLm5hdHNsZW5zLnYxLkNvbmZpZ1ZhbHVlEh0KFXJlbGF0ZWRfY29uZmlnX3NvdXJjZRgOIAEoCRIkCgVjYXVzZRgPIAEoCzIVLm5hdHNsZW5zLnYxLkV2ZW50UmVmEh8KBG11dGUYECABKAsyES5uYXRzbGVucy52MS5NdXRlEh0KFXRyYW5zaXRpb25zX2xhc3RfaG91chgRIAEoBRIzCg9jb25kaXRpb25fc2luY2UYEiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg4KBmV4cGlyeRgTIAEoCBI1Cg9hY2tub3dsZWRnZW1lbnQYFCABKAsyHC5uYXRzbGVucy52MS5BY2tub3dsZWRnZW1lbnQSEgoKYWNjZXB0YWJsZRgVIAEoCBIVCg1ncm93dGhfcmV2aWV3GBYgASgIIsMBChFGaW5kaW5nVHJhbnNpdGlvbhISCgpmaW5kaW5nX2lkGAEgASgJEigKBHRpbWUYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEigKBXN0YXRlGAMgASgOMhkubmF0c2xlbnMudjEuRmluZGluZ1N0YXRlEicKCHNldmVyaXR5GAQgASgOMhUubmF0c2xlbnMudjEuU2V2ZXJpdHkSDgoGZGV0YWlsGAUgASgJEg0KBWVwb2NoGAYgASgDIowBCgxGaW5kaW5nVGFsbHkSEAoIY3JpdGljYWwYASABKAUSDwoHd2FybmluZxgCIAEoBRIMCgRpbmZvGAMgASgFEg0KBW11dGVkGAQgASgFEhAKCGZsYXBwaW5nGAUgASgFEhQKDHJlc29sdmVkXzI0aBgGIAEoBRIUCgxhY2tub3dsZWRnZWQYByABKAUiuwIKE0xpc3RGaW5kaW5nc1JlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USKQoGc3RhdGVzGAIgAygOMhkubmF0c2xlbnMudjEuRmluZGluZ1N0YXRlEikKCnNldmVyaXRpZXMYAyADKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRIVCg1pbmNsdWRlX211dGVkGAQgASgIEhIKCmNoZWNrX2NvZGUYBSABKAkSJgoGZW50aXR5GAYgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhEKCXBhZ2Vfc2l6ZRgHIAEoBRISCgpwYWdlX3Rva2VuGAggASgJEg4KBnN5c3RlbRgJIAEoCRIMCgR0ZXh0GAogASgJEg8KB2FjY291bnQYCyABKAkiiQEKFExpc3RGaW5kaW5nc1Jlc3BvbnNlEiYKCGZpbmRpbmdzGAEgAygLMhQubmF0c2xlbnMudjEuRmluZGluZxIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkSEwoLdG90YWxfY291bnQYAyABKAUSGwoTb3RoZXJfYWNjb3VudF9jb3VudBgEIAEoBSIvChFHZXRGaW5kaW5nUmVxdWVzdBIKCgJpZBgBIAEoCRIOCgZzeXN0ZW0YAiABKAkicAoSR2V0RmluZGluZ1Jlc3BvbnNlEiUKB2ZpbmRpbmcYASABKAsyFC5uYXRzbGVucy52MS5GaW5kaW5nEjMKC3RyYW5zaXRpb25zGAIgAygLMh4ubmF0c2xlbnMudjEuRmluZGluZ1RyYW5zaXRpb24iwgEKEk11dGVGaW5kaW5nUmVxdWVzdBISCgpjaGVja19jb2RlGAEgASgJEiYKBmVudGl0eRgCIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhIOCgZyZWFzb24YAyABKAkSLgoKZXhwaXJlc19hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIbXV0ZWRfYnkYBSABKAkSDgoGc3lzdGVtGAYgASgJEg4KBmFjY2VwdBgHIAEoCCI2ChNNdXRlRmluZGluZ1Jlc3BvbnNlEh8KBG11dGUYASABKAsyES5uYXRzbGVucy52MS5NdXRlIksKFFVubXV0ZUZpbmRpbmdSZXF1ZXN0Eg8KB211dGVfaWQYASABKAkSEgoKdW5tdXRlZF9ieRgCIAEoCRIOCgZzeXN0ZW0YAyABKAkiOAoVVW5tdXRlRmluZGluZ1Jlc3BvbnNlEh8KBG11dGUYASABKAsyES5uYXRzbGVucy52MS5NdXRlImMKEExpc3RNdXRlc1JlcXVlc3QSGAoQaW5jbHVkZV9pbmFjdGl2ZRgBIAEoCBIRCglwYWdlX3NpemUYAiABKAUSEgoKcGFnZV90b2tlbhgDIAEoCRIOCgZzeXN0ZW0YBCABKAkiYwoRTGlzdE11dGVzUmVzcG9uc2USIAoFbXV0ZXMYASADKAsyES5uYXRzbGVucy52MS5NdXRlEhcKD25leHRfcGFnZV90b2tlbhgCIAEoCRITCgt0b3RhbF9jb3VudBgDIAEoBSqaAQoMRmluZGluZ1N0YXRlEh0KGUZJTkRJTkdfU1RBVEVfVU5TUEVDSUZJRUQQABIYChRGSU5ESU5HX1NUQVRFX0ZJUklORxABEhkKFUZJTkRJTkdfU1RBVEVfQ0hBTkdFRBACEhoKFkZJTkRJTkdfU1RBVEVfRkxBUFBJTkcQAxIaChZGSU5ESU5HX1NUQVRFX1JFU09MVkVEEARCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_timestamp, file_natslens_v1_acknowledgements, file_natslens_v1_common]);
+  fileDesc("ChpuYXRzbGVucy92MS9maW5kaW5ncy5wcm90bxILbmF0c2xlbnMudjEiXAoMRmluZGluZ1ZhbHVlEgwKBG5hbWUYASABKAkSDwoHZGlzcGxheRgCIAEoCRITCgZudW1iZXIYAyABKAFIAIgBARINCgViYXNpcxgEIAEoCUIJCgdfbnVtYmVyIoEDCgRNdXRlEgoKAmlkGAEgASgJEhIKCmNoZWNrX2NvZGUYAiABKAkSJgoGZW50aXR5GAMgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEg4KBnJlYXNvbhgEIAEoCRIQCghtdXRlZF9ieRgFIAEoCRIuCgpjcmVhdGVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpleHBpcmVzX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1bm11dGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBISCgp1bm11dGVkX2J5GAkgASgJEhAKCGFjY2VwdGVkGAogASgIEhsKDmdyb3d0aF9wZXJfZGF5GAsgASgBSACIAQESEgoKZW5kX3JlYXNvbhgMIAEoCRIVCg1ncm93dGhfcmV2aWV3GA0gASgIQhEKD19ncm93dGhfcGVyX2RheSL2BQoHRmluZGluZxIKCgJpZBgBIAEoCRISCgpjaGVja19jb2RlGAIgASgJEhIKCmNoZWNrX25hbWUYAyABKAkSJwoIc2V2ZXJpdHkYBCABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRIoCgVzdGF0ZRgFIAEoDjIZLm5hdHNsZW5zLnYxLkZpbmRpbmdTdGF0ZRImCgZlbnRpdHkYBiABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSKQoFc2luY2UYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjMKD3RyYW5zaXRpb25lZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLcmVzb2x2ZWRfYXQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg4KBmRldGFpbBgKIAEoCRIoCgV2YWx1ZRgLIAEoCzIZLm5hdHNsZW5zLnYxLkZpbmRpbmdWYWx1ZRITCgtyZW1lZGlhdGlvbhgMIAEoCRIwCg5yZWxhdGVkX2NvbmZpZxgNIAMoCzIYLm5hdHNsZW5zLnYxLkNvbmZpZ1ZhbHVlEh0KFXJlbGF0ZWRfY29uZmlnX3NvdXJjZRgOIAEoCRIkCgVjYXVzZRgPIAEoCzIVLm5hdHNsZW5zLnYxLkV2ZW50UmVmEh8KBG11dGUYECABKAsyES5uYXRzbGVucy52MS5NdXRlEh0KFXRyYW5zaXRpb25zX2xhc3RfaG91chgRIAEoBRIzCg9jb25kaXRpb25fc2luY2UYEiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg4KBmV4cGlyeRgTIAEoCBI1Cg9hY2tub3dsZWRnZW1lbnQYFCABKAsyHC5uYXRzbGVucy52MS5BY2tub3dsZWRnZW1lbnQSEgoKYWNjZXB0YWJsZRgVIAEoCBIVCg1ncm93dGhfcmV2aWV3GBYgASgIIsMBChFGaW5kaW5nVHJhbnNpdGlvbhISCgpmaW5kaW5nX2lkGAEgASgJEigKBHRpbWUYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEigKBXN0YXRlGAMgASgOMhkubmF0c2xlbnMudjEuRmluZGluZ1N0YXRlEicKCHNldmVyaXR5GAQgASgOMhUubmF0c2xlbnMudjEuU2V2ZXJpdHkSDgoGZGV0YWlsGAUgASgJEg0KBWVwb2NoGAYgASgDIp4BCgxGaW5kaW5nVGFsbHkSEAoIY3JpdGljYWwYASABKAUSDwoHd2FybmluZxgCIAEoBRIMCgRpbmZvGAMgASgFEg0KBW11dGVkGAQgASgFEhAKCGZsYXBwaW5nGAUgASgFEhQKDHJlc29sdmVkXzI0aBgGIAEoBRIUCgxhY2tub3dsZWRnZWQYByABKAUSEAoIYWNjZXB0ZWQYCCABKAUiuwIKE0xpc3RGaW5kaW5nc1JlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USKQoGc3RhdGVzGAIgAygOMhkubmF0c2xlbnMudjEuRmluZGluZ1N0YXRlEikKCnNldmVyaXRpZXMYAyADKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRIVCg1pbmNsdWRlX211dGVkGAQgASgIEhIKCmNoZWNrX2NvZGUYBSABKAkSJgoGZW50aXR5GAYgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhEKCXBhZ2Vfc2l6ZRgHIAEoBRISCgpwYWdlX3Rva2VuGAggASgJEg4KBnN5c3RlbRgJIAEoCRIMCgR0ZXh0GAogASgJEg8KB2FjY291bnQYCyABKAkiiQEKFExpc3RGaW5kaW5nc1Jlc3BvbnNlEiYKCGZpbmRpbmdzGAEgAygLMhQubmF0c2xlbnMudjEuRmluZGluZxIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkSEwoLdG90YWxfY291bnQYAyABKAUSGwoTb3RoZXJfYWNjb3VudF9jb3VudBgEIAEoBSIvChFHZXRGaW5kaW5nUmVxdWVzdBIKCgJpZBgBIAEoCRIOCgZzeXN0ZW0YAiABKAkicAoSR2V0RmluZGluZ1Jlc3BvbnNlEiUKB2ZpbmRpbmcYASABKAsyFC5uYXRzbGVucy52MS5GaW5kaW5nEjMKC3RyYW5zaXRpb25zGAIgAygLMh4ubmF0c2xlbnMudjEuRmluZGluZ1RyYW5zaXRpb24iwgEKEk11dGVGaW5kaW5nUmVxdWVzdBISCgpjaGVja19jb2RlGAEgASgJEiYKBmVudGl0eRgCIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhIOCgZyZWFzb24YAyABKAkSLgoKZXhwaXJlc19hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIbXV0ZWRfYnkYBSABKAkSDgoGc3lzdGVtGAYgASgJEg4KBmFjY2VwdBgHIAEoCCI2ChNNdXRlRmluZGluZ1Jlc3BvbnNlEh8KBG11dGUYASABKAsyES5uYXRzbGVucy52MS5NdXRlIksKFFVubXV0ZUZpbmRpbmdSZXF1ZXN0Eg8KB211dGVfaWQYASABKAkSEgoKdW5tdXRlZF9ieRgCIAEoCRIOCgZzeXN0ZW0YAyABKAkiOAoVVW5tdXRlRmluZGluZ1Jlc3BvbnNlEh8KBG11dGUYASABKAsyES5uYXRzbGVucy52MS5NdXRlImMKEExpc3RNdXRlc1JlcXVlc3QSGAoQaW5jbHVkZV9pbmFjdGl2ZRgBIAEoCBIRCglwYWdlX3NpemUYAiABKAUSEgoKcGFnZV90b2tlbhgDIAEoCRIOCgZzeXN0ZW0YBCABKAkiYwoRTGlzdE11dGVzUmVzcG9uc2USIAoFbXV0ZXMYASADKAsyES5uYXRzbGVucy52MS5NdXRlEhcKD25leHRfcGFnZV90b2tlbhgCIAEoCRITCgt0b3RhbF9jb3VudBgDIAEoBSK3AQoVQWNjZXB0RmluZGluZ3NSZXF1ZXN0EhIKCmNoZWNrX2NvZGUYASABKAkSKAoIZW50aXRpZXMYAiADKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSDgoGcmVhc29uGAMgASgJEi4KCmV4cGlyZXNfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhAKCG11dGVkX2J5GAUgASgJEg4KBnN5c3RlbRgGIAEoCSI6ChZBY2NlcHRGaW5kaW5nc1Jlc3BvbnNlEiAKBW11dGVzGAEgAygLMhEubmF0c2xlbnMudjEuTXV0ZSJ3ChZMaXN0QWNjZXB0YW5jZXNSZXF1ZXN0EhUKDWluY2x1ZGVfZW5kZWQYASABKAgSDwoHYWNjb3VudBgCIAEoCRIRCglwYWdlX3NpemUYAyABKAUSEgoKcGFnZV90b2tlbhgEIAEoCRIOCgZzeXN0ZW0YBSABKAkijAEKF0xpc3RBY2NlcHRhbmNlc1Jlc3BvbnNlEiYKC2FjY2VwdGFuY2VzGAEgAygLMhEubmF0c2xlbnMudjEuTXV0ZRIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkSEwoLdG90YWxfY291bnQYAyABKAUSGwoTb3RoZXJfYWNjb3VudF9jb3VudBgEIAEoBSqaAQoMRmluZGluZ1N0YXRlEh0KGUZJTkRJTkdfU1RBVEVfVU5TUEVDSUZJRUQQABIYChRGSU5ESU5HX1NUQVRFX0ZJUklORxABEhkKFUZJTkRJTkdfU1RBVEVfQ0hBTkdFRBACEhoKFkZJTkRJTkdfU1RBVEVfRkxBUFBJTkcQAxIaChZGSU5ESU5HX1NUQVRFX1JFU09MVkVEEARCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_timestamp, file_natslens_v1_acknowledgements, file_natslens_v1_common]);
 
 /**
  * A check's numeric result for the entity.
@@ -478,6 +478,15 @@ export type FindingTally = Message<"natslens.v1.FindingTally"> & {
    * @generated from field: int32 acknowledged = 7;
    */
   acknowledged: number;
+
+  /**
+   * Findings that fire now under an acceptance as by design. An acceptance
+   * is a mute, so they are counted in muted as well; muted - accepted is
+   * the findings under a plain mute.
+   *
+   * @generated from field: int32 accepted = 8;
+   */
+  accepted: number;
 };
 
 /**
@@ -918,6 +927,189 @@ export type ListMutesResponse = Message<"natslens.v1.ListMutesResponse"> & {
  */
 export const ListMutesResponseSchema: GenMessage<ListMutesResponse> = /*@__PURE__*/
   messageDesc(file_natslens_v1_findings, 14);
+
+/**
+ * Request to accept one check's findings as by design on several entities
+ * at once, with one reason and one review date.
+ *
+ * @generated from message natslens.v1.AcceptFindingsRequest
+ */
+export type AcceptFindingsRequest = Message<"natslens.v1.AcceptFindingsRequest"> & {
+  /**
+   * Check code, in the form <entity>-<three digits>; the check must be
+   * acceptable, as MuteFinding with accept requires.
+   *
+   * @generated from field: string check_code = 1;
+   */
+  checkCode: string;
+
+  /**
+   * The entities to accept the check for: at least one, at most 100, each
+   * once, none the system. Each gets an acceptance of its own, as
+   * MuteFinding with accept makes it.
+   *
+   * @generated from field: repeated natslens.v1.EntityRef entities = 2;
+   */
+  entities: EntityRef[];
+
+  /**
+   * Why. Required; at most 1000 characters. Recorded on every acceptance.
+   *
+   * @generated from field: string reason = 3;
+   */
+  reason: string;
+
+  /**
+   * The review date, truncated to whole seconds: at least one day and at
+   * most 365 days ahead.
+   *
+   * @generated from field: google.protobuf.Timestamp expires_at = 4;
+   */
+  expiresAt?: Timestamp | undefined;
+
+  /**
+   * Who accepts, at most 256 characters. Required when the server is not
+   * configured for IAP; ignored when it is, and the verified IAP user is
+   * recorded instead.
+   *
+   * @generated from field: string muted_by = 5;
+   */
+  mutedBy: string;
+
+  /**
+   * System ID, as ListSystems returns it. Empty means the default system.
+   *
+   * @generated from field: string system = 6;
+   */
+  system: string;
+};
+
+/**
+ * Describes the message natslens.v1.AcceptFindingsRequest.
+ * Use `create(AcceptFindingsRequestSchema)` to create a new message.
+ */
+export const AcceptFindingsRequestSchema: GenMessage<AcceptFindingsRequest> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_findings, 15);
+
+/**
+ * The created acceptances, in the order of the request's entities. Either
+ * every acceptance is stored or none is.
+ *
+ * @generated from message natslens.v1.AcceptFindingsResponse
+ */
+export type AcceptFindingsResponse = Message<"natslens.v1.AcceptFindingsResponse"> & {
+  /**
+   * One acceptance per entity of the request.
+   *
+   * @generated from field: repeated natslens.v1.Mute mutes = 1;
+   */
+  mutes: Mute[];
+};
+
+/**
+ * Describes the message natslens.v1.AcceptFindingsResponse.
+ * Use `create(AcceptFindingsResponseSchema)` to create a new message.
+ */
+export const AcceptFindingsResponseSchema: GenMessage<AcceptFindingsResponse> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_findings, 16);
+
+/**
+ * Request for the acceptances as by design.
+ *
+ * @generated from message natslens.v1.ListAcceptancesRequest
+ */
+export type ListAcceptancesRequest = Message<"natslens.v1.ListAcceptancesRequest"> & {
+  /**
+   * Whether to include acceptances that ended: at their review date, by a
+   * person, or by nats-lens when the entity's growth changed.
+   *
+   * @generated from field: bool include_ended = 1;
+   */
+  includeEnded: boolean;
+
+  /**
+   * Only acceptances that concern this account, as ListFindings' account
+   * filter reads it: of the account itself and of its streams and
+   * consumers, and of entities of no one account (servers, clients,
+   * connections). Empty means every account; at most 256 characters.
+   *
+   * @generated from field: string account = 2;
+   */
+  account: string;
+
+  /**
+   * Largest number of acceptances to return. Zero means 100; at most 500.
+   *
+   * @generated from field: int32 page_size = 3;
+   */
+  pageSize: number;
+
+  /**
+   * Token from a previous response, to read the next page with the same
+   * filters.
+   *
+   * @generated from field: string page_token = 4;
+   */
+  pageToken: string;
+
+  /**
+   * System ID, as ListSystems returns it. Empty means the default system.
+   *
+   * @generated from field: string system = 5;
+   */
+  system: string;
+};
+
+/**
+ * Describes the message natslens.v1.ListAcceptancesRequest.
+ * Use `create(ListAcceptancesRequestSchema)` to create a new message.
+ */
+export const ListAcceptancesRequestSchema: GenMessage<ListAcceptancesRequest> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_findings, 17);
+
+/**
+ * Acceptances in force first, the soonest review date first; then, with
+ * include_ended, the ended ones, the latest end first.
+ *
+ * @generated from message natslens.v1.ListAcceptancesResponse
+ */
+export type ListAcceptancesResponse = Message<"natslens.v1.ListAcceptancesResponse"> & {
+  /**
+   * The acceptances of this page; each has accepted set.
+   *
+   * @generated from field: repeated natslens.v1.Mute acceptances = 1;
+   */
+  acceptances: Mute[];
+
+  /**
+   * Token for the next page; empty on the last page.
+   *
+   * @generated from field: string next_page_token = 2;
+   */
+  nextPageToken: string;
+
+  /**
+   * Number of acceptances that match the filters, across pages.
+   *
+   * @generated from field: int32 total_count = 3;
+   */
+  totalCount: number;
+
+  /**
+   * With account set: the acceptances that match every other filter but
+   * belong to another account, left out. Zero without account.
+   *
+   * @generated from field: int32 other_account_count = 4;
+   */
+  otherAccountCount: number;
+};
+
+/**
+ * Describes the message natslens.v1.ListAcceptancesResponse.
+ * Use `create(ListAcceptancesResponseSchema)` to create a new message.
+ */
+export const ListAcceptancesResponseSchema: GenMessage<ListAcceptancesResponse> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_findings, 18);
 
 /**
  * State of a finding.

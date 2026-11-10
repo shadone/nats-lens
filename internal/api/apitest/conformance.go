@@ -652,6 +652,47 @@ func Conformance() []State {
 			}
 			return ""
 		}},
+		{"the tally counts accepted findings apart, within muted", func(q Q) string {
+			t := must(q.env.Client.GetShellStatus(ctx, connect.NewRequest(&v1.GetShellStatusRequest{System: q.System, Range: q.day()}))).of(q.t).GetTally()
+			if t.GetAccepted() == 0 {
+				return ""
+			}
+			if t.GetAccepted() > t.GetMuted() {
+				q.t.Errorf("system %q: tally counts %d accepted of %d muted", q.System, t.GetAccepted(), t.GetMuted())
+				return ""
+			}
+			return fmt.Sprintf("%d accepted of %d muted", t.GetAccepted(), t.GetMuted())
+		}},
+		{"acceptances in force listed for review, the soonest first", func(q Q) string {
+			list := must(q.env.Client.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{System: q.System}))).of(q.t)
+			as := list.GetAcceptances()
+			if len(as) == 0 {
+				return ""
+			}
+			for i, a := range as {
+				if !a.GetAccepted() || a.GetUnmutedAt() != nil || !a.GetExpiresAt().AsTime().After(q.env.Now) {
+					q.t.Errorf("system %q: review list holds %v, not an acceptance in force", q.System, a)
+					return ""
+				}
+				if i > 0 && a.GetExpiresAt().AsTime().Before(as[i-1].GetExpiresAt().AsTime()) {
+					q.t.Errorf("system %q: review list not soonest first at %d", q.System, i)
+					return ""
+				}
+			}
+			// Every acceptance in force among the mutes is listed.
+			ms := must(q.env.Client.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{System: q.System, PageSize: 500}))).of(q.t).GetMutes()
+			n := 0
+			for _, m := range ms {
+				if m.GetAccepted() {
+					n++
+				}
+			}
+			if int32(n) != list.GetTotalCount() {
+				q.t.Errorf("system %q: %d acceptances in force among the mutes, %d listed for review", q.System, n, list.GetTotalCount())
+				return ""
+			}
+			return fmt.Sprintf("%d acceptances", len(as))
+		}},
 
 		// Freshness and collection.
 		{"a newest epoch that missed a server", func(q Q) string {

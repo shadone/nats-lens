@@ -304,6 +304,30 @@ func (h *Handler) ListMutes(ctx context.Context, req *connect.Request[v1.ListMut
 	}, on(Provider.ListMutes))
 }
 
+func (h *Handler) AcceptFindings(ctx context.Context, req *connect.Request[v1.AcceptFindingsRequest]) (*connect.Response[v1.AcceptFindingsResponse], error) {
+	user, err := h.user(ctx, req.Header())
+	if err != nil {
+		return nil, h.codeOf("AcceptFindings", err)
+	}
+	return call(ctx, h, "AcceptFindings", req.Msg, func(p Provider, m *v1.AcceptFindingsRequest) error {
+		return normalizeAcceptMany(m, p.Now(), user)
+	}, func(s System, ctx context.Context, m *v1.AcceptFindingsRequest) (*v1.AcceptFindingsResponse, error) {
+		ms, err := s.Provider.AcceptFindings(ctx, m)
+		return &v1.AcceptFindingsResponse{Mutes: ms}, err
+	})
+}
+
+func (h *Handler) ListAcceptances(ctx context.Context, req *connect.Request[v1.ListAcceptancesRequest]) (*connect.Response[v1.ListAcceptancesResponse], error) {
+	return call(ctx, h, "ListAcceptances", req.Msg, func(_ Provider, m *v1.ListAcceptancesRequest) (err error) {
+		if m.PageSize, err = pageSize(m.GetPageSize(), MaxMutesPage); err == nil {
+			if err = token(m.GetPageToken())(); err == nil {
+				err = checkAccountFilter(m.GetAccount())
+			}
+		}
+		return err
+	}, on(Provider.ListAcceptances))
+}
+
 // ASVS 1.5.2, 2.2.1/2.2.2: generated typed input uses the existing trusted range validator.
 func (h *Handler) GetTimeWindows(ctx context.Context, req *connect.Request[v1.GetTimeWindowsRequest]) (*connect.Response[v1.GetTimeWindowsResponse], error) {
 	return call(ctx, h, "GetTimeWindows", req.Msg, func(p Provider, m *v1.GetTimeWindowsRequest) error { return withRange(p, &m.Range) }, on(Provider.GetTimeWindows))

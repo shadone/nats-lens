@@ -97,6 +97,9 @@ func (p *Provider) tally(ctx context.Context, r *v1.TimeRange, cur []*v1.Finding
 		if f.GetAcknowledgement() != nil {
 			t.Acknowledged++
 		}
+		if f.GetMute().GetAccepted() {
+			t.Accepted++
+		}
 		switch {
 		case f.GetMute() != nil:
 			t.Muted++

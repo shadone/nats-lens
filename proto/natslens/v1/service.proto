@@ -94,6 +94,15 @@ service LensService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
+  // Accepts one check's findings as by design on several entities at
+  // once: one acceptance per entity, all stored or none.
+  rpc AcceptFindings(AcceptFindingsRequest) returns (AcceptFindingsResponse);
+
+  // Acceptances as by design, the soonest review first.
+  rpc ListAcceptances(ListAcceptancesRequest) returns (ListAcceptancesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
   // System-wide chart window annotations, without Overview or check-state work.
   rpc GetTimeWindows(GetTimeWindowsRequest) returns (GetTimeWindowsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;

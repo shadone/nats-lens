@@ -687,7 +687,11 @@ type FindingTally struct {
 	Resolved_24H int32 `protobuf:"varint,6,opt,name=resolved_24h,json=resolved24h,proto3" json:"resolved_24h,omitempty"`
 	// Findings that fire now with an acknowledgement in force, muted or not;
 	// they are counted above as well.
-	Acknowledged  int32 `protobuf:"varint,7,opt,name=acknowledged,proto3" json:"acknowledged,omitempty"`
+	Acknowledged int32 `protobuf:"varint,7,opt,name=acknowledged,proto3" json:"acknowledged,omitempty"`
+	// Findings that fire now under an acceptance as by design. An acceptance
+	// is a mute, so they are counted in muted as well; muted - accepted is
+	// the findings under a plain mute.
+	Accepted      int32 `protobuf:"varint,8,opt,name=accepted,proto3" json:"accepted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -767,6 +771,13 @@ func (x *FindingTally) GetResolved_24H() int32 {
 func (x *FindingTally) GetAcknowledged() int32 {
 	if x != nil {
 		return x.Acknowledged
+	}
+	return 0
+}
+
+func (x *FindingTally) GetAccepted() int32 {
+	if x != nil {
+		return x.Accepted
 	}
 	return 0
 }
@@ -1509,6 +1520,313 @@ func (x *ListMutesResponse) GetTotalCount() int32 {
 	return 0
 }
 
+// Request to accept one check's findings as by design on several entities
+// at once, with one reason and one review date.
+type AcceptFindingsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Check code, in the form <entity>-<three digits>; the check must be
+	// acceptable, as MuteFinding with accept requires.
+	CheckCode string `protobuf:"bytes,1,opt,name=check_code,json=checkCode,proto3" json:"check_code,omitempty"`
+	// The entities to accept the check for: at least one, at most 100, each
+	// once, none the system. Each gets an acceptance of its own, as
+	// MuteFinding with accept makes it.
+	Entities []*EntityRef `protobuf:"bytes,2,rep,name=entities,proto3" json:"entities,omitempty"`
+	// Why. Required; at most 1000 characters. Recorded on every acceptance.
+	Reason string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	// The review date, truncated to whole seconds: at least one day and at
+	// most 365 days ahead.
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// Who accepts, at most 256 characters. Required when the server is not
+	// configured for IAP; ignored when it is, and the verified IAP user is
+	// recorded instead.
+	MutedBy string `protobuf:"bytes,5,opt,name=muted_by,json=mutedBy,proto3" json:"muted_by,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,6,opt,name=system,proto3" json:"system,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AcceptFindingsRequest) Reset() {
+	*x = AcceptFindingsRequest{}
+	mi := &file_natslens_v1_findings_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AcceptFindingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AcceptFindingsRequest) ProtoMessage() {}
+
+func (x *AcceptFindingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_findings_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AcceptFindingsRequest.ProtoReflect.Descriptor instead.
+func (*AcceptFindingsRequest) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_findings_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *AcceptFindingsRequest) GetCheckCode() string {
+	if x != nil {
+		return x.CheckCode
+	}
+	return ""
+}
+
+func (x *AcceptFindingsRequest) GetEntities() []*EntityRef {
+	if x != nil {
+		return x.Entities
+	}
+	return nil
+}
+
+func (x *AcceptFindingsRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *AcceptFindingsRequest) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *AcceptFindingsRequest) GetMutedBy() string {
+	if x != nil {
+		return x.MutedBy
+	}
+	return ""
+}
+
+func (x *AcceptFindingsRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
+// The created acceptances, in the order of the request's entities. Either
+// every acceptance is stored or none is.
+type AcceptFindingsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One acceptance per entity of the request.
+	Mutes         []*Mute `protobuf:"bytes,1,rep,name=mutes,proto3" json:"mutes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AcceptFindingsResponse) Reset() {
+	*x = AcceptFindingsResponse{}
+	mi := &file_natslens_v1_findings_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AcceptFindingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AcceptFindingsResponse) ProtoMessage() {}
+
+func (x *AcceptFindingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_findings_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AcceptFindingsResponse.ProtoReflect.Descriptor instead.
+func (*AcceptFindingsResponse) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_findings_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *AcceptFindingsResponse) GetMutes() []*Mute {
+	if x != nil {
+		return x.Mutes
+	}
+	return nil
+}
+
+// Request for the acceptances as by design.
+type ListAcceptancesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether to include acceptances that ended: at their review date, by a
+	// person, or by nats-lens when the entity's growth changed.
+	IncludeEnded bool `protobuf:"varint,1,opt,name=include_ended,json=includeEnded,proto3" json:"include_ended,omitempty"`
+	// Only acceptances that concern this account, as ListFindings' account
+	// filter reads it: of the account itself and of its streams and
+	// consumers, and of entities of no one account (servers, clients,
+	// connections). Empty means every account; at most 256 characters.
+	Account string `protobuf:"bytes,2,opt,name=account,proto3" json:"account,omitempty"`
+	// Largest number of acceptances to return. Zero means 100; at most 500.
+	PageSize int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Token from a previous response, to read the next page with the same
+	// filters.
+	PageToken string `protobuf:"bytes,4,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,5,opt,name=system,proto3" json:"system,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAcceptancesRequest) Reset() {
+	*x = ListAcceptancesRequest{}
+	mi := &file_natslens_v1_findings_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAcceptancesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAcceptancesRequest) ProtoMessage() {}
+
+func (x *ListAcceptancesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_findings_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAcceptancesRequest.ProtoReflect.Descriptor instead.
+func (*ListAcceptancesRequest) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_findings_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ListAcceptancesRequest) GetIncludeEnded() bool {
+	if x != nil {
+		return x.IncludeEnded
+	}
+	return false
+}
+
+func (x *ListAcceptancesRequest) GetAccount() string {
+	if x != nil {
+		return x.Account
+	}
+	return ""
+}
+
+func (x *ListAcceptancesRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListAcceptancesRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListAcceptancesRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
+// Acceptances in force first, the soonest review date first; then, with
+// include_ended, the ended ones, the latest end first.
+type ListAcceptancesResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The acceptances of this page; each has accepted set.
+	Acceptances []*Mute `protobuf:"bytes,1,rep,name=acceptances,proto3" json:"acceptances,omitempty"`
+	// Token for the next page; empty on the last page.
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	// Number of acceptances that match the filters, across pages.
+	TotalCount int32 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// With account set: the acceptances that match every other filter but
+	// belong to another account, left out. Zero without account.
+	OtherAccountCount int32 `protobuf:"varint,4,opt,name=other_account_count,json=otherAccountCount,proto3" json:"other_account_count,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ListAcceptancesResponse) Reset() {
+	*x = ListAcceptancesResponse{}
+	mi := &file_natslens_v1_findings_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAcceptancesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAcceptancesResponse) ProtoMessage() {}
+
+func (x *ListAcceptancesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_findings_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAcceptancesResponse.ProtoReflect.Descriptor instead.
+func (*ListAcceptancesResponse) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_findings_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ListAcceptancesResponse) GetAcceptances() []*Mute {
+	if x != nil {
+		return x.Acceptances
+	}
+	return nil
+}
+
+func (x *ListAcceptancesResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *ListAcceptancesResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *ListAcceptancesResponse) GetOtherAccountCount() int32 {
+	if x != nil {
+		return x.OtherAccountCount
+	}
+	return 0
+}
+
 var File_natslens_v1_findings_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_findings_proto_rawDesc = "" +
@@ -1578,7 +1896,7 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x05state\x18\x03 \x01(\x0e2\x19.natslens.v1.FindingStateR\x05state\x121\n" +
 	"\bseverity\x18\x04 \x01(\x0e2\x15.natslens.v1.SeverityR\bseverity\x12\x16\n" +
 	"\x06detail\x18\x05 \x01(\tR\x06detail\x12\x14\n" +
-	"\x05epoch\x18\x06 \x01(\x03R\x05epoch\"\xd1\x01\n" +
+	"\x05epoch\x18\x06 \x01(\x03R\x05epoch\"\xed\x01\n" +
 	"\fFindingTally\x12\x1a\n" +
 	"\bcritical\x18\x01 \x01(\x05R\bcritical\x12\x18\n" +
 	"\awarning\x18\x02 \x01(\x05R\awarning\x12\x12\n" +
@@ -1586,7 +1904,8 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x05muted\x18\x04 \x01(\x05R\x05muted\x12\x1a\n" +
 	"\bflapping\x18\x05 \x01(\x05R\bflapping\x12!\n" +
 	"\fresolved_24h\x18\x06 \x01(\x05R\vresolved24h\x12\"\n" +
-	"\facknowledged\x18\a \x01(\x05R\facknowledged\"\xa3\x03\n" +
+	"\facknowledged\x18\a \x01(\x05R\facknowledged\x12\x1a\n" +
+	"\baccepted\x18\b \x01(\x05R\baccepted\"\xa3\x03\n" +
 	"\x13ListFindingsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x121\n" +
 	"\x06states\x18\x02 \x03(\x0e2\x19.natslens.v1.FindingStateR\x06states\x125\n" +
@@ -1645,7 +1964,31 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x05mutes\x18\x01 \x03(\v2\x11.natslens.v1.MuteR\x05mutes\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
-	"totalCount*\x9a\x01\n" +
+	"totalCount\"\xf0\x01\n" +
+	"\x15AcceptFindingsRequest\x12\x1d\n" +
+	"\n" +
+	"check_code\x18\x01 \x01(\tR\tcheckCode\x122\n" +
+	"\bentities\x18\x02 \x03(\v2\x16.natslens.v1.EntityRefR\bentities\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\x129\n" +
+	"\n" +
+	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x19\n" +
+	"\bmuted_by\x18\x05 \x01(\tR\amutedBy\x12\x16\n" +
+	"\x06system\x18\x06 \x01(\tR\x06system\"A\n" +
+	"\x16AcceptFindingsResponse\x12'\n" +
+	"\x05mutes\x18\x01 \x03(\v2\x11.natslens.v1.MuteR\x05mutes\"\xab\x01\n" +
+	"\x16ListAcceptancesRequest\x12#\n" +
+	"\rinclude_ended\x18\x01 \x01(\bR\fincludeEnded\x12\x18\n" +
+	"\aaccount\x18\x02 \x01(\tR\aaccount\x12\x1b\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x04 \x01(\tR\tpageToken\x12\x16\n" +
+	"\x06system\x18\x05 \x01(\tR\x06system\"\xc7\x01\n" +
+	"\x17ListAcceptancesResponse\x123\n" +
+	"\vacceptances\x18\x01 \x03(\v2\x11.natslens.v1.MuteR\vacceptances\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
+	"\vtotal_count\x18\x03 \x01(\x05R\n" +
+	"totalCount\x12.\n" +
+	"\x13other_account_count\x18\x04 \x01(\x05R\x11otherAccountCount*\x9a\x01\n" +
 	"\fFindingState\x12\x1d\n" +
 	"\x19FINDING_STATE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14FINDING_STATE_FIRING\x10\x01\x12\x19\n" +
@@ -1666,69 +2009,77 @@ func file_natslens_v1_findings_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_findings_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_natslens_v1_findings_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_natslens_v1_findings_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_natslens_v1_findings_proto_goTypes = []any{
-	(FindingState)(0),             // 0: natslens.v1.FindingState
-	(*FindingValue)(nil),          // 1: natslens.v1.FindingValue
-	(*Mute)(nil),                  // 2: natslens.v1.Mute
-	(*Finding)(nil),               // 3: natslens.v1.Finding
-	(*FindingTransition)(nil),     // 4: natslens.v1.FindingTransition
-	(*FindingTally)(nil),          // 5: natslens.v1.FindingTally
-	(*ListFindingsRequest)(nil),   // 6: natslens.v1.ListFindingsRequest
-	(*ListFindingsResponse)(nil),  // 7: natslens.v1.ListFindingsResponse
-	(*GetFindingRequest)(nil),     // 8: natslens.v1.GetFindingRequest
-	(*GetFindingResponse)(nil),    // 9: natslens.v1.GetFindingResponse
-	(*MuteFindingRequest)(nil),    // 10: natslens.v1.MuteFindingRequest
-	(*MuteFindingResponse)(nil),   // 11: natslens.v1.MuteFindingResponse
-	(*UnmuteFindingRequest)(nil),  // 12: natslens.v1.UnmuteFindingRequest
-	(*UnmuteFindingResponse)(nil), // 13: natslens.v1.UnmuteFindingResponse
-	(*ListMutesRequest)(nil),      // 14: natslens.v1.ListMutesRequest
-	(*ListMutesResponse)(nil),     // 15: natslens.v1.ListMutesResponse
-	(*EntityRef)(nil),             // 16: natslens.v1.EntityRef
-	(*timestamppb.Timestamp)(nil), // 17: google.protobuf.Timestamp
-	(Severity)(0),                 // 18: natslens.v1.Severity
-	(*ConfigValue)(nil),           // 19: natslens.v1.ConfigValue
-	(*EventRef)(nil),              // 20: natslens.v1.EventRef
-	(*Acknowledgement)(nil),       // 21: natslens.v1.Acknowledgement
-	(*TimeRange)(nil),             // 22: natslens.v1.TimeRange
+	(FindingState)(0),               // 0: natslens.v1.FindingState
+	(*FindingValue)(nil),            // 1: natslens.v1.FindingValue
+	(*Mute)(nil),                    // 2: natslens.v1.Mute
+	(*Finding)(nil),                 // 3: natslens.v1.Finding
+	(*FindingTransition)(nil),       // 4: natslens.v1.FindingTransition
+	(*FindingTally)(nil),            // 5: natslens.v1.FindingTally
+	(*ListFindingsRequest)(nil),     // 6: natslens.v1.ListFindingsRequest
+	(*ListFindingsResponse)(nil),    // 7: natslens.v1.ListFindingsResponse
+	(*GetFindingRequest)(nil),       // 8: natslens.v1.GetFindingRequest
+	(*GetFindingResponse)(nil),      // 9: natslens.v1.GetFindingResponse
+	(*MuteFindingRequest)(nil),      // 10: natslens.v1.MuteFindingRequest
+	(*MuteFindingResponse)(nil),     // 11: natslens.v1.MuteFindingResponse
+	(*UnmuteFindingRequest)(nil),    // 12: natslens.v1.UnmuteFindingRequest
+	(*UnmuteFindingResponse)(nil),   // 13: natslens.v1.UnmuteFindingResponse
+	(*ListMutesRequest)(nil),        // 14: natslens.v1.ListMutesRequest
+	(*ListMutesResponse)(nil),       // 15: natslens.v1.ListMutesResponse
+	(*AcceptFindingsRequest)(nil),   // 16: natslens.v1.AcceptFindingsRequest
+	(*AcceptFindingsResponse)(nil),  // 17: natslens.v1.AcceptFindingsResponse
+	(*ListAcceptancesRequest)(nil),  // 18: natslens.v1.ListAcceptancesRequest
+	(*ListAcceptancesResponse)(nil), // 19: natslens.v1.ListAcceptancesResponse
+	(*EntityRef)(nil),               // 20: natslens.v1.EntityRef
+	(*timestamppb.Timestamp)(nil),   // 21: google.protobuf.Timestamp
+	(Severity)(0),                   // 22: natslens.v1.Severity
+	(*ConfigValue)(nil),             // 23: natslens.v1.ConfigValue
+	(*EventRef)(nil),                // 24: natslens.v1.EventRef
+	(*Acknowledgement)(nil),         // 25: natslens.v1.Acknowledgement
+	(*TimeRange)(nil),               // 26: natslens.v1.TimeRange
 }
 var file_natslens_v1_findings_proto_depIdxs = []int32{
-	16, // 0: natslens.v1.Mute.entity:type_name -> natslens.v1.EntityRef
-	17, // 1: natslens.v1.Mute.created_at:type_name -> google.protobuf.Timestamp
-	17, // 2: natslens.v1.Mute.expires_at:type_name -> google.protobuf.Timestamp
-	17, // 3: natslens.v1.Mute.unmuted_at:type_name -> google.protobuf.Timestamp
-	18, // 4: natslens.v1.Finding.severity:type_name -> natslens.v1.Severity
+	20, // 0: natslens.v1.Mute.entity:type_name -> natslens.v1.EntityRef
+	21, // 1: natslens.v1.Mute.created_at:type_name -> google.protobuf.Timestamp
+	21, // 2: natslens.v1.Mute.expires_at:type_name -> google.protobuf.Timestamp
+	21, // 3: natslens.v1.Mute.unmuted_at:type_name -> google.protobuf.Timestamp
+	22, // 4: natslens.v1.Finding.severity:type_name -> natslens.v1.Severity
 	0,  // 5: natslens.v1.Finding.state:type_name -> natslens.v1.FindingState
-	16, // 6: natslens.v1.Finding.entity:type_name -> natslens.v1.EntityRef
-	17, // 7: natslens.v1.Finding.since:type_name -> google.protobuf.Timestamp
-	17, // 8: natslens.v1.Finding.transitioned_at:type_name -> google.protobuf.Timestamp
-	17, // 9: natslens.v1.Finding.resolved_at:type_name -> google.protobuf.Timestamp
+	20, // 6: natslens.v1.Finding.entity:type_name -> natslens.v1.EntityRef
+	21, // 7: natslens.v1.Finding.since:type_name -> google.protobuf.Timestamp
+	21, // 8: natslens.v1.Finding.transitioned_at:type_name -> google.protobuf.Timestamp
+	21, // 9: natslens.v1.Finding.resolved_at:type_name -> google.protobuf.Timestamp
 	1,  // 10: natslens.v1.Finding.value:type_name -> natslens.v1.FindingValue
-	19, // 11: natslens.v1.Finding.related_config:type_name -> natslens.v1.ConfigValue
-	20, // 12: natslens.v1.Finding.cause:type_name -> natslens.v1.EventRef
+	23, // 11: natslens.v1.Finding.related_config:type_name -> natslens.v1.ConfigValue
+	24, // 12: natslens.v1.Finding.cause:type_name -> natslens.v1.EventRef
 	2,  // 13: natslens.v1.Finding.mute:type_name -> natslens.v1.Mute
-	17, // 14: natslens.v1.Finding.condition_since:type_name -> google.protobuf.Timestamp
-	21, // 15: natslens.v1.Finding.acknowledgement:type_name -> natslens.v1.Acknowledgement
-	17, // 16: natslens.v1.FindingTransition.time:type_name -> google.protobuf.Timestamp
+	21, // 14: natslens.v1.Finding.condition_since:type_name -> google.protobuf.Timestamp
+	25, // 15: natslens.v1.Finding.acknowledgement:type_name -> natslens.v1.Acknowledgement
+	21, // 16: natslens.v1.FindingTransition.time:type_name -> google.protobuf.Timestamp
 	0,  // 17: natslens.v1.FindingTransition.state:type_name -> natslens.v1.FindingState
-	18, // 18: natslens.v1.FindingTransition.severity:type_name -> natslens.v1.Severity
-	22, // 19: natslens.v1.ListFindingsRequest.range:type_name -> natslens.v1.TimeRange
+	22, // 18: natslens.v1.FindingTransition.severity:type_name -> natslens.v1.Severity
+	26, // 19: natslens.v1.ListFindingsRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 20: natslens.v1.ListFindingsRequest.states:type_name -> natslens.v1.FindingState
-	18, // 21: natslens.v1.ListFindingsRequest.severities:type_name -> natslens.v1.Severity
-	16, // 22: natslens.v1.ListFindingsRequest.entity:type_name -> natslens.v1.EntityRef
+	22, // 21: natslens.v1.ListFindingsRequest.severities:type_name -> natslens.v1.Severity
+	20, // 22: natslens.v1.ListFindingsRequest.entity:type_name -> natslens.v1.EntityRef
 	3,  // 23: natslens.v1.ListFindingsResponse.findings:type_name -> natslens.v1.Finding
 	3,  // 24: natslens.v1.GetFindingResponse.finding:type_name -> natslens.v1.Finding
 	4,  // 25: natslens.v1.GetFindingResponse.transitions:type_name -> natslens.v1.FindingTransition
-	16, // 26: natslens.v1.MuteFindingRequest.entity:type_name -> natslens.v1.EntityRef
-	17, // 27: natslens.v1.MuteFindingRequest.expires_at:type_name -> google.protobuf.Timestamp
+	20, // 26: natslens.v1.MuteFindingRequest.entity:type_name -> natslens.v1.EntityRef
+	21, // 27: natslens.v1.MuteFindingRequest.expires_at:type_name -> google.protobuf.Timestamp
 	2,  // 28: natslens.v1.MuteFindingResponse.mute:type_name -> natslens.v1.Mute
 	2,  // 29: natslens.v1.UnmuteFindingResponse.mute:type_name -> natslens.v1.Mute
 	2,  // 30: natslens.v1.ListMutesResponse.mutes:type_name -> natslens.v1.Mute
-	31, // [31:31] is the sub-list for method output_type
-	31, // [31:31] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	20, // 31: natslens.v1.AcceptFindingsRequest.entities:type_name -> natslens.v1.EntityRef
+	21, // 32: natslens.v1.AcceptFindingsRequest.expires_at:type_name -> google.protobuf.Timestamp
+	2,  // 33: natslens.v1.AcceptFindingsResponse.mutes:type_name -> natslens.v1.Mute
+	2,  // 34: natslens.v1.ListAcceptancesResponse.acceptances:type_name -> natslens.v1.Mute
+	35, // [35:35] is the sub-list for method output_type
+	35, // [35:35] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_findings_proto_init() }
@@ -1746,7 +2097,7 @@ func file_natslens_v1_findings_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_findings_proto_rawDesc), len(file_natslens_v1_findings_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   15,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
