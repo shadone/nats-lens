@@ -234,6 +234,27 @@ func (r *Runner) sweep(ctx context.Context) error {
 	return nil
 }
 
+// UnacceptableAcceptances counts the acceptances in force at now whose
+// check is no longer acceptable (checkaccept.Acceptable), and names those
+// checks in order. They stay in force until their review date, and the
+// growth review skips them.
+func UnacceptableAcceptances(ctx context.Context, st *store.Store, now time.Time) (int, []string, error) {
+	byCheck, err := st.AcceptanceChecks(ctx, now)
+	if err != nil {
+		return 0, nil, err
+	}
+	n := 0
+	var codes []string
+	for code, c := range byCheck {
+		if !checkaccept.Acceptable(code) {
+			n += c
+			codes = append(codes, code)
+		}
+	}
+	slices.Sort(codes)
+	return n, codes, nil
+}
+
 // ReviewResult is what one growth review did.
 type ReviewResult struct {
 	// Ended are the acceptances it ended, with their end reason.

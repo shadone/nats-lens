@@ -275,6 +275,12 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		log.Warn("retention is shorter than the growth review of acceptances reads; acceptances record no growth and never end early",
 			"retention", ret.String(), "needed", api.AcceptRetention.String())
 	}
+	if n, codes, err := runner.UnacceptableAcceptances(ctx, st, time.Now()); err != nil {
+		log.Warn("acceptances not checked against the acceptable checks", "err", err)
+	} else if n > 0 {
+		log.Warn("acceptances of checks that can no longer be accepted stay in force until their review date, without a growth review",
+			"count", n, "checks", codes)
+	}
 	// The archive exports in run only; its start bounds how long a closed
 	// hour may wait for export (system-008).
 	var archiveSince time.Time

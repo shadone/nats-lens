@@ -88,6 +88,27 @@ ORDER BY 1, 2, 3`, args...)
 	return out, rows.Err()
 }
 
+// AcceptanceChecks returns how many acceptances of each check are in
+// force at t.
+func (s *Store) AcceptanceChecks(ctx context.Context, t time.Time) (map[string]int, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT check_code, count(*) FROM mutes
+WHERE accepted AND unmuted_at IS NULL AND expires_at > ? GROUP BY check_code`, t.UTC())
+	if err != nil {
+		return nil, fmt.Errorf("acceptances by check: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var code string
+		var n int
+		if err := rows.Scan(&code, &n); err != nil {
+			return nil, err
+		}
+		out[code] = n
+	}
+	return out, rows.Err()
+}
+
 // AcceptancesToReview returns the acceptances of streams and servers in
 // force at t and created at or before it: those the growth review
 // compares, or gives a baseline when they recorded no growth.
