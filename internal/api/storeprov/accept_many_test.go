@@ -1,6 +1,7 @@
 package storeprov_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +21,28 @@ func TestAcceptFindingsAndReviewList(t *testing.T) {
 	_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Checks: set, Clock: func() time.Time { return now }})
 	stream := func(key string) *v1.EntityRef { return &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: key} }
 	day := 24 * time.Hour
+	for _, f := range [][2]string{{"stream-005", "OTHER/archive"}, {"stream-018", account + "/single"}} {
+		if _, err := st.DB().Exec(`INSERT INTO findings (id, check_code, entity_type, entity_key, severity, state, last_transition, since, since_epoch,
+  transitioned_at, last_seen_epoch, updated_epoch, detail) VALUES (?, ?, 'stream', ?, 'info', 'resolved', 'resolved', ?, 1, ?, 1, 1, '')`,
+			f[0]+":"+f[1], f[0], f[1], t0, t0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Refused, and nothing stored: an entity without a finding of the
+	// check, one of another type than the check's.
+	_, err := c.AcceptFindings(ctx, connect.NewRequest(&v1.AcceptFindingsRequest{CheckCode: "stream-005",
+		Entities: []*v1.EntityRef{stream(noLimitsKey), stream(account + "/typo")}, Reason: "r", MutedBy: "op", ExpiresAt: timestamppb.New(now.Add(10 * day))}))
+	if connect.CodeOf(err) != connect.CodeNotFound || !strings.Contains(err.Error(), account+"/typo") {
+		t.Fatalf("entity without a finding: %v", err)
+	}
+	_, err = c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "stream-005", Accept: true,
+		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_CONSUMER, Key: account + "/catalog-changes/x"}, Reason: "r", MutedBy: "op", ExpiresAt: timestamppb.New(now.Add(10 * day))}))
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("consumer for stream-005: %v", err)
+	}
+	if n := must(c.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{IncludeEnded: true}))).GetTotalCount(); n != 0 {
+		t.Fatalf("refused calls stored %d acceptances", n)
+	}
 
 	res, err := c.AcceptFindings(ctx, connect.NewRequest(&v1.AcceptFindingsRequest{CheckCode: "stream-005",
 		Entities: []*v1.EntityRef{stream(noLimitsKey), stream("OTHER/archive")}, Reason: "kept on purpose", MutedBy: "ops@example.com",
@@ -42,6 +65,18 @@ func TestAcceptFindingsAndReviewList(t *testing.T) {
 	// A later, sooner acceptance through MuteFinding heads the list.
 	soon := must(c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "stream-018", Entity: stream(account + "/single"),
 		Accept: true, Reason: "R1 by design", MutedBy: "op", ExpiresAt: timestamppb.New(now.Add(7 * day))}))).GetMute()
+
+	// A second acceptance in force of the same check and entity is refused, alone or in a batch.
+	_, err = c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "stream-005", Entity: stream(noLimitsKey), Accept: true,
+		Reason: "r", MutedBy: "op", ExpiresAt: timestamppb.New(now.Add(10 * day))}))
+	if connect.CodeOf(err) != connect.CodeAlreadyExists {
+		t.Fatalf("second acceptance: %v", err)
+	}
+	_, err = c.AcceptFindings(ctx, connect.NewRequest(&v1.AcceptFindingsRequest{CheckCode: "stream-005", Entities: []*v1.EntityRef{stream("OTHER/archive")},
+		Reason: "r", MutedBy: "op", ExpiresAt: timestamppb.New(now.Add(10 * day))}))
+	if connect.CodeOf(err) != connect.CodeAlreadyExists || !strings.Contains(err.Error(), "OTHER/archive") {
+		t.Fatalf("second acceptance in a batch: %v", err)
+	}
 
 	list := must(c.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{})))
 	got := list.GetAcceptances()

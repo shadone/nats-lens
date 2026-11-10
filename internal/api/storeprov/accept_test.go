@@ -113,6 +113,13 @@ func growthFixture(t *testing.T) *store.Store {
 		}
 	}
 	start := acceptNow.Add(-216 * time.Hour)
+	// The findings an acceptance needs: one of the check for each entity.
+	for _, f := range [][3]string{{"stream-005", "stream", "SHOP/order-archive"}, {"stream-018", "stream", "SHOP/order-archive"},
+		{"stream-005", "stream", "SHOP/new-stream"}, {"consumer-016", "consumer", "SHOP/order-archive/worker"}} {
+		exec(`INSERT INTO findings (id, check_code, entity_type, entity_key, severity, state, last_transition, since, since_epoch,
+  transitioned_at, last_seen_epoch, updated_epoch, detail) VALUES (?, ?, ?, ?, 'info', 'firing', 'firing', ?, 1, ?, 1, 1, '')`,
+			f[0]+":"+f[2], f[0], f[1], f[2], start, start)
+	}
 	exec(`INSERT INTO servers (server_id, server_name, first_epoch, last_epoch, first_seen_at, last_seen_at) VALUES ('NSERVER0', 'nats-0', 1, 433, ?, ?)`, start, acceptNow)
 	for i := 0; i <= 432; i++ {
 		at := start.Add(time.Duration(i) * 30 * time.Minute)

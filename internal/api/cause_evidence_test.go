@@ -115,13 +115,32 @@ func TestListAssetPlacementRefused(t *testing.T) {
 func TestAcceptOnlyAcceptableChecks(t *testing.T) {
 	_, c := apitest.Serve(t, fake.New(false))
 	ctx := context.Background()
-	e := stream("APP/order-jobs")
+	e := stream("APP/order-archive")
 	exp := timestamppb.New(fake.FixedNow.Add(90 * 24 * time.Hour))
-	for code, want := range map[string]connect.Code{"stream-002": connect.CodeInvalidArgument, "stream-001": connect.CodeInvalidArgument, "stream-018": 0} {
+	// stream-018 is acceptable but has no finding for order-archive; the
+	// check is refused before the entity is looked up.
+	for _, code := range []string{"stream-002", "stream-001", "stream-018", "stream-005"} {
+		want := map[string]connect.Code{"stream-002": connect.CodeInvalidArgument, "stream-001": connect.CodeInvalidArgument, "stream-018": connect.CodeNotFound}[code]
 		_, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: code, Entity: e, Reason: "r", MutedBy: "op", ExpiresAt: exp, Accept: true}))
 		if (want == 0) != (err == nil) || (err != nil && codeOf(err) != want) {
 			t.Errorf("accept %s: %v, want %v", code, err, want)
 		}
+	}
+	// A second acceptance of the same check and entity, alone or in a batch.
+	_, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "stream-005", Entity: e, Reason: "r", MutedBy: "op", ExpiresAt: exp, Accept: true}))
+	if codeOf(err) != connect.CodeAlreadyExists {
+		t.Errorf("second acceptance: %v, want already_exists", err)
+	}
+	_, err = c.AcceptFindings(ctx, connect.NewRequest(&v1.AcceptFindingsRequest{CheckCode: "stream-005", Entities: []*v1.EntityRef{e, stream("APP/KV_customer-config")},
+		Reason: "r", MutedBy: "op", ExpiresAt: exp}))
+	if codeOf(err) != connect.CodeAlreadyExists || !strings.Contains(err.Error(), "APP/order-archive") {
+		t.Errorf("batch with an accepted entity: %v, want already_exists naming it", err)
+	}
+	// An entity of another type than the check's.
+	_, err = c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "stream-005", Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_CONSUMER, Key: "APP/order-archive/x"},
+		Reason: "r", MutedBy: "op", ExpiresAt: exp, Accept: true}))
+	if codeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("consumer for stream-005: %v, want invalid_argument", err)
 	}
 	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "stream-002", Entity: e, Reason: "r", MutedBy: "op",
 		ExpiresAt: timestamppb.New(fake.FixedNow.Add(24 * time.Hour))})); err != nil {

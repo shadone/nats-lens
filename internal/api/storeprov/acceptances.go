@@ -2,6 +2,8 @@ package storeprov
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/checkaccept"
@@ -34,15 +36,28 @@ func (p *Provider) AcceptFindings(ctx context.Context, req *v1.AcceptFindingsReq
 			ms[i].GrowthPerDay = g[ents[i]]
 		}
 	}
-	stored, err := p.St.CreateMutes(ctx, ms)
+	stored, err := p.St.CreateAcceptances(ctx, ms, now)
 	if err != nil {
-		return nil, err
+		return nil, acceptError(err)
 	}
 	out := make([]*v1.Mute, 0, len(stored))
 	for _, m := range stored {
 		out = append(out, muteProto(m))
 	}
 	return out, nil
+}
+
+// acceptError gives CreateAcceptances' refusals the API's codes: not_found
+// for an entity without a finding of the check, already_exists for one
+// with an acceptance in force.
+func acceptError(err error) error {
+	switch {
+	case errors.Is(err, store.ErrNoFinding):
+		return fmt.Errorf("%w: %w; accept only an entity the check has a finding for", api.ErrNotFound, err)
+	case errors.Is(err, store.ErrAcceptanceInForce):
+		return fmt.Errorf("%w: %w; end it before accepting again", api.ErrAlreadyExists, err)
+	}
+	return err
 }
 
 // ListAcceptances returns a page of the acceptances, in force first.

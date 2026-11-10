@@ -18,6 +18,7 @@ var (
 	ErrResourceExhausted  = errors.New("resource exhausted")
 	ErrInvalid            = errors.New("invalid argument")
 	ErrFailedPrecondition = errors.New("failed precondition")
+	ErrAlreadyExists      = errors.New("already exists")
 )
 
 // Provider answers the API's calls for one system. It never reads a

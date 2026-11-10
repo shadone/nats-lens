@@ -2,6 +2,9 @@ package fake
 
 import (
 	"context"
+	"fmt"
+	"slices"
+	"strings"
 	"sort"
 	"strconv"
 
@@ -21,8 +24,12 @@ func (p *Provider) AcceptFindings(_ context.Context, req *v1.AcceptFindingsReque
 		ms = append(ms, p.newMute(&v1.MuteFindingRequest{CheckCode: req.GetCheckCode(), Entity: e, Reason: req.GetReason(),
 			ExpiresAt: req.GetExpiresAt(), MutedBy: req.GetMutedBy(), Accept: true}))
 	}
+	s := p.scen()
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if err := p.checkAcceptances(s, ms); err != nil {
+		return nil, err
+	}
 	out := make([]*v1.Mute, 0, len(ms))
 	for _, m := range ms {
 		m.Id = strconv.Itoa(p.nextID)
@@ -92,4 +99,27 @@ func (p *Provider) ListAcceptances(_ context.Context, req *v1.ListAcceptancesReq
 		return nil, err
 	}
 	return &v1.ListAcceptancesResponse{Acceptances: page, NextPageToken: next, TotalCount: int32(len(ms)), OtherAccountCount: int32(other)}, nil
+}
+
+// checkAcceptances refuses acceptances as the store does: an entity
+// without a finding of the check in the scenario, in any state, is
+// not_found; one with an acceptance of the check in force is
+// already_exists. p.mu is held.
+func (p *Provider) checkAcceptances(s scen, ms []*v1.Mute) error {
+	all := s.sc.findings(s)
+	for _, m := range ms {
+		e := m.GetEntity()
+		what := fmt.Sprintf("%s for %s %s", m.GetCheckCode(), strings.ToLower(strings.TrimPrefix(e.GetType().String(), "ENTITY_TYPE_")), e.GetKey())
+		if !slices.ContainsFunc(all, func(f *v1.Finding) bool {
+			return f.GetCheckCode() == m.GetCheckCode() && f.GetEntity().GetType() == e.GetType() && f.GetEntity().GetKey() == e.GetKey()
+		}) {
+			return fmt.Errorf("%w: %s: no finding of the check for the entity; accept only an entity the check has a finding for", api.ErrNotFound, what)
+		}
+		for _, sm := range p.mutes {
+			if sm.m.GetAccepted() && sm.covers(&v1.Finding{CheckCode: m.GetCheckCode(), Entity: e}) && sm.m.GetEntity() != nil && sm.active(s) {
+				return fmt.Errorf("%w: %s: an acceptance of the check for the entity is in force; end it before accepting again", api.ErrAlreadyExists, what)
+			}
+		}
+	}
+	return nil
 }

@@ -217,6 +217,8 @@ func normalizeMute(req *v1.MuteFindingRequest, now time.Time, user string) error
 		return invalid("entity is required to accept a finding: an acceptance covers one entity with a key")
 	case req.GetAccept() && !checkaccept.Acceptable(req.GetCheckCode()):
 		return invalid("check %s cannot be accepted as by design: only a check of a configuration choice can, and this one reports a fault; mute it instead", req.GetCheckCode())
+	case req.GetAccept() && entityTypeWord(req.GetEntity().GetType()) != checkEntityWord(req.GetCheckCode()):
+		return invalid("check %s judges a %s, not a %s: an acceptance names an entity of the check's own type", req.GetCheckCode(), checkEntityWord(req.GetCheckCode()), entityTypeWord(req.GetEntity().GetType()))
 	case req.GetAccept() && exp.Before(now.Add(MinAcceptLength)):
 		return invalid("expires_at, the review date, must be at least one day ahead")
 	case req.GetAccept() && exp.After(now.Add(MaxAcceptLength)):
@@ -238,6 +240,19 @@ func normalizeMute(req *v1.MuteFindingRequest, now time.Time, user string) error
 	}
 	req.MutedBy, err = text("muted_by", req.GetMutedBy(), MaxNameLength)
 	return err
+}
+
+// entityTypeWord is an entity type as a check code's prefix names it:
+// "stream" for ENTITY_TYPE_STREAM.
+func entityTypeWord(t v1.EntityType) string {
+	return strings.ToLower(strings.TrimPrefix(t.String(), "ENTITY_TYPE_"))
+}
+
+// checkEntityWord is the entity type a check judges, its code's prefix:
+// "stream" for stream-005.
+func checkEntityWord(code string) string {
+	w, _, _ := strings.Cut(code, "-")
+	return w
 }
 
 // normalizeAcceptMany checks an AcceptFindings request as MuteFinding with

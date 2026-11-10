@@ -56,6 +56,13 @@ func (p *Provider) MuteFinding(ctx context.Context, req *v1.MuteFindingRequest) 
 		}
 		m.GrowthPerDay = g
 	}
+	if m.Accepted {
+		out, err := p.St.CreateAcceptances(ctx, []store.Mute{m}, m.CreatedAt)
+		if err != nil {
+			return nil, acceptError(err)
+		}
+		return muteProto(out[0]), nil
+	}
 	// The handler has checked the request, so a row the table rejects is
 	// a fault of this server, reported as internal.
 	out, err := p.St.CreateMute(ctx, m)

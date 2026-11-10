@@ -410,27 +410,36 @@ func TestAcceptRecordsGrowth(t *testing.T) {
 	if f.GetMute().GetId() != m.GetId() || !f.GetMute().GetAccepted() {
 		t.Fatalf("finding mute = %v", f.GetMute())
 	}
-	if s := accept(&v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-0"}); s.GrowthPerDay != nil {
-		t.Errorf("server acceptance in the demo records %v, want none", s.GetGrowthPerDay())
+	// A server is not what stream-005 judges: refused before anything is stored.
+	_, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "stream-005", Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-0"},
+		Accept: true, Reason: "r", MutedBy: "op", ExpiresAt: timestamppb.New(fake.FixedNow.Add(180 * 24 * time.Hour))}))
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("server acceptance of stream-005: %v, want invalid_argument", err)
 	}
 }
 
-// The demo accepts several entities at once, as the store does, and lists
-// acceptances for review soonest first, following the account.
+// The demo accepts entities through AcceptFindings as the store does, and
+// lists acceptances for review soonest first, following the account.
 func TestAcceptManyAndReviewList(t *testing.T) {
 	c := client(t)
 	before := must(c.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{}))).GetTotalCount()
 	ms := must(c.AcceptFindings(ctx, connect.NewRequest(&v1.AcceptFindingsRequest{CheckCode: "stream-005",
-		Entities: []*v1.EntityRef{{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-archive"}, {Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "OTHER/x"}},
+		Entities: []*v1.EntityRef{{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-archive"}},
 		Reason: "kept on purpose", MutedBy: "op", ExpiresAt: timestamppb.New(fake.FixedNow.Add(26 * time.Hour))}))).GetMutes()
-	if len(ms) != 2 || ms[0].GetId() == ms[1].GetId() || ms[0].GetEntity().GetKey() != "APP/order-archive" || !ms[0].GetGrowthReview() || ms[0].GrowthPerDay == nil {
+	if len(ms) != 1 || ms[0].GetId() == "" || ms[0].GetEntity().GetKey() != "APP/order-archive" || !ms[0].GetGrowthReview() || ms[0].GrowthPerDay == nil {
 		t.Fatalf("accepted = %v", ms)
 	}
 	list := must(c.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{})))
-	if list.GetTotalCount() != before+2 || list.GetAcceptances()[0].GetId() != ms[0].GetId() {
+	if list.GetTotalCount() != before+1 || list.GetAcceptances()[0].GetId() != ms[0].GetId() {
 		t.Fatalf("review list = %v, want the review in 26 hours first", list.GetAcceptances())
 	}
-	if n := must(c.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{Account: "APP"}))).GetOtherAccountCount(); n < 1 {
-		t.Errorf("scoped to APP: %d other acceptances, want OTHER/x among them", n)
+	if r := must(c.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{Account: "OTHER"}))); r.GetTotalCount() != 0 || r.GetOtherAccountCount() != before+1 {
+		t.Errorf("scoped to OTHER: %d listed, %d of other accounts", r.GetTotalCount(), r.GetOtherAccountCount())
+	}
+	// An entity without a finding of the check refuses the whole batch.
+	_, err := c.AcceptFindings(ctx, connect.NewRequest(&v1.AcceptFindingsRequest{CheckCode: "stream-005",
+		Entities: []*v1.EntityRef{{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/typo"}}, Reason: "r", MutedBy: "op", ExpiresAt: timestamppb.New(fake.FixedNow.Add(48 * time.Hour))}))
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("unknown entity: %v, want not_found", err)
 	}
 }

@@ -2,31 +2,60 @@ package store
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 )
 
-func TestCreateMutesStoresAllOrNone(t *testing.T) {
+// addFinding stores a finding of the check for the entity, in the given state.
+func addFinding(t *testing.T, s *Store, code, typ, key, state string) {
+	t.Helper()
+	last := map[string]string{"firing": "firing", "resolved": "resolved"}[state]
+	if _, err := s.DB().Exec(`INSERT INTO findings (id, check_code, entity_type, entity_key, severity, state, last_transition, since, since_epoch,
+  transitioned_at, last_seen_epoch, updated_epoch, detail) VALUES (?, ?, ?, ?, 'info', ?, ?, ?, 1, ?, 1, 1, '')`,
+		code+":"+key, code, typ, key, state, last, t0, t0); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCreateAcceptancesStoresAllOrNone(t *testing.T) {
 	ctx := context.Background()
 	s := openMem(t)
+	addFinding(t, s, "consumer-016", "consumer", "APP/orders/a", "firing")
+	addFinding(t, s, "consumer-016", "consumer", "APP/orders/b", "resolved")
 	ok := Mute{CheckCode: "consumer-016", EntityType: "consumer", EntityKey: "APP/orders/a", Reason: "r", MutedBy: "op",
 		CreatedAt: t0, ExpiresAt: t0.Add(30 * 24 * time.Hour), Accepted: true}
 	bad := ok
 	bad.EntityKey, bad.ExpiresAt = "APP/orders/b", t0 // expires when created: the table refuses it
-	if _, err := s.CreateMutes(ctx, []Mute{ok, bad}); err == nil {
+	if _, err := s.CreateAcceptances(ctx, []Mute{ok, bad}, t0); err == nil {
 		t.Fatal("a batch with a refused row was stored")
 	}
-	if all, n, err := s.ListMutes(ctx, t0, true, 10, 0); err != nil || n != 0 || len(all) != 0 {
-		t.Fatalf("after a refused batch: %d mutes, %v", n, err)
+	none := ok
+	none.EntityKey = "APP/orders/typo"
+	if _, err := s.CreateAcceptances(ctx, []Mute{ok, none}, t0); !errors.Is(err, ErrNoFinding) || !strings.Contains(err.Error(), "APP/orders/typo") {
+		t.Fatalf("an entity without a finding: %v", err)
 	}
+	if all, n, err := s.ListMutes(ctx, t0, true, 10, 0); err != nil || n != 0 || len(all) != 0 {
+		t.Fatalf("after refused batches: %d mutes, %v", n, err)
+	}
+	// A resolved finding can be accepted too.
 	second := ok
 	second.EntityKey = "APP/orders/b"
-	got, err := s.CreateMutes(ctx, []Mute{ok, second})
+	got, err := s.CreateAcceptances(ctx, []Mute{ok, second}, t0)
 	if err != nil || len(got) != 2 || got[0].EntityKey != "APP/orders/a" || got[1].EntityKey != "APP/orders/b" || got[0].ID == got[1].ID || !got[1].Accepted {
 		t.Fatalf("batch: %+v, %v", got, err)
 	}
-	if _, err := s.CreateMutes(ctx, []Mute{{CheckCode: "stream-005", Accepted: true, Reason: "r", MutedBy: "op", CreatedAt: t0, ExpiresAt: t0.Add(48 * time.Hour)}}); err == nil {
-		t.Fatal("an acceptance without an entity was stored")
+	// An acceptance in force refuses another of the same check and entity.
+	if _, err := s.CreateAcceptances(ctx, []Mute{ok}, t0.Add(time.Hour)); !errors.Is(err, ErrAcceptanceInForce) || !strings.Contains(err.Error(), "APP/orders/a") {
+		t.Fatalf("second acceptance: %v", err)
+	}
+	// Once it ended, a new one is allowed.
+	if _, err := s.UnmuteMute(ctx, got[0].ID, "op", t0.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateAcceptances(ctx, []Mute{ok}, t0.Add(2*time.Hour)); err != nil {
+		t.Fatalf("after the end: %v", err)
 	}
 }
 

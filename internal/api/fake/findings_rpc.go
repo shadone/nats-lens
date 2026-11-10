@@ -153,8 +153,14 @@ func (sm *storedMute) covers(f *v1.Finding) bool {
 // the store; the growth review that may end it is not simulated.
 func (p *Provider) MuteFinding(_ context.Context, req *v1.MuteFindingRequest) (*v1.Mute, error) {
 	m := p.newMute(req)
+	s := p.scen()
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if m.GetAccepted() {
+		if err := p.checkAcceptances(s, []*v1.Mute{m}); err != nil {
+			return nil, err
+		}
+	}
 	m.Id = strconv.Itoa(p.nextID)
 	p.nextID++
 	p.mutes = keepNewest(append(p.mutes, &storedMute{m: m}), p.seededMutes)

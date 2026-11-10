@@ -123,6 +123,8 @@ func (h *Handler) codeOf(procedure string, err error) error {
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, ErrFailedPrecondition):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, ErrAlreadyExists):
+		return connect.NewError(connect.CodeAlreadyExists, err)
 	case errors.Is(err, ErrUnauthenticated):
 		return connect.NewError(connect.CodeUnauthenticated, err)
 	case errors.Is(err, context.Canceled):

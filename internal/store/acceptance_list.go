@@ -7,12 +7,25 @@ import (
 	"time"
 )
 
-// CreateMutes stores several mutes in one transaction and returns them
+// Errors of CreateAcceptances, wrapped with the check and the entity.
+var (
+	// ErrNoFinding: the check has no finding, in any state, for the entity.
+	ErrNoFinding = errors.New("no finding of the check for the entity")
+	// ErrAcceptanceInForce: the entity already has an acceptance of the
+	// check in force.
+	ErrAcceptanceInForce = errors.New("an acceptance of the check for the entity is in force")
+)
+
+// CreateAcceptances stores acceptances in one transaction and returns them
 // with their IDs, in the order given: every one is stored, or none is.
-func (s *Store) CreateMutes(ctx context.Context, ms []Mute) ([]Mute, error) {
+// Under the write lock, before storing, each entity must have a finding of
+// the check in the findings table, in any state, and no acceptance of the
+// check in force at now; otherwise the whole call fails with ErrNoFinding
+// or ErrAcceptanceInForce, wrapped with the check and the entity key.
+func (s *Store) CreateAcceptances(ctx context.Context, ms []Mute, now time.Time) ([]Mute, error) {
 	for _, m := range ms {
-		if m.Accepted && m.EntityType == "" {
-			return nil, errors.New("create mutes: an acceptance needs an entity")
+		if !m.Accepted || m.EntityType == "" {
+			return nil, errors.New("create acceptances: an acceptance needs accepted and an entity")
 		}
 	}
 	if err := s.lock(ctx); err != nil {
@@ -26,25 +39,37 @@ func (s *Store) CreateMutes(ctx context.Context, ms []Mute) ([]Mute, error) {
 	defer func() { _ = tx.Rollback() }()
 	out := make([]Mute, 0, len(ms))
 	for _, m := range ms {
-		var growth, key any
+		var n int
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM findings WHERE check_code = ? AND entity_type = ? AND entity_key = ?`,
+			m.CheckCode, m.EntityType, m.EntityKey).Scan(&n); err != nil {
+			return nil, err
+		}
+		if n == 0 {
+			return nil, fmt.Errorf("%s for %s %s: %w", m.CheckCode, m.EntityType, m.EntityKey, ErrNoFinding)
+		}
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM mutes WHERE coalesce(accepted, false) AND check_code = ?
+ AND entity_type = ? AND entity_key = ? AND unmuted_at IS NULL AND expires_at > ?`,
+			m.CheckCode, m.EntityType, m.EntityKey, now.UTC()).Scan(&n); err != nil {
+			return nil, err
+		}
+		if n > 0 {
+			return nil, fmt.Errorf("%s for %s %s: %w", m.CheckCode, m.EntityType, m.EntityKey, ErrAcceptanceInForce)
+		}
+		var growth any
 		if m.GrowthPerDay != nil {
 			growth = *m.GrowthPerDay
 		}
-		if m.EntityType != "" {
-			key = m.EntityKey
-		}
 		row := tx.QueryRowContext(ctx, `INSERT INTO mutes (`+muteInsertCols+`)
 VALUES (nextval('mute_seq'), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING `+muteCols,
-			m.CheckCode, nullIfEmpty(m.EntityType), key, m.Reason, m.MutedBy, m.CreatedAt.UTC(), m.ExpiresAt.UTC(),
-			m.Accepted, growth)
+			m.CheckCode, m.EntityType, m.EntityKey, m.Reason, m.MutedBy, m.CreatedAt.UTC(), m.ExpiresAt.UTC(), true, growth)
 		got, err := scanMute(row)
 		if err != nil {
-			return nil, fmt.Errorf("create mutes: %w", err)
+			return nil, fmt.Errorf("create acceptances: %w", err)
 		}
 		out = append(out, got)
 	}
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("create mutes: %w", err)
+		return nil, fmt.Errorf("create acceptances: %w", err)
 	}
 	return out, nil
 }
