@@ -161,7 +161,7 @@ Decided in the session that built T3 and confirmed by the owner on 2026-10-26.
 
 Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work merges.
 
-- "Runs on": the watcher would list client pods and store namespace, owner workload, node and IP (deferred by the owner, 2026-10-26).
+- "Runs on": the watcher would list client pods and store namespace, owner workload, node and IP (deferred by the owner, 2026-10-26). Built opt-in after the owner's words of 2026-11-10 (`kubernetes.client_pod_watch`); see `docs/features/applications.md`.
 - `example-prod`'s slow consumers exist only as counters (the Overview's clients tile says 7) without disconnect events, so its Applications page counts none and its Events page lists none. Adding the events would make `client-004` fire for `media-worker` during the upgrade, which the demo's findings would then need (seen while building T2).
 - The writer inserts connections one row at a time: 4,096 connections take 2 to 4.5 s of an epoch's write on a laptop. Batching them as JSON, as `subscriptions` are, would cut that (seen while measuring T1; not part of it).
 - `example-prod` holds 100 of its connections on `nats-0` in every range, also five days before the upgrade that put them there, so its Spread card speaks for a range before the upgrade too (seen while writing T4).

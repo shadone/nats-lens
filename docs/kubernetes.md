@@ -9,7 +9,7 @@ With `kubernetes.enabled`, `natslens run` watches the Kubernetes API alongside N
 | `k8s.pod.scheduled` | pod watch | A NATS pod is assigned to a node. |
 | `k8s.pod.ready`, `k8s.pod.not_ready` | pod watch | Its Ready condition changes; timed by the condition. |
 | `k8s.pod.restarted` | pod watch | A container's restart count grows; the reason is the last termination's (for example `OOMKilled`). |
-| `k8s.pod.oom_killed` | pod watch, Event | A NATS pod's restart whose last termination is `OOMKilled`. Client pods are not watched, so for them only an Event with reason `OOMKilled` or `OOMKilling` gives it, which kubelets do not send for pods; it is untested on a real cluster. |
+| `k8s.pod.oom_killed` | pod watch, Event | A NATS pod's restart whose last termination is `OOMKilled`. For client pods only an Event with reason `OOMKilled` or `OOMKilling` gives it, which kubelets do not send for pods; it is untested on a real cluster. The client pod watch below records no events. |
 | `k8s.pod.evicted` | pod watch, Event | The pod gets a `DisruptionTarget` condition (eviction API, preemption, taint manager, kubelet), or an `Evicted` Event; recorded once. |
 | `k8s.pod.terminating` | pod watch | The pod is deleted without an eviction; timed when it was asked to stop. |
 | `k8s.pod.deleted` | pod watch | The pod is gone. |
@@ -28,3 +28,13 @@ On start, natslens records a `collector.k8s_gap` from the last stored Kubernetes
 
 The status timeline's Kubernetes lane shows node cordons, drains, readiness, upgrades and deletions, the NATS pods' stops, starts and readiness, and the watcher's gaps; for one server it shows only that server's pods. Windows shade node drains and upgrades: a window opens at a `k8s.node.drained` or `k8s.node.upgrade` and takes in every following node or NATS pod event that comes within 15 minutes of the one before, so it ends at the last node or pod back to ready. A window without a drain or a NATS pod event is not shown. It is labelled "Node upgrade" when it holds an upgrade or nodes of different kubelet versions ("GKE node upgrade" when a node in it carries GKE's `cloud.google.com/gke-nodepool` label), "Node removed by the autoscaler" when every drain in it was the autoscaler's, else "Node drain", with the number of drained nodes and of NATS pods stopped.
 
+
+## Client pods
+
+With `kubernetes.client_pod_watch` set, natslens also lists and watches every pod (no label selector) in `client_pod_watch.namespaces`, or in all namespaces with `all_namespaces: true`, so that the Applications page can say where each application runs. It is off unless set: without it natslens makes no request for client pods, and the permissions below are not needed. It needs `kubernetes.enabled`, and only `list` and `watch` on `pods`: a Role per namespace (`k8s/components/client-pods`), or a ClusterRole for all namespaces (`k8s/components/client-pods-all`).
+
+Of each pod it keeps the name, namespace, node, addresses (`status.podIPs`), whether it is on the host network, its start time, its `app.kubernetes.io/name` label, and its workload, named from the controller reference alone so that no other permission is needed: a ReplicaSet whose name is a Deployment's name and the pod's `pod-template-hash` label is that Deployment, a Job named `<name>-<8 or more digits>` (as the CronJob controller names them) is CronJob `<name>`, any other controller is itself, and a pod without one is a bare Pod. At most 50,000 pods are kept; the others are not matched, with a warning. A pod without an address yet is not kept.
+
+It writes the pods' addresses to the `client_pods` table every 15 seconds when something changed: one row per pod address, from the pod's start time to its deletion or its end (phase `Succeeded` or `Failed`). The rows of live pods are refreshed every 5 minutes; a later list that no longer has a pod ends it at its last refresh, which covers pods deleted while natslens was down. A status change that leaves these fields as they were writes nothing. The rows are swept with the retention window and archived with every hour they cover.
+
+Its watches retry as the others do and record `collector.k8s_not_watching` and `collector.k8s_gap` with the source `client pods in <namespace>` (or `client pods in all namespaces`). A watch refused with 403 logs, besides the failure itself, one warning that names the permission to grant; a client pod watch repeats its failure log at most once an hour, not every minute. The NATS pods, nodes and Events are watched as before.

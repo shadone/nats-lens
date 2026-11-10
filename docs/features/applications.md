@@ -2,11 +2,11 @@
 
 - **Surfaces:** `ui`, `api`
 - **Status:** shipped
-- **Related:** [connections.md](connections.md), [client-checks.md](client-checks.md), [monitoring-snapshots.md](monitoring-snapshots.md), [event-capture.md](event-capture.md), [events.md](events.md), [navigation.md](navigation.md), [overview-page.md](overview-page.md), [demo-mode.md](demo-mode.md), [design.md](../design.md), [applications plan](../plans/applications.md)
+- **Related:** [connections.md](connections.md), [kubernetes-context.md](kubernetes-context.md), [client-checks.md](client-checks.md), [monitoring-snapshots.md](monitoring-snapshots.md), [event-capture.md](event-capture.md), [events.md](events.md), [navigation.md](navigation.md), [overview-page.md](overview-page.md), [demo-mode.md](demo-mode.md), [design.md](../design.md), [applications plan](../plans/applications.md)
 
 ## What it does
 
-The Applications page groups the client connections of a system by the application in their connection name, so an operator sees `resize-worker` with its four pods as one row instead of four connections spread over three servers. Each row gives the application's instances, its pods or client addresses, the servers it uses, its client library, its median round trip, subscriptions, pending bytes, its reconnects in the last 24 hours and its messages in and out per hour over the last 24 hours. Three summary cards above the table say how the connections spread over the servers, which client libraries are in use, and what the last 24 hours held. `GetApplications` gives the same in the API. The page reads only what nats-lens already stored and sends no request to NATS.
+The Applications page groups the client connections of a system by the application in their connection name, so an operator sees `resize-worker` with its four pods as one row instead of four connections spread over three servers. Each row gives the application's instances, its pods or client addresses, the servers it uses, its client library, its median round trip, subscriptions, pending bytes, its reconnects in the last 24 hours and its messages in and out per hour over the last 24 hours. With the opt-in client pod watch (`kubernetes.client_pod_watch`), a Runs on column says which namespace, workload and nodes the application's connections come from. Three summary cards above the table say how the connections spread over the servers, which client libraries are in use, and what the last 24 hours held. `GetApplications` gives the same in the API. The page reads only what nats-lens already stored and sends no request to NATS.
 
 ## Behavior and rules
 
@@ -19,6 +19,9 @@ The Applications page groups the client connections of a system by the applicati
 - **One collection.** The page reads the newest collection at or before the end of the range. The 24-hour counts cover the 24 hours before that collection, and the traffic the 24 whole hours before the collection's hour. The line under the title reads, for example, "Client connections grouped by the application in their name. 187 connections, 10 applications, in the collection of 14:29:56 UTC." A past range works as a live one. A range without a collection says "No collection in this range."
 - **An application is the connection name before the first "@".** A service that names each connection `service@pod` is grouped by service. A connection without "@" is its own application. A connection without a name, or with nothing before the "@" (`@pod-1`), is grouped as `(unnamed)`. One name is one application across accounts: a row lists every account its connections use.
 - **Instances and pods.** A pod is the part of the name between the first "@" and the next. Instances count the distinct pods of the connections whose name gives one, plus one per connection whose name gives none. The Pods column lists the first two pod names and the rest behind "+N more"; with three pods it lists all three, as a disclosure for one name takes as much room as the name. Where no name gives a pod, the column lists the client addresses instead, in a quieter colour: one address, the rest behind "+N more", and two addresses both. The API lists at most 10 pods and 10 addresses per application, with their totals; the ones beyond read "N not listed".
+- **Runs on, opt-in.** Only while the system watches client pods (`kubernetes.client_pod_watch` with `kubernetes.enabled`, see [kubernetes-context.md](kubernetes-context.md)) does the table have a Runs on column, after Pods. Without the setting the page shows nothing new: no column, no notice and no footnote line (proposed, not yet confirmed: the least noisy choice for a setting that is off by default). The cell lists the workloads of the matched pods, most connections first, each as its kind in a quieter colour and `namespace/name` ("Deployment shop/order-service"); one workload shows, the rest behind "+N more" (two both). Beneath, "9 pods on 9 nodes" opens the node names. When not every connection matched, a quiet line says how many did: "120 of 144 connections matched to pods", adding "; 48 connections from a host-network or shared address" when some were ambiguous. A row none of whose connections matched reads "No connection matched to a pod" ("Its connection matched no pod" for one connection). The column sorts by the first workload's `namespace/name` from A, unmatched rows last. The API lists at most 10 workloads and 10 nodes per application, with their totals.
+- **How a connection is matched.** A connection is matched to the pod whose address was the connection's client address when the collection started: the pod held it from its start time until its deletion or its end (phase Succeeded or Failed). Pod addresses are reused, so a later pod with the same address is matched only from its own start. A host-network pod's address is its node's, so a connection from it, or from an address two pods held at once, is counted as from a host-network or shared address and not matched to one pod. A connection through a proxy or NAT, from outside the cluster, or from a namespace that is not watched, carries no pod's address and matches no pod; the page cannot tell these apart. The workload is named from the pod's controller reference ([kubernetes-context.md](kubernetes-context.md)). A past range matches by the pods of its collection's time.
+- **A client pod watch that is not working.** When a client pod watch was failing at the collection (recorded as `collector.k8s_not_watching` and not yet followed by its gap or a restart of nats-lens), a warning notice names it: "Client pods not watched. nats-lens could not watch the client pods in payments since 14:05 UTC (Kubernetes API returned HTTP 403): Runs on can miss the pods there." The time is when the failure was recorded, `kubernetes.gap_after` after it began.
 - **The name and its line.** The application's name links to the Connections page filtered by that name, which lists every connection whose name contains it (so `order-service` also lists an `order-service-v2`). A tooling row's link includes tooling. `(unnamed)` links nowhere. Under the name, a line gives the connections and, where the names give pods, the pods ("4 connections, 4 pods"); without an account scope, and with rows in more than one account, it also names the accounts. The application's client findings follow as links to their finding pages, a muted one marked "(muted)".
 - **Servers.** Each server the application's connections are on is a chip with the server's name and the application's connections on it, most first, linking to the server's page. Three chips show and the rest open behind "+N more"; with four servers all four show.
 - **Library.** One client library and version, such as "nats.js 3.0.2", or "mixed" in the warning colour with each version and its connections beneath it. A connection that reports neither language nor version counts for no library.
@@ -41,8 +44,8 @@ The Applications page groups the client connections of a system by the applicati
 - **Events not captured.** When no event was captured up to the collection, an info notice says the 24-hour counts are not known, the reconnect cells are dashes, and the Last 24 h card reads "Not known: no event captured up to this collection."
 - **At most 500 applications.** The API lists the first 500 in the page's order, with the total; the line under the title adds "the first 500 listed". The summaries count every application before the limit.
 - **Phone width.** The cards stack in one column, and the table scrolls sideways in its own box.
-- **The footnote** gives the "@" rule, what instances and pods count, that tooling is left out, where the traffic comes from and what it loses, how reconnects pair, and that each sparkline has its own scale.
-- **Decisions.** The owner decided on 2026-10-26 to defer "Runs on" and to back the 24 hours of traffic with an hourly rollup. The owner confirmed the other rules of this page on 2026-10-26.
+- **The footnote** gives the "@" rule, what instances and pods count, that tooling is left out, where the traffic comes from and what it loses, how reconnects pair, and that each sparkline has its own scale; while client pods are watched, also how Runs on matches and what matches no pod.
+- **Decisions.** The owner decided on 2026-10-26 to back the 24 hours of traffic with an hourly rollup, and confirmed the other rules of this page on 2026-10-26. "Runs on", deferred on 2026-10-26 as the Kubernetes watcher kept no client pods, is built opt-in after the owner's words of 2026-11-10: "I like the idea of watching k8s pods to get extended info about the applications that use NATS resources, but it must be optional. NATS Lens must support running outside of k8s or without k8s permissions, it is strictly opt-in." The matching by address at the collection, the naming of workloads from the controller reference, the column's wording and that nothing shows while the watch is off are proposed, not yet confirmed.
 
 ## Scenarios
 
@@ -85,6 +88,29 @@ The Applications page groups the client connections of a system by the applicati
 - **When** I open Applications
 - **Then** the `shipping-service` row reads "mixed" in Library, with "nats.js 3.0.2 on 120" and "nats.js 2.29.3 on 24" beneath it
 - **And** its `client-001` finding is listed under its name, marked "(muted)", and the row keeps its place by connections
+
+### See where an application runs
+
+- **Surfaces:** `ui`
+- **Given** `example-global` in demo mode, which watches client pods; `shipping-service` in the `ap` cluster connects from the carrier's site through NAT
+- **When** I open Applications
+- **Then** the Runs on column follows Pods, and `order-service` reads "Deployment shop/order-service" and "9 pods on 9 nodes", which opens the node names
+- **And** `shipping-service` reads "Deployment shipping/shipping-service", "6 pods on 6 nodes" and "120 of 144 connections matched to pods"
+- **And** `label-printer`, which runs outside the cluster, reads "No connection matched to a pod"
+
+### Connections from the host network
+
+- **Surfaces:** `ui`
+- **Given** `example-global`, where `notification-worker` in the `us` cluster runs on the host network
+- **When** I open Applications
+- **Then** its Runs on cell adds "88 of 136 connections matched to pods; 48 connections from a host-network or shared address"
+
+### Runs on is off
+
+- **Surfaces:** `ui`
+- **Given** `example-prod`, which does not watch client pods, as with no `kubernetes.client_pod_watch`
+- **When** I open Applications
+- **Then** the table has no Runs on column, and no notice or footnote line speaks of it
 
 ### A server did not answer
 
@@ -130,12 +156,14 @@ The Applications page groups the client connections of a system by the applicati
 - **Surfaces:** `api`
 - **Given** `natslens run` serves its API
 - **When** a client calls `GetApplications` with a range and an account
-- **Then** it receives the applications of the range's newest collection in the page's order, at most 500, each with its instances, pods, addresses, servers, libraries, round trip, subscriptions, pending bytes, 24-hour counts, findings and 24 hours of traffic
-- **And** the totals, the tooling connections hidden, the three summaries, and whether the list was cut, whether events were captured, whether capture had gaps, and which servers are missing
+- **Then** it receives the applications of the range's newest collection in the page's order, at most 500, each with its instances, pods, addresses, servers, libraries, round trip, subscriptions, pending bytes, 24-hour counts, findings and 24 hours of traffic, and, while client pods are watched, where it runs: the connections matched and ambiguous, the workloads, nodes and pods
+- **And** the totals, the tooling connections hidden, the three summaries, and whether the list was cut, whether events were captured, whether capture had gaps, which servers are missing, whether client pods are watched and which client pod watches were failing
 
 ## Not supported / out of scope
 
-- **No "Runs on".** The owner deferred on 2026-10-26 the namespace, workload and node of each client pod, as the Kubernetes watcher keeps no client pods. The page shows the pod names that the connection names give, and the client addresses.
+- **Runs on only by address, and only with the client pod watch.** Without `kubernetes.client_pod_watch` the page shows the pod names that the connection names give, and the client addresses. With it, a connection is matched only by its client address: one through a proxy, a NAT or a service mesh's egress gateway, from outside the cluster, or from a namespace not watched matches no pod, and the page does not say which of these it is. The name after "@" is not used to find a pod.
+- **Workloads named from the pod alone.** nats-lens reads no ReplicaSet, Job or other owner, so a ReplicaSet whose name does not end in its pod's `pod-template-hash` reads as a ReplicaSet, and a Job that a CronJob created under another name reads as a Job.
+- **No Runs on in offline datasets.** An offline dataset or `natslens sql` does not know whether the system watched client pods, and leaves Runs on unset.
 - **No naming convention enforced.** Applications that do not name their connections are grouped by whatever name they give, or as `(unnamed)`.
 - **No per-subject traffic.** The servers count messages per connection, not per subject.
 - **The Overview counts applications differently.** Its Clients tile leaves out `(unnamed)`, so `example-prod`'s tile counts 9 applications where this page lists 10 ([overview-page.md](overview-page.md)).

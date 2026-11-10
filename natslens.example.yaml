@@ -144,6 +144,12 @@ kubernetes:
   pool_nodes: false              # also keep every node of a pool that held a NATS node (not on Autopilot)
   gap_after: 30s                 # a watch failing this long is recorded
   # client_pods: '^batch-job-'  # pods that are NATS clients besides service@pod connection names
+  # Optional, off unless set: watch the pods of the NATS clients so that the
+  # Applications page shows where each application runs. Needs a Role per
+  # namespace that may list and watch pods (k8s/components/client-pods).
+  # client_pod_watch:
+  #   namespaces: [shop, payments]
+  #   # all_namespaces: true     # instead: every namespace, needs a ClusterRole
 
 # Memory DuckDB may use (KiB, MiB, GiB or TiB); unset means 60% of the
 # container's cgroup memory limit, or 1 GiB when there is none.

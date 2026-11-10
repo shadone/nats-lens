@@ -76,6 +76,8 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `kubernetes.pool_nodes` |               | `false`                 | Also keep the changes of every node of a pool that held a NATS node; off for Autopilot. |
 | `kubernetes.gap_after` |                 | `30s`                   | How long a watch may fail before it is recorded. |
 | `kubernetes.client_pods` |               |                         | Regular expression of pod names that are NATS clients besides those a connection name gives after "@"; their FailedScheduling, BackOff and OOM kill Events are drawn on the timeline's Kubernetes lane as warnings. |
+| `kubernetes.client_pod_watch.namespaces` |  | none                 | Optional. Namespaces whose pods are watched so that the Applications page shows where each application runs ("Runs on"). Needs `kubernetes.enabled` and a Role per namespace that may list and watch pods (`k8s/components/client-pods`). Unset, natslens asks for no client pod and needs no such permission. |
+| `kubernetes.client_pod_watch.all_namespaces` | | `false`            | Watch the pods of every namespace instead, with one cluster-wide watch; needs a ClusterRole (`k8s/components/client-pods-all`). Not with `namespaces`. |
 
 ## Shutdown
 
