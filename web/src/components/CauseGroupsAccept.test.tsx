@@ -28,7 +28,7 @@ function f(name: string, extra: Partial<Finding> = {}): Finding {
 
 const mute = (accepted: boolean, reason: string): Mute => ({ id: reason, checkCode: "consumer-016", reason, mutedBy: "op", accepted, unmutedBy: "", endReason: "" });
 
-const card = (onAccept: (f: Finding, all?: boolean) => void) => ({ read: { loading: false, failed: false }, system: "", scoped: false, onAccept });
+const card = (onAccept: (f: Finding, preselect?: Finding[]) => void) => ({ read: { loading: false, failed: false }, system: "", scoped: false, onAccept });
 
 describe("CauseGroups and acceptance", () => {
   it("offers to accept every entity of a card of one acceptable check under one stream", async () => {
@@ -36,7 +36,10 @@ describe("CauseGroups and acceptance", () => {
     const { groups, muted } = groupCauses([f("a"), f("b"), f("c")]);
     renderApp(<CauseGroups groups={groups} muted={muted} onMute={() => {}} card={card(onAccept)} />);
     await userEvent.click(screen.getByRole("button", { name: "Accept consumer-016 on all 3 consumers of stream order-jobs as by design" }));
-    expect(onAccept).toHaveBeenCalledWith(expect.objectContaining({ checkCode: "consumer-016" }), true);
+    // Exactly the card's other findings, not whatever a later read returns.
+    const [first, pre] = onAccept.mock.calls[0];
+    expect(first.id).toBe("consumer-016:APP/order-jobs/a");
+    expect(pre.map((x: Finding) => x.id)).toEqual(["consumer-016:APP/order-jobs/b", "consumer-016:APP/order-jobs/c"]);
   });
 
   it("offers no Accept all when a finding of the card is not acceptable", () => {

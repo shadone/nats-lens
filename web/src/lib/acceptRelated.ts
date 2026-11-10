@@ -40,7 +40,7 @@ export function parentPhrase(e: Entity, accountLabel: (id: string, name?: string
   return `other streams of account ${accountLabel(e.account, e.accountName)}`;
 }
 
-/** The acceptance of one finding; selectAll ticks its related entities. */
-export function acceptTarget(f: Finding, selectAll = false): AcceptTarget {
-  return { findingId: f.id, checkCode: f.checkCode, checkName: f.checkName, entity: f.entity!, growthReview: !!f.growthReview, ...(selectAll ? { selectAll } : {}) };
+/** The acceptance of one finding; preselect are related findings to offer ticked. */
+export function acceptTarget(f: Finding, preselect?: Finding[]): AcceptTarget {
+  return { findingId: f.id, checkCode: f.checkCode, checkName: f.checkName, entity: f.entity!, growthReview: !!f.growthReview, ...(preselect ? { preselect } : {}) };
 }

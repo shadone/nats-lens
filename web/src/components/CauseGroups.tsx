@@ -20,8 +20,8 @@ export interface CardContext {
   read: PlacementRead;
   system: string;
   scoped: boolean;
-  /** Unset: no card offers acceptance. all ticks the finding's related entities. */
-  onAccept?: (f: Finding, all?: boolean) => void;
+  /** Unset: no card offers acceptance. preselect are the card's other findings, offered ticked. */
+  onAccept?: (f: Finding, preselect?: Finding[]) => void;
 }
 
 const CardCtx = createContext<CardContext>({ read: { loading: false, failed: false }, system: "", scoped: false });
@@ -224,7 +224,8 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
 
 /**
  * "Accept all N as by design…" on a card of one acceptable check under one
- * stream or account: the dialog opens with the card's siblings ticked.
+ * stream or account: the dialog opens with exactly the card's other
+ * findings ticked.
  */
 function AcceptAll({ g }: { g: CauseGroup }) {
   const { onAccept } = useContext(CardCtx);
@@ -236,7 +237,7 @@ function AcceptAll({ g }: { g: CauseGroup }) {
   const where = p === "stream" ? `of stream ${streamLabel(g.parent!.name)}` : `of account ${label(f.entity!.account, f.entity!.accountName)}`;
   return (
     <p className="cg-all">
-      <button type="button" className="btn sm" onClick={() => onAccept(f, true)} aria-label={`Accept ${f.checkCode} on all ${entities.length} ${nounOf(entities)} ${where} as by design`}>
+      <button type="button" className="btn sm" onClick={() => onAccept(f, entities.slice(1))} aria-label={`Accept ${f.checkCode} on all ${entities.length} ${nounOf(entities)} ${where} as by design`}>
         Accept all {entities.length} as by design…
       </button>
     </p>

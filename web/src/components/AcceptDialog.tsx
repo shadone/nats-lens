@@ -24,8 +24,8 @@ export interface AcceptTarget {
   entity: Entity;
   /** The acceptance ends early when the entity's growth changes, as its check says. */
   growthReview: boolean;
-  /** Offer the related entities ticked: "Accept all" on a cause card. */
-  selectAll?: boolean;
+  /** Related findings to offer ticked, such as the other findings of a cause card ("Accept all"). */
+  preselect?: Finding[];
 }
 
 export function AcceptDialog({ target, onClose, onAccepted }: { target: AcceptTarget | undefined; onClose: () => void; onAccepted?: (findingId: string, m: Mute) => void }) {
@@ -78,7 +78,7 @@ function AcceptBody({
     const now = serverNow();
     const errs = validateAccept(form, now, askName);
     setErrors(errs);
-    if (hasErrors(errs)) return;
+    if (hasErrors(errs) || also.waiting) return;
     if (askName) rememberName(form.name.trim());
     if (also.chosen.length > 0) {
       const fs = [{ id: target.findingId, entity: target.entity }, ...also.chosen.map((f) => ({ id: f.id, entity: f.entity! }))];
@@ -176,7 +176,7 @@ function AcceptBody({
         <button type="button" className="btn" onClick={onClose} disabled={pending}>
           Cancel
         </button>
-        <button type="submit" className="btn p" disabled={pending}>
+        <button type="submit" className="btn p" disabled={pending || also.waiting}>
           {pending ? "Accepting…" : also.chosen.length > 0 ? `Accept ${also.chosen.length + 1} as by design` : "Accept as by design"}
         </button>
       </div>
@@ -185,65 +185,82 @@ function AcceptBody({
 }
 
 interface Related {
-  /** The related findings offered, at most MAX_ACCEPT_BATCH - 1. */
+  /** The related findings offered, at most MAX_ACCEPT_BATCH - 1: those the opener ticked first, then the ones read. */
   offered: Finding[];
   /** How many more there are than offered. */
   more: number;
   chosen: Finding[];
+  /** The read of the other findings is under way. */
+  loading: boolean;
+  /** Why the read of the other findings failed; unset when it did not. */
+  error?: unknown;
+  /** Submit waits: entities were ticked by the opener and the read is under way. */
+  waiting: boolean;
   toggle: (id: string) => void;
   setAll: (on: boolean) => void;
 }
 
 /**
  * The related findings: the same check's other firing, unmuted findings
- * under the target's parent, read over the last 24 hours. With selectAll
- * they start ticked.
+ * under the target's parent, read over the last 24 hours, and the ones the
+ * opener passed in preselect, which start ticked whatever the read returns.
  */
 function useRelated(target: AcceptTarget): Related {
   const q = relatedQuery(target.entity);
   const r = useFindings({ kind: "live", preset: "24h" }, { checkCode: target.checkCode, entity: q?.entity, account: q?.account, includeMuted: false, pageSize: 500 }, q !== undefined);
-  const all = q && r.data ? relatedFindings(r.data.items, target.checkCode, target.entity, target.findingId) : [];
+  const pre = (target.preselect ?? []).filter((f) => f.id !== target.findingId);
+  const read = q && r.data ? relatedFindings(r.data.items, target.checkCode, target.entity, target.findingId) : [];
+  const all = [...pre, ...read.filter((f) => !pre.some((p) => p.id === f.id))];
   const offered = all.slice(0, MAX_ACCEPT_BATCH - 1);
-  const start = target.selectAll ?? false;
-  // The boxes the person changed from where they started.
-  const [flip, setFlip] = useState<Set<string>>(new Set());
-  const on = (id: string) => start !== flip.has(id);
+  const [ticked, setTicked] = useState<Set<string>>(() => new Set(pre.map((f) => f.id)));
+  const loading = q !== undefined && r.isPending;
   return {
     offered,
     more: all.length - offered.length,
-    chosen: offered.filter((f) => on(f.id)),
+    chosen: offered.filter((f) => ticked.has(f.id)),
+    loading,
+    error: q !== undefined && !r.data ? (r.error ?? undefined) : undefined,
+    waiting: pre.length > 0 && loading,
     toggle: (id) =>
-      setFlip((s) => {
+      setTicked((s) => {
         const n = new Set(s);
         if (n.has(id)) n.delete(id);
         else n.add(id);
         return n;
       }),
-    setAll: (v) => setFlip(new Set(start === v ? [] : offered.map((f) => f.id))),
+    setAll: (v) => setTicked(new Set(v ? offered.map((f) => f.id) : [])),
   };
 }
 
-/** "Also accept": a box for every related entity, and one for all of them. */
+/** "Also accept, firing now": a box for every related entity, and one for all of them. */
 function AlsoAccept({ also, target }: { also: Related; target: AcceptTarget }) {
   const ids = useId();
   const n = also.offered.length;
-  if (n === 0) return null;
-  const every = also.chosen.length === n;
+  if (n === 0 && !also.loading && !also.error) return null;
+  const every = n > 0 && also.chosen.length === n;
   return (
     <fieldset className="field accept-also">
-      <legend>Also accept</legend>
-      <label className="radio">
-        <input
-          type="checkbox"
-          checked={every}
-          ref={(el) => {
-            if (el) el.indeterminate = also.chosen.length > 0 && !every;
-          }}
-          onChange={(e) => also.setAll(e.target.checked)}
-          aria-describedby={`${ids}-what`}
-        />
-        All {n} {parentPhrase(target.entity, accountLabel)} with this finding
-      </label>
+      <legend>Also accept, firing now</legend>
+      {also.loading && <p className="hint">Loading related findings…</p>}
+      {!!also.error && (
+        <p className="field-err" role="alert">
+          The other findings of this check could not be read: {errorText(also.error)}
+        </p>
+      )}
+      {n > 0 && (
+        <label className="radio">
+          <input
+            type="checkbox"
+            checked={every}
+            ref={(el) => {
+              if (el) el.indeterminate = also.chosen.length > 0 && !every;
+            }}
+            onChange={(e) => also.setAll(e.target.checked)}
+            aria-describedby={`${ids}-what`}
+          />
+          All {n} {parentPhrase(target.entity, accountLabel)} with this finding
+        </label>
+      )}
       <ul className="accept-also-list">
         {also.offered.map((f) => (
           <li key={f.id}>

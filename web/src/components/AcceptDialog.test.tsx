@@ -182,8 +182,36 @@ describe("AcceptDialog with related entities", () => {
     expect(onAccepted.mock.calls.map((c) => c[0])).toEqual(["consumer-016:APP/order-jobs/a", "consumer-016:APP/order-jobs/c"]);
   });
 
+  it("ticks exactly the findings a card passes, even one the read does not return", async () => {
+    // The read returns a, b and c; the card passes b and d (d not in the read, as on a past range).
+    renderApp(<AcceptDialog target={{ ...one, preselect: [sibling("b"), sibling("d")] }} onClose={() => {}} />);
+    expect(await screen.findByRole("checkbox", { name: /All 3 other consumers/ })).toBePartiallyChecked();
+    expect(screen.getByRole("checkbox", { name: "b" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "d" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "c" })).not.toBeChecked();
+  });
+
+  it("waits for the read when a card passed findings, and says when it fails", async () => {
+    let resolve: (v: Awaited<ReturnType<typeof listFindings>>) => void = () => {};
+    listFindings.mockReturnValue(new Promise((r) => (resolve = r)));
+    renderApp(<AcceptDialog target={{ ...one, preselect: [sibling("b")] }} onClose={() => {}} />);
+    expect(await screen.findByText("Loading related findings…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Accept 2 as by design" })).toBeDisabled();
+    resolve({ items: [sibling("a"), sibling("b"), sibling("c")], nextPageToken: "", totalCount: 3 });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Accept 2 as by design" })).toBeEnabled());
+    expect(screen.getByRole("group", { name: "Also accept, firing now" })).toBeInTheDocument();
+  });
+
+  it("shows a failed read inside Also accept and keeps the card's findings ticked", async () => {
+    listFindings.mockRejectedValue(new Error("unavailable"));
+    renderApp(<AcceptDialog target={{ ...one, preselect: [sibling("b")] }} onClose={() => {}} />);
+    expect(await screen.findByText(/The other findings of this check could not be read/)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "b" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Accept 2 as by design" })).toBeEnabled();
+  });
+
   it("starts with every related entity ticked from a card's Accept all", async () => {
-    renderApp(<AcceptDialog target={{ ...one, selectAll: true }} onClose={() => {}} />);
+    renderApp(<AcceptDialog target={{ ...one, preselect: [sibling("b"), sibling("c")] }} onClose={() => {}} />);
     expect(await screen.findByRole("checkbox", { name: /All 2 other consumers/ })).toBeChecked();
     expect(screen.getByRole("button", { name: "Accept 3 as by design" })).toBeInTheDocument();
     expect(screen.getByText(/The 3 findings leave the Overview/)).toBeInTheDocument();
@@ -195,6 +223,7 @@ describe("AcceptDialog with related entities", () => {
     listFindings.mockResolvedValue({ items: [sibling("a")], nextPageToken: "", totalCount: 1 });
     renderApp(<AcceptDialog target={one} onClose={() => {}} />);
     await waitFor(() => expect(listFindings).toHaveBeenCalled());
-    expect(screen.queryByText("Also accept")).toBeNull();
+    await waitFor(() => expect(screen.queryByText("Loading related findings…")).toBeNull());
+    expect(screen.queryByText("Also accept, firing now")).toBeNull();
   });
 });

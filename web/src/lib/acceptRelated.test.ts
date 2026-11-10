@@ -58,9 +58,10 @@ describe("parentPhrase and acceptTarget", () => {
     expect(parentPhrase(stream("orders"), accountLabel)).toBe("other streams of account APP");
   });
 
-  it("ticks the related entities only when asked", () => {
+  it("carries the findings to offer ticked only when given", () => {
     const f = finding(consumer("order-jobs", "a"));
-    expect(acceptTarget(f).selectAll).toBeUndefined();
-    expect(acceptTarget(f, true).selectAll).toBe(true);
+    const b = finding(consumer("order-jobs", "b"));
+    expect(acceptTarget(f).preselect).toBeUndefined();
+    expect(acceptTarget(f, [b]).preselect).toEqual([b]);
   });
 });

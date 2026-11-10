@@ -36,7 +36,7 @@ function Causes({ onMute }: { onMute: (f: Finding) => void }) {
   if (!q.data) return q.error ? <ErrorBox error={q.error} retry={() => q.refetch()} what="findings" /> : null;
   const cut = q.data.totalCount > q.data.items.length;
   const others = q.data.otherAccountCount ?? 0;
-  const card = { read: { data: p.data, loading: p.isPending, failed: p.isError, asked: new Set(asked.map((e) => `${e.kind}:${e.key}`)) }, system, scoped: account !== "", onAccept: (f: Finding, all?: boolean) => setAccepting(acceptTarget(f, all)) };
+  const card = { read: { data: p.data, loading: p.isPending, failed: p.isError, asked: new Set(asked.map((e) => `${e.kind}:${e.key}`)) }, system, scoped: account !== "", onAccept: (f: Finding, pre?: Finding[]) => setAccepting(acceptTarget(f, pre)) };
   return (
     <>
       <StaleBanner q={q} />
