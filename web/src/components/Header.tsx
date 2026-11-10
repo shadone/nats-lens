@@ -37,11 +37,11 @@ export function Header({ menuOpen = false, onMenu }: Props) {
         {page?.accountScope && pathname === page.path && <AccountScope />}
         <span className="bar-gap" />
         <SearchJump />
-        <RangePicker freshness={status.data?.freshness} error={status.error ?? undefined} />
+        {!page?.noRange && <RangePicker freshness={status.data?.freshness} error={status.error ?? undefined} />}
         <InvestigationButton />
         <ThemeMenu />
       </div>
-      <RangeNotice />
+      {!page?.noRange && <RangeNotice />}
     </header>
   );
 }

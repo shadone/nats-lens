@@ -3,6 +3,7 @@
 // a way to end one; the ended ones behind a toggle. Follows the account
 // scope as the Findings page does.
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { useCheckDefinitions } from "../api/checks";
 import type { Mute } from "../api/model";
 import { useAcceptances } from "../api/queries";
@@ -79,7 +80,18 @@ function Row({ m, now, name, onEnd, label }: { m: Mute; now: number; name?: stri
 
 export function AcceptedFindings() {
   usePageTitle("Accepted findings");
-  const [ended, setEnded] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const ended = params.get("ended") === "1";
+  const setEnded = (on: boolean) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p);
+        if (on) n.set("ended", "1");
+        else n.delete("ended");
+        return n;
+      },
+      { replace: true },
+    );
   const [ending, setEnding] = useState<Mute>();
   const [account, setAccount] = useAccountScope();
   const pager = usePager([useSystem(), String(ended), account].join("|"));

@@ -53,6 +53,7 @@ describe("AcceptedFindings", () => {
     expect(await screen.findByText(/Ended by nats-lens: growth changed from/)).toBeInTheDocument();
     expect(screen.getByText("Ended", { selector: ".state, .sev, span" })).toBeInTheDocument();
     expect(m.listAcceptances.mock.calls.at(-1)![1]).toMatchObject({ includeEnded: true });
+    expect(screen.getByTestId("location")).toHaveTextContent("ended=1");
   });
 
   it("follows the account scope and counts the other accounts' acceptances", async () => {

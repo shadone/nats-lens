@@ -138,7 +138,7 @@ function Head({ f, spec, start, end, onMute, onUnmute, onAck, onAccept, copyActi
               Mute…
             </button>
           )}
-          {onAccept && acceptable(f) && (
+          {onAccept && f.state !== "resolved" && acceptable(f) && (
             <button type="button" className="btn" onClick={onAccept}>
               Accept as by design…
             </button>

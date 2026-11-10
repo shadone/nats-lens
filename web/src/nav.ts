@@ -22,6 +22,8 @@ export interface NavItem {
   accountScope?: boolean;
   /** Reference pages carry account context without applying a list filter. */
   preserveAccount?: boolean;
+  /** The page reads no time range: the header offers none. */
+  noRange?: boolean;
 }
 
 export const NAV: NavItem[] = [
@@ -59,7 +61,7 @@ export function navFor(pathname: string, items: NavItem[] = NAV): NavItem | unde
   if(pathname.startsWith("/timeline/")){const parent=items.find(i=>i.path==="/");const label=pathname==="/timeline/events"?"Captured Timeline events":pathname.startsWith("/timeline/windows/")?"Timeline window evidence":"Timeline";return parent?{...parent,label,accountScope:false}:undefined}
   // A finding's own pages read one finding, whatever its account: they leave the scope behind.
   // The review list of acceptances is a page of its own under Findings, and follows the scope as the Findings list does.
-  if(pathname==="/findings/accepted"){const parent=items.find(i=>i.path==="/findings");return parent?{...parent,path:pathname,label:"Accepted findings",badge:undefined}:undefined}
+  if(pathname==="/findings/accepted"){const parent=items.find(i=>i.path==="/findings");return parent?{...parent,path:pathname,label:"Accepted findings",badge:undefined,noRange:true}:undefined}
   if(pathname.startsWith("/findings/")){const parent=items.find(i=>i.path==="/findings");return parent?{...parent,accountScope:false}:undefined}
   if (pathname === "/") return items.find((i) => i.path === "/");
   return items.find((i) => i.path !== "/" && (pathname === i.path || pathname.startsWith(`${i.path}/`)));

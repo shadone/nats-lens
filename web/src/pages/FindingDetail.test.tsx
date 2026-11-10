@@ -455,6 +455,13 @@ describe("FindingDetail extras for acceptance", () => {
     expect(await screen.findByRole("dialog", { name: "Accept as by design" })).toBeInTheDocument();
   });
 
+  it("offers no acceptance on a resolved finding's page", async () => {
+    m.getFinding.mockResolvedValue({ finding: { ...acceptableFinding, state: "resolved", resolvedAt: Date.now() - 60_000 }, transitions: [] });
+    show();
+    await screen.findByRole("button", { name: "Mute…" });
+    expect(screen.queryByRole("button", { name: "Accept as by design…" })).toBeNull();
+  });
+
   it("offers no acceptance for a check that is not acceptable", async () => {
     m.getFinding.mockResolvedValue({ finding: base, transitions: [] });
     show();
