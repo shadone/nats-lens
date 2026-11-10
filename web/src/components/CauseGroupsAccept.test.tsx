@@ -42,6 +42,19 @@ describe("CauseGroups and acceptance", () => {
     expect(pre.map((x: Finding) => x.id)).toEqual(["consumer-016:APP/order-jobs/b", "consumer-016:APP/order-jobs/c"]);
   });
 
+  it("says it accepts the first 100 on a card of more, and passes the first 99 others", async () => {
+    const onAccept = vi.fn();
+    const names = Array.from({ length: 150 }, (_, i) => `w${String(i).padStart(3, "0")}`);
+    const { groups, muted } = groupCauses(names.map((n) => f(n)));
+    renderApp(<CauseGroups groups={groups} muted={muted} onMute={() => {}} card={card(onAccept)} />);
+    const btn = screen.getByRole("button", { name: "Accept consumer-016 on the first 100 of 150 consumers of stream order-jobs as by design" });
+    expect(btn).toHaveTextContent("Accept the first 100 as by design…");
+    await userEvent.click(btn);
+    const [first, pre] = onAccept.mock.calls[0];
+    expect(pre).toHaveLength(99);
+    expect(pre.map((x: Finding) => x.id)).not.toContain(first.id);
+  });
+
   it("offers no Accept all when a finding of the card is not acceptable", () => {
     const { groups, muted } = groupCauses([f("a"), f("b", { acceptable: false })]);
     renderApp(<CauseGroups groups={groups} muted={muted} onMute={() => {}} card={card(vi.fn())} />);

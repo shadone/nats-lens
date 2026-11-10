@@ -14,10 +14,16 @@ export function RLink({ to, className = "x", ...rest }: Omit<LinkProps, "to"> & 
   return <Link to={withGlobal(to, useGlobalQuery())} className={className} {...rest} />;
 }
 
-/** "unavailable: connection refused", or the message alone for a non-API error. */
+/**
+ * "unavailable: connection refused", or the message alone for a non-API
+ * error. A server message that starts with its code in words ("not found:
+ * …" under not_found) gives the code once.
+ */
 export function errorText(e: unknown): string {
   const i = errorInfo(e);
-  return i.code === "error" ? i.message : `${i.code}: ${i.message}`;
+  if (i.code === "error") return i.message;
+  const words = `${i.code.replace(/_/g, " ")}: `;
+  return `${i.code}: ${i.message.startsWith(words) ? i.message.slice(words.length) : i.message}`;
 }
 
 export function Loading({ what }: { what: string }) {

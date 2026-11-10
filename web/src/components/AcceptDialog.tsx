@@ -2,7 +2,7 @@
 // related entities if chosen: a reason, a review date, and who accepted
 // it. The server records each entity's growth and ends an acceptance early
 // when it changes.
-import { useId, useState, type FormEvent } from "react";
+import { useContext, useId, useState, type FormEvent } from "react";
 import { identityNeed, rememberName, rememberedName, type IdentityNeed } from "../api/identity";
 import type { Entity, Finding, Mute } from "../api/model";
 import { useAcceptFindings, useFindings, useLensInfo, useMuteFinding } from "../api/queries";
@@ -10,10 +10,11 @@ import { serverNow } from "../lib/clock";
 import { isoDate } from "../lib/format";
 import { MAX_REASON, MAX_REVIEW_AHEAD, MIN_REVIEW_AHEAD, REVIEW_PRESETS, hasErrors, reviewDateOf, validateAccept, type AcceptErrors, type AcceptForm } from "../lib/muteForm";
 import { useSystem } from "../lib/useSystem";
-import { MAX_ACCEPT_BATCH, parentPhrase, relatedFindings, relatedQuery } from "../lib/acceptRelated";
+import { MAX_ACCEPT_BATCH, parentPhrase, relatedFindings, relatedQuery, withAccountNames } from "../lib/acceptRelated";
 import { accountLabel, entityName } from "../lib/view";
 import { errorText } from "./common";
 import { Dialog } from "./Dialog";
+import { AccountLabelContext } from "./FindingParts";
 import { Field, useBusy } from "./MuteDialog";
 
 /** The finding an acceptance covers. */
@@ -69,6 +70,7 @@ function AcceptBody({
   const [system] = useState(useSystem());
   const [opened] = useState(() => serverNow());
   const also = useRelated(target);
+  const label = useContext(AccountLabelContext);
   const pending = mute.isPending || many.isPending;
   useBusy(pending, onBusy);
   const set = (k: keyof AcceptForm) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -169,7 +171,7 @@ function AcceptBody({
       </p>
       {(mute.error ?? many.error) && (
         <p className="field-err" role="alert">
-          {errorText(mute.error ?? many.error)}
+          {withAccountNames(errorText(mute.error ?? many.error), [target.entity, ...also.offered.map((f) => f.entity!)], label)}
         </p>
       )}
       <div className="dlg-btns">
@@ -187,6 +189,8 @@ function AcceptBody({
 interface Related {
   /** The related findings offered, at most MAX_ACCEPT_BATCH - 1: those the opener ticked first, then the ones read. */
   offered: Finding[];
+  /** Findings the opener passed that a complete read does not return as firing and unmuted; not offered. */
+  gone: Finding[];
   /** How many more there are than offered. */
   more: number;
   chosen: Finding[];
@@ -203,19 +207,27 @@ interface Related {
 /**
  * The related findings: the same check's other firing, unmuted findings
  * under the target's parent, read over the last 24 hours, and the ones the
- * opener passed in preselect, which start ticked whatever the read returns.
+ * opener passed in preselect, which start ticked. Once a complete read has
+ * loaded, a passed finding it does not return is left out, as no longer
+ * firing or muted since: the server refuses to accept a resolved finding.
+ * Without a complete read (it failed, or has more pages) the passed
+ * findings stay offered.
  */
 function useRelated(target: AcceptTarget): Related {
   const q = relatedQuery(target.entity);
   const r = useFindings({ kind: "live", preset: "24h" }, { checkCode: target.checkCode, entity: q?.entity, account: q?.account, includeMuted: false, pageSize: 500 }, q !== undefined);
   const pre = (target.preselect ?? []).filter((f) => f.id !== target.findingId);
   const read = q && r.data ? relatedFindings(r.data.items, target.checkCode, target.entity, target.findingId) : [];
-  const all = [...pre, ...read.filter((f) => !pre.some((p) => p.id === f.id))];
+  const complete = q !== undefined && !!r.data && !r.data.nextPageToken;
+  const isRead = (p: Finding) => read.some((f) => f.id === p.id);
+  const live = complete ? pre.filter(isRead) : pre;
+  const all = [...live, ...read.filter((f) => !live.some((p) => p.id === f.id))];
   const offered = all.slice(0, MAX_ACCEPT_BATCH - 1);
   const [ticked, setTicked] = useState<Set<string>>(() => new Set(pre.map((f) => f.id)));
   const loading = q !== undefined && r.isPending;
   return {
     offered,
+    gone: complete ? pre.filter((p) => !isRead(p)) : [],
     more: all.length - offered.length,
     chosen: offered.filter((f) => ticked.has(f.id)),
     loading,
@@ -236,7 +248,7 @@ function useRelated(target: AcceptTarget): Related {
 function AlsoAccept({ also, target }: { also: Related; target: AcceptTarget }) {
   const ids = useId();
   const n = also.offered.length;
-  if (n === 0 && !also.loading && !also.error) return null;
+  if (n === 0 && also.gone.length === 0 && !also.loading && !also.error) return null;
   const every = n > 0 && also.chosen.length === n;
   return (
     <fieldset className="field accept-also">
@@ -271,6 +283,7 @@ function AlsoAccept({ also, target }: { also: Related; target: AcceptTarget }) {
           </li>
         ))}
       </ul>
+      {also.gone.length > 0 && <p className="hint">Left out, no longer firing or muted since: {also.gone.map((f) => entityName(f.entity)).join(", ")}.</p>}
       <small id={`${ids}-what`} className="hint">
         Each gets an acceptance of its own with this reason and review date.
         {also.more > 0 && ` ${also.more} more are not listed; one action accepts at most ${MAX_ACCEPT_BATCH}.`}

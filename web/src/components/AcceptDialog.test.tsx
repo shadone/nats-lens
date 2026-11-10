@@ -1,3 +1,4 @@
+import { Code, ConnectError } from "@connectrpc/connect";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -182,13 +183,34 @@ describe("AcceptDialog with related entities", () => {
     expect(onAccepted.mock.calls.map((c) => c[0])).toEqual(["consumer-016:APP/order-jobs/a", "consumer-016:APP/order-jobs/c"]);
   });
 
-  it("ticks exactly the findings a card passes, even one the read does not return", async () => {
+  it("ticks the findings a card passes and leaves out, named, one the live read does not return", async () => {
     // The read returns a, b and c; the card passes b and d (d not in the read, as on a past range).
     renderApp(<AcceptDialog target={{ ...one, preselect: [sibling("b"), sibling("d")] }} onClose={() => {}} />);
-    expect(await screen.findByRole("checkbox", { name: /All 3 other consumers/ })).toBePartiallyChecked();
+    expect(await screen.findByText("Left out, no longer firing or muted since: d.")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /All 2 other consumers/ })).toBePartiallyChecked();
     expect(screen.getByRole("checkbox", { name: "b" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "d" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "c" })).not.toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: "d" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Accept 2 as by design" })).toBeEnabled();
+  });
+
+  it("keeps a passed finding offered when the read has more pages and may hold it", async () => {
+    listFindings.mockResolvedValue({ items: [sibling("a"), sibling("b")], nextPageToken: "next", totalCount: 600 });
+    renderApp(<AcceptDialog target={{ ...one, preselect: [sibling("d")] }} onClose={() => {}} />);
+    expect(await screen.findByRole("checkbox", { name: "b" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /All 2 other consumers/ })).toBePartiallyChecked();
+    expect(screen.getByRole("checkbox", { name: "d" })).toBeChecked();
+    expect(screen.queryByText(/Left out/)).toBeNull();
+  });
+
+  it("shows a refusal once, with the account's name for its ID", async () => {
+    const id = "AFAKEAPPACCOUNT";
+    const typo: AcceptTarget = { ...target, findingId: `stream-005:${id}/typo`, entity: { ...target.entity, key: `${id}/typo`, name: "typo", stream: "typo", account: id, accountName: "APP" } };
+    muteFinding.mockRejectedValue(new ConnectError(`not found: stream-005 for stream ${id}/typo: no finding of the check for the entity`, Code.NotFound));
+    renderApp(<AcceptDialog target={typo} onClose={() => {}} />);
+    await userEvent.type(screen.getByLabelText("Reason"), "kept");
+    await userEvent.click(screen.getByRole("button", { name: "Accept as by design" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^not_found: stream-005 for stream APP\/typo: no finding of the check for the entity$/);
   });
 
   it("waits for the read when a card passed findings, and says when it fails", async () => {

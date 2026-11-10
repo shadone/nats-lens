@@ -6,6 +6,7 @@ import { atHistoryStart } from "../lib/historyView";
 // mute; and a strip of the muted findings with their reasons.
 import { createContext, useContext } from "react";
 import type { Entity, Finding } from "../api/model";
+import { MAX_ACCEPT_BATCH } from "../lib/acceptRelated";
 import { acceptable, distinctEntities, shownFindings } from "../lib/causeEvidence";
 import { acrossAccounts, type CauseGroup } from "../lib/causeGroups";
 import { hms } from "../lib/format";
@@ -235,10 +236,17 @@ function AcceptAll({ g }: { g: CauseGroup }) {
   const f = g.findings[0];
   const entities = distinctEntities(g.findings);
   const where = p === "stream" ? `of stream ${streamLabel(g.parent!.name)}` : `of account ${label(f.entity!.account, f.entity!.accountName)}`;
+  // One action accepts at most MAX_ACCEPT_BATCH: past that the button says it takes the first ones.
+  const over = entities.length > MAX_ACCEPT_BATCH;
   return (
     <p className="cg-all">
-      <button type="button" className="btn sm" onClick={() => onAccept(f, entities.slice(1))} aria-label={`Accept ${f.checkCode} on all ${entities.length} ${nounOf(entities)} ${where} as by design`}>
-        Accept all {entities.length} as by design…
+      <button
+        type="button"
+        className="btn sm"
+        onClick={() => onAccept(f, entities.slice(1, MAX_ACCEPT_BATCH))}
+        aria-label={`Accept ${f.checkCode} on ${over ? `the first ${MAX_ACCEPT_BATCH} of` : "all"} ${entities.length} ${nounOf(entities)} ${where} as by design`}
+      >
+        {over ? `Accept the first ${MAX_ACCEPT_BATCH} as by design…` : `Accept all ${entities.length} as by design…`}
       </button>
     </p>
   );
