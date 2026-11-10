@@ -47,46 +47,56 @@ function sinceOf(v: string): number | undefined {
 }
 
 /**
+ * The words of the text, a kind prefix split from what follows it, so
+ * that `event:since:2h` reads as `event:` and `since:2h`.
+ */
+function words(raw: string): string[] {
+  const out: string[] = [];
+  for (let word of raw.trim().split(/\s+/)) {
+    for (let m = /^([a-z]+):(.+)$/i.exec(word); m && BY_PREFIX.has(m[1].toLowerCase()); m = /^([a-z]+):(.+)$/i.exec(word)) {
+      out.push(`${m[1]}:`);
+      word = m[2];
+    }
+    if (word) out.push(word);
+  }
+  return out;
+}
+
+function kindOf(word: string): CommandKind | undefined {
+  const m = /^([a-z]+):$/i.exec(word);
+  return m ? BY_PREFIX.get(m[1].toLowerCase()) : undefined;
+}
+
+function sinceWord(word: string): number | undefined {
+  const m = /^since:(.*)$/i.exec(word);
+  return m ? sinceOf(m[1]) : undefined;
+}
+
+/**
  * Splits the command bar's text into prefixes and the text to match.
  * `stream:order` and `stream: order` both narrow to streams named like
  * order; the last kind prefix wins.
  */
 export function parseCommand(raw: string): CommandQuery {
   const q: CommandQuery = { text: "" };
-  const words: string[] = [];
-  for (const word of raw.trim().split(/\s+/)) {
-    const m = /^([a-z]+):(.*)$/i.exec(word);
-    const kind = m ? BY_PREFIX.get(m[1].toLowerCase()) : undefined;
-    if (m && kind) {
-      q.kind = kind;
-      if (m[2]) words.push(m[2]);
-      continue;
-    }
-    const since = m && m[1].toLowerCase() === "since" ? sinceOf(m[2]) : undefined;
-    if (since !== undefined) {
+  const rest: string[] = [];
+  for (const word of words(raw)) {
+    const kind = kindOf(word);
+    const since = sinceWord(word);
+    if (kind) q.kind = kind;
+    else if (since !== undefined) {
       q.sinceMs = since;
-      q.sinceLabel = m![2].toLowerCase();
-      continue;
-    }
-    if (word) words.push(word);
+      q.sinceLabel = word.slice("since:".length).toLowerCase();
+    } else rest.push(word);
   }
-  q.text = words.join(" ");
+  q.text = rest.join(" ");
   return q;
 }
 
-/** The text with one prefix word taken out, for a chip's remove button. */
+/** The text with one kind of prefix taken out, for a chip's remove button. */
 export function withoutPrefix(raw: string, prefix: "kind" | "since"): string {
-  return raw
-    .trim()
-    .split(/\s+/)
-    .flatMap((word) => {
-      const m = /^([a-z]+):(.*)$/i.exec(word);
-      if (!m) return [word];
-      const name = m[1].toLowerCase();
-      if (prefix === "kind" && BY_PREFIX.has(name)) return m[2] ? [m[2]] : [];
-      if (prefix === "since" && name === "since" && sinceOf(m[2]) !== undefined) return [];
-      return [word];
-    })
+  return words(raw)
+    .filter((word) => (prefix === "kind" ? !kindOf(word) : sinceWord(word) === undefined))
     .join(" ");
 }
 

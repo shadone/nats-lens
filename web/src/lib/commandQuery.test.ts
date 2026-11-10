@@ -15,6 +15,14 @@ describe("parseCommand", () => {
     }
   });
 
+  it("reads a prefix that follows a kind prefix with no space", () => {
+    expect(parseCommand("event:since:2h")).toMatchObject({ text: "", kind: "event", sinceMs: 7_200_000, sinceLabel: "2h" });
+    expect(parseCommand("stream:server:nats")).toEqual({ text: "nats", kind: "server" });
+    expect(parseCommand("event:subject:x")).toEqual({ text: "subject:x", kind: "event" });
+    expect(withoutPrefix("event:since:2h", "since")).toBe("event:");
+    expect(withoutPrefix("event:since:2h", "kind")).toBe("since:2h");
+  });
+
   it("takes the last kind prefix", () => {
     expect(parseCommand("stream: server:nats")).toEqual({ text: "nats", kind: "server" });
   });
