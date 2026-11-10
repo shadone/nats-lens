@@ -113,9 +113,10 @@ func TestTopologyRouteDropsExclusions(t *testing.T) {
 }
 
 // The response: a listed pair carries its drops; an unobserved pair has
-// them unset; a pair with drops that neither end lists while both answer
-// ROUTEZ is added as down and sorted first; with an end missing it is
-// left out.
+// them unset; two servers of a cluster that answered ROUTEZ in this and
+// the collection before and do not list each other are down, sorted
+// first, with their drops; with an end missing or not answering before,
+// they are left out.
 func TestTopologyRouteDropsResponse(t *testing.T) {
 	f := topoFacts()
 	f.Routes = []api.TopologyRouteRow{route("e0", "e1", 0.4, ""), route("e1", "e0", 0.4, ""), route("e0", "e2", 0.4, ""), route("e2", "e0", 0.4, "")}
@@ -125,6 +126,7 @@ func TestTopologyRouteDropsResponse(t *testing.T) {
 		{A: "u0", B: "u1", Recent: 1, Day: 1, ObservedRecent: true, ObservedDay: true},
 	}
 	f.Servers[4].Missing = true // u1
+	f.RoutezBefore = []string{"e0", "e1", "e2", "u0", "u1"}
 	var got []string
 	for _, r := range api.FinishTopology(f).GetRoutes() {
 		got = append(got, fmt.Sprintf("%s-%s %s %s %v", r.GetServerA(), r.GetServerB(), opt(r.Drops_1H), opt(r.Drops_24H), r.GetDown()))

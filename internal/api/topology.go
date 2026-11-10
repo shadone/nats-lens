@@ -53,9 +53,14 @@ type TopologyFacts struct {
 	// the servers whose reply in the epoch was ok; Unanswered those whose
 	// reply was missing or an error.
 	Answered, Unanswered map[string][]string
-	Routes               []TopologyRouteRow
-	Gateways             []TopologyGatewayRow
-	Leafnodes            []TopologyLeafRow
+	// RoutezBefore names the servers whose ROUTEZ answered ok in the
+	// collection before the epoch (the newest earlier one, at most
+	// TopologyGapIntervals collect intervals earlier) and in the epoch,
+	// under the same server ID; empty without such a collection.
+	RoutezBefore []string
+	Routes       []TopologyRouteRow
+	Gateways     []TopologyGatewayRow
+	Leafnodes    []TopologyLeafRow
 	// Drops are counted over the window before the epoch, by the store in
 	// SQL and by the demo with CountTopologyDrops.
 	Drops TopologyDrops

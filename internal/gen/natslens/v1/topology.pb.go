@@ -475,9 +475,10 @@ type TopologyRoute struct {
 	// As drops_1h, over the 24 hours before the epoch (from
 	// drops_window_start).
 	Drops_24H *int32 `protobuf:"varint,12,opt,name=drops_24h,json=drops24h,proto3,oneof" json:"drops_24h,omitempty"`
-	// Whether the pair is down: a route of it dropped in the 24 hours, both
-	// ends answered ROUTEZ in the epoch, and neither lists a route to the
-	// other. rtt, pending_bytes and pool are unset.
+	// Whether the pair is down: the servers of a cluster form a full mesh,
+	// and both ends answered ROUTEZ in the epoch and in the collection
+	// before it under the same server IDs, while neither lists a route to
+	// the other. rtt, pending_bytes and pool are unset.
 	Down          bool `protobuf:"varint,13,opt,name=down,proto3" json:"down,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

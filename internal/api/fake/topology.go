@@ -435,6 +435,13 @@ func (p *Provider) Topology(_ context.Context, req *v1.GetTopologyRequest) (*api
 			f.Answered[e] = append(f.Answered[e], sp.name)
 		}
 	}
+	if prev := at.Add(-sampleEvery); !prev.Before(s.dataStart()) {
+		for _, sp := range p.sc.servers {
+			if !s.downAt(sp, at) && !s.downAt(sp, prev) && s.processID(sp, at) == s.processID(sp, prev) {
+				f.RoutezBefore = append(f.RoutezBefore, sp.name)
+			}
+		}
+	}
 	f.Routes = s.routeRows(at)
 	f.Earlier = s.earlierRoutes(at)
 	f.Gateways, f.Leafnodes = s.gatewayRows(at), s.leafRows(at)

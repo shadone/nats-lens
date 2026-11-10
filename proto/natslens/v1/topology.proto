@@ -176,9 +176,10 @@ message TopologyRoute {
   // drops_window_start).
   optional int32 drops_24h = 12;
 
-  // Whether the pair is down: a route of it dropped in the 24 hours, both
-  // ends answered ROUTEZ in the epoch, and neither lists a route to the
-  // other. rtt, pending_bytes and pool are unset.
+  // Whether the pair is down: the servers of a cluster form a full mesh,
+  // and both ends answered ROUTEZ in the epoch and in the collection
+  // before it under the same server IDs, while neither lists a route to
+  // the other. rtt, pending_bytes and pool are unset.
   bool down = 13;
 }
 

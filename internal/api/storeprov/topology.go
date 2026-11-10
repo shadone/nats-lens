@@ -25,7 +25,7 @@ func (p *Provider) Topology(ctx context.Context, req *v1.GetTopologyRequest) (*a
 	f := &api.TopologyFacts{Epoch: e.epoch, EpochAt: e.startedAt, Interval: p.Interval,
 		Answered: map[string][]string{}, Unanswered: map[string][]string{}}
 	steps := []func(context.Context, *api.TopologyFacts) error{
-		p.topologyServers, p.topologyEndpoints, p.topologyRoutes, p.topologyEarlier, p.topologyGateways, p.topologyLeafs,
+		p.topologyServers, p.topologyEndpoints, p.topologyRoutezBefore, p.topologyRoutes, p.topologyEarlier, p.topologyGateways, p.topologyLeafs,
 		p.topologyDrops, p.topologyReplication,
 	}
 	for _, step := range steps {
@@ -113,6 +113,38 @@ ORDER BY 1`, f.Epoch, api.EndpointRoutez, api.EndpointGatewayz, api.EndpointLeaf
 		} else {
 			f.Unanswered[endpoint] = append(f.Unanswered[endpoint], name)
 		}
+	}
+	return rows.Err()
+}
+
+// topologyRoutezBefore reads the servers whose ROUTEZ answered ok in the
+// epoch and in the collection before it, under the same server ID: the
+// newest earlier epoch that started no earlier than
+// api.TopologyEarliestEarlier; none when the collect interval is not
+// known. The start is compared with the column directly, so the session
+// time zone does not shift it.
+func (p *Provider) topologyRoutezBefore(ctx context.Context, f *api.TopologyFacts) error {
+	bound, known := api.TopologyEarliestEarlier(f.EpochAt, p.Interval)
+	if !known {
+		return nil
+	}
+	rows, err := p.db().QueryContext(ctx, `
+WITH prev AS (SELECT max(epoch) AS epoch FROM epochs WHERE epoch < ? AND started_at >= ? AND started_at < ?)
+SELECT DISTINCT s.server_name
+FROM epoch_endpoints a JOIN epoch_endpoints b ON b.server_id = a.server_id JOIN servers s ON s.server_id = a.server_id
+WHERE a.epoch = ? AND b.epoch = (SELECT epoch FROM prev) AND a.endpoint = 'ROUTEZ' AND b.endpoint = 'ROUTEZ'
+  AND a.state = 'ok' AND b.state = 'ok'
+ORDER BY 1`, f.Epoch, bound, f.EpochAt, f.Epoch)
+	if err != nil {
+		return fmt.Errorf("topology ROUTEZ before: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		f.RoutezBefore = append(f.RoutezBefore, name)
 	}
 	return rows.Err()
 }

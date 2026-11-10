@@ -385,9 +385,10 @@ export type TopologyRoute = Message<"natslens.v1.TopologyRoute"> & {
   drops24h?: number | undefined;
 
   /**
-   * Whether the pair is down: a route of it dropped in the 24 hours, both
-   * ends answered ROUTEZ in the epoch, and neither lists a route to the
-   * other. rtt, pending_bytes and pool are unset.
+   * Whether the pair is down: the servers of a cluster form a full mesh,
+   * and both ends answered ROUTEZ in the epoch and in the collection
+   * before it under the same server IDs, while neither lists a route to
+   * the other. rtt, pending_bytes and pool are unset.
    *
    * @generated from field: bool down = 13;
    */

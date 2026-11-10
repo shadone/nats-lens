@@ -61,7 +61,7 @@ export interface TopologyRoute {
   /** Collections in which a route of the pair dropped; undefined when not observed. */
   drops1h?: number;
   drops24h?: number;
-  /** Neither end lists a route to the other, though both answered ROUTEZ and a route dropped in the 24 hours. */
+  /** Neither end lists a route to the other, though both answered ROUTEZ in this and the collection before. */
   down: boolean;
 }
 
