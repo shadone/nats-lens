@@ -180,6 +180,26 @@ func TestTopologyMemoryFinding(t *testing.T) {
 	}
 }
 
+// A muted server-008 does not hide an unmuted server-007 on the memory
+// store; with both muted the first is shown, quiet.
+func TestTopologyMemoryFindingUnmutedFirst(t *testing.T) {
+	f := topoFacts()
+	f.Servers[0].Mem, f.Servers[0].JSMemory, f.Servers[0].JSMaxMemory = i64(1<<30), i64(900), i64(1000)
+	f.Servers[0].JSStorage, f.Servers[0].JSMaxStorage = i64(1), i64(1000)
+	f.Findings = []*v1.Finding{finding("server-008", "e0", muted), finding("server-007", "e0")}
+	of := func() (string, bool) {
+		s := api.FinishTopology(f).GetClusters()[0].GetServers()[0]
+		return s.GetMemoryFindingId(), s.GetMemoryFindingQuiet()
+	}
+	if id, q := of(); id != "server-007:e0" || q {
+		t.Errorf("muted 008, unmuted 007: %s quiet %v, want server-007:e0 not quiet", id, q)
+	}
+	muted(f.Findings[1])
+	if id, q := of(); id != "server-008:e0" || !q {
+		t.Errorf("both muted: %s quiet %v, want server-008:e0 quiet", id, q)
+	}
+}
+
 // Only copies between two clusters are listed; a mirror carries
 // stream-017, else stream-015; a source stream-023, else stream-022 when
 // its source_ids name it or name none; findings not muted sort first.

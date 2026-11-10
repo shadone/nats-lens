@@ -33,22 +33,34 @@ func topologyFindings(fs []*v1.Finding) map[string][]*v1.Finding {
 // quiet reports whether a finding is muted, an acceptance included.
 func quiet(x *v1.Finding) bool { return x.GetMute() != nil }
 
-// memoryFinding is the finding about s's memory: server-008, else
+// memoryFinding is the finding about s's memory: of server-008, and of
 // server-007 when the JetStream memory store is at least as full as the
-// file store, which server-007 also judges.
+// file store (server-007 judges the fuller of the two), the first that is
+// not muted, else the first.
 func memoryFinding(s TopologyServerFact, firing map[string][]*v1.Finding) *v1.Finding {
-	if fs := firing[CheckMemoryHigh+":"+s.Name]; len(fs) > 0 {
-		return fs[0]
+	candidates := slices.Clone(firing[CheckMemoryHigh+":"+s.Name])
+	if memoryStoreFuller(s) {
+		candidates = append(candidates, firing[CheckStoreHigh+":"+s.Name]...)
 	}
-	fs := firing[CheckStoreHigh+":"+s.Name]
-	if len(fs) == 0 || s.JSMemory == nil || s.JSMaxMemory == nil || *s.JSMaxMemory <= 0 {
-		return nil
+	for _, x := range candidates {
+		if !quiet(x) {
+			return x
+		}
+	}
+	if len(candidates) > 0 {
+		return candidates[0]
+	}
+	return nil
+}
+
+// memoryStoreFuller reports whether s's JetStream memory store is at
+// least as full as its file store.
+func memoryStoreFuller(s TopologyServerFact) bool {
+	if s.JSMemory == nil || s.JSMaxMemory == nil || *s.JSMaxMemory <= 0 {
+		return false
 	}
 	mem := float64(*s.JSMemory) / float64(*s.JSMaxMemory)
-	if s.JSStorage != nil && s.JSMaxStorage != nil && *s.JSMaxStorage > 0 && float64(*s.JSStorage)/float64(*s.JSMaxStorage) > mem {
-		return nil
-	}
-	return fs[0]
+	return s.JSStorage == nil || s.JSMaxStorage == nil || *s.JSMaxStorage <= 0 || float64(*s.JSStorage)/float64(*s.JSMaxStorage) <= mem
 }
 
 // topologyClusters builds one cluster per cluster name of the servers,
