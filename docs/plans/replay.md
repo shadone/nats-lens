@@ -242,9 +242,9 @@ No migration or check is added. This avoids the shared schema allocation, includ
 Decided in the session that built it, proposed, not yet confirmed.
 
 - Data: no new column or migration. The leader's `stream_replicas` and `consumer_replicas` rows (`current`, `offline`, `lag`) already carry what Placement draws as behind; the replica's own `stream_stats` or `consumer_stats` row says it reports the asset. `lag` is raft operations, so the step speaks of operations, not messages.
-- Shape: one `REPLAY_STEP_KIND_CATCH_UP` step per server, no new fields; the restart step of the same server adds one sentence. The counts tiles are unchanged.
+- Shape: one `REPLAY_STEP_KIND_CATCH_UP` step per catch-up of a server (runs that overlap in time; a time with nothing behind or another restart starts a new one), and `catch_ups_truncated` on the response; the restart step whose window the catch-up starts in adds one sentence. The counts tiles are unchanged.
 - Honesty: a catch-up time is told only when the collection right after the last one behind reported the replica current, within three collect intervals. A longer time without collections, or collections without the leader's report, make the end "not observed" with the reason; a replica behind in B's collection is "still catching up at B".
-- Noise: a run behind in one collection only is a burst of writes and makes no step, unless it is the first collection of the server's restarted process.
+- Noise: a run behind in one collection only, or less than 100 operations behind at its peak, is a burst of writes and makes no step, unless it starts within three collect intervals of the server's restarted process's first collection. The store applies the same filter before its read limit.
 - Findings: `stream-003` and `server-012` transitions over the step's span are its evidence and make no finding step of their own.
-- Bounds: the store reads at most 20,000 runs, the earliest first; a cut marks the steps truncated.
+- Bounds: the store reads at most 20,000 runs, the earliest first, following only the replicas some row shows not current; a cut sets `catch_ups_truncated` and the page says so beside its other notes. A day of 17 million rows reads in about 2 s (design.md).
 - Demo: `scenario.catchUp` gives each restarted server's replicas a catch-up by stream size. The demo's Placement page stays without history, so it does not show these replicas behind.
