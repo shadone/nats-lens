@@ -110,3 +110,54 @@ func TestTopologyLargeDay(t *testing.T) {
 		t.Errorf("the read allocated %d MB, want at most 32", mb)
 	}
 }
+
+// A day at 30 seconds of 24 servers in two clusters of 12 with pools of
+// three routes (2.3 million route rows), each pool replaced every 700
+// collections: every pair counts 4 drops, 1 in the last hour. It logs
+// how long the Topology read takes with DuckDB limited to 154 MB and 2
+// threads, and without the route rows, the figures docs/design.md gives
+// under "Topology route drops, replication and memory". Run with
+// go test -run TestTopologyRouteDropsDay -v ./internal/api/storeprov/.
+func TestTopologyRouteDropsDay(t *testing.T) {
+	if testing.Short() {
+		t.Skip("writes 2.3 million rows")
+	}
+	st := emptyStore(t)
+	for _, q := range []string{
+		`INSERT INTO servers SELECT 'S'||s, 'nats-'||s, CASE WHEN s < 12 THEN 'eu' ELSE 'us' END, NULL, NULL, NULL, NULL, ['region:x'], NULL, 1, 2880, TIMESTAMP '2026-10-17', TIMESTAMP '2026-10-18' FROM range(24) t(s)`,
+		`INSERT INTO epochs SELECT e, TIMESTAMP '2026-10-17' + to_seconds(e*30), TIMESTAMP '2026-10-17' + to_seconds(e*30), 0, 24, 24, [], [], [], 0, false, [], NULL FROM range(1, 2881) t(e)`,
+		`INSERT INTO epoch_endpoints SELECT e, 'S'||s, ep, 'ok', NULL FROM range(1, 2881) t(e), range(24) u(s), (VALUES ('ROUTEZ'), ('GATEWAYZ'), ('LEAFZ')) v(ep)`,
+		`INSERT INTO routes (epoch, server_id, rid, remote_id, remote_name, rtt_ns) SELECT e, 'S'||s, 100*x + p + 1000*(e // 700), 'S'||x, 'nats-'||x, 400000
+		 FROM range(1, 2881) t(e), range(24) u(s), range(24) w(x), range(3) y(p) WHERE (s < 12) = (x < 12) AND s <> x`,
+		`SET memory_limit = '154MB'`, `SET threads = 2`,
+	} {
+		if _, err := st.DB().Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	p := &storeprov.Provider{St: st, Interval: 30 * time.Second}
+	end := time.Date(2026, 10, 17, 0, 0, 0, 0, time.UTC).Add(2881 * 30 * time.Second)
+	req := &v1.GetTopologyRequest{Range: &v1.TimeRange{Start: timestamppb.New(end.Add(-time.Hour)), End: timestamppb.New(end)}}
+	read := func() (*api.TopologyFacts, time.Duration) {
+		start := time.Now()
+		f, err := p.Topology(ctx, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f, time.Since(start)
+	}
+	f, with := read()
+	if len(f.Drops.Routes) != 132 {
+		t.Fatalf("%d route pairs, want 132", len(f.Drops.Routes))
+	}
+	for _, d := range f.Drops.Routes {
+		if d.Day != 4 || d.Recent != 1 {
+			t.Fatalf("%s-%s: %d/%d drops, want 1/4", d.A, d.B, d.Recent, d.Day)
+		}
+	}
+	if _, err := st.DB().Exec(`DELETE FROM routes`); err != nil {
+		t.Fatal(err)
+	}
+	_, without := read()
+	t.Logf("Topology read with 2.3 million route rows in %v, without them in %v", with, without)
+}
