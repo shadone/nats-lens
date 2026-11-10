@@ -18,8 +18,9 @@ import (
 // after it and the first that reported the replica current, both up to
 // B. Only the runs FinishReplay may keep are read (api.ReplayCatchUp):
 // two collections or more with a peak lag of at least api.CatchUpMinLag
-// (or none), or a run that starts within ReplayEpochReach intervals of a
-// restarted process's first collection; at most replayRowLimit of them,
+// (or none), or a run that starts within ReplayEpochReach intervals of
+// the first collection of a process that replaced another and started
+// after A, as replayRestarts reads them; at most replayRowLimit of them,
 // the earliest first. Only the replicas some report shows not current
 // are followed, so that a day of collections reads few rows.
 func (p *Provider) replayCatchUps(ctx context.Context, f *api.ReplayFacts, names map[string]string) error {
@@ -92,6 +93,7 @@ runs AS (
 restarted AS (
     SELECT s.server_name, s.first_seen_at FROM servers s
     WHERE EXISTS (SELECT 1 FROM servers o WHERE o.server_name = s.server_name AND o.first_epoch < s.first_epoch)
+        AND coalesce(s.start_time, s.first_seen_at) > $6
 )
 SELECT r.server, r.account, r.stream, r.consumer, r.first_epoch, fe.started_at, r.last_epoch, le.started_at, r.n, r.peak, r.last_lag,
     nx.epoch, nx.started_at, c.epoch, ce.started_at
@@ -106,7 +108,7 @@ WHERE (r.n >= 2 AND (r.peak IS NULL OR r.peak >= $4))
    OR EXISTS (SELECT 1 FROM restarted x WHERE x.server_name = r.server AND fe.started_at >= x.first_seen_at
        AND fe.started_at <= x.first_seen_at + to_microseconds($5::BIGINT))
 ORDER BY fe.started_at, r.server, r.account, r.stream, r.consumer
-LIMIT $3`, from, f.B, replayRowLimit+1, api.CatchUpMinLag, (api.ReplayEpochReach * p.Interval).Microseconds())
+LIMIT $3`, from, f.B, replayRowLimit+1, api.CatchUpMinLag, (api.ReplayEpochReach * p.Interval).Microseconds(), f.A)
 	if err != nil {
 		return fmt.Errorf("replay catch-ups: %w", err)
 	}
