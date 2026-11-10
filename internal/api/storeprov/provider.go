@@ -59,6 +59,10 @@ type Provider struct {
 	// (kubernetes.enabled); without it Replay leaves the node counts
 	// unset.
 	Kubernetes bool
+	// ClientPodWatch is whether nats-lens watches client pods for this
+	// system (kubernetes.client_pod_watch); without it Applications leaves
+	// Runs on unset and reads no client pod.
+	ClientPodWatch bool
 	// ArchiveStatus reports the archiver's state for Data history; nil
 	// when no archiver runs, as in natslens once and natslens sql.
 	ArchiveStatus func() api.ArchiveState

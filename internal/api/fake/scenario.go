@@ -108,6 +108,11 @@ type scenario struct {
 	subs map[string][]clientSub
 	// extraConns are connections besides the clients' in Account.
 	extraConns []extraConn
+	// clientPods, when set, is the system's client pod watch: the pod of
+	// the i-th client connection on a server, nil for a connection from
+	// no watched pod, or ambiguous for an address a host-network pod
+	// held. Nil means client pods are not watched.
+	clientPods func(sp serverSpec, client string, i int64) (pod *api.ClientPodFact, ambiguous bool)
 	// library, when set, gives the client library of a client's
 	// connections on a server; an empty language falls back to libraryOf's
 	// default.

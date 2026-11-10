@@ -229,6 +229,7 @@ func globalScenario() *scenario {
 			}
 			return "", ""
 		},
+		clientPods: globalClientPods,
 		subs:       globalSubs(),
 		micro:      globalMicro(),
 		microAsked: []string{Account, SuppliersAccount},

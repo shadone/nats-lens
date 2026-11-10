@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/applications.proto.
  */
 export const file_natslens_v1_applications: GenFile = /*@__PURE__*/
-  fileDesc("Ch5uYXRzbGVucy92MS9hcHBsaWNhdGlvbnMucHJvdG8SC25hdHNsZW5zLnYxInkKFkdldEFwcGxpY2F0aW9uc1JlcXVlc3QSDgoGc3lzdGVtGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg8KB2FjY291bnQYAyABKAkSFwoPaW5jbHVkZV90b29saW5nGAQgASgIIjIKC1NlcnZlckNvdW50Eg4KBnNlcnZlchgBIAEoCRITCgtjb25uZWN0aW9ucxgCIAEoBSJCCgxMaWJyYXJ5Q291bnQSDAoEbGFuZxgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhMKC2Nvbm5lY3Rpb25zGAMgASgFIjsKEkFwcGxpY2F0aW9uQWNjb3VudBIPCgdhY2NvdW50GAEgASgJEhQKDGFjY291bnRfbmFtZRgCIAEoCSKMAQoKRmluZGluZ1JlZhIKCgJpZBgBIAEoCRISCgpjaGVja19jb2RlGAIgASgJEhIKCmNoZWNrX25hbWUYAyABKAkSJwoIc2V2ZXJpdHkYBCABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRINCgVtdXRlZBgFIAEoCBISCgplbnRpdHlfa2V5GAYgASgJIscBCgtIb3VyVHJhZmZpYxIoCgRob3VyGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgdpbl9tc2dzGAIgASgDSACIAQESFQoIb3V0X21zZ3MYAyABKANIAYgBARIVCghpbl9ieXRlcxgEIAEoA0gCiAEBEhYKCW91dF9ieXRlcxgFIAEoA0gDiAEBQgoKCF9pbl9tc2dzQgsKCV9vdXRfbXNnc0ILCglfaW5fYnl0ZXNCDAoKX291dF9ieXRlcyLgBwoLQXBwbGljYXRpb24SDAoEbmFtZRgBIAEoCRITCgtjb25uZWN0aW9ucxgCIAEoBRIRCglpbnN0YW5jZXMYAyABKAUSDAoEcG9kcxgEIAMoCRISCgpwb2RzX3RvdGFsGAUgASgFEikKB3NlcnZlcnMYBiADKAsyGC5uYXRzbGVucy52MS5TZXJ2ZXJDb3VudBIxCghhY2NvdW50cxgHIAMoCzIfLm5hdHNsZW5zLnYxLkFwcGxpY2F0aW9uQWNjb3VudBIsCglsaWJyYXJpZXMYCCADKAsyGS5uYXRzbGVucy52MS5MaWJyYXJ5Q291bnQSKgoHcnR0X3A1MBgJIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1zdWJzY3JpcHRpb25zGAogASgDSACIAQESGgoNcGVuZGluZ19ieXRlcxgLIAEoA0gBiAEBEh4KEXBlbmRpbmdfYnl0ZXNfbWF4GAwgASgDSAKIAQESGwoOcmVjb25uZWN0c18yNGgYDSABKAVIA4gBARIfChJzbG93X2NvbnN1bWVyc18yNGgYDiABKAVIBIgBARIWCglzdGFsZV8yNGgYDyABKAVIBYgBARIcCg9zaG9ydF9saXZlZF8yNGgYECABKAVIBogBARIpCghmaW5kaW5ncxgRIAMoCzIXLm5hdHNsZW5zLnYxLkZpbmRpbmdSZWYSKQoHdHJhZmZpYxgSIAMoCzIYLm5hdHNsZW5zLnYxLkhvdXJUcmFmZmljEhgKC2luX21zZ3NfMjRoGBMgASgDSAeIAQESGQoMb3V0X21zZ3NfMjRoGBQgASgDSAiIAQESGQoMaW5fYnl0ZXNfMjRoGBUgASgDSAmIAQESGgoNb3V0X2J5dGVzXzI0aBgWIAEoA0gKiAEBEg8KB3Rvb2xpbmcYFyABKAgSEQoJYWRkcmVzc2VzGBggAygJEhcKD2FkZHJlc3Nlc190b3RhbBgZIAEoBRIYChBjb25uZWN0aW9uX25hbWVzGBogAygJEhIKCm1vcmVfbmFtZXMYGyABKAVCEAoOX3N1YnNjcmlwdGlvbnNCEAoOX3BlbmRpbmdfYnl0ZXNCFAoSX3BlbmRpbmdfYnl0ZXNfbWF4QhEKD19yZWNvbm5lY3RzXzI0aEIVChNfc2xvd19jb25zdW1lcnNfMjRoQgwKCl9zdGFsZV8yNGhCEgoQX3Nob3J0X2xpdmVkXzI0aEIOCgxfaW5fbXNnc18yNGhCDwoNX291dF9tc2dzXzI0aEIPCg1faW5fYnl0ZXNfMjRoQhAKDl9vdXRfYnl0ZXNfMjRoIm4KEUFwcGxpY2F0aW9uU3ByZWFkEg4KBnNlcnZlchgBIAEoCRITCgtjb25uZWN0aW9ucxgCIAEoBRINCgV0b3RhbBgDIAEoBRIPCgdzZXJ2ZXJzGAQgASgFEhQKDGNvbmNlbnRyYXRlZBgFIAEoCCJBCgpMaWJyYXJ5VXNlEgwKBGxhbmcYASABKAkSDwoHdmVyc2lvbhgCIAEoCRIUCgxhcHBsaWNhdGlvbnMYAyABKAUijwEKE0FwcGxpY2F0aW9uc0xhc3REYXkSGwoOc2xvd19jb25zdW1lcnMYASABKAVIAIgBARISCgVzdGFsZRgCIAEoBUgBiAEBEhkKDHJlY29ubmVjdGluZxgDIAEoBUgCiAEBQhEKD19zbG93X2NvbnN1bWVyc0IICgZfc3RhbGVCDwoNX3JlY29ubmVjdGluZyLJAwoXR2V0QXBwbGljYXRpb25zUmVzcG9uc2USDQoFZXBvY2gYASABKAMSLAoIZXBvY2hfYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KDGFwcGxpY2F0aW9ucxgDIAMoCzIYLm5hdHNsZW5zLnYxLkFwcGxpY2F0aW9uEhoKEmFwcGxpY2F0aW9uc190b3RhbBgEIAEoBRIZChFjb25uZWN0aW9uc190b3RhbBgFIAEoBRIWCg50b29saW5nX2hpZGRlbhgGIAEoBRIuCgZzcHJlYWQYByABKAsyHi5uYXRzbGVucy52MS5BcHBsaWNhdGlvblNwcmVhZBIqCglsaWJyYXJpZXMYCCADKAsyFy5uYXRzbGVucy52MS5MaWJyYXJ5VXNlEjIKCGxhc3RfZGF5GAkgASgLMiAubmF0c2xlbnMudjEuQXBwbGljYXRpb25zTGFzdERheRIRCgljb25uel9jdXQYCiABKAgSFwoPZXZlbnRzX2NhcHR1cmVkGAsgASgIEg8KB3BhcnRpYWwYDCABKAgSDwoHbWlzc2luZxgNIAMoCRIUCgxjYXB0dXJlX2dhcHMYDiABKAhCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("Ch5uYXRzbGVucy92MS9hcHBsaWNhdGlvbnMucHJvdG8SC25hdHNsZW5zLnYxInkKFkdldEFwcGxpY2F0aW9uc1JlcXVlc3QSDgoGc3lzdGVtGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg8KB2FjY291bnQYAyABKAkSFwoPaW5jbHVkZV90b29saW5nGAQgASgIIjIKC1NlcnZlckNvdW50Eg4KBnNlcnZlchgBIAEoCRITCgtjb25uZWN0aW9ucxgCIAEoBSJCCgxMaWJyYXJ5Q291bnQSDAoEbGFuZxgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhMKC2Nvbm5lY3Rpb25zGAMgASgFIjsKEkFwcGxpY2F0aW9uQWNjb3VudBIPCgdhY2NvdW50GAEgASgJEhQKDGFjY291bnRfbmFtZRgCIAEoCSKMAQoKRmluZGluZ1JlZhIKCgJpZBgBIAEoCRISCgpjaGVja19jb2RlGAIgASgJEhIKCmNoZWNrX25hbWUYAyABKAkSJwoIc2V2ZXJpdHkYBCABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRINCgVtdXRlZBgFIAEoCBISCgplbnRpdHlfa2V5GAYgASgJIscBCgtIb3VyVHJhZmZpYxIoCgRob3VyGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgdpbl9tc2dzGAIgASgDSACIAQESFQoIb3V0X21zZ3MYAyABKANIAYgBARIVCghpbl9ieXRlcxgEIAEoA0gCiAEBEhYKCW91dF9ieXRlcxgFIAEoA0gDiAEBQgoKCF9pbl9tc2dzQgsKCV9vdXRfbXNnc0ILCglfaW5fYnl0ZXNCDAoKX291dF9ieXRlcyKRCAoLQXBwbGljYXRpb24SDAoEbmFtZRgBIAEoCRITCgtjb25uZWN0aW9ucxgCIAEoBRIRCglpbnN0YW5jZXMYAyABKAUSDAoEcG9kcxgEIAMoCRISCgpwb2RzX3RvdGFsGAUgASgFEikKB3NlcnZlcnMYBiADKAsyGC5uYXRzbGVucy52MS5TZXJ2ZXJDb3VudBIxCghhY2NvdW50cxgHIAMoCzIfLm5hdHNsZW5zLnYxLkFwcGxpY2F0aW9uQWNjb3VudBIsCglsaWJyYXJpZXMYCCADKAsyGS5uYXRzbGVucy52MS5MaWJyYXJ5Q291bnQSKgoHcnR0X3A1MBgJIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1zdWJzY3JpcHRpb25zGAogASgDSACIAQESGgoNcGVuZGluZ19ieXRlcxgLIAEoA0gBiAEBEh4KEXBlbmRpbmdfYnl0ZXNfbWF4GAwgASgDSAKIAQESGwoOcmVjb25uZWN0c18yNGgYDSABKAVIA4gBARIfChJzbG93X2NvbnN1bWVyc18yNGgYDiABKAVIBIgBARIWCglzdGFsZV8yNGgYDyABKAVIBYgBARIcCg9zaG9ydF9saXZlZF8yNGgYECABKAVIBogBARIpCghmaW5kaW5ncxgRIAMoCzIXLm5hdHNsZW5zLnYxLkZpbmRpbmdSZWYSKQoHdHJhZmZpYxgSIAMoCzIYLm5hdHNsZW5zLnYxLkhvdXJUcmFmZmljEhgKC2luX21zZ3NfMjRoGBMgASgDSAeIAQESGQoMb3V0X21zZ3NfMjRoGBQgASgDSAiIAQESGQoMaW5fYnl0ZXNfMjRoGBUgASgDSAmIAQESGgoNb3V0X2J5dGVzXzI0aBgWIAEoA0gKiAEBEg8KB3Rvb2xpbmcYFyABKAgSEQoJYWRkcmVzc2VzGBggAygJEhcKD2FkZHJlc3Nlc190b3RhbBgZIAEoBRIYChBjb25uZWN0aW9uX25hbWVzGBogAygJEhIKCm1vcmVfbmFtZXMYGyABKAUSLwoHcnVuc19vbhgcIAEoCzIeLm5hdHNsZW5zLnYxLkFwcGxpY2F0aW9uUnVuc09uQhAKDl9zdWJzY3JpcHRpb25zQhAKDl9wZW5kaW5nX2J5dGVzQhQKEl9wZW5kaW5nX2J5dGVzX21heEIRCg9fcmVjb25uZWN0c18yNGhCFQoTX3Nsb3dfY29uc3VtZXJzXzI0aEIMCgpfc3RhbGVfMjRoQhIKEF9zaG9ydF9saXZlZF8yNGhCDgoMX2luX21zZ3NfMjRoQg8KDV9vdXRfbXNnc18yNGhCDwoNX2luX2J5dGVzXzI0aEIQCg5fb3V0X2J5dGVzXzI0aCJnChNBcHBsaWNhdGlvbldvcmtsb2FkEhEKCW5hbWVzcGFjZRgBIAEoCRIMCgRraW5kGAIgASgJEgwKBG5hbWUYAyABKAkSDAoEcG9kcxgEIAEoBRITCgtjb25uZWN0aW9ucxgFIAEoBSK3AQoRQXBwbGljYXRpb25SdW5zT24SDwoHbWF0Y2hlZBgBIAEoBRIRCglhbWJpZ3VvdXMYAiABKAUSMwoJd29ya2xvYWRzGAMgAygLMiAubmF0c2xlbnMudjEuQXBwbGljYXRpb25Xb3JrbG9hZBIXCg93b3JrbG9hZHNfdG90YWwYBCABKAUSDQoFbm9kZXMYBSADKAkSEwoLbm9kZXNfdG90YWwYBiABKAUSDAoEcG9kcxgHIAEoBSJdChFDbGllbnRQb2RXYXRjaEdhcBIOCgZzb3VyY2UYASABKAkSKQoFc2luY2UYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWVycm9yGAMgASgJIm4KEUFwcGxpY2F0aW9uU3ByZWFkEg4KBnNlcnZlchgBIAEoCRITCgtjb25uZWN0aW9ucxgCIAEoBRINCgV0b3RhbBgDIAEoBRIPCgdzZXJ2ZXJzGAQgASgFEhQKDGNvbmNlbnRyYXRlZBgFIAEoCCJBCgpMaWJyYXJ5VXNlEgwKBGxhbmcYASABKAkSDwoHdmVyc2lvbhgCIAEoCRIUCgxhcHBsaWNhdGlvbnMYAyABKAUijwEKE0FwcGxpY2F0aW9uc0xhc3REYXkSGwoOc2xvd19jb25zdW1lcnMYASABKAVIAIgBARISCgVzdGFsZRgCIAEoBUgBiAEBEhkKDHJlY29ubmVjdGluZxgDIAEoBUgCiAEBQhEKD19zbG93X2NvbnN1bWVyc0IICgZfc3RhbGVCDwoNX3JlY29ubmVjdGluZyKlBAoXR2V0QXBwbGljYXRpb25zUmVzcG9uc2USDQoFZXBvY2gYASABKAMSLAoIZXBvY2hfYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KDGFwcGxpY2F0aW9ucxgDIAMoCzIYLm5hdHNsZW5zLnYxLkFwcGxpY2F0aW9uEhoKEmFwcGxpY2F0aW9uc190b3RhbBgEIAEoBRIZChFjb25uZWN0aW9uc190b3RhbBgFIAEoBRIWCg50b29saW5nX2hpZGRlbhgGIAEoBRIuCgZzcHJlYWQYByABKAsyHi5uYXRzbGVucy52MS5BcHBsaWNhdGlvblNwcmVhZBIqCglsaWJyYXJpZXMYCCADKAsyFy5uYXRzbGVucy52MS5MaWJyYXJ5VXNlEjIKCGxhc3RfZGF5GAkgASgLMiAubmF0c2xlbnMudjEuQXBwbGljYXRpb25zTGFzdERheRIRCgljb25uel9jdXQYCiABKAgSFwoPZXZlbnRzX2NhcHR1cmVkGAsgASgIEg8KB3BhcnRpYWwYDCABKAgSDwoHbWlzc2luZxgNIAMoCRIUCgxjYXB0dXJlX2dhcHMYDiABKAgSGwoTY2xpZW50X3BvZHNfd2F0Y2hlZBgPIAEoCBI9ChVjbGllbnRfcG9kc191bndhdGNoZWQYECADKAsyHi5uYXRzbGVucy52MS5DbGllbnRQb2RXYXRjaEdhcEJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * Request for the client applications of a system: the connections of the
@@ -474,6 +474,14 @@ export type Application = Message<"natslens.v1.Application"> & {
    * @generated from field: int32 more_names = 27;
    */
   moreNames: number;
+
+  /**
+   * Where the connections run, from the client pods nats-lens watches;
+   * unset when kubernetes.client_pod_watch is off.
+   *
+   * @generated from field: natslens.v1.ApplicationRunsOn runs_on = 28;
+   */
+  runsOn?: ApplicationRunsOn | undefined;
 };
 
 /**
@@ -482,6 +490,161 @@ export type Application = Message<"natslens.v1.Application"> & {
  */
 export const ApplicationSchema: GenMessage<Application> = /*@__PURE__*/
   messageDesc(file_natslens_v1_applications, 6);
+
+/**
+ * The workload that owns some of an application's pods.
+ *
+ * @generated from message natslens.v1.ApplicationWorkload
+ */
+export type ApplicationWorkload = Message<"natslens.v1.ApplicationWorkload"> & {
+  /**
+   * Namespace of the pods.
+   *
+   * @generated from field: string namespace = 1;
+   */
+  namespace: string;
+
+  /**
+   * Kind of the owner: Deployment, StatefulSet, DaemonSet, CronJob, Job,
+   * ReplicaSet, another controller's kind, or Pod for a pod without one.
+   *
+   * @generated from field: string kind = 2;
+   */
+  kind: string;
+
+  /**
+   * Name of the owner; the pod's own name for a bare pod.
+   *
+   * @generated from field: string name = 3;
+   */
+  name: string;
+
+  /**
+   * Distinct pods of it that connections were matched to.
+   *
+   * @generated from field: int32 pods = 4;
+   */
+  pods: number;
+
+  /**
+   * Connections matched to its pods.
+   *
+   * @generated from field: int32 connections = 5;
+   */
+  connections: number;
+};
+
+/**
+ * Describes the message natslens.v1.ApplicationWorkload.
+ * Use `create(ApplicationWorkloadSchema)` to create a new message.
+ */
+export const ApplicationWorkloadSchema: GenMessage<ApplicationWorkload> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_applications, 7);
+
+/**
+ * Where an application's connections run: each connection's client
+ * address matched to the watched pod that held that address at the
+ * epoch. A connection from outside the watched namespaces, or through a
+ * proxy or NAT, is not matched; one from an address that a host-network
+ * pod or more than one pod held is ambiguous and not matched to a pod.
+ *
+ * @generated from message natslens.v1.ApplicationRunsOn
+ */
+export type ApplicationRunsOn = Message<"natslens.v1.ApplicationRunsOn"> & {
+  /**
+   * Connections matched to exactly one pod.
+   *
+   * @generated from field: int32 matched = 1;
+   */
+  matched: number;
+
+  /**
+   * Connections whose address a host-network pod, or more than one pod,
+   * held at the epoch.
+   *
+   * @generated from field: int32 ambiguous = 2;
+   */
+  ambiguous: number;
+
+  /**
+   * The workloads of the matched pods, most connections first, then by
+   * namespace, kind and name; at most 10.
+   *
+   * @generated from field: repeated natslens.v1.ApplicationWorkload workloads = 3;
+   */
+  workloads: ApplicationWorkload[];
+
+  /**
+   * Distinct workloads, before the limit of 10.
+   *
+   * @generated from field: int32 workloads_total = 4;
+   */
+  workloadsTotal: number;
+
+  /**
+   * The nodes of the matched pods, sorted, at most 10.
+   *
+   * @generated from field: repeated string nodes = 5;
+   */
+  nodes: string[];
+
+  /**
+   * Distinct nodes, before the limit of 10.
+   *
+   * @generated from field: int32 nodes_total = 6;
+   */
+  nodesTotal: number;
+
+  /**
+   * Distinct pods matched.
+   *
+   * @generated from field: int32 pods = 7;
+   */
+  pods: number;
+};
+
+/**
+ * Describes the message natslens.v1.ApplicationRunsOn.
+ * Use `create(ApplicationRunsOnSchema)` to create a new message.
+ */
+export const ApplicationRunsOnSchema: GenMessage<ApplicationRunsOn> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_applications, 8);
+
+/**
+ * A client pod watch that was failing at the epoch: Runs on can miss
+ * the pods it should have seen.
+ *
+ * @generated from message natslens.v1.ClientPodWatchGap
+ */
+export type ClientPodWatchGap = Message<"natslens.v1.ClientPodWatchGap"> & {
+  /**
+   * The watch, for example "client pods in shop".
+   *
+   * @generated from field: string source = 1;
+   */
+  source: string;
+
+  /**
+   * When it was first recorded as failing.
+   *
+   * @generated from field: google.protobuf.Timestamp since = 2;
+   */
+  since?: Timestamp | undefined;
+
+  /**
+   * Why, for example "Kubernetes API returned HTTP 403".
+   *
+   * @generated from field: string error = 3;
+   */
+  error: string;
+};
+
+/**
+ * Describes the message natslens.v1.ClientPodWatchGap.
+ * Use `create(ClientPodWatchGapSchema)` to create a new message.
+ */
+export const ClientPodWatchGapSchema: GenMessage<ClientPodWatchGap> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_applications, 9);
 
 /**
  * How the listed connections spread over the servers.
@@ -532,7 +695,7 @@ export type ApplicationSpread = Message<"natslens.v1.ApplicationSpread"> & {
  * Use `create(ApplicationSpreadSchema)` to create a new message.
  */
 export const ApplicationSpreadSchema: GenMessage<ApplicationSpread> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_applications, 7);
+  messageDesc(file_natslens_v1_applications, 10);
 
 /**
  * A client library version and the applications that use it.
@@ -567,7 +730,7 @@ export type LibraryUse = Message<"natslens.v1.LibraryUse"> & {
  * Use `create(LibraryUseSchema)` to create a new message.
  */
 export const LibraryUseSchema: GenMessage<LibraryUse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_applications, 8);
+  messageDesc(file_natslens_v1_applications, 11);
 
 /**
  * The 24-hour counts over the applications in the scope.
@@ -602,7 +765,7 @@ export type ApplicationsLastDay = Message<"natslens.v1.ApplicationsLastDay"> & {
  * Use `create(ApplicationsLastDaySchema)` to create a new message.
  */
 export const ApplicationsLastDaySchema: GenMessage<ApplicationsLastDay> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_applications, 9);
+  messageDesc(file_natslens_v1_applications, 12);
 
 /**
  * The client applications of the range's newest epoch.
@@ -724,6 +887,21 @@ export type GetApplicationsResponse = Message<"natslens.v1.GetApplicationsRespon
    * @generated from field: bool capture_gaps = 14;
    */
   captureGaps: boolean;
+
+  /**
+   * Whether the system watches client pods (kubernetes.client_pod_watch
+   * is set); each application's runs_on is unset when not.
+   *
+   * @generated from field: bool client_pods_watched = 15;
+   */
+  clientPodsWatched: boolean;
+
+  /**
+   * The client pod watches failing at the epoch, by source.
+   *
+   * @generated from field: repeated natslens.v1.ClientPodWatchGap client_pods_unwatched = 16;
+   */
+  clientPodsUnwatched: ClientPodWatchGap[];
 };
 
 /**
@@ -731,5 +909,5 @@ export type GetApplicationsResponse = Message<"natslens.v1.GetApplicationsRespon
  * Use `create(GetApplicationsResponseSchema)` to create a new message.
  */
 export const GetApplicationsResponseSchema: GenMessage<GetApplicationsResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_applications, 10);
+  messageDesc(file_natslens_v1_applications, 13);
 

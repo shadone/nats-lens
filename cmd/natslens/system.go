@@ -73,7 +73,8 @@ func archiveDirSet(cfg config.Config, id string) bool {
 func (rt *systemRuntime) provider(set *checks.Set) *storeprov.Provider {
 	p := &storeprov.Provider{St: rt.st, Interval: rt.cfg.Interval.D(), Retention: rt.sys.Retention.D(), Live: true, Checks: set,
 		ToolingNames: rt.sys.ToolingNames(), LoopbackNotTooling: !rt.cfg.Checks.LoopbackTooling(),
-		ClientPods: rt.sys.Kubernetes.ClientPodsPattern(), Kubernetes: rt.sys.Kubernetes.Enabled}
+		ClientPods: rt.sys.Kubernetes.ClientPodsPattern(), Kubernetes: rt.sys.Kubernetes.Enabled,
+		ClientPodWatch: rt.sys.Kubernetes.Enabled && rt.sys.Kubernetes.ClientPodWatch.On()}
 	if rt.arch != nil {
 		p.ArchiveStatus = rt.archiveState
 	}

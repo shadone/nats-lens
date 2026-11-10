@@ -532,7 +532,10 @@ type Application struct {
 	// name filter finds all of its events.
 	ConnectionNames []string `protobuf:"bytes,26,rep,name=connection_names,json=connectionNames,proto3" json:"connection_names,omitempty"`
 	// Distinct names beyond connection_names.
-	MoreNames     int32 `protobuf:"varint,27,opt,name=more_names,json=moreNames,proto3" json:"more_names,omitempty"`
+	MoreNames int32 `protobuf:"varint,27,opt,name=more_names,json=moreNames,proto3" json:"more_names,omitempty"`
+	// Where the connections run, from the client pods nats-lens watches;
+	// unset when kubernetes.client_pod_watch is off.
+	RunsOn        *ApplicationRunsOn `protobuf:"bytes,28,opt,name=runs_on,json=runsOn,proto3" json:"runs_on,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -756,6 +759,267 @@ func (x *Application) GetMoreNames() int32 {
 	return 0
 }
 
+func (x *Application) GetRunsOn() *ApplicationRunsOn {
+	if x != nil {
+		return x.RunsOn
+	}
+	return nil
+}
+
+// The workload that owns some of an application's pods.
+type ApplicationWorkload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Namespace of the pods.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Kind of the owner: Deployment, StatefulSet, DaemonSet, CronJob, Job,
+	// ReplicaSet, another controller's kind, or Pod for a pod without one.
+	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	// Name of the owner; the pod's own name for a bare pod.
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// Distinct pods of it that connections were matched to.
+	Pods int32 `protobuf:"varint,4,opt,name=pods,proto3" json:"pods,omitempty"`
+	// Connections matched to its pods.
+	Connections   int32 `protobuf:"varint,5,opt,name=connections,proto3" json:"connections,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApplicationWorkload) Reset() {
+	*x = ApplicationWorkload{}
+	mi := &file_natslens_v1_applications_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApplicationWorkload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApplicationWorkload) ProtoMessage() {}
+
+func (x *ApplicationWorkload) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_applications_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApplicationWorkload.ProtoReflect.Descriptor instead.
+func (*ApplicationWorkload) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_applications_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ApplicationWorkload) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ApplicationWorkload) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *ApplicationWorkload) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ApplicationWorkload) GetPods() int32 {
+	if x != nil {
+		return x.Pods
+	}
+	return 0
+}
+
+func (x *ApplicationWorkload) GetConnections() int32 {
+	if x != nil {
+		return x.Connections
+	}
+	return 0
+}
+
+// Where an application's connections run: each connection's client
+// address matched to the watched pod that held that address at the
+// epoch. A connection from outside the watched namespaces, or through a
+// proxy or NAT, is not matched; one from an address that a host-network
+// pod or more than one pod held is ambiguous and not matched to a pod.
+type ApplicationRunsOn struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Connections matched to exactly one pod.
+	Matched int32 `protobuf:"varint,1,opt,name=matched,proto3" json:"matched,omitempty"`
+	// Connections whose address a host-network pod, or more than one pod,
+	// held at the epoch.
+	Ambiguous int32 `protobuf:"varint,2,opt,name=ambiguous,proto3" json:"ambiguous,omitempty"`
+	// The workloads of the matched pods, most connections first, then by
+	// namespace, kind and name; at most 10.
+	Workloads []*ApplicationWorkload `protobuf:"bytes,3,rep,name=workloads,proto3" json:"workloads,omitempty"`
+	// Distinct workloads, before the limit of 10.
+	WorkloadsTotal int32 `protobuf:"varint,4,opt,name=workloads_total,json=workloadsTotal,proto3" json:"workloads_total,omitempty"`
+	// The nodes of the matched pods, sorted, at most 10.
+	Nodes []string `protobuf:"bytes,5,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	// Distinct nodes, before the limit of 10.
+	NodesTotal int32 `protobuf:"varint,6,opt,name=nodes_total,json=nodesTotal,proto3" json:"nodes_total,omitempty"`
+	// Distinct pods matched.
+	Pods          int32 `protobuf:"varint,7,opt,name=pods,proto3" json:"pods,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApplicationRunsOn) Reset() {
+	*x = ApplicationRunsOn{}
+	mi := &file_natslens_v1_applications_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApplicationRunsOn) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApplicationRunsOn) ProtoMessage() {}
+
+func (x *ApplicationRunsOn) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_applications_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApplicationRunsOn.ProtoReflect.Descriptor instead.
+func (*ApplicationRunsOn) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_applications_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ApplicationRunsOn) GetMatched() int32 {
+	if x != nil {
+		return x.Matched
+	}
+	return 0
+}
+
+func (x *ApplicationRunsOn) GetAmbiguous() int32 {
+	if x != nil {
+		return x.Ambiguous
+	}
+	return 0
+}
+
+func (x *ApplicationRunsOn) GetWorkloads() []*ApplicationWorkload {
+	if x != nil {
+		return x.Workloads
+	}
+	return nil
+}
+
+func (x *ApplicationRunsOn) GetWorkloadsTotal() int32 {
+	if x != nil {
+		return x.WorkloadsTotal
+	}
+	return 0
+}
+
+func (x *ApplicationRunsOn) GetNodes() []string {
+	if x != nil {
+		return x.Nodes
+	}
+	return nil
+}
+
+func (x *ApplicationRunsOn) GetNodesTotal() int32 {
+	if x != nil {
+		return x.NodesTotal
+	}
+	return 0
+}
+
+func (x *ApplicationRunsOn) GetPods() int32 {
+	if x != nil {
+		return x.Pods
+	}
+	return 0
+}
+
+// A client pod watch that was failing at the epoch: Runs on can miss
+// the pods it should have seen.
+type ClientPodWatchGap struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The watch, for example "client pods in shop".
+	Source string `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	// When it was first recorded as failing.
+	Since *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=since,proto3" json:"since,omitempty"`
+	// Why, for example "Kubernetes API returned HTTP 403".
+	Error         string `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientPodWatchGap) Reset() {
+	*x = ClientPodWatchGap{}
+	mi := &file_natslens_v1_applications_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientPodWatchGap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientPodWatchGap) ProtoMessage() {}
+
+func (x *ClientPodWatchGap) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_applications_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientPodWatchGap.ProtoReflect.Descriptor instead.
+func (*ClientPodWatchGap) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_applications_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ClientPodWatchGap) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *ClientPodWatchGap) GetSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Since
+	}
+	return nil
+}
+
+func (x *ClientPodWatchGap) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 // How the listed connections spread over the servers.
 type ApplicationSpread struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -778,7 +1042,7 @@ type ApplicationSpread struct {
 
 func (x *ApplicationSpread) Reset() {
 	*x = ApplicationSpread{}
-	mi := &file_natslens_v1_applications_proto_msgTypes[7]
+	mi := &file_natslens_v1_applications_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -790,7 +1054,7 @@ func (x *ApplicationSpread) String() string {
 func (*ApplicationSpread) ProtoMessage() {}
 
 func (x *ApplicationSpread) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_applications_proto_msgTypes[7]
+	mi := &file_natslens_v1_applications_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -803,7 +1067,7 @@ func (x *ApplicationSpread) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplicationSpread.ProtoReflect.Descriptor instead.
 func (*ApplicationSpread) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_applications_proto_rawDescGZIP(), []int{7}
+	return file_natslens_v1_applications_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ApplicationSpread) GetServer() string {
@@ -856,7 +1120,7 @@ type LibraryUse struct {
 
 func (x *LibraryUse) Reset() {
 	*x = LibraryUse{}
-	mi := &file_natslens_v1_applications_proto_msgTypes[8]
+	mi := &file_natslens_v1_applications_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -868,7 +1132,7 @@ func (x *LibraryUse) String() string {
 func (*LibraryUse) ProtoMessage() {}
 
 func (x *LibraryUse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_applications_proto_msgTypes[8]
+	mi := &file_natslens_v1_applications_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -881,7 +1145,7 @@ func (x *LibraryUse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LibraryUse.ProtoReflect.Descriptor instead.
 func (*LibraryUse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_applications_proto_rawDescGZIP(), []int{8}
+	return file_natslens_v1_applications_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *LibraryUse) GetLang() string {
@@ -921,7 +1185,7 @@ type ApplicationsLastDay struct {
 
 func (x *ApplicationsLastDay) Reset() {
 	*x = ApplicationsLastDay{}
-	mi := &file_natslens_v1_applications_proto_msgTypes[9]
+	mi := &file_natslens_v1_applications_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -933,7 +1197,7 @@ func (x *ApplicationsLastDay) String() string {
 func (*ApplicationsLastDay) ProtoMessage() {}
 
 func (x *ApplicationsLastDay) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_applications_proto_msgTypes[9]
+	mi := &file_natslens_v1_applications_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -946,7 +1210,7 @@ func (x *ApplicationsLastDay) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplicationsLastDay.ProtoReflect.Descriptor instead.
 func (*ApplicationsLastDay) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_applications_proto_rawDescGZIP(), []int{9}
+	return file_natslens_v1_applications_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ApplicationsLastDay) GetSlowConsumers() int32 {
@@ -1017,14 +1281,19 @@ type GetApplicationsResponse struct {
 	// before the epoch (nats-lens stopped, or a connection that captures
 	// events was lost), as on the Accounts and auth page: the 24-hour
 	// counts are then lower bounds. False when events_captured is false.
-	CaptureGaps   bool `protobuf:"varint,14,opt,name=capture_gaps,json=captureGaps,proto3" json:"capture_gaps,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	CaptureGaps bool `protobuf:"varint,14,opt,name=capture_gaps,json=captureGaps,proto3" json:"capture_gaps,omitempty"`
+	// Whether the system watches client pods (kubernetes.client_pod_watch
+	// is set); each application's runs_on is unset when not.
+	ClientPodsWatched bool `protobuf:"varint,15,opt,name=client_pods_watched,json=clientPodsWatched,proto3" json:"client_pods_watched,omitempty"`
+	// The client pod watches failing at the epoch, by source.
+	ClientPodsUnwatched []*ClientPodWatchGap `protobuf:"bytes,16,rep,name=client_pods_unwatched,json=clientPodsUnwatched,proto3" json:"client_pods_unwatched,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *GetApplicationsResponse) Reset() {
 	*x = GetApplicationsResponse{}
-	mi := &file_natslens_v1_applications_proto_msgTypes[10]
+	mi := &file_natslens_v1_applications_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1036,7 +1305,7 @@ func (x *GetApplicationsResponse) String() string {
 func (*GetApplicationsResponse) ProtoMessage() {}
 
 func (x *GetApplicationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_applications_proto_msgTypes[10]
+	mi := &file_natslens_v1_applications_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1049,7 +1318,7 @@ func (x *GetApplicationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetApplicationsResponse.ProtoReflect.Descriptor instead.
 func (*GetApplicationsResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_applications_proto_rawDescGZIP(), []int{10}
+	return file_natslens_v1_applications_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetApplicationsResponse) GetEpoch() int64 {
@@ -1150,6 +1419,20 @@ func (x *GetApplicationsResponse) GetCaptureGaps() bool {
 	return false
 }
 
+func (x *GetApplicationsResponse) GetClientPodsWatched() bool {
+	if x != nil {
+		return x.ClientPodsWatched
+	}
+	return false
+}
+
+func (x *GetApplicationsResponse) GetClientPodsUnwatched() []*ClientPodWatchGap {
+	if x != nil {
+		return x.ClientPodsUnwatched
+	}
+	return nil
+}
+
 var File_natslens_v1_applications_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_applications_proto_rawDesc = "" +
@@ -1192,7 +1475,7 @@ const file_natslens_v1_applications_proto_rawDesc = "" +
 	"\t_out_msgsB\v\n" +
 	"\t_in_bytesB\f\n" +
 	"\n" +
-	"_out_bytes\"\xa0\n" +
+	"_out_bytes\"\xd9\n" +
 	"\n" +
 	"\vApplication\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
@@ -1227,7 +1510,8 @@ const file_natslens_v1_applications_proto_rawDesc = "" +
 	"\x0faddresses_total\x18\x19 \x01(\x05R\x0eaddressesTotal\x12)\n" +
 	"\x10connection_names\x18\x1a \x03(\tR\x0fconnectionNames\x12\x1d\n" +
 	"\n" +
-	"more_names\x18\x1b \x01(\x05R\tmoreNamesB\x10\n" +
+	"more_names\x18\x1b \x01(\x05R\tmoreNames\x127\n" +
+	"\aruns_on\x18\x1c \x01(\v2\x1e.natslens.v1.ApplicationRunsOnR\x06runsOnB\x10\n" +
 	"\x0e_subscriptionsB\x10\n" +
 	"\x0e_pending_bytesB\x14\n" +
 	"\x12_pending_bytes_maxB\x11\n" +
@@ -1239,7 +1523,26 @@ const file_natslens_v1_applications_proto_rawDesc = "" +
 	"\f_in_msgs_24hB\x0f\n" +
 	"\r_out_msgs_24hB\x0f\n" +
 	"\r_in_bytes_24hB\x10\n" +
-	"\x0e_out_bytes_24h\"\xa1\x01\n" +
+	"\x0e_out_bytes_24h\"\x91\x01\n" +
+	"\x13ApplicationWorkload\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
+	"\x04pods\x18\x04 \x01(\x05R\x04pods\x12 \n" +
+	"\vconnections\x18\x05 \x01(\x05R\vconnections\"\xff\x01\n" +
+	"\x11ApplicationRunsOn\x12\x18\n" +
+	"\amatched\x18\x01 \x01(\x05R\amatched\x12\x1c\n" +
+	"\tambiguous\x18\x02 \x01(\x05R\tambiguous\x12>\n" +
+	"\tworkloads\x18\x03 \x03(\v2 .natslens.v1.ApplicationWorkloadR\tworkloads\x12'\n" +
+	"\x0fworkloads_total\x18\x04 \x01(\x05R\x0eworkloadsTotal\x12\x14\n" +
+	"\x05nodes\x18\x05 \x03(\tR\x05nodes\x12\x1f\n" +
+	"\vnodes_total\x18\x06 \x01(\x05R\n" +
+	"nodesTotal\x12\x12\n" +
+	"\x04pods\x18\a \x01(\x05R\x04pods\"s\n" +
+	"\x11ClientPodWatchGap\x12\x16\n" +
+	"\x06source\x18\x01 \x01(\tR\x06source\x120\n" +
+	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"\xa1\x01\n" +
 	"\x11ApplicationSpread\x12\x16\n" +
 	"\x06server\x18\x01 \x01(\tR\x06server\x12 \n" +
 	"\vconnections\x18\x02 \x01(\x05R\vconnections\x12\x14\n" +
@@ -1257,7 +1560,7 @@ const file_natslens_v1_applications_proto_rawDesc = "" +
 	"\freconnecting\x18\x03 \x01(\x05H\x02R\freconnecting\x88\x01\x01B\x11\n" +
 	"\x0f_slow_consumersB\b\n" +
 	"\x06_staleB\x0f\n" +
-	"\r_reconnecting\"\xf0\x04\n" +
+	"\r_reconnecting\"\xf4\x05\n" +
 	"\x17GetApplicationsResponse\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x125\n" +
 	"\bepoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt\x12<\n" +
@@ -1273,7 +1576,9 @@ const file_natslens_v1_applications_proto_rawDesc = "" +
 	"\x0fevents_captured\x18\v \x01(\bR\x0eeventsCaptured\x12\x18\n" +
 	"\apartial\x18\f \x01(\bR\apartial\x12\x18\n" +
 	"\amissing\x18\r \x03(\tR\amissing\x12!\n" +
-	"\fcapture_gaps\x18\x0e \x01(\bR\vcaptureGapsBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\fcapture_gaps\x18\x0e \x01(\bR\vcaptureGaps\x12.\n" +
+	"\x13client_pods_watched\x18\x0f \x01(\bR\x11clientPodsWatched\x12R\n" +
+	"\x15client_pods_unwatched\x18\x10 \x03(\v2\x1e.natslens.v1.ClientPodWatchGapR\x13clientPodsUnwatchedBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_applications_proto_rawDescOnce sync.Once
@@ -1287,7 +1592,7 @@ func file_natslens_v1_applications_proto_rawDescGZIP() []byte {
 	return file_natslens_v1_applications_proto_rawDescData
 }
 
-var file_natslens_v1_applications_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_natslens_v1_applications_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_natslens_v1_applications_proto_goTypes = []any{
 	(*GetApplicationsRequest)(nil),  // 0: natslens.v1.GetApplicationsRequest
 	(*ServerCount)(nil),             // 1: natslens.v1.ServerCount
@@ -1296,35 +1601,42 @@ var file_natslens_v1_applications_proto_goTypes = []any{
 	(*FindingRef)(nil),              // 4: natslens.v1.FindingRef
 	(*HourTraffic)(nil),             // 5: natslens.v1.HourTraffic
 	(*Application)(nil),             // 6: natslens.v1.Application
-	(*ApplicationSpread)(nil),       // 7: natslens.v1.ApplicationSpread
-	(*LibraryUse)(nil),              // 8: natslens.v1.LibraryUse
-	(*ApplicationsLastDay)(nil),     // 9: natslens.v1.ApplicationsLastDay
-	(*GetApplicationsResponse)(nil), // 10: natslens.v1.GetApplicationsResponse
-	(*TimeRange)(nil),               // 11: natslens.v1.TimeRange
-	(Severity)(0),                   // 12: natslens.v1.Severity
-	(*timestamppb.Timestamp)(nil),   // 13: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),     // 14: google.protobuf.Duration
+	(*ApplicationWorkload)(nil),     // 7: natslens.v1.ApplicationWorkload
+	(*ApplicationRunsOn)(nil),       // 8: natslens.v1.ApplicationRunsOn
+	(*ClientPodWatchGap)(nil),       // 9: natslens.v1.ClientPodWatchGap
+	(*ApplicationSpread)(nil),       // 10: natslens.v1.ApplicationSpread
+	(*LibraryUse)(nil),              // 11: natslens.v1.LibraryUse
+	(*ApplicationsLastDay)(nil),     // 12: natslens.v1.ApplicationsLastDay
+	(*GetApplicationsResponse)(nil), // 13: natslens.v1.GetApplicationsResponse
+	(*TimeRange)(nil),               // 14: natslens.v1.TimeRange
+	(Severity)(0),                   // 15: natslens.v1.Severity
+	(*timestamppb.Timestamp)(nil),   // 16: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),     // 17: google.protobuf.Duration
 }
 var file_natslens_v1_applications_proto_depIdxs = []int32{
-	11, // 0: natslens.v1.GetApplicationsRequest.range:type_name -> natslens.v1.TimeRange
-	12, // 1: natslens.v1.FindingRef.severity:type_name -> natslens.v1.Severity
-	13, // 2: natslens.v1.HourTraffic.hour:type_name -> google.protobuf.Timestamp
+	14, // 0: natslens.v1.GetApplicationsRequest.range:type_name -> natslens.v1.TimeRange
+	15, // 1: natslens.v1.FindingRef.severity:type_name -> natslens.v1.Severity
+	16, // 2: natslens.v1.HourTraffic.hour:type_name -> google.protobuf.Timestamp
 	1,  // 3: natslens.v1.Application.servers:type_name -> natslens.v1.ServerCount
 	3,  // 4: natslens.v1.Application.accounts:type_name -> natslens.v1.ApplicationAccount
 	2,  // 5: natslens.v1.Application.libraries:type_name -> natslens.v1.LibraryCount
-	14, // 6: natslens.v1.Application.rtt_p50:type_name -> google.protobuf.Duration
+	17, // 6: natslens.v1.Application.rtt_p50:type_name -> google.protobuf.Duration
 	4,  // 7: natslens.v1.Application.findings:type_name -> natslens.v1.FindingRef
 	5,  // 8: natslens.v1.Application.traffic:type_name -> natslens.v1.HourTraffic
-	13, // 9: natslens.v1.GetApplicationsResponse.epoch_at:type_name -> google.protobuf.Timestamp
-	6,  // 10: natslens.v1.GetApplicationsResponse.applications:type_name -> natslens.v1.Application
-	7,  // 11: natslens.v1.GetApplicationsResponse.spread:type_name -> natslens.v1.ApplicationSpread
-	8,  // 12: natslens.v1.GetApplicationsResponse.libraries:type_name -> natslens.v1.LibraryUse
-	9,  // 13: natslens.v1.GetApplicationsResponse.last_day:type_name -> natslens.v1.ApplicationsLastDay
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	8,  // 9: natslens.v1.Application.runs_on:type_name -> natslens.v1.ApplicationRunsOn
+	7,  // 10: natslens.v1.ApplicationRunsOn.workloads:type_name -> natslens.v1.ApplicationWorkload
+	16, // 11: natslens.v1.ClientPodWatchGap.since:type_name -> google.protobuf.Timestamp
+	16, // 12: natslens.v1.GetApplicationsResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	6,  // 13: natslens.v1.GetApplicationsResponse.applications:type_name -> natslens.v1.Application
+	10, // 14: natslens.v1.GetApplicationsResponse.spread:type_name -> natslens.v1.ApplicationSpread
+	11, // 15: natslens.v1.GetApplicationsResponse.libraries:type_name -> natslens.v1.LibraryUse
+	12, // 16: natslens.v1.GetApplicationsResponse.last_day:type_name -> natslens.v1.ApplicationsLastDay
+	9,  // 17: natslens.v1.GetApplicationsResponse.client_pods_unwatched:type_name -> natslens.v1.ClientPodWatchGap
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_applications_proto_init() }
@@ -1335,14 +1647,14 @@ func file_natslens_v1_applications_proto_init() {
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_applications_proto_msgTypes[5].OneofWrappers = []any{}
 	file_natslens_v1_applications_proto_msgTypes[6].OneofWrappers = []any{}
-	file_natslens_v1_applications_proto_msgTypes[9].OneofWrappers = []any{}
+	file_natslens_v1_applications_proto_msgTypes[12].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_applications_proto_rawDesc), len(file_natslens_v1_applications_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

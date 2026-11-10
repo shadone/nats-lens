@@ -203,6 +203,7 @@ func appsStore(t *testing.T, last time.Time) *store.Store {
 		r.add("client_app_hours", map[string]any{"hour": hour.Add(-time.Duration(h.back) * time.Hour), "account": h.account, "app": h.app,
 			"loopback": h.loopback, "in_msgs": h.in, "out_msgs": 2 * h.in, "in_bytes": 100 * h.in, "out_bytes": 200 * h.in, "epochs": 12})
 	}
+	appsClientPods(r, last)
 	finding := func(code, key string) store.CheckRun {
 		return store.CheckRun{Code: code, EntityType: "client", Status: store.RunOK,
 			Rows: []store.FindingRow{{EntityKey: key, Severity: "warning", Detail: code + " on " + key}}}
@@ -229,11 +230,66 @@ func appsProvider(t *testing.T, last time.Time) *storeprov.Provider {
 	t.Helper()
 	clock := last.Add(30 * time.Second)
 	p := &storeprov.Provider{St: appsStore(t, last), Interval: 5 * time.Minute, Live: true, Clock: func() time.Time { return clock },
-		Retention: 14 * day, ToolingNames: appsTooling}
+		Retention: 14 * day, ToolingNames: appsTooling, ClientPodWatch: true}
 	if _, err := p.MuteFinding(ctx, &v1.MuteFindingRequest{CheckCode: "client-001",
 		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_CLIENT, Key: "order-service"}, Reason: "Its office instances are far away.",
 		MutedBy: "ops@example.com", ExpiresAt: timestamppb.New(clock.Add(24 * time.Hour))}); err != nil {
 		t.Fatal(err)
 	}
 	return p
+}
+
+// appsPod is one row of client_pods: its address, pod, node, workload,
+// and from and to as offsets before last (to < 0 for a live pod).
+type appsPod struct {
+	ip, ns, pod, node, kind, workload string
+	host                              bool
+	from, to                          time.Duration
+}
+
+// appsPods are the client pods of the applications store, at E3:
+// resize-worker's four pods run in media on node-1 and node-2;
+// callback-dispatcher's 10.1.0.6 is its pod in shop, 10.1.0.7 no pod's;
+// order-service's 10.1.0.8 is a host-network pod's, 10.1.0.9 was an
+// ended pod's before its new pod, 10.1.0.10 two pods' at once, 10.1.0.11
+// a pod's that ended before E3, and 10.1.0.17 a pod's that started after
+// it. At E2 resize-worker's rw-a ran on node-3.
+func appsPods() []appsPod {
+	live := -time.Duration(1)
+	return []appsPod{
+		{"10.1.0.1", "media", "rw-a", "node-1", "Deployment", "resize-worker", false, 2 * time.Hour, live},
+		{"10.1.0.1", "media", "rw-a-old", "node-3", "Deployment", "resize-worker", false, 30 * time.Hour, 2*time.Hour + time.Minute},
+		{"10.1.0.2", "media", "rw-b", "node-1", "Deployment", "resize-worker", false, 5 * time.Hour, live},
+		{"10.1.0.3", "media", "rw-c", "node-2", "Deployment", "resize-worker", false, 26 * time.Hour, live},
+		{"10.1.0.4", "media", "rw-d", "node-2", "Deployment", "resize-worker", false, time.Hour, live},
+		{"10.1.0.6", "shop", "callback-dispatcher-0", "node-1", "StatefulSet", "callback-dispatcher", false, 26 * time.Hour, live},
+		{"10.1.0.8", "shop", "node-agent-x", "node-1", "DaemonSet", "node-agent", true, 26 * time.Hour, live},
+		{"10.1.0.9", "shop", "order-service-old", "node-2", "Deployment", "order-service", false, 26 * time.Hour, time.Hour},
+		{"10.1.0.9", "shop", "order-service-b", "node-2", "Deployment", "order-service", false, 30 * time.Minute, live},
+		{"10.1.0.10", "shop", "order-service-c", "node-1", "Deployment", "order-service", false, 26 * time.Hour, live},
+		{"10.1.0.10", "shop", "order-service-d", "node-2", "Deployment", "order-service", false, 2 * time.Hour, live},
+		{"10.1.0.11", "shop", "order-service-e", "node-1", "Deployment", "order-service", false, 26 * time.Hour, 10 * time.Minute},
+		{"10.1.0.17", "shop", "order-service-f", "node-2", "Deployment", "order-service", false, -time.Minute, live},
+	}
+}
+
+// appsClientPods writes appsPods, and the client pod watches' records: the
+// watch in payments failing since 20 minutes before last, the one in shop
+// failing 5 hours before and back an hour later.
+func appsClientPods(r rows, last time.Time) {
+	for _, p := range appsPods() {
+		cols := map[string]any{"uid": "uid-" + p.pod, "ip": p.ip, "namespace": p.ns, "pod": p.pod, "node": p.node, "workload_kind": p.kind,
+			"workload": p.workload, "host_network": p.host, "first_seen": last.Add(-p.from), "last_seen": last}
+		if p.to >= 0 {
+			cols["ended_at"], cols["last_seen"] = last.Add(-p.to), last.Add(-p.to)
+		}
+		r.add("client_pods", cols)
+	}
+	watch := func(id int, kind, source string, at time.Time) {
+		r.add("events", map[string]any{"id": id, "time": at, "received_at": at, "source": "collector", "kind": kind,
+			"summary": kind + " " + source, "raw": fmt.Sprintf(`{"source":%q,"error":"Kubernetes API returned HTTP 403"}`, source)})
+	}
+	watch(60, "collector.k8s_not_watching", "client pods in payments", last.Add(-20*time.Minute))
+	watch(61, "collector.k8s_not_watching", "client pods in shop", last.Add(-5*time.Hour))
+	watch(62, "collector.k8s_gap", "client pods in shop", last.Add(-4*time.Hour))
 }

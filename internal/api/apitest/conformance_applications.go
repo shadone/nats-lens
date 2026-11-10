@@ -262,6 +262,47 @@ func applicationsRows() []State {
 			}
 			return accounts[len(accounts)-1]
 		}},
+		{"Runs on of every application while client pods are watched, none while not", func(q Q) string {
+			res := q.apps(q.day(), "", false)
+			for _, a := range res.GetApplications() {
+				r := a.GetRunsOn()
+				if (r != nil) != res.GetClientPodsWatched() {
+					q.t.Errorf("%s: %s runs on %v, watched %v", q.System, a.GetName(), r, res.GetClientPodsWatched())
+					return ""
+				}
+				if r == nil {
+					continue
+				}
+				var conns, pods int32
+				for _, w := range r.GetWorkloads() {
+					conns, pods = conns+w.GetConnections(), pods+w.GetPods()
+				}
+				if r.GetMatched()+r.GetAmbiguous() > a.GetConnections() || (r.GetWorkloadsTotal() == int32(len(r.GetWorkloads())) && (conns != r.GetMatched() || pods != r.GetPods())) ||
+					!slices.IsSorted(r.GetNodes()) || r.GetNodesTotal() < int32(len(r.GetNodes())) || (r.GetMatched() == 0) != (r.GetPods() == 0) {
+					q.t.Errorf("%s: %s runs on %v with %d connections", q.System, a.GetName(), r, a.GetConnections())
+					return ""
+				}
+			}
+			if !res.GetClientPodsWatched() || len(res.GetApplications()) == 0 {
+				return ""
+			}
+			return fmt.Sprintf("%d applications", len(res.GetApplications()))
+		}},
+		{"an application whose connections all run on watched pods: its workloads and nodes", application(func(_ *v1.GetApplicationsResponse, a *v1.Application) bool {
+			r := a.GetRunsOn()
+			return r.GetMatched() == a.GetConnections() && r.GetMatched() > 0 && len(r.GetWorkloads()) > 0 && len(r.GetNodes()) > 1 && r.GetPods() > 1
+		})},
+		{"an application partly matched to pods", application(func(_ *v1.GetApplicationsResponse, a *v1.Application) bool {
+			r := a.GetRunsOn()
+			return r.GetMatched() > 0 && r.GetMatched()+r.GetAmbiguous() < a.GetConnections()
+		})},
+		{"an application with connections from a host-network or shared address", application(func(_ *v1.GetApplicationsResponse, a *v1.Application) bool {
+			return a.GetRunsOn().GetAmbiguous() > 0
+		})},
+		{"an application none of whose connections is a watched pod's", application(func(_ *v1.GetApplicationsResponse, a *v1.Application) bool {
+			r := a.GetRunsOn()
+			return r != nil && r.GetMatched() == 0 && r.GetAmbiguous() == 0 && !a.GetTooling()
+		})},
 		{"an Applications page of a past range: an older collection", func(q Q) string {
 			live := q.apps(q.day(), "", false)
 			end := q.env.Now.Add(-3 * time.Hour)

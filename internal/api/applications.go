@@ -103,6 +103,18 @@ type ApplicationFacts struct {
 	// Findings are the findings firing at the epoch; only the client
 	// findings are read.
 	Findings []*v1.Finding
+	// ClientPodsWatched is whether the system watches client pods; the
+	// connections' pods are read only then.
+	ClientPodsWatched bool
+	// ClientPodsUnwatched are the client pod watches failing at the epoch.
+	ClientPodsUnwatched []*v1.ClientPodWatchGap
+}
+
+// ClientPodFact is the pod a connection's client address belonged to at
+// the epoch.
+type ClientPodFact struct {
+	Namespace, Name, Node  string
+	WorkloadKind, Workload string
 }
 
 // AppConnectionFact is one connection of the epoch.
@@ -114,6 +126,12 @@ type AppConnectionFact struct {
 	RTT                         *time.Duration
 	Subscriptions, PendingBytes *int64
 	Tooling                     bool
+	// Pod is the one pod whose address the connection's IP was at the
+	// epoch; PodAmbiguous is set instead when a host-network pod or more
+	// than one pod held it. Both are unset for an address no watched pod
+	// held.
+	Pod          *ClientPodFact
+	PodAmbiguous bool
 }
 
 // AppEventFact counts the client events of one connection name in one
@@ -187,7 +205,10 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 	}
 	res := &v1.GetApplicationsResponse{Epoch: f.Epoch, EpochAt: timestamppb.New(f.EpochAt), ConnzCut: f.ConnzCut,
 		EventsCaptured: f.EventsCaptured, CaptureGaps: f.EventsCaptured && f.CaptureGaps, Partial: len(f.Missing) > 0,
-		Missing: slices.Compact(slices.Sorted(slices.Values(f.Missing)))}
+		Missing: slices.Compact(slices.Sorted(slices.Values(f.Missing))), ClientPodsWatched: f.ClientPodsWatched}
+	if f.ClientPodsWatched {
+		res.ClientPodsUnwatched = f.ClientPodsUnwatched
+	}
 	in := func(acc string) bool { return account == "" || AccountOf(acc) == account }
 	groups := map[string]*appGroup{}
 	for _, c := range f.Connections {
@@ -270,6 +291,9 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 	unmuted := map[*v1.Application]bool{}
 	for _, g := range groups {
 		a := g.application(hours, f.EventsCaptured)
+		if f.ClientPodsWatched {
+			a.RunsOn = runsOn(g.conns)
+		}
 		unmuted[a] = g.unmuted
 		apps = append(apps, a)
 	}

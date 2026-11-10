@@ -29,12 +29,21 @@ func (p *Provider) Applications(_ context.Context, req *v1.GetApplicationsReques
 			f.Missing = append(f.Missing, sp.name)
 		}
 	}
+	specs := map[string]serverSpec{}
+	for _, sp := range s.sc.servers {
+		specs[sp.name] = sp
+	}
+	f.ClientPodsWatched = s.sc.clientPods != nil
 	for _, c := range s.connections(at) {
 		x := api.AppConnectionFact{Server: c.GetServer(), CID: c.GetCid(), Name: c.GetName(), Account: c.GetAccount(), IP: c.GetIp(),
 			Lang: c.GetLang(), Version: c.GetVersion(), Subscriptions: c.Subscriptions, PendingBytes: c.PendingBytes, Tooling: c.GetTooling()}
 		if c.GetRtt() != nil {
 			d := c.GetRtt().AsDuration()
 			x.RTT = &d
+		}
+		// The clients' connections are numbered from 100 on each server.
+		if i := c.GetCid() - 100; f.ClientPodsWatched && i >= 0 && i < specs[c.GetServer()].conns && c.GetAccount() == Account {
+			x.Pod, x.PodAmbiguous = s.sc.clientPods(specs[c.GetServer()], c.GetName(), i)
 		}
 		f.Connections = append(f.Connections, x)
 	}

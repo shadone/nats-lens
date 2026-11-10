@@ -200,6 +200,72 @@ message Application {
 
   // Distinct names beyond connection_names.
   int32 more_names = 27;
+
+  // Where the connections run, from the client pods nats-lens watches;
+  // unset when kubernetes.client_pod_watch is off.
+  ApplicationRunsOn runs_on = 28;
+}
+
+// The workload that owns some of an application's pods.
+message ApplicationWorkload {
+  // Namespace of the pods.
+  string namespace = 1;
+
+  // Kind of the owner: Deployment, StatefulSet, DaemonSet, CronJob, Job,
+  // ReplicaSet, another controller's kind, or Pod for a pod without one.
+  string kind = 2;
+
+  // Name of the owner; the pod's own name for a bare pod.
+  string name = 3;
+
+  // Distinct pods of it that connections were matched to.
+  int32 pods = 4;
+
+  // Connections matched to its pods.
+  int32 connections = 5;
+}
+
+// Where an application's connections run: each connection's client
+// address matched to the watched pod that held that address at the
+// epoch. A connection from outside the watched namespaces, or through a
+// proxy or NAT, is not matched; one from an address that a host-network
+// pod or more than one pod held is ambiguous and not matched to a pod.
+message ApplicationRunsOn {
+  // Connections matched to exactly one pod.
+  int32 matched = 1;
+
+  // Connections whose address a host-network pod, or more than one pod,
+  // held at the epoch.
+  int32 ambiguous = 2;
+
+  // The workloads of the matched pods, most connections first, then by
+  // namespace, kind and name; at most 10.
+  repeated ApplicationWorkload workloads = 3;
+
+  // Distinct workloads, before the limit of 10.
+  int32 workloads_total = 4;
+
+  // The nodes of the matched pods, sorted, at most 10.
+  repeated string nodes = 5;
+
+  // Distinct nodes, before the limit of 10.
+  int32 nodes_total = 6;
+
+  // Distinct pods matched.
+  int32 pods = 7;
+}
+
+// A client pod watch that was failing at the epoch: Runs on can miss
+// the pods it should have seen.
+message ClientPodWatchGap {
+  // The watch, for example "client pods in shop".
+  string source = 1;
+
+  // When it was first recorded as failing.
+  google.protobuf.Timestamp since = 2;
+
+  // Why, for example "Kubernetes API returned HTTP 403".
+  string error = 3;
 }
 
 // How the listed connections spread over the servers.
@@ -306,4 +372,11 @@ message GetApplicationsResponse {
   // events was lost), as on the Accounts and auth page: the 24-hour
   // counts are then lower bounds. False when events_captured is false.
   bool capture_gaps = 14;
+
+  // Whether the system watches client pods (kubernetes.client_pod_watch
+  // is set); each application's runs_on is unset when not.
+  bool client_pods_watched = 15;
+
+  // The client pod watches failing at the epoch, by source.
+  repeated ClientPodWatchGap client_pods_unwatched = 16;
 }
