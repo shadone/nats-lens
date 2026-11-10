@@ -308,7 +308,7 @@ func rndNorm(d api.TopologyDrops) string {
 		seen = append(seen, fmt.Sprintf("%s/%s@%s on %s lid %d", s.Row.SiteName(), s.Row.Account, s.At.UTC().Format(time.RFC3339Nano), s.Row.Server, s.Row.LID))
 	}
 	slices.Sort(seen)
-	return fmt.Sprintf("start=%s\npairs=%v\ngw=%+v\nleafs=%+v\nseen=%v\nroutes=%+v", d.WindowStart.UTC().Format(time.RFC3339Nano), d.GatewayPairs, d.Gateways, d.Leafs, seen, d.Routes)
+	return fmt.Sprintf("start=%s\npairs=%v\ngw=%+v\nleafs=%+v\nseen=%v\nroutes=%+v", d.WindowStart.UTC().Format(time.RFC3339Nano), d.GatewayPairs, d.Gateways, d.Leafs, seen, d.Routes) + fmt.Sprintf("\nroutePairs=%v", d.RoutePairs)
 }
 
 func rndCompare(t *testing.T, seed int64, edgeSubMs bool) int {

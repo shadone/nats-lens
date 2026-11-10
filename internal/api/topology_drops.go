@@ -49,6 +49,9 @@ type TopologyDrops struct {
 	// Routes are the counts per pair of servers, for every pair with a
 	// route observed between two consecutive collections.
 	Routes []TopologyRouteDrops
+	// RoutePairs are the pairs of server names, in name order, with a
+	// route row that has a remote ID in the window.
+	RoutePairs [][2]string
 }
 
 // TopologyRouteDrops counts the collections in which a route between
@@ -145,7 +148,13 @@ func CountTopologyDropsWith(history []TopologyCollection, interval time.Duration
 	pairs := map[[2]string]bool{}
 	seen := map[leafSite]TopologyLeafSighting{}
 	routes := map[[2]string]*TopologyRouteDrops{}
+	routePairs := map[[2]string]bool{}
 	for i, b := range history {
+		for _, r := range b.Routes {
+			if r.RemoteID != "" && r.Server != r.Remote {
+				routePairs[pairOf(r.Server, r.Remote)] = true
+			}
+		}
 		for _, r := range b.Gateways {
 			if r.Outbound {
 				pairs[[2]string{r.Cluster, r.Gateway}] = true
@@ -230,6 +239,10 @@ func CountTopologyDropsWith(history []TopologyCollection, interval time.Duration
 	for _, r := range routes {
 		d.Routes = append(d.Routes, *r)
 	}
+	for p := range routePairs {
+		d.RoutePairs = append(d.RoutePairs, p)
+	}
+	slices.SortFunc(d.RoutePairs, func(a, b [2]string) int { return cmp.Or(cmp.Compare(a[0], b[0]), cmp.Compare(a[1], b[1])) })
 	return d
 }
 

@@ -51,11 +51,16 @@ func TestReviewDropDuringFailedRoutezIsDown(t *testing.T) {
 	}
 }
 
-// A pair stays down for more than a day: no drop is left in the window,
-// and the pair is still down.
+// A pair stays down for more than a day: no drop and no route row of it
+// is left in the window, and as both servers still route to e2, the pair
+// is still down.
 func TestTopologyDownWithoutDropsInWindow(t *testing.T) {
-	if listed, down := downAfter(t, routeHistory(answering("e0#1", "e1#1"), nil, nil)); !listed || !down {
-		t.Errorf("pair down for over a day: listed %v down %v, want a down pair", listed, down)
+	f := topoFacts()
+	f.RoutezBefore = []string{"e0", "e1", "e2"}
+	f.Routes = []api.TopologyRouteRow{route("e0", "e2", 0.4, ""), route("e2", "e0", 0.4, ""), route("e1", "e2", 0.4, ""), route("e2", "e1", 0.4, "")}
+	f.RoutesBefore = slices.Clone(f.Routes)
+	if got, want := downOf(f), []string{"e0-e1"}; !slices.Equal(got, want) {
+		t.Errorf("pair down for over a day: down %v, want %v", got, want)
 	}
 }
 
@@ -114,8 +119,14 @@ func TestTopologyDownByMesh(t *testing.T) {
 	}
 	f := edgeFacts()
 	f.Routes, f.RoutesBefore = f.Routes[2:], f.RoutesBefore[2:] // l0 and l1 list nothing
-	if got, want := downOf(f), []string{"l0-l1", "l0-m0", "l0-m1", "l1-m0", "l1-m1"}; !slices.Equal(got, want) {
-		t.Errorf("site l without routes: down %v, want %v", got, want)
+	if got := downOf(f); len(got) != 0 {
+		t.Errorf("site l without routes, none in the window: down %v, want none", got)
+	}
+	// l0 and l1 were meshed earlier in the window: they are down to each
+	// other, not to site m, with which they never routed.
+	f.Drops.RoutePairs = [][2]string{{"l0", "l1"}, {"m0", "m1"}}
+	if got, want := downOf(f), []string{"l0-l1"}; !slices.Equal(got, want) {
+		t.Errorf("site l lost its routes: down %v, want %v", got, want)
 	}
 	for i := range f.Servers {
 		if f.Servers[i].Name[0] == 'm' {
@@ -124,6 +135,25 @@ func TestTopologyDownByMesh(t *testing.T) {
 	}
 	if got, want := downOf(f), []string{"l0-l1"}; !slices.Equal(got, want) {
 		t.Errorf("site m in its own domain: down %v, want %v", got, want)
+	}
+}
+
+// Single-server sites built from one template share a cluster name and
+// never route to each other: none is down. One that routed to another in
+// the window and lost it is.
+func TestTopologyDownSingleServerSites(t *testing.T) {
+	f := topoFacts()
+	for _, n := range []string{"s1", "s2", "s3"} {
+		f.Servers = append(f.Servers, api.TopologyServerFact{Name: n, Cluster: "edge"})
+		f.Answered[api.EndpointRoutez] = append(f.Answered[api.EndpointRoutez], n)
+		f.RoutezBefore = append(f.RoutezBefore, n)
+	}
+	if got := downOf(f); len(got) != 0 {
+		t.Errorf("single-server sites: down %v, want none", got)
+	}
+	f.Drops.RoutePairs = [][2]string{{"s1", "s2"}}
+	if got, want := downOf(f), []string{"s1-s2"}; !slices.Equal(got, want) {
+		t.Errorf("s1 and s2 routed in the window: down %v, want %v", got, want)
 	}
 }
 
@@ -138,7 +168,8 @@ func TestTopologyDownNeedsTwoCollectionsUnlisted(t *testing.T) {
 	}
 	f.RoutesBefore = f.RoutesBefore[2:]
 	f.RoutesBefore = append(f.RoutesBefore, api.TopologyRouteRow{Server: "l0", Remote: "m0", Cluster: "edge"}) // joins the sites
-	if got, want := downOf(f), []string{"l0-l1", "l0-m1", "l1-m0", "l1-m1"}; !slices.Equal(got, want) {
+	f.Drops.RoutePairs = [][2]string{{"l0", "l1"}}
+	if got, want := downOf(f), []string{"l0-l1", "l0-m1"}; !slices.Equal(got, want) {
 		t.Errorf("gone in both: down %v, want %v", got, want)
 	}
 }

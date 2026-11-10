@@ -103,6 +103,20 @@ FROM obs o JOIN servers s USING (server_id) GROUP BY ALL`, append(window, f.Epoc
 	}); err != nil {
 		return err
 	}
+	if err := query("route pairs", topologyWindow+`
+SELECT DISTINCT least(s.server_name, x.server_name), greatest(s.server_name, x.server_name)
+FROM routes r JOIN servers s ON s.server_id = r.server_id JOIN servers x ON x.server_id = r.remote_id
+WHERE r.epoch IN (SELECT epoch FROM ep) AND s.server_name <> x.server_name
+ORDER BY 1, 2`, p.windowArgs(f), func(rows *sql.Rows) error {
+		var pair [2]string
+		if err := rows.Scan(&pair[0], &pair[1]); err != nil {
+			return err
+		}
+		f.Drops.RoutePairs = append(f.Drops.RoutePairs, pair)
+		return nil
+	}); err != nil {
+		return err
+	}
 	if err := query("leaf node drops", topologyWindow+`,
 `+leafhealth.Counts(false)+` SELECT * FROM leaf_counts`, window, func(rows *sql.Rows) error {
 		var d api.TopologyLeafDrops
