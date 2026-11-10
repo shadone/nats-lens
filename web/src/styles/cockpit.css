@@ -47,6 +47,7 @@
 .cg-muted .cg-mn{font-weight:500;color:var(--text-2)}
 .cg-muted ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;color:var(--text-2);font-size:var(--fs-md);flex:1 1 300px;min-width:0}
 .cg-muted .by{color:var(--text-muted)}
+.cg-all{margin:var(--sp-2) 0 0}
 
 /* marks: one tone per colour role, shared by charts and their legends */
 .tk-accent{--tk:var(--accent)}

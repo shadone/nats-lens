@@ -80,6 +80,8 @@ input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
 .dlg .field > label:not(.radio),.dlg legend{font:500 var(--fs-xs)/1.2 var(--sans);color:var(--text-muted);padding:0;margin-bottom:var(--sp-1)}
 .dlg .radio{display:flex;gap:var(--sp-2);align-items:center;font-size:var(--fs-md)}
 .dlg-btns{display:flex;gap:var(--sp-2);justify-content:flex-end}
+.accept-also-list{list-style:none;margin:0;padding:0 0 0 var(--sp-6);max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:var(--sp-1)}
+.accept-also-list .mono{overflow-wrap:anywhere}
 .state-box .ecode{font:500 var(--fs-sm) var(--mono);background:var(--surface);border:1px solid var(--sev-critical-border);border-radius:var(--r-sm);padding:2px 6px;margin-right:var(--sp-1)}
 .state-box .ehint{color:var(--text-2)}
 .state-box.stale{color:var(--text);background:var(--sev-warning-bg);border:1px solid var(--sev-warning);border-radius:var(--r-lg);margin:var(--sp-3) 0;padding:var(--sp-3) var(--sp-4)}

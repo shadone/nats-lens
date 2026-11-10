@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useLocation, useSearchParams } from "react-router";
 import type { Entity, FindingState, Mute, SeverityLevel } from "../api/model";
 import { useFindings, useMutes } from "../api/queries";
-import { Empty, QueryView, Section } from "../components/common";
+import { Empty, QueryView, RLink, Section } from "../components/common";
 import { Pager, usePager } from "../components/Pager";
 import { EntityLine, FindingRow } from "../components/FindingParts";
 import { UnmuteDialog } from "../components/MuteDialog";
+import { AcceptDialog, type AcceptTarget } from "../components/AcceptDialog";
+import { acceptTarget } from "../lib/acceptRelated";
 import { AcceptedTag, Sev } from "../components/Severity";
 import { serverNow } from "../lib/clock";
 import { fmtDuration, isoMinute } from "../lib/format";
@@ -134,6 +136,7 @@ export function Findings() {
   const [checkText, setCheckText] = useState(check);
   const [muteAccounts, setMuteAccounts] = useState<Entity[]>([]);
   const [account, setAccount] = useAccountScope();
+  const [accepting, setAccepting] = useState<AcceptTarget>();
   const pager = usePager([useSystem(), sev.join(), stateId, muted, check, account, rangeKey(spec)].join("|"));
   const q = useFindings(spec, {
     account,
@@ -163,6 +166,9 @@ export function Findings() {
       {labelLookup && <p className="oc-lookup" role="status">No finding of {labelLookup.code} for {labelLookup.key}; it may have resolved and been swept.</p>}
       <div className="page-h">
         <span className="aside">A finding is one failing check for one entity. Unmuted first, then by severity, expiry warnings after the other warnings, then the longest firing.</span>
+        <span className="right">
+          <RLink to="/findings/accepted">Review accepted findings</RLink>
+        </span>
       </div>
       <div className="filters">
         <div className="grp" role="group" aria-label="Severity">
@@ -202,7 +208,7 @@ export function Findings() {
               {page.items.length === 0 ? (
                 <Empty>{stateId === "open" && sev.length === 0 && !check && !account ? "All clear: no finding fires in this range." : "No findings match these filters."}</Empty>
               ) : (
-                page.items.map((f) => <FindingRow key={f.id} f={f} end={end} rangeStart={start} label={label} />)
+                page.items.map((f) => <FindingRow key={f.id} f={f} end={end} rangeStart={start} label={label} onAccept={(x) => setAccepting(acceptTarget(x))} />)
               )}
               <Pager page={pager.page} next={page.nextPageToken} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} total={page.totalCount} shown={page.items.length} />
               {account && (page.otherAccountCount ?? 0) > 0 && (
@@ -218,6 +224,7 @@ export function Findings() {
         }}
       </QueryView>
       <Mutes others={accountsOf(q.data?.items.map((f) => f.entity) ?? [])} onAccounts={setMuteAccounts} />
+      <AcceptDialog target={accepting} onClose={() => setAccepting(undefined)} />
     </>
   );
 }

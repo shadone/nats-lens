@@ -7,6 +7,7 @@ import type { Entity, Finding } from "../api/model";
 import { fmtDuration, isoDate, isoMinute, shortWhen } from "../lib/format";
 import { muteBy, reviewOn, sentence } from "../lib/muteView";
 import { streamLabel, accountLabel, entityName, entityPath, findingPath, findingTag, streamPath } from "../lib/view";
+import { acceptable } from "../lib/causeEvidence";
 import { RLink } from "./common";
 import { AcceptedTag, Sev, StateTag } from "./Severity";
 
@@ -31,11 +32,21 @@ export function EntityLine({ e, small, label }: { e?: Entity; small?: boolean; l
 }
 
 /** One row of the findings list; a muted or accepted one shows who muted or accepted it and why. */
-export function FindingRow({ f, end, rangeStart, label }: { f: Finding; end: number; rangeStart?: number; label?: (id: string, name?: string) => string }) {
+export function FindingRow({ f, end, rangeStart, label, onAccept }: { f: Finding; end: number; rangeStart?: number; label?: (id: string, name?: string) => string; onAccept?: (f: Finding) => void }) {
   const known = atHistoryStart(f, usePageHistory()?.historyStart);
   const tag = findingTag(f, rangeStart);
   const m = f.mute;
   const since = f.since ?? end;
+  const listLabel = useContext(AccountLabelContext);
+  // A firing finding of an acceptable check, not muted: the row offers to accept it.
+  const accept = onAccept && f.state !== "resolved" && acceptable(f) && (
+    <>
+      <br />
+      <button type="button" className="btn sm" onClick={() => onAccept(f)} aria-label={`Accept ${f.checkCode} on ${entityName(f.entity, label ?? listLabel)} as by design`}>
+        Accept…
+      </button>
+    </>
+  );
   return (
     <div className={`frow${m ? " mute" : ""}`}>
       <span>
@@ -67,12 +78,13 @@ export function FindingRow({ f, end, rangeStart, label }: { f: Finding; end: num
           <br />
           in {fmtDuration(m.expiresAt - end)}
         </span>
-      ) : known ? <span className="s">already true when nats-lens started</span> : (
+      ) : known ? <span className="s">already true when nats-lens started{accept}</span> : (
         <span className="s">
           {f.state === "resolved" && f.resolvedAt !== undefined ? "resolved " : "since "}
           {shortWhen(f.state === "resolved" && f.resolvedAt !== undefined ? f.resolvedAt : since, end)}
           <br />
           {fmtDuration(end - since)}
+          {accept}
         </span>
       )}
       {f.acknowledgement && <span className="oc-row-mark"><AcknowledgementMark acknowledgement={f.acknowledgement} /></span>}

@@ -16,17 +16,13 @@ import { StoryLanes } from "../components/StoryLanes";
 import { StreamPlacementCard } from "../components/StreamPlacementCard";
 import { OverviewTiles } from "../components/OverviewTiles";
 import { Trends } from "../components/Trends";
+import { acceptTarget } from "../lib/acceptRelated";
 import { evidenceEntities } from "../lib/causeEvidence";
 import { groupCauses } from "../lib/causeGroups";
 import { serverNow } from "../lib/clock";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useAccountScope, useSystem } from "../lib/useSystem";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
-
-/** The finding an acceptance from a card covers. */
-function acceptTarget(f: Finding): AcceptTarget {
-  return { findingId: f.id, checkCode: f.checkCode, checkName: f.checkName, entity: f.entity!, growthReview: !!f.growthReview };
-}
 
 function Causes({ onMute }: { onMute: (f: Finding) => void }) {
   const { spec } = useTimeRange();
@@ -40,7 +36,7 @@ function Causes({ onMute }: { onMute: (f: Finding) => void }) {
   if (!q.data) return q.error ? <ErrorBox error={q.error} retry={() => q.refetch()} what="findings" /> : null;
   const cut = q.data.totalCount > q.data.items.length;
   const others = q.data.otherAccountCount ?? 0;
-  const card = { read: { data: p.data, loading: p.isPending, failed: p.isError, asked: new Set(asked.map((e) => `${e.kind}:${e.key}`)) }, system, scoped: account !== "", onAccept: (f: Finding) => setAccepting(acceptTarget(f)) };
+  const card = { read: { data: p.data, loading: p.isPending, failed: p.isError, asked: new Set(asked.map((e) => `${e.kind}:${e.key}`)) }, system, scoped: account !== "", onAccept: (f: Finding, all?: boolean) => setAccepting(acceptTarget(f, all)) };
   return (
     <>
       <StaleBanner q={q} />

@@ -22,6 +22,9 @@ import { EventRow } from "../components/EventRow";
 import { FindingEvidence } from "../components/FindingEvidence";
 import { EntityLine } from "../components/FindingParts";
 import { MuteDialog, UnmuteDialog } from "../components/MuteDialog";
+import { AcceptDialog, type AcceptTarget } from "../components/AcceptDialog";
+import { acceptTarget } from "../lib/acceptRelated";
+import { acceptable } from "../lib/causeEvidence";
 import { AcceptedTag, Sev, StateTag } from "../components/Severity";
 import { StatusTimeline } from "../components/StatusTimeline";
 import { TimelineInvestigationProvider } from "../components/TimelineInvestigation";
@@ -65,7 +68,7 @@ function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyS
   );
 }
 
-function Head({ f, spec, start, end, onMute, onUnmute, onAck, copyAction=true }: { f: Finding; spec: RangeSpec; start: number; end: number; onMute: () => void; onUnmute: () => void; onAck?: () => void; copyAction?:boolean }) {
+function Head({ f, spec, start, end, onMute, onUnmute, onAck, onAccept, copyAction=true }: { f: Finding; spec: RangeSpec; start: number; end: number; onMute: () => void; onUnmute: () => void; onAck?: () => void; onAccept?: () => void; copyAction?:boolean }) {
   const since = f.since ?? end;
   const historyStart = useLensInfo().data?.historyStart;
   const name = entityName(f.entity);
@@ -131,6 +134,11 @@ function Head({ f, spec, start, end, onMute, onUnmute, onAck, copyAction=true }:
           ) : (
             <button type="button" className="btn p" onClick={onMute}>
               Mute…
+            </button>
+          )}
+          {onAccept && acceptable(f) && (
+            <button type="button" className="btn" onClick={onAccept}>
+              Accept as by design…
             </button>
           )}
         </div>
@@ -286,6 +294,7 @@ export function DesktopFindingDetail({ acknowledgements = true, copyAction=true 
   const historyStart = info?.historyStart;
   const [muting, setMuting] = useState(false);
   const [lifting, setLifting] = useState(false);
+  const [accepting, setAccepting] = useState<AcceptTarget>();
   return (
     <>
       <nav className="crumbs" aria-label="Breadcrumb">
@@ -308,8 +317,8 @@ export function DesktopFindingDetail({ acknowledgements = true, copyAction=true 
           ) : (
             <>
               {acknowledgements ? <FindingAcknowledgement key={d.finding.id} finding={d.finding} renderHead={open =>
-                <section className="sec"><Head copyAction={copyAction} f={d.finding!} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} onAck={open} /></section>
-              } /> : <section className="sec"><Head copyAction={copyAction} f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} /></section>}
+                <section className="sec"><Head copyAction={copyAction} f={d.finding!} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} onAck={open} onAccept={() => setAccepting(acceptTarget(d.finding!))} /></section>
+              } /> : <section className="sec"><Head copyAction={copyAction} f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} onAccept={() => setAccepting(acceptTarget(d.finding!))} /></section>}
               <ReplayEntry finding={d.finding} transitions={d.transitions} start={start} end={end} now={serverNow()} minGapMs={info?.collectIntervalMs || 30_000} />
               {d.finding.mute && <MuteSection m={d.finding.mute} />}
               <div className="sec fd-cols">
@@ -360,6 +369,7 @@ export function DesktopFindingDetail({ acknowledgements = true, copyAction=true 
               </Section>
               <MuteDialog finding={muting ? d.finding : undefined} onClose={() => setMuting(false)} />
               <UnmuteDialog mute={lifting ? d.finding.mute : undefined} onClose={() => setLifting(false)} />
+              <AcceptDialog target={accepting} onClose={() => setAccepting(undefined)} />
             </>
           )
         }

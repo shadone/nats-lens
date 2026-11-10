@@ -443,3 +443,21 @@ it.each(["firing","resolved","muted"])("copies a visible finding prompt for %s w
  const c=buildInvestigationContext({origin:"https://lens.example.com",pathname:"/findings/route-alias",search:"?account=OTHER",system:"shop",spec:{kind:"fixed",from:Date.parse("2026-10-17T13:30:00Z"),to:Date.parse("2026-10-17T14:30:00Z")},selection:selected});
  expect(c).toMatchObject({account:"APP",entity:{type:"ENTITY_TYPE_CONSUMER",key:consumerEntity.key},filters:{check:f.checkCode},evidence:[{kind:"finding",id:f.id}],range:{start:"2026-10-17T13:30:00.000Z",end:"2026-10-17T14:30:00.000Z"}});expect(c.evidence).toHaveLength(1);expect(c.series).toBeUndefined();expect(m.muteFinding).not.toHaveBeenCalled();expect(m.unmuteFinding).not.toHaveBeenCalled();
 });
+
+describe("FindingDetail extras for acceptance", () => {
+  const acceptableFinding: Finding = { ...base, id: "consumer-016:APP/order-jobs/resize-worker", checkCode: "consumer-016", checkName: "Consumer with one replica", severity: "info", entity: consumerEntity, acceptable: true };
+
+  it("offers Accept as by design for a finding of an acceptable check, and not when it is not", async () => {
+    m.getFinding.mockResolvedValue({ finding: acceptableFinding, transitions: [] });
+    show();
+    fireEvent.click(await screen.findByRole("button", { name: "Accept as by design…" }));
+    expect(await screen.findByRole("dialog", { name: "Accept as by design" })).toBeInTheDocument();
+  });
+
+  it("offers no acceptance for a check that is not acceptable", async () => {
+    m.getFinding.mockResolvedValue({ finding: base, transitions: [] });
+    show();
+    await screen.findByRole("button", { name: "Mute…" });
+    expect(screen.queryByRole("button", { name: "Accept as by design…" })).toBeNull();
+  });
+});

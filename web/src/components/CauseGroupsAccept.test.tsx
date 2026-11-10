@@ -1,0 +1,56 @@
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+import type { Entity, Finding, Mute } from "../api/model";
+import { groupCauses } from "../lib/causeGroups";
+import { renderApp } from "../test/render";
+import { CauseGroups } from "./CauseGroups";
+
+const consumer = (name: string): Entity => ({ kind: "consumer", key: `APP/order-jobs/${name}`, name, account: "APP", stream: "order-jobs", consumer: name, server: "" });
+
+function f(name: string, extra: Partial<Finding> = {}): Finding {
+  return {
+    id: `consumer-016:APP/order-jobs/${name}`,
+    checkCode: "consumer-016",
+    checkName: "Consumer with one replica",
+    severity: "info",
+    state: "firing",
+    entity: consumer(name),
+    detail: "",
+    remediation: "",
+    relatedConfig: [],
+    relatedConfigSource: "",
+    transitionsLastHour: 0,
+    acceptable: true,
+    ...extra,
+  };
+}
+
+const mute = (accepted: boolean, reason: string): Mute => ({ id: reason, checkCode: "consumer-016", reason, mutedBy: "op", accepted, unmutedBy: "", endReason: "" });
+
+const card = (onAccept: (f: Finding, all?: boolean) => void) => ({ read: { loading: false, failed: false }, system: "", scoped: false, onAccept });
+
+describe("CauseGroups and acceptance", () => {
+  it("offers to accept every entity of a card of one acceptable check under one stream", async () => {
+    const onAccept = vi.fn();
+    const { groups, muted } = groupCauses([f("a"), f("b"), f("c")]);
+    renderApp(<CauseGroups groups={groups} muted={muted} onMute={() => {}} card={card(onAccept)} />);
+    await userEvent.click(screen.getByRole("button", { name: "Accept consumer-016 on all 3 consumers of stream order-jobs as by design" }));
+    expect(onAccept).toHaveBeenCalledWith(expect.objectContaining({ checkCode: "consumer-016" }), true);
+  });
+
+  it("offers no Accept all when a finding of the card is not acceptable", () => {
+    const { groups, muted } = groupCauses([f("a"), f("b", { acceptable: false })]);
+    renderApp(<CauseGroups groups={groups} muted={muted} onMute={() => {}} card={card(vi.fn())} />);
+    expect(screen.queryByRole("button", { name: /^Accept consumer-016 on all/ })).toBeNull();
+  });
+
+  it("lists accepted findings in a strip of their own, apart from the muted ones", () => {
+    const { groups, muted } = groupCauses([f("a", { mute: mute(false, "upgrade") }), f("b", { mute: mute(true, "batch") }), f("c", { mute: mute(true, "batch") })]);
+    renderApp(<CauseGroups groups={groups} muted={muted} onMute={() => {}} />);
+    expect(screen.getByRole("region", { name: "Muted findings" })).toHaveTextContent("1 muted finding");
+    const acc = screen.getByRole("region", { name: "Accepted findings" });
+    expect(acc).toHaveTextContent("2 accepted findings");
+    expect(screen.getByRole("link", { name: "Review accepted findings" })).toHaveAttribute("href", expect.stringContaining("/findings/accepted"));
+  });
+});

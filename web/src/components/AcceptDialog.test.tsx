@@ -5,10 +5,13 @@ import * as requests from "../api/requests";
 import { reviewDateOf, validateAccept, type AcceptForm } from "../lib/muteForm";
 import { acceptance } from "../test/fixtures/capacity";
 import { renderApp } from "../test/render";
+import type { Entity, Finding } from "../api/model";
 import { AcceptDialog, type AcceptTarget } from "./AcceptDialog";
 
-vi.mock("../api/requests", () => ({ muteFinding: vi.fn(), getLensInfo: vi.fn() }));
+vi.mock("../api/requests", () => ({ muteFinding: vi.fn(), acceptFindings: vi.fn(), listFindings: vi.fn(), getLensInfo: vi.fn() }));
 const muteFinding = vi.mocked(requests.muteFinding);
+const acceptFindings = vi.mocked(requests.acceptFindings);
+const listFindings = vi.mocked(requests.listFindings);
 const getLensInfo = vi.mocked(requests.getLensInfo);
 const info = (identityMode: "iap" | "request") => ({ identityMode, version: "dev", cluster: "c", collectIntervalMs: 30_000, retentionMs: 0, live: true, demo: true });
 
@@ -63,6 +66,9 @@ describe("AcceptDialog", () => {
   beforeEach(() => {
     localStorage.clear();
     muteFinding.mockReset();
+    acceptFindings.mockReset();
+    listFindings.mockReset();
+    listFindings.mockResolvedValue({ items: [], nextPageToken: "", totalCount: 0 });
     getLensInfo.mockResolvedValue(info("request"));
   });
 
@@ -126,5 +132,69 @@ describe("AcceptDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Accept as by design" }));
     expect(await screen.findByText(/365 days ahead/)).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("AcceptDialog with related entities", () => {
+  const consumer = (name: string): Entity => ({ kind: "consumer", key: `APP/order-jobs/${name}`, name, account: "APP", stream: "order-jobs", consumer: name, server: "" });
+  const sibling = (name: string): Finding => ({
+    id: `consumer-016:APP/order-jobs/${name}`,
+    checkCode: "consumer-016",
+    checkName: "Consumer with one replica",
+    severity: "info",
+    state: "firing",
+    entity: consumer(name),
+    detail: "",
+    remediation: "",
+    relatedConfig: [],
+    relatedConfigSource: "",
+    transitionsLastHour: 0,
+    acceptable: true,
+  });
+  const one: AcceptTarget = { findingId: "consumer-016:APP/order-jobs/a", checkCode: "consumer-016", checkName: "Consumer with one replica", entity: consumer("a"), growthReview: false };
+
+  beforeEach(() => {
+    localStorage.clear();
+    getLensInfo.mockResolvedValue(info("iap"));
+    muteFinding.mockReset();
+    acceptFindings.mockReset();
+    listFindings.mockReset();
+    listFindings.mockResolvedValue({ items: [sibling("a"), sibling("b"), sibling("c")], nextPageToken: "", totalCount: 3 });
+  });
+
+  it("offers the other consumers of the stream, unticked, and accepts the ticked ones with the target in one call", async () => {
+    acceptFindings.mockResolvedValue([acceptance({ id: "1" }), acceptance({ id: "2" })]);
+    const onClose = vi.fn();
+    const onAccepted = vi.fn();
+    renderApp(<AcceptDialog target={one} onClose={onClose} onAccepted={onAccepted} />);
+    const all = await screen.findByRole("checkbox", { name: /All 2 other consumers of stream order-jobs with this finding/ });
+    expect(all).not.toBeChecked();
+    expect(listFindings.mock.calls[0][2]).toMatchObject({ checkCode: "consumer-016", includeMuted: false, entity: { kind: "stream", key: "APP/order-jobs" } });
+    await userEvent.click(screen.getByRole("checkbox", { name: "c" }));
+    expect(all).toBePartiallyChecked();
+    await userEvent.type(screen.getByLabelText("Reason"), "batch workers run once");
+    await userEvent.click(screen.getByRole("button", { name: "Accept 2 as by design" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(muteFinding).not.toHaveBeenCalled();
+    const req = acceptFindings.mock.calls[0][1];
+    expect(req.entities.map((e) => e.key)).toEqual(["APP/order-jobs/a", "APP/order-jobs/c"]);
+    expect(req).toMatchObject({ checkCode: "consumer-016", reason: "batch workers run once" });
+    expect(onAccepted.mock.calls.map((c) => c[0])).toEqual(["consumer-016:APP/order-jobs/a", "consumer-016:APP/order-jobs/c"]);
+  });
+
+  it("starts with every related entity ticked from a card's Accept all", async () => {
+    renderApp(<AcceptDialog target={{ ...one, selectAll: true }} onClose={() => {}} />);
+    expect(await screen.findByRole("checkbox", { name: /All 2 other consumers/ })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Accept 3 as by design" })).toBeInTheDocument();
+    expect(screen.getByText(/The 3 findings leave the Overview/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("checkbox", { name: /All 2 other consumers/ }));
+    expect(screen.getByRole("button", { name: "Accept as by design" })).toBeInTheDocument();
+  });
+
+  it("offers nothing more when no related entity has the finding", async () => {
+    listFindings.mockResolvedValue({ items: [sibling("a")], nextPageToken: "", totalCount: 1 });
+    renderApp(<AcceptDialog target={one} onClose={() => {}} />);
+    await waitFor(() => expect(listFindings).toHaveBeenCalled());
+    expect(screen.queryByText("Also accept")).toBeNull();
   });
 });

@@ -58,6 +58,8 @@ export function navFor(pathname: string, items: NavItem[] = NAV): NavItem | unde
   if(pathname==="/metrics"||pathname.startsWith("/metrics/")){const parent=items.find(i=>i.path==="/servers");return parent?{...parent,label:"Metric investigations"}:undefined}
   if(pathname.startsWith("/timeline/")){const parent=items.find(i=>i.path==="/");const label=pathname==="/timeline/events"?"Captured Timeline events":pathname.startsWith("/timeline/windows/")?"Timeline window evidence":"Timeline";return parent?{...parent,label,accountScope:false}:undefined}
   // A finding's own pages read one finding, whatever its account: they leave the scope behind.
+  // The review list of acceptances follows the scope, as the Findings list does.
+  if(pathname==="/findings/accepted")return items.find(i=>i.path==="/findings");
   if(pathname.startsWith("/findings/")){const parent=items.find(i=>i.path==="/findings");return parent?{...parent,accountScope:false}:undefined}
   if (pathname === "/") return items.find((i) => i.path === "/");
   return items.find((i) => i.path !== "/" && (pathname === i.path || pathname.startsWith(`${i.path}/`)));

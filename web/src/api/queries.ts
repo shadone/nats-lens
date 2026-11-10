@@ -48,11 +48,12 @@ export function useOverview(spec: RangeSpec) {
   });
 }
 
-export function useFindings(spec: RangeSpec, f: api.FindingFilter) {
+export function useFindings(spec: RangeSpec, f: api.FindingFilter, enabled = true) {
   const sys = useSystem();
   return useQuery({
     queryKey: ["findings", sys, rangeKey(spec), { ...f, entity: entityKey(f.entity) }],
     queryFn: ({ signal }) => api.listFindings(sys, spec, f, signal),
+    enabled,
     refetchInterval: refetch(spec),
     placeholderData: keepSameSystem(sys),
   });
@@ -111,6 +112,25 @@ export function useMuteFinding({ awaitRefetch = true }: { awaitRefetch?: boolean
   return useMutation({
     mutationFn: (m: api.MuteInput & { system: string }) => api.muteFinding(m.system, m),
     onSuccess: (_data, variables) => (awaitRefetch ? invalidate(variables.system) : void invalidate(variables.system)),
+  });
+}
+
+/** Accept several entities at once; like useMuteFinding({ awaitRefetch: false }), it ends once saved. */
+export function useAcceptFindings() {
+  const invalidate = useInvalidateOperatorState();
+  return useMutation({
+    mutationFn: (a: Parameters<typeof api.acceptFindings>[1] & { system: string }) => api.acceptFindings(a.system, a),
+    onSuccess: (_data, variables) => void invalidate(variables.system),
+  });
+}
+
+/** The acceptances for review, following the account scope. */
+export function useAcceptances(includeEnded: boolean, account: string, pageToken = "") {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["acceptances", sys, includeEnded, account, pageToken],
+    queryFn: ({ signal }) => api.listAcceptances(sys, { includeEnded, account, pageToken }, signal),
+    placeholderData: keepSameSystem(sys),
   });
 }
 

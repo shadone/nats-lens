@@ -13,15 +13,15 @@ import { streamLabel, accountLabeller, entityName, entityPath, eventPath, findin
 import { RLink } from "./common";
 import { AccountLabelContext, EntityLine } from "./FindingParts";
 import { CauseEvidence, PlacementSummary, type PlacementRead } from "./CauseEvidence";
-import { Sev } from "./Severity";
+import { AcceptedTag, Sev } from "./Severity";
 
 /** What every card shares: the placement read, the system, the account scope and the accept action. */
 export interface CardContext {
   read: PlacementRead;
   system: string;
   scoped: boolean;
-  /** Unset: no card offers acceptance. */
-  onAccept?: (f: Finding) => void;
+  /** Unset: no card offers acceptance. all ticks the finding's related entities. */
+  onAccept?: (f: Finding, all?: boolean) => void;
 }
 
 const CardCtx = createContext<CardContext>({ read: { loading: false, failed: false }, system: "", scoped: false });
@@ -216,25 +216,52 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
           </li>
         )}
       </ul>
+      <AcceptAll g={g} />
       <CauseEvidence shown={shown} total={n} noun={noun} read={read} system={system} />
     </article>
   );
 }
 
-/** Muted findings by reason: “reason” by who, then each finding. */
-function MutedStrip({ muted }: { muted: Finding[] }) {
+/**
+ * "Accept all N as by design…" on a card of one acceptable check under one
+ * stream or account: the dialog opens with the card's siblings ticked.
+ */
+function AcceptAll({ g }: { g: CauseGroup }) {
+  const { onAccept } = useContext(CardCtx);
+  const label = useContext(AccountLabelContext);
+  const p = g.parent?.kind;
+  if (!onAccept || g.checkCodes.length !== 1 || (p !== "stream" && p !== "account") || !g.findings.every(acceptable)) return null;
+  const f = g.findings[0];
+  const entities = distinctEntities(g.findings);
+  const where = p === "stream" ? `of stream ${streamLabel(g.parent!.name)}` : `of account ${label(f.entity!.account, f.entity!.accountName)}`;
+  return (
+    <p className="cg-all">
+      <button type="button" className="btn sm" onClick={() => onAccept(f, true)} aria-label={`Accept ${f.checkCode} on all ${entities.length} ${nounOf(entities)} ${where} as by design`}>
+        Accept all {entities.length} as by design…
+      </button>
+    </p>
+  );
+}
+
+/**
+ * Muted findings by reason: “reason” by who, then each finding. Accepted
+ * findings have a strip of their own, with a link to their review list.
+ */
+function MutedStrip({ muted, accepted = false }: { muted: Finding[]; accepted?: boolean }) {
   const accounts = useContext(AccountLabelContext);
   const byReason = new Map<string, Finding[]>();
   for (const f of muted) {
     const k = `${f.mute?.reason ?? ""}\u0000${f.mute?.mutedBy ?? ""}`;
     byReason.set(k, [...(byReason.get(k) ?? []), f]);
   }
+  const what = accepted ? "accepted" : "muted";
   return (
-    <section className="card cg-muted" aria-label="Muted findings">
-      <Sev level="muted" />
+    <section className="card cg-muted" aria-label={accepted ? "Accepted findings" : "Muted findings"}>
+      {accepted ? <AcceptedTag /> : <Sev level="muted" />}
       <span className="cg-mn">
-        {muted.length} muted {muted.length === 1 ? "finding" : "findings"}
+        {muted.length} {what} {muted.length === 1 ? "finding" : "findings"}
       </span>
+      {accepted && <RLink to="/findings/accepted">Review accepted findings</RLink>}
       <ul>
         {[...byReason.values()].map((fs) => {
           const m = fs[0].mute!;
@@ -261,6 +288,8 @@ export function CauseGroups({ groups, muted, onMute, card }: { groups: CauseGrou
   if (groups.length === 0 && muted.length === 0) return null;
   // Every account the cards name: account entities and the accounts of streams and consumers.
   const label = accountLabeller([...groups.flatMap((g) => g.findings), ...muted].flatMap((f) => (f.entity?.account ? [f.entity] : [])));
+  const accepted = muted.filter((f) => f.mute?.accepted);
+  const plain = muted.filter((f) => !f.mute?.accepted);
   const body = (
     <AccountLabelContext.Provider value={label}>
       <section className="causes" aria-labelledby="causes-h">
@@ -270,7 +299,8 @@ export function CauseGroups({ groups, muted, onMute, card }: { groups: CauseGrou
         {groups.map((g) => (
           <CauseCard key={g.key} g={g} onMute={onMute} />
         ))}
-        {muted.length > 0 && <MutedStrip muted={muted} />}
+        {plain.length > 0 && <MutedStrip muted={plain} />}
+        {accepted.length > 0 && <MutedStrip muted={accepted} accepted />}
       </section>
     </AccountLabelContext.Provider>
   );

@@ -65,3 +65,14 @@ export function baselineText(m: Mute, fmt: (perDay: number) => string, retention
   if (short) return short;
   return `No growth baseline is recorded yet: growth is recorded once the ${what} has 8 days of history.`;
 }
+
+/**
+ * "Growth at acceptance: +96 MiB/day per copy." for an acceptance its
+ * check reviews by growth, or why no growth is recorded yet; empty for
+ * any other.
+ */
+export function growthAtAcceptance(m: Mute, fmt: (perDay: number) => string): string {
+  if (!m.accepted || !m.growthReview) return "";
+  if (m.growthPerDay === undefined) return "No growth recorded yet: it is recorded once the entity has 8 days of history.";
+  return `Growth at acceptance: ${fmt(m.growthPerDay)}/day${m.entity?.kind === "stream" ? " per copy" : ""}.`;
+}

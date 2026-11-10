@@ -145,6 +145,25 @@ export async function muteFinding(sys: string, m: MuteInput) {
   return mute(r.mute);
 }
 
+/** Accept one check on several entities at once: one acceptance each, all or none. */
+export async function acceptFindings(sys: string, a: { checkCode: string; entities: Entity[]; reason: string; expiresAt: number; mutedBy: string }) {
+  const r = await lens.acceptFindings({
+    ...systemInit(sys),
+    checkCode: a.checkCode,
+    entities: a.entities.map((e) => entityInit(e)!),
+    reason: a.reason,
+    expiresAt: timestampFromMs(a.expiresAt),
+    mutedBy: a.mutedBy,
+  });
+  return r.mutes.map((m) => mute(m)!);
+}
+
+/** The acceptances for review: in force first, the soonest review first; ended ones with includeEnded. */
+export async function listAcceptances(sys: string, f: { includeEnded: boolean; account: string; pageToken: string }, signal?: AbortSignal): Promise<Page<Mute> & { otherAccountCount: number }> {
+  const r = await lens.listAcceptances({ ...systemInit(sys), includeEnded: f.includeEnded, account: f.account, pageSize: 50, pageToken: f.pageToken }, { signal });
+  return { items: r.acceptances.map((m) => mute(m)!), nextPageToken: r.nextPageToken, totalCount: r.totalCount, otherAccountCount: r.otherAccountCount };
+}
+
 export async function unmuteFinding(sys: string, muteId: string, unmutedBy: string) {
   const r = await lens.unmuteFinding({ ...systemInit(sys), muteId, unmutedBy });
   return mute(r.mute);
