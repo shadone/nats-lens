@@ -273,15 +273,17 @@ func prodCallbackReconnects(s scen) []*v1.Event {
 // readiness probe three times.
 func prodPending(s scen) []*v1.Event {
 	const pod = "pod shop/resize-worker-6c9d4-x2k4l"
+	// The payload a Kubernetes Event of the pod carries, as the watcher writes it.
+	const raw = `{"object":{"kind":"Pod","namespace":"shop","name":"resize-worker-6c9d4-x2k4l"}}`
 	var out []*v1.Event
 	for _, at := range []time.Time{s.at(11, 12, 5), s.at(11, 13, 20), s.at(11, 14, 40), s.at(11, 16, 10), s.at(11, 18, 0)} {
 		out = append(out, &v1.Event{Time: ts(at), Source: srcK8s, Kind: "k8s.pod.failed_scheduling", Type: "FailedScheduling",
-			Severity: warning, Reason: "FailedScheduling",
+			Severity: warning, Reason: "FailedScheduling", Raw: raw,
 			Summary: pod + " FailedScheduling: 0/6 nodes are available: 6 Insufficient cpu"})
 	}
 	for _, at := range []time.Time{s.at(11, 21, 2), s.at(11, 21, 32), s.at(11, 22, 2)} {
 		out = append(out, &v1.Event{Time: ts(at), Source: srcK8s, Kind: "k8s.pod.not_ready", Type: "Unhealthy",
-			Severity: warning, Reason: "Unhealthy",
+			Severity: warning, Reason: "Unhealthy", Raw: raw,
 			Summary: pod + " Unhealthy: Readiness probe failed: HTTP probe failed with statuscode: 503"})
 	}
 	return out
@@ -421,11 +423,11 @@ func (p *Provider) GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.G
 	return nil, fmt.Errorf("event %q: %w", req.GetId(), api.ErrNotFound)
 }
 
-// objectOf is a Kubernetes event's object for the text filter, as its
-// summary names it; other events have none.
+// objectOf is a Kubernetes event's object for the text filter, read from
+// its payload as storeprov reads it; other events have none.
 func objectOf(e *v1.Event) string {
 	if e.GetSource() == srcK8s {
-		return subject(e)
+		return api.KubernetesObject(e.GetRaw())
 	}
 	return ""
 }

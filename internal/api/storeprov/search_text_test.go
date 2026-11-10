@@ -151,3 +151,41 @@ VALUES ('ADSUPPLIERSKEY', 'Suppliers', false, 1, 1)`); err != nil {
 		}
 	}
 }
+
+// The Kubernetes object comes from the payload as each watcher writes it:
+// a Kubernetes Event's object, a pod watch event's namespace and pod, a
+// node watch event's node. Cases from the review of the command bar,
+// with a pod watch event added.
+func TestEventsTextKubernetesObjects(t *testing.T) {
+	st := emptyStore(t)
+	if _, err := st.DB().Exec(`INSERT INTO accounts(account, account_name, is_system, first_epoch, last_epoch) VALUES
+('ADKEYONE', 'Suppliers', false, 1, 1), ('ADKEYNULL', NULL, false, 1, 1), ('CFG', 'CFG', false, 1, 1)`); err != nil {
+		t.Fatal(err)
+	}
+	bare := ev(0, events.SourceSys, "server.shutdown")
+	nullName := ev(1, events.SourceJetStream, "stream.created")
+	nullName.Account, nullName.Stream = "ADKEYNULL", "zzstream"
+	node := ev(2, events.SourceK8s, "k8s.node.cordoned")
+	node.Summary, node.Raw = "node gke-pool-1-c40d cordoned", json.RawMessage(`{"node":"gke-pool-1-c40d","pool":"pool-1"}`)
+	podEv := ev(3, events.SourceK8s, "k8s.pod.not_ready")
+	podEv.ServerName, podEv.Reason, podEv.Summary = "nats-0", "Unhealthy", "pod nats-0 Unhealthy: probe"
+	podEv.Raw = json.RawMessage(`{"object":{"kind":"Pod","namespace":"natsns","name":"nats-0"},"node":"gke-pool-2-aaaa"}`)
+	noName := ev(4, events.SourceK8s, "k8s.event")
+	noName.Raw = json.RawMessage(`{"object":{"kind":"X","namespace":"onlyns"}}`)
+	badRaw := ev(5, events.SourceK8s, "k8s.event")
+	badRaw.Raw = json.RawMessage(`{"object":"qqbad"}`)
+	podWatch := ev(6, events.SourceK8s, "k8s.pod.restarted")
+	podWatch.Summary, podWatch.Raw = "pod shop/indexer-7f restarted", json.RawMessage(`{"namespace":"shop","pod":"indexer-7f","node":"gke-pool-3-bbbb"}`)
+	write(t, st, bare, nullName, node, podEv, noName, badRaw, podWatch)
+	c := serveTooling(t, st)
+	for text, want := range map[string]int32{
+		"server.shutdown": 1, "zzstream": 1, "adkeynull": 1, "suppliers": 0,
+		"gke-pool-1-c40d": 1, "natsns/nats-0": 1, "unhealthy": 1, "onlyns": 1, "qqbad": 0,
+		"shop/indexer-7f": 1, "gke-pool-3": 0, "gke-pool-2": 0,
+	} {
+		res := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Range: wide(), Text: text})))
+		if res.GetTotalCount() != want {
+			t.Errorf("%q: %d, want %d", text, res.GetTotalCount(), want)
+		}
+	}
+}

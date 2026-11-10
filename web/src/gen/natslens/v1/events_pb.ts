@@ -320,7 +320,8 @@ export type ListEventsRequest = Message<"natslens.v1.ListEventsRequest"> & {
 
   /**
    * Only events whose kind, reason, server, account (ID or readable name),
-   * stream, consumer, client name, Kubernetes object (namespace/name),
+   * stream, consumer, client name, Kubernetes object (namespace/name, or a
+   * pod's namespace/pod, or a node's name),
    * finding ID (for a finding event) or ID of a finding it caused contains
    * this text, ignoring case. Empty means all; at most 256 characters,
    * surrounding spaces dropped. It is a filter like the others: facets and

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"strings"
 	"unicode/utf8"
 
@@ -56,4 +57,38 @@ func EventHasText(e *v1.Event, text, object string) bool {
 		}
 	}
 	return false
+}
+
+// KubernetesObject is the object a Kubernetes event's payload names, for
+// the text filter: a Kubernetes Event's object as namespace/name, else a
+// pod watch event's namespace/pod, else a node watch event's node. A part
+// that is empty is left out; a payload that names none gives "".
+func KubernetesObject(raw string) string {
+	var p struct {
+		Object    json.RawMessage `json:"object"`
+		Namespace string          `json:"namespace"`
+		Pod       string          `json:"pod"`
+		Node      string          `json:"node"`
+	}
+	if json.Unmarshal([]byte(raw), &p) != nil {
+		return ""
+	}
+	var o struct{ Namespace, Name string }
+	if len(p.Object) > 0 && p.Object[0] == '{' && json.Unmarshal(p.Object, &o) == nil {
+		return joinNonEmpty(o.Namespace, o.Name)
+	}
+	if p.Pod != "" {
+		return joinNonEmpty(p.Namespace, p.Pod)
+	}
+	return p.Node
+}
+
+func joinNonEmpty(parts ...string) string {
+	var out []string
+	for _, s := range parts {
+		if s != "" {
+			out = append(out, s)
+		}
+	}
+	return strings.Join(out, "/")
 }

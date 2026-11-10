@@ -380,7 +380,8 @@ type ListEventsRequest struct {
 	// Captured event membership. A known zero excludes all events.
 	EventReadId *int64 `protobuf:"varint,14,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
 	// Only events whose kind, reason, server, account (ID or readable name),
-	// stream, consumer, client name, Kubernetes object (namespace/name),
+	// stream, consumer, client name, Kubernetes object (namespace/name, or a
+	// pod's namespace/pod, or a node's name),
 	// finding ID (for a finding event) or ID of a finding it caused contains
 	// this text, ignoring case. Empty means all; at most 256 characters,
 	// surrounding spaces dropped. It is a filter like the others: facets and

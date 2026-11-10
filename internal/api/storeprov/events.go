@@ -150,6 +150,16 @@ func eventFilter(req *v1.ListEventsRequest) (string, []any) {
 	return strings.Join(where, " AND "), args
 }
 
+// k8sObject is api.KubernetesObject in SQL: a Kubernetes Event's object as
+// namespace/name, else a pod watch event's namespace/pod, else a node watch
+// event's node; empty parts left out.
+const k8sObject = `CASE
+    WHEN json_type(e.raw, '$.object') = 'OBJECT' THEN concat_ws('/', nullif(json_extract_string(e.raw, '$.object.namespace'), ''),
+      nullif(json_extract_string(e.raw, '$.object.name'), ''))
+    WHEN coalesce(json_extract_string(e.raw, '$.pod'), '') <> '' THEN concat_ws('/', nullif(json_extract_string(e.raw, '$.namespace'), ''),
+      json_extract_string(e.raw, '$.pod'))
+    ELSE json_extract_string(e.raw, '$.node') END`
+
 // eventText is the text filter of ListEvents, as api.EventHasText has it;
 // each placeholder takes the lowered text. contains() takes the text as it
 // is, so % and _ need no escaping.
@@ -158,8 +168,7 @@ const eventText = `(contains(lower(e.kind), ?) OR contains(lower(coalesce(e.serv
   OR contains(lower(coalesce(e.consumer, '')), ?) OR contains(lower(coalesce(e.client_name, '')), ?)
   OR contains(lower(coalesce(e.reason, '')), ?)
   OR e.account IN (SELECT account FROM accounts WHERE account_name IS NOT NULL AND contains(lower(account_name), ?))
-  OR (e.source = 'k8s' AND contains(lower(coalesce(concat_ws('/', nullif(json_extract_string(e.raw, '$.object.namespace'), ''),
-    json_extract_string(e.raw, '$.object.name')), '')), ?))
+  OR (e.source = 'k8s' AND contains(lower(coalesce(` + k8sObject + `, '')), ?))
   OR (e.source = 'finding' AND contains(lower(coalesce(json_extract_string(e.raw, '$.finding_id'), '')), ?))
   OR e.id IN (SELECT cause_event_id FROM findings WHERE cause_event_id IS NOT NULL AND contains(lower(id), ?)))`
 
