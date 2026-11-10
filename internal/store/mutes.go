@@ -92,7 +92,10 @@ func scanMute(row interface{ Scan(...any) error }) (Mute, error) {
 }
 
 // CreateMute stores a mute and returns it with its ID. CreatedAt and
-// ExpiresAt are taken as given.
+// ExpiresAt are taken as given. A plain mute of an entity with an
+// acceptance of the check in force at CreatedAt fails with ErrAccepted,
+// wrapped with the check, the entity and the review date; the check runs
+// in the transaction that inserts, under the write lock.
 func (s *Store) CreateMute(ctx context.Context, m Mute) (Mute, error) {
 	if err := s.lock(ctx); err != nil {
 		return Mute{}, err
@@ -100,6 +103,24 @@ func (s *Store) CreateMute(ctx context.Context, m Mute) (Mute, error) {
 	defer s.mu.Unlock()
 	if m.Accepted && m.EntityType == "" {
 		return Mute{}, errors.New("create mute: an acceptance needs an entity")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Mute{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if !m.Accepted && m.EntityType != "" {
+		var until time.Time
+		err := tx.QueryRowContext(ctx, `SELECT expires_at FROM mutes WHERE coalesce(accepted, false) AND check_code = ?
+ AND entity_type = ? AND entity_key = ? AND unmuted_at IS NULL AND expires_at > ? ORDER BY expires_at DESC LIMIT 1`,
+			m.CheckCode, m.EntityType, m.EntityKey, m.CreatedAt.UTC()).Scan(&until)
+		if err == nil {
+			return Mute{}, fmt.Errorf("%s for %s %s: %w until %s", m.CheckCode, m.EntityType, m.EntityKey, ErrAccepted,
+				until.UTC().Format("2006-01-02 15:04 UTC"))
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return Mute{}, err
+		}
 	}
 	var growth any
 	if m.GrowthPerDay != nil {
@@ -111,12 +132,15 @@ func (s *Store) CreateMute(ctx context.Context, m Mute) (Mute, error) {
 	if m.EntityType != "" {
 		key = m.EntityKey
 	}
-	row := s.db.QueryRowContext(ctx, `INSERT INTO mutes (`+muteInsertCols+`)
+	row := tx.QueryRowContext(ctx, `INSERT INTO mutes (`+muteInsertCols+`)
 VALUES (nextval('mute_seq'), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING `+muteCols,
 		m.CheckCode, nullIfEmpty(m.EntityType), key, m.Reason, m.MutedBy, m.CreatedAt.UTC(), m.ExpiresAt.UTC(),
 		m.Accepted, growth)
 	out, err := scanMute(row)
 	if err != nil {
+		return Mute{}, fmt.Errorf("create mute: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
 		return Mute{}, fmt.Errorf("create mute: %w", err)
 	}
 	return out, nil

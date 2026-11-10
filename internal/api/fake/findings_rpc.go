@@ -160,6 +160,8 @@ func (p *Provider) MuteFinding(_ context.Context, req *v1.MuteFindingRequest) (*
 		if err := p.checkAcceptances(s, []*v1.Mute{m}); err != nil {
 			return nil, err
 		}
+	} else if err := p.checkMute(s, m); err != nil {
+		return nil, err
 	}
 	m.Id = strconv.Itoa(p.nextID)
 	p.nextID++

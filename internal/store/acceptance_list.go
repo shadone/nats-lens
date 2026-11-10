@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -14,14 +15,18 @@ var (
 	// ErrAcceptanceInForce: the entity already has an acceptance of the
 	// check in force.
 	ErrAcceptanceInForce = errors.New("an acceptance of the check for the entity is in force")
+	// ErrAccepted: a plain mute names an entity with an acceptance of
+	// the check in force.
+	ErrAccepted = errors.New("accepted as by design")
 )
 
 // CreateAcceptances stores acceptances in one transaction and returns them
 // with their IDs, in the order given: every one is stored, or none is.
 // Under the write lock, before storing, each entity must have a finding of
-// the check in the findings table, in any state, and no acceptance of the
-// check in force at now; otherwise the whole call fails with ErrNoFinding
-// or ErrAcceptanceInForce, wrapped with the check and the entity key.
+// the check in the findings table that is firing, and no acceptance of
+// the check in force at now; otherwise the whole call fails with
+// ErrNoFinding, ErrFindingNotFiring or ErrAcceptanceInForce, wrapped with
+// the check and the entity key.
 func (s *Store) CreateAcceptances(ctx context.Context, ms []Mute, now time.Time) ([]Mute, error) {
 	for _, m := range ms {
 		if !m.Accepted || m.EntityType == "" {
@@ -39,14 +44,19 @@ func (s *Store) CreateAcceptances(ctx context.Context, ms []Mute, now time.Time)
 	defer func() { _ = tx.Rollback() }()
 	out := make([]Mute, 0, len(ms))
 	for _, m := range ms {
-		var n int
-		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM findings WHERE check_code = ? AND entity_type = ? AND entity_key = ?`,
-			m.CheckCode, m.EntityType, m.EntityKey).Scan(&n); err != nil {
-			return nil, err
-		}
-		if n == 0 {
+		var state string
+		err := tx.QueryRowContext(ctx, `SELECT state FROM findings WHERE check_code = ? AND entity_type = ? AND entity_key = ?`,
+			m.CheckCode, m.EntityType, m.EntityKey).Scan(&state)
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s for %s %s: %w", m.CheckCode, m.EntityType, m.EntityKey, ErrNoFinding)
 		}
+		if err != nil {
+			return nil, err
+		}
+		if state != "firing" {
+			return nil, fmt.Errorf("%s for %s %s: %w", m.CheckCode, m.EntityType, m.EntityKey, ErrFindingNotFiring)
+		}
+		var n int
 		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM mutes WHERE coalesce(accepted, false) AND check_code = ?
  AND entity_type = ? AND entity_key = ? AND unmuted_at IS NULL AND expires_at > ?`,
 			m.CheckCode, m.EntityType, m.EntityKey, now.UTC()).Scan(&n); err != nil {

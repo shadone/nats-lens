@@ -21,10 +21,10 @@ func TestAcceptFindingsAndReviewList(t *testing.T) {
 	_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Checks: set, Clock: func() time.Time { return now }})
 	stream := func(key string) *v1.EntityRef { return &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: key} }
 	day := 24 * time.Hour
-	for _, f := range [][2]string{{"stream-005", "OTHER/archive"}, {"stream-018", account + "/single"}} {
+	for _, f := range [][3]string{{"stream-005", "OTHER/archive", "firing"}, {"stream-018", account + "/single", "firing"}, {"stream-005", account + "/gone", "resolved"}} {
 		if _, err := st.DB().Exec(`INSERT INTO findings (id, check_code, entity_type, entity_key, severity, state, last_transition, since, since_epoch,
-  transitioned_at, last_seen_epoch, updated_epoch, detail) VALUES (?, ?, 'stream', ?, 'info', 'resolved', 'resolved', ?, 1, ?, 1, 1, '')`,
-			f[0]+":"+f[1], f[0], f[1], t0, t0); err != nil {
+  transitioned_at, last_seen_epoch, updated_epoch, detail) VALUES (?, ?, 'stream', ?, 'info', ?, ?, ?, 1, ?, 1, 1, '')`,
+			f[0]+":"+f[1], f[0], f[1], f[2], f[2], t0, t0); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -34,6 +34,12 @@ func TestAcceptFindingsAndReviewList(t *testing.T) {
 		Entities: []*v1.EntityRef{stream(noLimitsKey), stream(account + "/typo")}, Reason: "r", MutedBy: "op", ExpiresAt: timestamppb.New(now.Add(10 * day))}))
 	if connect.CodeOf(err) != connect.CodeNotFound || !strings.Contains(err.Error(), account+"/typo") {
 		t.Fatalf("entity without a finding: %v", err)
+	}
+	// A resolved finding: nothing fires to accept.
+	_, err = c.AcceptFindings(ctx, connect.NewRequest(&v1.AcceptFindingsRequest{CheckCode: "stream-005",
+		Entities: []*v1.EntityRef{stream(noLimitsKey), stream(account + "/gone")}, Reason: "r", MutedBy: "op", ExpiresAt: timestamppb.New(now.Add(10 * day))}))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition || !strings.Contains(err.Error(), account+"/gone") {
+		t.Fatalf("resolved finding: %v", err)
 	}
 	_, err = c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "stream-005", Accept: true,
 		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_CONSUMER, Key: account + "/catalog-changes/x"}, Reason: "r", MutedBy: "op", ExpiresAt: timestamppb.New(now.Add(10 * day))}))
@@ -78,6 +84,13 @@ func TestAcceptFindingsAndReviewList(t *testing.T) {
 		t.Fatalf("second acceptance in a batch: %v", err)
 	}
 
+	// A plain mute of an accepted entity is refused: the acceptance would
+	// hide behind it.
+	_, err = c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "stream-005", Entity: stream(noLimitsKey),
+		Reason: "r", MutedBy: "op", ExpiresAt: timestamppb.New(now.Add(time.Hour))}))
+	if connect.CodeOf(err) != connect.CodeAlreadyExists || !strings.Contains(err.Error(), "end the acceptance before muting") {
+		t.Fatalf("plain mute of an accepted entity: %v", err)
+	}
 	list := must(c.ListAcceptances(ctx, connect.NewRequest(&v1.ListAcceptancesRequest{})))
 	got := list.GetAcceptances()
 	if list.GetTotalCount() != 3 || len(got) != 3 || got[0].GetId() != soon.GetId() || got[1].GetId() != ms[0].GetId() {
@@ -107,7 +120,7 @@ func TestAcceptFindingsAndReviewList(t *testing.T) {
 	}
 
 	tally := must(c.GetShellStatus(ctx, connect.NewRequest(&v1.GetShellStatusRequest{}))).GetTally()
-	if tally.GetAccepted() != 1 || tally.GetMuted() != 1 {
-		t.Errorf("tally = %v, want catalog-changes accepted and counted within muted", tally)
+	if tally.GetAccepted() != 2 || tally.GetMuted() != 2 {
+		t.Errorf("tally = %v, want catalog-changes and OTHER/archive accepted and counted within muted", tally)
 	}
 }

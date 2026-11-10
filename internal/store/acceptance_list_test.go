@@ -23,7 +23,8 @@ func TestCreateAcceptancesStoresAllOrNone(t *testing.T) {
 	ctx := context.Background()
 	s := openMem(t)
 	addFinding(t, s, "consumer-016", "consumer", "APP/orders/a", "firing")
-	addFinding(t, s, "consumer-016", "consumer", "APP/orders/b", "resolved")
+	addFinding(t, s, "consumer-016", "consumer", "APP/orders/b", "firing")
+	addFinding(t, s, "consumer-016", "consumer", "APP/orders/gone", "resolved")
 	ok := Mute{CheckCode: "consumer-016", EntityType: "consumer", EntityKey: "APP/orders/a", Reason: "r", MutedBy: "op",
 		CreatedAt: t0, ExpiresAt: t0.Add(30 * 24 * time.Hour), Accepted: true}
 	bad := ok
@@ -36,10 +37,15 @@ func TestCreateAcceptancesStoresAllOrNone(t *testing.T) {
 	if _, err := s.CreateAcceptances(ctx, []Mute{ok, none}, t0); !errors.Is(err, ErrNoFinding) || !strings.Contains(err.Error(), "APP/orders/typo") {
 		t.Fatalf("an entity without a finding: %v", err)
 	}
+	// A resolved finding is not accepted: nothing fires to accept.
+	gone := ok
+	gone.EntityKey = "APP/orders/gone"
+	if _, err := s.CreateAcceptances(ctx, []Mute{ok, gone}, t0); !errors.Is(err, ErrFindingNotFiring) || !strings.Contains(err.Error(), "APP/orders/gone") {
+		t.Fatalf("a resolved finding: %v", err)
+	}
 	if all, n, err := s.ListMutes(ctx, t0, true, 10, 0); err != nil || n != 0 || len(all) != 0 {
 		t.Fatalf("after refused batches: %d mutes, %v", n, err)
 	}
-	// A resolved finding can be accepted too.
 	second := ok
 	second.EntityKey = "APP/orders/b"
 	got, err := s.CreateAcceptances(ctx, []Mute{ok, second}, t0)
@@ -125,5 +131,40 @@ func TestListAcceptancesOrderAndAccount(t *testing.T) {
 	ms, _, _, err = s.ListAcceptances(ctx, AcceptanceQuery{Now: t0.Add(10*day - time.Second), Limit: 10})
 	if err != nil || len(ms) != 3 || ms[0].ID != soon.ID {
 		t.Fatalf("a second before the review date: %v, %v", ids(ms), err)
+	}
+}
+
+// A plain mute of an entity with an acceptance of the check in force is
+// refused; a mute of another check, of every entity, or after the
+// acceptance ended is stored.
+func TestCreateMuteRefusesAnAcceptedEntity(t *testing.T) {
+	ctx := context.Background()
+	s := openMem(t)
+	addFinding(t, s, "consumer-016", "consumer", "APP/orders/a", "firing")
+	acc := Mute{CheckCode: "consumer-016", EntityType: "consumer", EntityKey: "APP/orders/a", Reason: "r", MutedBy: "op",
+		CreatedAt: t0, ExpiresAt: t0.Add(30 * 24 * time.Hour), Accepted: true}
+	got, err := s.CreateAcceptances(ctx, []Mute{acc}, t0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain := acc
+	plain.Accepted, plain.CreatedAt, plain.ExpiresAt = false, t0.Add(time.Hour), t0.Add(2*time.Hour)
+	if _, err := s.CreateMute(ctx, plain); !errors.Is(err, ErrAccepted) || !strings.Contains(err.Error(), "APP/orders/a") ||
+		!strings.Contains(err.Error(), t0.Add(30*24*time.Hour).Format("2006-01-02 15:04 UTC")) {
+		t.Fatalf("plain mute of an accepted entity: %v", err)
+	}
+	other, every := plain, plain
+	other.CheckCode = "consumer-017"
+	every.EntityType, every.EntityKey = "", ""
+	for _, m := range []Mute{other, every} {
+		if _, err := s.CreateMute(ctx, m); err != nil {
+			t.Fatalf("mute %s %q: %v", m.CheckCode, m.EntityKey, err)
+		}
+	}
+	if _, err := s.UnmuteMute(ctx, got[0].ID, "op", t0.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateMute(ctx, plain); err != nil {
+		t.Fatalf("after the acceptance ended: %v", err)
 	}
 }

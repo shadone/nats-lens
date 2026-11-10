@@ -442,4 +442,14 @@ func TestAcceptManyAndReviewList(t *testing.T) {
 	if connect.CodeOf(err) != connect.CodeNotFound {
 		t.Errorf("unknown entity: %v, want not_found", err)
 	}
+	// A plain mute of the accepted stream is refused; once the acceptance
+	// ends it is stored.
+	plain := &v1.MuteFindingRequest{CheckCode: "stream-005", Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-archive"},
+		Reason: "r", MutedBy: "op", ExpiresAt: timestamppb.New(fake.FixedNow.Add(time.Hour))}
+	_, err = c.MuteFinding(ctx, connect.NewRequest(plain))
+	if connect.CodeOf(err) != connect.CodeAlreadyExists || !strings.Contains(err.Error(), "end the acceptance before muting") {
+		t.Errorf("plain mute of an accepted stream: %v, want already_exists", err)
+	}
+	must(c.UnmuteFinding(ctx, connect.NewRequest(&v1.UnmuteFindingRequest{MuteId: ms[0].GetId(), UnmutedBy: "op"})))
+	must(c.MuteFinding(ctx, connect.NewRequest(plain)))
 }

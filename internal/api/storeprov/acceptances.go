@@ -48,12 +48,15 @@ func (p *Provider) AcceptFindings(ctx context.Context, req *v1.AcceptFindingsReq
 }
 
 // acceptError gives CreateAcceptances' refusals the API's codes: not_found
-// for an entity without a finding of the check, already_exists for one
-// with an acceptance in force.
+// for an entity without a finding of the check, failed_precondition for
+// one whose finding has resolved, already_exists for one with an
+// acceptance in force.
 func acceptError(err error) error {
 	switch {
 	case errors.Is(err, store.ErrNoFinding):
 		return fmt.Errorf("%w: %w; accept only an entity the check has a finding for", api.ErrNotFound, err)
+	case errors.Is(err, store.ErrFindingNotFiring):
+		return fmt.Errorf("%w: %w; accept only a firing finding", api.ErrFailedPrecondition, err)
 	case errors.Is(err, store.ErrAcceptanceInForce):
 		return fmt.Errorf("%w: %w; end it before accepting again", api.ErrAlreadyExists, err)
 	}

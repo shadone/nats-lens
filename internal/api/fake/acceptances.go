@@ -103,22 +103,44 @@ func (p *Provider) ListAcceptances(_ context.Context, req *v1.ListAcceptancesReq
 
 // checkAcceptances refuses acceptances as the store does: an entity
 // without a finding of the check in the scenario, in any state, is
-// not_found; one with an acceptance of the check in force is
-// already_exists. p.mu is held.
+// not_found; one whose finding has resolved is failed_precondition; one
+// with an acceptance of the check in force is already_exists. p.mu is
+// held.
 func (p *Provider) checkAcceptances(s scen, ms []*v1.Mute) error {
 	all := s.sc.findings(s)
 	for _, m := range ms {
 		e := m.GetEntity()
 		what := fmt.Sprintf("%s for %s %s", m.GetCheckCode(), strings.ToLower(strings.TrimPrefix(e.GetType().String(), "ENTITY_TYPE_")), e.GetKey())
-		if !slices.ContainsFunc(all, func(f *v1.Finding) bool {
+		i := slices.IndexFunc(all, func(f *v1.Finding) bool {
 			return f.GetCheckCode() == m.GetCheckCode() && f.GetEntity().GetType() == e.GetType() && f.GetEntity().GetKey() == e.GetKey()
-		}) {
+		})
+		if i < 0 {
 			return fmt.Errorf("%w: %s: no finding of the check for the entity; accept only an entity the check has a finding for", api.ErrNotFound, what)
+		}
+		if all[i].GetState() == resolved {
+			return fmt.Errorf("%w: %s: finding is not firing; accept only a firing finding", api.ErrFailedPrecondition, what)
 		}
 		for _, sm := range p.mutes {
 			if sm.m.GetAccepted() && sm.covers(&v1.Finding{CheckCode: m.GetCheckCode(), Entity: e}) && sm.m.GetEntity() != nil && sm.active(s) {
 				return fmt.Errorf("%w: %s: an acceptance of the check for the entity is in force; end it before accepting again", api.ErrAlreadyExists, what)
 			}
+		}
+	}
+	return nil
+}
+
+// checkMute refuses a plain mute as the store does: one of an entity with
+// an acceptance of the check in force is already_exists. p.mu is held.
+func (p *Provider) checkMute(s scen, m *v1.Mute) error {
+	e := m.GetEntity()
+	if e == nil {
+		return nil
+	}
+	for _, sm := range p.mutes {
+		if sm.m.GetAccepted() && sm.m.GetEntity() != nil && sm.covers(&v1.Finding{CheckCode: m.GetCheckCode(), Entity: e}) && sm.active(s) {
+			return fmt.Errorf("%w: %s for %s %s: accepted as by design until %s; end the acceptance before muting", api.ErrAlreadyExists,
+				m.GetCheckCode(), strings.ToLower(strings.TrimPrefix(e.GetType().String(), "ENTITY_TYPE_")), e.GetKey(),
+				sm.view(s).GetExpiresAt().AsTime().UTC().Format("2006-01-02 15:04 UTC"))
 		}
 	}
 	return nil

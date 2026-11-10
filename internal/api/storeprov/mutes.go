@@ -64,8 +64,13 @@ func (p *Provider) MuteFinding(ctx context.Context, req *v1.MuteFindingRequest) 
 		return muteProto(out[0]), nil
 	}
 	// The handler has checked the request, so a row the table rejects is
-	// a fault of this server, reported as internal.
+	// a fault of this server, reported as internal. A plain mute of an
+	// accepted entity is refused: the acceptance and its review would be
+	// hidden behind it.
 	out, err := p.St.CreateMute(ctx, m)
+	if errors.Is(err, store.ErrAccepted) {
+		return nil, fmt.Errorf("%w: %w; end the acceptance before muting", api.ErrAlreadyExists, err)
+	}
 	if err != nil {
 		return nil, err
 	}
