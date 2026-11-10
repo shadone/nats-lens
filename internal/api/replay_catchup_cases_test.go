@@ -118,3 +118,47 @@ func TestReplayCatchUpKeepBoundaries(t *testing.T) {
 		t.Errorf("kept %v\n%s", names, dumpCatchUps(t, res))
 	}
 }
+
+// A catch-up reported current at the old process's last answer was over
+// before the restart: the restart does not name it.
+func TestReplayCatchUpOverBeforeTheRestart(t *testing.T) {
+	f := facts()
+	f.Collected = true
+	f.Restarts = []api.ReplayRestart{{Server: "nats-1", OldID: "A", NewID: "B", LastSeen: rAt(12, 0), FirstSeen: rAt(13, 0), OldEpoch: 124, NewEpoch: 126}}
+	f.CatchUps = []api.ReplayCatchUp{current(run("nats-1", streamEnt("x"), 120, rAt(10, 0), 123, rAt(11, 30), 4, 5000, 100), 124, rAt(12, 0))}
+	want := "RESTART 09:12:00-09:13:00 nats-1 restarts | Back at 09:13:00."
+	if got := dumpCatchUps(t, api.FinishReplay(f)); !strings.Contains(got, want+"\n") && !strings.HasSuffix(got, want) {
+		t.Errorf("got\n%s\nwant %s", got, want)
+	}
+}
+
+// A replica behind at the old process's last answer and then never
+// reported again makes the restart's catch-up not observed, though a later
+// one was seen current.
+func TestReplayCatchUpHiddenEndBeforeAnObservedOne(t *testing.T) {
+	f := facts()
+	f.Collected = true
+	f.Restarts = []api.ReplayRestart{{Server: "nats-1", OldID: "A", NewID: "B", LastSeen: rAt(12, 0), FirstSeen: rAt(13, 0), OldEpoch: 124, NewEpoch: 126}}
+	h := run("nats-1", streamEnt("h"), 126, rAt(13, 0), 128, rAt(14, 0), 3, 5000, 100)
+	h.Next, h.NextEpoch = rAt(14, 30), 129
+	f.CatchUps = []api.ReplayCatchUp{h, current(run("nats-1", streamEnt("o"), 130, rAt(15, 0), 132, rAt(16, 0), 3, 500, 100), 133, rAt(16, 30))}
+	want := "Back at 09:13:00. When its replicas were current again was not observed."
+	if got := dumpCatchUps(t, api.FinishReplay(f)); !strings.Contains(got, want) {
+		t.Errorf("got\n%s\nwant %s", got, want)
+	}
+}
+
+// A replica behind at the old process's last answer, last reported
+// behind exactly then and never again: still under way at the restart.
+func TestReplayCatchUpBehindAtTheLastAnswer(t *testing.T) {
+	f := facts()
+	f.Collected = true
+	f.Restarts = []api.ReplayRestart{{Server: "nats-1", OldID: "A", NewID: "B", LastSeen: rAt(12, 0), FirstSeen: rAt(13, 0), OldEpoch: 124, NewEpoch: 126}}
+	h := run("nats-1", streamEnt("h"), 120, rAt(10, 0), 124, rAt(12, 0), 5, 5000, 100)
+	h.Next, h.NextEpoch = rAt(12, 30), 125
+	f.CatchUps = []api.ReplayCatchUp{h}
+	want := "Back at 09:13:00. When its replicas were current again was not observed."
+	if got := dumpCatchUps(t, api.FinishReplay(f)); !strings.Contains(got, want) {
+		t.Errorf("got\n%s\nwant %s", got, want)
+	}
+}
