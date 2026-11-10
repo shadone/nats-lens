@@ -1,3 +1,4 @@
+import { Code, ConnectError } from "@connectrpc/connect";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
@@ -129,6 +130,21 @@ describe("MuteDialog", () => {
     await userEvent.type(screen.getByLabelText("Your name"), "alice");
     await userEvent.click(screen.getByRole("button", { name: "Mute" }));
     expect(await screen.findByText(/at most 90 days/)).toBeInTheDocument();
+  });
+
+  it("names the account in a refusal of a mute of an accepted entity", async () => {
+    getLensInfo.mockResolvedValue(info("iap"));
+    const id = "AFAKEAPPACCOUNT";
+    const f: Finding = { ...finding, id: `stream-006:${id}/audit-archive`, entity: { ...finding.entity!, key: `${id}/audit-archive`, account: id, accountName: "APP" } };
+    muteFinding.mockRejectedValue(
+      new ConnectError(`already exists: stream-006 for stream ${id}/audit-archive: accepted as by design until 2027-01-21 14:30 UTC; end the acceptance before muting`, Code.AlreadyExists),
+    );
+    renderApp(<MuteDialog finding={f} onClose={() => {}} />);
+    await userEvent.type(screen.getByLabelText("Reason"), "noise");
+    await userEvent.click(screen.getByRole("button", { name: "Mute" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /^already_exists: stream-006 for stream APP\/audit-archive: accepted as by design until 2027-01-21 14:30 UTC; end the acceptance before muting$/,
+    );
   });
 });
 

@@ -1,6 +1,6 @@
 // Mute a finding's check, for its entity or for every entity, with a
 // reason and an expiry; and lift a mute.
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useContext, useEffect, useId, useState, type FormEvent } from "react";
 import { identityNeed, rememberName, rememberedName, type IdentityNeed } from "../api/identity";
 import type { Finding, Mute } from "../api/model";
 import { useLensInfo, useMuteFinding, useUnmuteFinding } from "../api/queries";
@@ -9,8 +9,10 @@ import { isoDate, isoMinute } from "../lib/format";
 import { useSystem } from "../lib/useSystem";
 import { EXPIRY_PRESETS, MAX_REASON, expiryOf, hasErrors, validateMute, type MuteErrors, type MuteForm } from "../lib/muteForm";
 import { entityName } from "../lib/view";
+import { withAccountNames } from "../lib/acceptRelated";
 import { errorText } from "./common";
 import { Dialog } from "./Dialog";
+import { AccountLabelContext } from "./FindingParts";
 
 export function Field({ id, label, error, children, hint }: { id: string; label: string; error?: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -55,6 +57,7 @@ export function useBusy(pending: boolean, onBusy: (b: boolean) => void) {
 
 function MuteBody({ finding, need, onClose, onBusy }: { finding: Finding; need: IdentityNeed; onClose: () => void; onBusy: (b: boolean) => void }) {
   const ids = useId();
+  const label = useContext(AccountLabelContext);
   const askName = need.askName;
   const [scope, setScope] = useState<"entity" | "check">("entity");
   const [form, setForm] = useState<MuteForm>({ reason: "", expiry: "24h", customExpiry: "", name: rememberedName() });
@@ -127,7 +130,7 @@ function MuteBody({ finding, need, onClose, onBusy }: { finding: Finding; need: 
       {need.iap && <p className="hint">The mute is recorded as your IAP identity.</p>}
       {mute.error && (
         <p className="field-err" role="alert">
-          {errorText(mute.error)}
+          {withAccountNames(errorText(mute.error), finding.entity ? [finding.entity] : [], label)}
         </p>
       )}
       <div className="dlg-btns">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Entity, Finding } from "../api/model";
-import { acceptTarget, parentPhrase, relatedFindings, relatedQuery } from "./acceptRelated";
+import { acceptTarget, parentPhrase, relatedFindings, relatedQuery, withAccountNames } from "./acceptRelated";
 import { accountLabel } from "./view";
 
 const consumer = (stream: string, name: string, account = "APP"): Entity => ({ kind: "consumer", key: `${account}/${stream}/${name}`, name, account, stream, consumer: name, server: "" });
@@ -49,6 +49,14 @@ describe("relatedFindings", () => {
     const target = stream("orders");
     const fs = [finding(stream("archive"), { checkCode: "stream-005" }), finding(stream("archive", "SUPPLIERS"), { checkCode: "stream-005" })];
     expect(relatedFindings(fs, "stream-005", target, "stream-005:APP/orders").map((f) => f.entity!.key)).toEqual(["APP/archive"]);
+  });
+});
+
+describe("withAccountNames", () => {
+  it("names the account where its ID starts an entity key, and leaves the ID alone inside other words", () => {
+    const e = { ...stream("orders", "APP"), accountName: "Shop" };
+    expect(withAccountNames("stream-005 for stream APP/orders: APPLY the APP limit", [e], accountLabel)).toBe("stream-005 for stream Shop/orders: APPLY the APP limit");
+    expect(withAccountNames("stream APP/orders", [stream("orders", "APP")], accountLabel)).toBe("stream APP/orders");
   });
 });
 

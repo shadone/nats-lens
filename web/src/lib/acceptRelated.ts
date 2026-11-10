@@ -36,14 +36,15 @@ export function relatedFindings(fs: Finding[], checkCode: string, target: Entity
 
 /**
  * The text with each account ID of the entities written as the account's
- * label: the server names an entity by its key, which starts with the
- * account's ID.
+ * label where it starts an entity key ("<ID>/"): the server names an entity
+ * by its key. A bare ID elsewhere is left alone, as a short one may be part
+ * of another word.
  */
 export function withAccountNames(text: string, es: Entity[], label: (id: string, name?: string) => string): string {
   const names = new Map<string, string>();
   for (const e of es) if (e.account && e.accountName) names.set(e.account, label(e.account, e.accountName));
   let out = text;
-  for (const [id, name] of names) out = out.split(id).join(name);
+  for (const [id, name] of names) out = out.split(`${id}/`).join(`${name}/`);
   return out;
 }
 
