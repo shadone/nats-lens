@@ -2,6 +2,7 @@ package storeprov
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -48,7 +49,7 @@ func TestGrowthQueriesStayBatchedAndBounded(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			servers, err := p.storeGrowth(ctx, serverStoreSeries, start, end)
+			servers, err := p.storeGrowth(ctx, strings.Replace(serverStoreSeries, "%s", "('file')", 1), start, end)
 			if err != nil {
 				t.Fatal(err)
 			}

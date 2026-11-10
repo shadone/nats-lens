@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
@@ -88,7 +90,12 @@ ORDER BY n.name`, f.Epoch)
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	growth, err := p.storeGrowth(ctx, serverStoreSeries, start, end)
+	// Memory growth is read only when a memory card can be sent.
+	kinds := "('file')"
+	if slices.ContainsFunc(f.Servers, api.HoldsMemory) {
+		kinds = "('file'), ('memory')"
+	}
+	growth, err := p.storeGrowth(ctx, fmt.Sprintf(serverStoreSeries, kinds), start, end)
 	if err != nil {
 		return fmt.Errorf("capacity server growth: %w", err)
 	}
@@ -101,26 +108,28 @@ ORDER BY n.name`, f.Epoch)
 
 // serverStoreSeries is every server's file and memory store in use in
 // each epoch, by server name (so a restart continues the series), keyed
-// name/file and name/memory.
+// name/file and name/memory; %s lists the kinds read, ('file') or
+// ('file'), ('memory').
 const serverStoreSeries = `
   SELECT s.server_name || '/' || k AS name, e.started_at AS t, max(CASE k WHEN 'file' THEN st.js_storage ELSE st.js_memory END) AS v
-  FROM server_stats st JOIN servers s USING (server_id) JOIN epochs e USING (epoch), (VALUES ('file'), ('memory')) kinds(k)
+  FROM server_stats st JOIN servers s USING (server_id) JOIN epochs e USING (epoch), (VALUES %s) kinds(k)
   WHERE e.started_at >= ? AND e.started_at < ?
   GROUP BY 1, e.epoch, e.started_at`
 
-// accountStoreSeries is every account's JetStream file and memory use in
-// each epoch, the largest any server reports, keyed account/file and
-// account/memory.
+// accountStoreSeries is the JetStream file and memory use of the accounts
+// listed by %s (one placeholder per account), in each epoch, the largest
+// any server reports, keyed account/file and account/memory.
 const accountStoreSeries = `
   SELECT a.account || '/' || k AS name, e.started_at AS t, max(CASE k WHEN 'file' THEN a.js_storage ELSE a.js_memory END) AS v
   FROM account_stats a JOIN epochs e USING (epoch), (VALUES ('file'), ('memory')) kinds(k)
-  WHERE e.started_at >= ? AND e.started_at < ?
+  WHERE e.started_at >= ? AND e.started_at < ? AND a.account IN (%s)
   GROUP BY 1, e.epoch, e.started_at`
 
 // storeGrowth reads a series of the range (series selects name, t and v,
-// with the range's start and end as its two parameters), reduced in SQL
-// to at most api.GrowthBuckets+1 aligned medians per name.
-func (p *Provider) storeGrowth(ctx context.Context, series string, start, end time.Time) (map[string][]api.Sample, error) {
+// with the range's start and end as its first two parameters, then
+// args), reduced in SQL to at most api.GrowthBuckets+1 aligned medians
+// per name.
+func (p *Provider) storeGrowth(ctx context.Context, series string, start, end time.Time, args ...any) (map[string][]api.Sample, error) {
 	start = api.GrowthStart(start, end, p.Interval)
 	width := p.growthWidth(start, end)
 	rows, err := p.db().QueryContext(ctx, `
@@ -128,7 +137,7 @@ WITH per AS (`+series+`)
 SELECT name, min(t) + (max(t) - min(t)) / 2, median(v)::DOUBLE, min(t), max(t)
 FROM per WHERE v IS NOT NULL
 GROUP BY name, time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00')
-ORDER BY 1, 2`, start, end, width.Microseconds())
+ORDER BY 1, 2`, append(append([]any{start, end}, args...), width.Microseconds())...)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +273,11 @@ ORDER BY a.account`, f.Epoch, f.EpochAt.Add(-api.AccountDetailsMaxAge))
 	if len(f.Accounts) == 0 {
 		return nil
 	}
-	growth, err := p.storeGrowth(ctx, accountStoreSeries, start, end)
+	marks, keys := make([]string, len(f.Accounts)), make([]any, len(f.Accounts))
+	for i, a := range f.Accounts {
+		marks[i], keys[i] = "?", a.Account
+	}
+	growth, err := p.storeGrowth(ctx, fmt.Sprintf(accountStoreSeries, strings.Join(marks, ", ")), start, end, keys...)
 	if err != nil {
 		return fmt.Errorf("capacity account growth: %w", err)
 	}
