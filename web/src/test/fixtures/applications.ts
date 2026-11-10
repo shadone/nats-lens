@@ -119,6 +119,8 @@ export function prod(o: Partial<Applications> = {}): Applications {
     partial: false,
     missing: [],
     captureGaps: false,
+    clientPodsWatched: false,
+    clientPodsUnwatched: [],
     ...o,
   };
 }
@@ -138,5 +140,7 @@ export function noCollection(): Applications {
     partial: false,
     missing: [],
     captureGaps: false,
+    clientPodsWatched: false,
+    clientPodsUnwatched: [],
   };
 }

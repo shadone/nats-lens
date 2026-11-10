@@ -1,6 +1,7 @@
 // The Applications page's table: one row per application, with its pods,
-// instances, servers, library, round trip, subscriptions, pending bytes,
-// reconnects and 24-hour traffic. Every column sorts; the order is kept
+// where it runs (while client pods are watched), instances, servers,
+// library, round trip, subscriptions, pending bytes, reconnects and
+// 24-hour traffic. Every column sorts; the order is kept
 // in the address.
 import {InfoTip} from "./MetricBox";
 import type { ReactNode } from "react";
@@ -16,8 +17,10 @@ import {
   mixedText,
   placesOf,
   reconnectFinding,
+  runsOnText,
   subLine,
   trafficLabel,
+  workloadName,
 } from "../lib/appsView";
 import { fmtBytes, fmtInt, fmtShortDuration } from "../lib/format";
 import { sortRows, useSort } from "../lib/sort";
@@ -100,6 +103,44 @@ function PlacesCell({ a }: { a: Application }) {
     <td className={`ap-places${p.kind === "addresses" ? " ap-addrs" : ""}`}>
       {p.kind === "addresses" && <span className="sr-only">no pod in the names; client addresses: </span>}
       <Few items={p.items} total={p.total} shown={p.kind === "pods" ? 2 : 1} what={p.kind === "pods" ? "pods" : "addresses"} render={(s) => s} />
+    </td>
+  );
+}
+
+/** Where the application runs: its workloads, its pods and nodes, and what matched no pod. */
+function RunsOnCell({ a }: { a: Application }) {
+  const r = a.runsOn;
+  if (!r) return <td><Dash /></td>;
+  const t = runsOnText(r, a.connections);
+  const kinds = new Map(r.workloads.map((w) => [workloadName(w), w.kind]));
+  const unlisted = Math.max(0, r.nodesTotal - r.nodes.length);
+  return (
+    <td className="ap-runs">
+      {r.workloads.length > 0 && (
+        <Few
+          items={r.workloads.map(workloadName)}
+          total={r.workloadsTotal}
+          shown={1}
+          what="workloads"
+          render={(s) => (
+            <>
+              <span className="ap-kind">{kinds.get(s)}</span> {s}
+            </>
+          )}
+        />
+      )}
+      {t.where && (
+        <details className="ap-more ap-nodes">
+          <summary>{t.where}</summary>
+          {r.nodes.map((n) => (
+            <span key={n} className="ap-item">
+              {n}
+            </span>
+          ))}
+          {unlisted > 0 && <span className="ap-item ap-quiet">{fmtInt(unlisted)} not listed</span>}
+        </details>
+      )}
+      {t.coverage && <span className="ap-cover">{t.coverage}</span>}
     </td>
   );
 }
@@ -220,12 +261,15 @@ export function AppTable({
   showAccount,
   label,
   atLeast = false,
+  runsOn = false,
 }: {
   rows: Application[];
   showAccount: boolean;
   label: (id: string, name?: string) => string;
   /** Event capture stopped within the 24 hours: reconnect counts are lower bounds. */
   atLeast?: boolean;
+  /** Client pods are watched: the Runs on column is shown. */
+  runsOn?: boolean;
 }) {
   const [sort, by] = useSort();
   // Own keys only: ?sort=__proto__ must not reach the prototype.
@@ -239,6 +283,7 @@ export function AppTable({
           <tr>
             <SortTh id="name" label="Application" first="asc" {...th} />
             <SortTh id="pods" label="Pods" {...th} />
+            {runsOn && <SortTh id="runsOn" label="Runs on" first="asc" {...th} />}
             <SortTh id="instances" label="Instances" num {...th} />
             <SortTh id="servers" label="Servers" {...th} />
             <SortTh id="library" label="Library" first="asc" {...th} />
@@ -254,6 +299,7 @@ export function AppTable({
             <tr key={a.name} className={hasOpenFinding(a) ? "ap-warn" : undefined}>
               <NameCell a={a} showAccount={showAccount} label={label} />
               <PlacesCell a={a} />
+              {runsOn && <RunsOnCell a={a} />}
               <td className="num">{fmtInt(a.instances)}</td>
               <ServersCell a={a} />
               <LibraryCell a={a} />

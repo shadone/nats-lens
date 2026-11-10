@@ -48,6 +48,11 @@
 .tbl.ap-tbl td.ap-lib{font:var(--fs-sm) var(--mono);white-space:nowrap}
 .ap-tbl .ap-mixed{font-weight:500;color:var(--sev-warning)}
 .ap-tbl .ap-lib-line{display:block;font-size:var(--fs-xs)}
+.tbl.ap-tbl td.ap-runs{min-width:180px}
+.ap-tbl .ap-runs .ap-item{font:var(--fs-xs) var(--mono);white-space:nowrap}
+.ap-tbl .ap-kind{font:var(--fs-xs) var(--sans);color:var(--text-muted)}
+.ap-tbl .ap-nodes .ap-item{color:var(--text-2)}
+.ap-tbl .ap-cover{display:block;font-size:var(--fs-xs);color:var(--text-muted)}
 .ap-tbl .ap-small{display:block;font:var(--fs-xs) var(--mono);color:var(--text-muted);white-space:nowrap}
 .ap-tbl .ap-warn-text{color:var(--sev-warning);font-weight:500}
 .ap-tbl tr.ap-warn > *{background:var(--sev-warning-bg)}

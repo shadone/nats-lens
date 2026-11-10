@@ -75,3 +75,33 @@ describe("applications", () => {
     expect(d.lastDay).toEqual({ slowConsumers: 0, stale: 6, reconnecting: 1 });
   });
 });
+
+describe("applications Runs on", () => {
+  it("reads Runs on and the failing watches, and leaves Runs on undefined while client pods are not watched", () => {
+    const d = applications(
+      create(GetApplicationsResponseSchema, {
+        epoch: 7n,
+        epochAt: timestampFromMs(AT),
+        clientPodsWatched: true,
+        clientPodsUnwatched: [{ source: "client pods in shop", since: timestampFromMs(AT - 60_000), error: "Kubernetes API returned HTTP 403" }],
+        applications: [
+          { name: "cart", connections: 3, runsOn: { matched: 2, ambiguous: 1, workloads: [{ namespace: "shop", kind: "Deployment", name: "cart", pods: 2, connections: 2 }], workloadsTotal: 1, nodes: ["n1"], nodesTotal: 1, pods: 2 } },
+          { name: "ledger", connections: 1 },
+        ],
+      }),
+    );
+    expect(d.clientPodsWatched).toBe(true);
+    expect(d.clientPodsUnwatched).toEqual([{ source: "client pods in shop", since: AT - 60_000, error: "Kubernetes API returned HTTP 403" }]);
+    expect(d.applications[0].runsOn).toEqual({
+      matched: 2,
+      ambiguous: 1,
+      workloads: [{ namespace: "shop", kind: "Deployment", name: "cart", pods: 2, connections: 2 }],
+      workloadsTotal: 1,
+      nodes: ["n1"],
+      nodesTotal: 1,
+      pods: 2,
+    });
+    expect(d.applications[1].runsOn).toBeUndefined();
+    expect(applications(create(GetApplicationsResponseSchema, {})).clientPodsWatched).toBe(false);
+  });
+});

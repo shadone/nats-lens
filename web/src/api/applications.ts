@@ -76,6 +76,41 @@ export interface Application {
   connectionNames: string[];
   /** Distinct names beyond connectionNames. */
   moreNames: number;
+  /** Where the connections run; undefined while client pods are not watched. */
+  runsOn?: AppRunsOn;
+}
+
+/** The workload that owns some of an application's pods. */
+export interface AppWorkload {
+  namespace: string;
+  /** Deployment, StatefulSet, DaemonSet, CronJob, Job, ReplicaSet, another controller's kind, or Pod. */
+  kind: string;
+  name: string;
+  pods: number;
+  connections: number;
+}
+
+/** The connections matched to watched pods by their client address. */
+export interface AppRunsOn {
+  /** Connections matched to exactly one pod. */
+  matched: number;
+  /** Connections from an address a host-network pod, or more than one pod, held. */
+  ambiguous: number;
+  /** At most 10, most connections first. */
+  workloads: AppWorkload[];
+  workloadsTotal: number;
+  /** At most 10, sorted. */
+  nodes: string[];
+  nodesTotal: number;
+  pods: number;
+}
+
+/** A client pod watch that was failing at the collection. */
+export interface ClientPodWatchGap {
+  /** For example "client pods in shop". */
+  source: string;
+  since?: number;
+  error: string;
 }
 
 export interface AppSpread {
@@ -118,6 +153,10 @@ export interface Applications {
   missing: string[];
   /** Event capture stopped for part of the 24 hours: the 24-hour counts are lower bounds. */
   captureGaps: boolean;
+  /** Whether client pods are watched (kubernetes.client_pod_watch); each runsOn is undefined when not. */
+  clientPodsWatched: boolean;
+  /** The client pod watches failing at the collection. */
+  clientPodsUnwatched: ClientPodWatchGap[];
 }
 
 /** A duration in milliseconds with its fraction: a round trip of 0.69 ms must not read as 1 ms. */
@@ -158,6 +197,17 @@ export function applications(r: GetApplicationsResponse): Applications {
       addressesTotal: a.addressesTotal,
       connectionNames: a.connectionNames,
       moreNames: a.moreNames,
+      runsOn: a.runsOn
+        ? {
+            matched: a.runsOn.matched,
+            ambiguous: a.runsOn.ambiguous,
+            workloads: a.runsOn.workloads.map((w) => ({ namespace: w.namespace, kind: w.kind, name: w.name, pods: w.pods, connections: w.connections })),
+            workloadsTotal: a.runsOn.workloadsTotal,
+            nodes: a.runsOn.nodes,
+            nodesTotal: a.runsOn.nodesTotal,
+            pods: a.runsOn.pods,
+          }
+        : undefined,
     })),
     applicationsTotal: r.applicationsTotal,
     connectionsTotal: r.connectionsTotal,
@@ -170,5 +220,7 @@ export function applications(r: GetApplicationsResponse): Applications {
     partial: r.partial,
     missing: r.missing,
     captureGaps: r.captureGaps,
+    clientPodsWatched: r.clientPodsWatched,
+    clientPodsUnwatched: r.clientPodsUnwatched.map((g) => ({ source: g.source, since: ms(g.since), error: g.error })),
   };
 }

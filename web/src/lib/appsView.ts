@@ -1,7 +1,7 @@
 // The Applications page in words: the line under the title, the three
 // summary cards, the table's cells and sort values, the sparkline's
 // accessible name, the notices and the footnote.
-import type { AppHour, AppLibrary, Application, Applications, AppSpread, AppsLastDay, LibraryUse } from "../api/applications";
+import type { AppHour, AppLibrary, Application, Applications, AppRunsOn, AppSpread, AppsLastDay, AppWorkload, ClientPodWatchGap, LibraryUse } from "../api/applications";
 import type { SortValue } from "./sort";
 import { fmtBytes, fmtInt, hm, hms } from "./format";
 
@@ -133,7 +133,34 @@ export const APP_SORT: Record<string, (a: Application) => SortValue> = {
   pending: (a) => a.pendingBytes,
   reconnects: (a) => a.reconnects,
   traffic: (a) => sumMsgs(a),
+  runsOn: (a) => (a.runsOn?.workloads[0] ? workloadName(a.runsOn.workloads[0]) : undefined),
 };
+
+/** "shop/order-service": a workload by its namespace and name. */
+export function workloadName(w: Pick<AppWorkload, "namespace" | "name">): string {
+  return `${w.namespace}/${w.name}`;
+}
+
+/** The Runs on cell in words: the pods and nodes, and what was not matched. */
+export function runsOnText(r: AppRunsOn, connections: number): { where?: string; coverage?: string } {
+  const where = r.matched > 0 ? `${plural(r.pods, "pod")} on ${plural(r.nodesTotal, "node")}` : undefined;
+  if (r.matched === connections) return { where };
+  const parts: string[] = [];
+  if (r.matched > 0) parts.push(`${fmtInt(r.matched)} of ${plural(connections, "connection")} matched to pods`);
+  else if (r.ambiguous < connections) parts.push(connections === 1 ? "Its connection matched no pod" : "No connection matched to a pod");
+  if (r.ambiguous > 0) parts.push(`${plural(r.ambiguous, "connection")} from a host-network or shared address`);
+  return { where, coverage: parts.join("; ") };
+}
+
+/** The notice for client pod watches that were failing: Runs on can miss their pods. */
+export function unwatchedText(gaps: ClientPodWatchGap[]): string {
+  const one = (g: ClientPodWatchGap) => `${g.source}${g.since !== undefined ? ` since ${hm(g.since)} UTC` : ""}${g.error ? ` (${g.error})` : ""}`;
+  return `nats-lens could not watch the ${gaps.map(one).join(", ")}: Runs on can miss the pods there.`;
+}
+
+/** The footnote's line on Runs on, shown while client pods are watched. */
+export const RUNS_ON_FOOTNOTE =
+  "Runs on matches each connection's client address to the watched pod that held it at the collection. A connection through a proxy or NAT, from outside the cluster or from a namespace not watched, matches no pod; one from a host-network pod, or from an address two pods held, is not matched to one pod.";
 
 /** Hours of the 24 with a measurement. */
 export function hoursSet(t: AppHour[]): number {

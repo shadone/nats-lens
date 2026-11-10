@@ -9,6 +9,8 @@ import {
   eventsLink,
   libraryCell,
   partialText,
+  runsOnText,
+  unwatchedText,
   librariesText,
   mixedText,
   reconnectFinding,
@@ -158,5 +160,30 @@ describe("TrafficSpark segments", () => {
     // The highest value reaches the top margin; 0 lies on the baseline.
     expect(runs[2][2].y).toBeCloseTo(3);
     expect(runs[0][0].y).toBeCloseTo(22);
+  });
+});
+
+describe("Runs on in words", () => {
+  const r = (matched: number, ambiguous: number, pods = matched, nodesTotal = 1) => ({ matched, ambiguous, workloads: [], workloadsTotal: 0, nodes: [], nodesTotal, pods });
+  it("says the pods and nodes, and what matched no pod", () => {
+    expect(runsOnText(r(5, 0, 4, 2), 5)).toEqual({ where: "4 pods on 2 nodes", coverage: undefined });
+    expect(runsOnText(r(3, 0, 3, 1), 5)).toEqual({ where: "3 pods on 1 node", coverage: "3 of 5 connections matched to pods" });
+    expect(runsOnText(r(1, 2, 1, 1), 4).coverage).toBe("1 of 4 connections matched to pods; 2 connections from a host-network or shared address");
+    expect(runsOnText(r(0, 0), 2)).toEqual({ where: undefined, coverage: "No connection matched to a pod" });
+    expect(runsOnText(r(0, 0), 1).coverage).toBe("Its connection matched no pod");
+    expect(runsOnText(r(0, 3), 3).coverage).toBe("3 connections from a host-network or shared address");
+    expect(runsOnText(r(0, 1), 3).coverage).toBe("No connection matched to a pod; 1 connection from a host-network or shared address");
+  });
+
+  it("names the failing watches with their time and error", () => {
+    expect(unwatchedText([{ source: "client pods in shop", since: Date.parse("2026-10-17T14:05:00Z"), error: "Kubernetes API returned HTTP 403" }, { source: "client pods in payments", error: "" }])).toBe(
+      "nats-lens could not watch the client pods in shop since 14:05 UTC (Kubernetes API returned HTTP 403), client pods in payments: Runs on can miss the pods there.",
+    );
+  });
+
+  it("sorts Runs on by the first workload, unmatched last", () => {
+    expect(APP_SORT.runsOn(app({ runsOn: { ...r(1, 0), workloads: [{ namespace: "shop", kind: "Deployment", name: "cart", pods: 1, connections: 1 }] } }))).toBe("shop/cart");
+    expect(APP_SORT.runsOn(app({ runsOn: r(0, 0) }))).toBeUndefined();
+    expect(APP_SORT.runsOn(app())).toBeUndefined();
   });
 });

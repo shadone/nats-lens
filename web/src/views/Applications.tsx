@@ -12,7 +12,7 @@ import { AppCards } from "../components/AppCards";
 import { AppTable } from "../components/AppTable";
 import { Empty, QueryView } from "../components/common";
 import { ReplayContextLink } from "../components/ReplayEntry";
-import { APPS_FOOTNOTE, CAPTURE_GAPS, CONNZ_CUT, emptyText, NO_EVENTS, partialText, subtitleText, toolingHiddenText, trafficNote } from "../lib/appsView";
+import { APPS_FOOTNOTE, CAPTURE_GAPS, CONNZ_CUT, emptyText, NO_EVENTS, partialText, RUNS_ON_FOOTNOTE, subtitleText, toolingHiddenText, trafficNote, unwatchedText } from "../lib/appsView";
 import { accountLabeller } from "../lib/view";
 
 function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: boolean; scope: string; names: Map<string, string> }) {
@@ -46,6 +46,11 @@ function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: bo
           <b>Connection list cut.</b> {CONNZ_CUT}
         </p>
       )}
+      {d.clientPodsWatched && d.clientPodsUnwatched.length > 0 && (
+        <p className="ap-notice ap-notice-warn" role="note">
+          <b>Client pods not watched.</b> {unwatchedText(d.clientPodsUnwatched)}
+        </p>
+      )}
       {!d.eventsCaptured && d.applications.length > 0 && (
         <p className="ap-notice" role="note">
           <b>Events not captured.</b> {NO_EVENTS}
@@ -65,13 +70,14 @@ function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: bo
               {note}
             </p>
           )}
-          <AppTable rows={rows} showAccount={showAccount} label={(id, name) => label(id, name || nameOf(id))} atLeast={d.eventsCaptured && d.captureGaps} />
+          <AppTable rows={rows} showAccount={showAccount} label={(id, name) => label(id, name || nameOf(id))} atLeast={d.eventsCaptured && d.captureGaps} runsOn={d.clientPodsWatched} />
         </>
       )}
       <div className="ap-foot">
         {APPS_FOOTNOTE.map((l) => (
           <p key={l}>{l}</p>
         ))}
+        {d.clientPodsWatched && <p>{RUNS_ON_FOOTNOTE}</p>}
       </div>
     </>
   );
