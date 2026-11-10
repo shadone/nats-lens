@@ -24,7 +24,9 @@ import { EntityLine } from "../components/FindingParts";
 import { MuteDialog, UnmuteDialog } from "../components/MuteDialog";
 import { AcceptDialog, type AcceptTarget } from "../components/AcceptDialog";
 import { acceptTarget } from "../lib/acceptRelated";
-import { acceptable } from "../lib/causeEvidence";
+import { CopyCommand } from "../components/CopyCommand";
+import { acceptable, cliCheck } from "../lib/causeEvidence";
+import { useSystem } from "../lib/useSystem";
 import { AcceptedTag, Sev, StateTag } from "../components/Severity";
 import { StatusTimeline } from "../components/StatusTimeline";
 import { TimelineInvestigationProvider } from "../components/TimelineInvestigation";
@@ -263,6 +265,12 @@ function Related({ e }: { e: Entity | undefined }) {
   );
 }
 
+/** The nats CLI command that shows what the finding reports, with the context it needs. */
+function CliCheck({ f, system }: { f: Finding; system: string }) {
+  const cli = cliCheck([f], system);
+  return cli ? <CopyCommand label="Check it with the nats CLI" command={cli.command} button="Copy nats CLI check" note={cli.note} /> : null;
+}
+
 /** The mute or acceptance in force on the finding. */
 function MuteSection({ m }: { m: Mute }) {
   const baseline = baselineText(m, fmtGrowth, useLensInfo().data?.retentionMs ?? 0);
@@ -295,6 +303,7 @@ export function DesktopFindingDetail({ acknowledgements = true, copyAction=true 
   const [muting, setMuting] = useState(false);
   const [lifting, setLifting] = useState(false);
   const [accepting, setAccepting] = useState<AcceptTarget>();
+  const system = useSystem();
   return (
     <>
       <nav className="crumbs" aria-label="Breadcrumb">
@@ -328,6 +337,7 @@ export function DesktopFindingDetail({ acknowledgements = true, copyAction=true 
                     <div className="box">
                       <span className="lbl">Remediation</span>
                       {d.finding.remediation ? <Remediation text={d.finding.remediation} /> : <p className="muted-note">The check gives no remediation.</p>}
+                      <CliCheck f={d.finding} system={system} />
                     </div>
                     <div className="box cfg">
                       <span className="lbl">Related settings{d.finding.relatedConfigSource ? `, from ${d.finding.relatedConfigSource}` : ""}</span>

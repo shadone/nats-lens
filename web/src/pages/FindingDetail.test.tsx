@@ -446,6 +446,7 @@ it.each(["firing","resolved","muted"])("copies a visible finding prompt for %s w
 
 describe("FindingDetail extras for acceptance", () => {
   const acceptableFinding: Finding = { ...base, id: "consumer-016:APP/order-jobs/resize-worker", checkCode: "consumer-016", checkName: "Consumer with one replica", severity: "info", entity: consumerEntity, acceptable: true };
+  const view = (server: string, isLeader: boolean): ConsumerServerView => ({ server, isLeader, current: true, offline: false, configHash: "h" });
 
   it("offers Accept as by design for a finding of an acceptable check, and not when it is not", async () => {
     m.getFinding.mockResolvedValue({ finding: acceptableFinding, transitions: [] });
@@ -459,5 +460,15 @@ describe("FindingDetail extras for acceptance", () => {
     show();
     await screen.findByRole("button", { name: "Mute…" });
     expect(screen.queryByRole("button", { name: "Accept as by design…" })).toBeNull();
+  });
+
+  it("gives the nats CLI check with a copy button and links Placement on the leader's copy", async () => {
+    m.getFinding.mockResolvedValue({ finding: acceptableFinding, transitions: [] });
+    m.getConsumer.mockResolvedValue({ config: [], disagreements: [], findings: [], servers: [view("nats-1", false), view("nats-0", true)] });
+    show();
+    expect(await screen.findByText("nats consumer info --json -- order-jobs resize-worker")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy nats CLI check" })).toBeInTheDocument();
+    const link = await screen.findByRole("link", { name: "Open this consumer in Placement" });
+    expect(link.getAttribute("href")).toContain("/placement?asset=APP%2Forder-jobs%2Fresize-worker&server=nats-0");
   });
 });

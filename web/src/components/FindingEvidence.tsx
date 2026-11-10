@@ -178,6 +178,16 @@ export function CopiesTable({ kind, copies }: { kind: "stream" | "consumer"; cop
   );
 }
 
+/** The server Placement opens on: the leader's copy, else the first. */
+function placementServer(copies: Copy[]): string {
+  return (copies.find((c) => c.isLeader) ?? copies[0]).server;
+}
+
+/** The Placement page with the asset's cell on that server selected. */
+function placementLink(e: Entity, copies: Copy[]): string {
+  return `/placement?${new URLSearchParams({ asset: e.key, server: placementServer(copies) }).toString()}`;
+}
+
 /** The copies of a stream or consumer finding; nothing for other entities. */
 export function FindingEvidence({ spec, entity, state }: { spec: RangeSpec; entity: Entity | undefined; state: string }) {
   const q = useCopies(spec, entity, state);
@@ -191,7 +201,18 @@ export function FindingEvidence({ spec, entity, state }: { spec: RangeSpec; enti
       }
     >
       <QueryView q={q} what={`the ${entity.kind}'s copies`}>
-        {(d) => (d.servers.length ? <CopiesTable kind={d.kind} copies={d.servers} /> : <p className="muted-note">No server reports this {entity.kind}.</p>)}
+        {(d) =>
+          d.servers.length ? (
+            <>
+              <CopiesTable kind={d.kind} copies={d.servers} />
+              <p className="muted-note">
+                <RLink to={placementLink(entity, d.servers)}>Open this {entity.kind} in Placement</RLink>
+              </p>
+            </>
+          ) : (
+            <p className="muted-note">No server reports this {entity.kind}.</p>
+          )
+        }
       </QueryView>
     </Section>
   );
