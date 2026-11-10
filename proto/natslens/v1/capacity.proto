@@ -20,7 +20,8 @@ message GetCapacityRequest {
   TimeRange range = 2;
 }
 
-// One server's JetStream file store in the epoch.
+// One server's JetStream file store in the epoch; in memory_stores, its
+// memory store.
 message ServerStore {
   // Server name.
   string server_name = 1;
@@ -91,6 +92,15 @@ enum NextLimitKind {
   NEXT_LIMIT_KIND_BYTES = 5;
   // max_msgs_per_subject, the only limit set (a bucket's history).
   NEXT_LIMIT_KIND_PER_SUBJECT = 6;
+  // The JetStream limit of the stream's account for the stream's storage
+  // (account_limit), shared by every stream of the account: days is the
+  // account's days to full (AccountStore), not a forecast of the stream
+  // alone. Chosen when the stream has no age, message or byte limit, or
+  // when the account fills before the stream reaches its own; never over
+  // a limit the stream holds at now (steady or refusing) or an empty
+  // stream. An account at its limit refuses new messages, so discard_new
+  // is true.
+  NEXT_LIMIT_KIND_ACCOUNT = 7;
 }
 
 // Where a stream stands against its next limit.
@@ -245,6 +255,42 @@ message CapacityStream {
   // "writer_ttls" (a KV bucket the inventory lists that allows per-message
   // TTLs); empty unless status is declared.
   string declared_reason = 27;
+
+  // The JetStream limit the account JWT sets for the stream's storage
+  // (file or memory), bytes counted over replicas, shared by every stream
+  // of the account: the limit of the matching AccountStore. Unset when the
+  // account has no JWT, or its limit is -1 (none) or 0 (none allowed).
+  optional int64 account_limit = 28;
+}
+
+// One account's JetStream limit for one storage, as the account JWT sets
+// it in operator mode, against the account's use.
+message AccountStore {
+  // Account as the servers report it.
+  string account = 1;
+
+  // Readable name of the account; empty when none is known.
+  string account_name = 2;
+
+  // "file" (the JWT's disk limit) or "memory".
+  string storage = 3;
+
+  // In use, bytes counted over replicas: the largest any server reports
+  // for the account in the epoch (each reports the account total), as the
+  // Accounts page reads it. Unset when no server reported the account.
+  optional int64 used = 4;
+
+  // The JWT's limit, bytes, above 0.
+  int64 limit = 5;
+
+  // Growth of used over the range, bytes per day, by Theil-Sen
+  // (RobustPerDay) over the largest report of each collection; unset under
+  // 6 hours of data or when used is unset. May be negative.
+  optional double per_day = 6;
+
+  // Days until used reaches limit at per_day; set only when per_day is
+  // above 0 and used is known.
+  optional double days_to_full = 7;
 }
 
 // What each stream keeps and what bounds it, and how full each server's
@@ -277,4 +323,18 @@ message GetCapacityResponse {
   // The first collection the growth reads: the range's start or, when the
   // history is shorter, the first stored collection. Unset when no epoch.
   google.protobuf.Timestamp growth_from = 7;
+
+  // One card per server's JetStream memory store, for the same servers as
+  // servers and in the same order: used and limit from the memory store
+  // (max_memory_store), growth and days to full by the same rule. The
+  // finding fields are empty: server-007 reads both stores and its finding
+  // is on the file store card. Empty unless a reported server holds memory
+  // in use above 0 or a stream of the epoch uses memory storage.
+  repeated ServerStore memory_stores = 8;
+
+  // One card per account and storage whose account JWT sets a JetStream
+  // limit above 0, from the account's newest lookup no older than the
+  // Accounts page reads: the soonest full first (as the card words it),
+  // then the fullest, then by account and storage (file first).
+  repeated AccountStore account_stores = 9;
 }

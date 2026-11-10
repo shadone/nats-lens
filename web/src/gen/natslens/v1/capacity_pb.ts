@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/capacity.proto.
  */
 export const file_natslens_v1_capacity: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS9jYXBhY2l0eS5wcm90bxILbmF0c2xlbnMudjEiSwoSR2V0Q2FwYWNpdHlSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSLUAgoLU2VydmVyU3RvcmUSEwoLc2VydmVyX25hbWUYASABKAkSDwoHY2x1c3RlchgCIAEoCRIQCghyZXBvcnRlZBgDIAEoCBIRCgR1c2VkGAQgASgDSACIAQESEgoFbGltaXQYBSABKANIAYgBARIUCgdwZXJfZGF5GAYgASgBSAKIAQESGQoMZGF5c190b19mdWxsGAcgASgBSAOIAQESEgoKZmluZGluZ19pZBgIIAEoCRIUCgxmaW5kaW5nX2NvZGUYCSABKAkSLwoQZmluZGluZ19zZXZlcml0eRgKIAEoDjIVLm5hdHNsZW5zLnYxLlNldmVyaXR5EhkKDGZpbmRpbmdfZGF5cxgLIAEoAUgEiAEBQgcKBV91c2VkQggKBl9saW1pdEIKCghfcGVyX2RheUIPCg1fZGF5c190b19mdWxsQg8KDV9maW5kaW5nX2RheXMikwEKCU5leHRMaW1pdBIpCgVsaW1pdBgBIAEoDjIaLm5hdHNsZW5zLnYxLk5leHRMaW1pdEtpbmQSKgoFc3RhdGUYAiABKA4yGy5uYXRzbGVucy52MS5OZXh0TGltaXRTdGF0ZRIRCgRkYXlzGAMgASgBSACIAQESEwoLZGlzY2FyZF9uZXcYBCABKAhCBwoFX2RheXMi4AYKDkNhcGFjaXR5U3RyZWFtEg8KB2FjY291bnQYASABKAkSFAoMYWNjb3VudF9uYW1lGAIgASgJEg4KBnN0cmVhbRgDIAEoCRItCgRraW5kGAQgASgOMh8ubmF0c2xlbnMudjEuQ2FwYWNpdHlTdHJlYW1LaW5kEhEKCXJldGVudGlvbhgFIAEoCRIPCgdzdG9yYWdlGAYgASgJEhAKCHJlcGxpY2FzGAcgASgFEg4KBm1pcnJvchgIIAEoCRIPCgdzb3VyY2VzGAkgASgFEhUKCG1lc3NhZ2VzGAogASgDSACIAQESEgoFYnl0ZXMYCyABKANIAYgBARIRCgRrZXlzGAwgASgDSAKIAQESLAoIZmlyc3RfdHMYDSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhUKCG1heF9tc2dzGA4gASgDSAOIAQESFgoJbWF4X2J5dGVzGA8gASgDSASIAQESKgoHbWF4X2FnZRgQIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIhChRtYXhfbXNnc19wZXJfc3ViamVjdBgRIAEoA0gFiAEBEg8KB2Rpc2NhcmQYEiABKAkSFQoNYWxsb3dfbXNnX3R0bBgTIAEoCBIaCg1ieXRlc19wZXJfZGF5GBQgASgBSAaIAQESGQoMbXNnc19wZXJfZGF5GBUgASgBSAeIAQESKgoKbmV4dF9saW1pdBgWIAEoCzIWLm5hdHNsZW5zLnYxLk5leHRMaW1pdBIrCgZzdGF0dXMYFyABKA4yGy5uYXRzbGVucy52MS5DYXBhY2l0eVN0YXR1cxISCgpmaW5kaW5nX2lkGBggASgJEhkKDGZpbmRpbmdfZGF5cxgZIAEoAUgIiAEBEh8KBG11dGUYGiABKAsyES5uYXRzbGVucy52MS5NdXRlEhcKD2RlY2xhcmVkX3JlYXNvbhgbIAEoCUILCglfbWVzc2FnZXNCCAoGX2J5dGVzQgcKBV9rZXlzQgsKCV9tYXhfbXNnc0IMCgpfbWF4X2J5dGVzQhcKFV9tYXhfbXNnc19wZXJfc3ViamVjdEIQCg5fYnl0ZXNfcGVyX2RheUIPCg1fbXNnc19wZXJfZGF5Qg8KDV9maW5kaW5nX2RheXMilgIKE0dldENhcGFjaXR5UmVzcG9uc2USDQoFZXBvY2gYASABKAMSLAoIZXBvY2hfYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEikKB3NlcnZlcnMYAyADKAsyGC5uYXRzbGVucy52MS5TZXJ2ZXJTdG9yZRIhChlzZXJ2ZXJzX3dpdGhvdXRfamV0c3RyZWFtGAQgASgFEiwKB3N0cmVhbXMYBSADKAsyGy5uYXRzbGVucy52MS5DYXBhY2l0eVN0cmVhbRIVCg1zdHJlYW1zX3RvdGFsGAYgASgFEi8KC2dyb3d0aF9mcm9tGAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCqmAQoSQ2FwYWNpdHlTdHJlYW1LaW5kEiQKIENBUEFDSVRZX1NUUkVBTV9LSU5EX1VOU1BFQ0lGSUVEEAASHwobQ0FQQUNJVFlfU1RSRUFNX0tJTkRfU1RSRUFNEAESIgoeQ0FQQUNJVFlfU1RSRUFNX0tJTkRfS0VZX1ZBTFVFEAISJQohQ0FQQUNJVFlfU1RSRUFNX0tJTkRfT0JKRUNUX1NUT1JFEAMq2AEKDU5leHRMaW1pdEtpbmQSHwobTkVYVF9MSU1JVF9LSU5EX1VOU1BFQ0lGSUVEEAASGAoUTkVYVF9MSU1JVF9LSU5EX05PTkUQARIZChVORVhUX0xJTUlUX0tJTkRfRU1QVFkQAhIXChNORVhUX0xJTUlUX0tJTkRfQUdFEAMSHAoYTkVYVF9MSU1JVF9LSU5EX01FU1NBR0VTEAQSGQoVTkVYVF9MSU1JVF9LSU5EX0JZVEVTEAUSHwobTkVYVF9MSU1JVF9LSU5EX1BFUl9TVUJKRUNUEAYq2QEKDk5leHRMaW1pdFN0YXRlEiAKHE5FWFRfTElNSVRfU1RBVEVfVU5TUEVDSUZJRUQQABIbChdORVhUX0xJTUlUX1NUQVRFX1NURUFEWRABEiUKIU5FWFRfTElNSVRfU1RBVEVfUkVBQ0hFRF9SRUZVU0lORxACEhwKGE5FWFRfTElNSVRfU1RBVEVfUkVBQ0hFUxADEiAKHE5FWFRfTElNSVRfU1RBVEVfTk9UX1JFQUNIRUQQBBIhCh1ORVhUX0xJTUlUX1NUQVRFX05PVF9GT1JFQ0FTVBAFKosCCg5DYXBhY2l0eVN0YXR1cxIfChtDQVBBQ0lUWV9TVEFUVVNfVU5TUEVDSUZJRUQQABIeChpDQVBBQ0lUWV9TVEFUVVNfRklMTFNfU09PThABEhwKGENBUEFDSVRZX1NUQVRVU19BQ0NFUFRFRBACEhwKGENBUEFDSVRZX1NUQVRVU19ERUNMQVJFRBADEhkKFUNBUEFDSVRZX1NUQVRVU19NVVRFRBAEEiUKIUNBUEFDSVRZX1NUQVRVU19BV0FJVElOR19ERUNJU0lPThAFEh0KGUNBUEFDSVRZX1NUQVRVU19VTkJPVU5ERUQQBhIbChdDQVBBQ0lUWV9TVEFUVVNfQk9VTkRFRBAHQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings]);
+  fileDesc("ChpuYXRzbGVucy92MS9jYXBhY2l0eS5wcm90bxILbmF0c2xlbnMudjEiSwoSR2V0Q2FwYWNpdHlSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSLUAgoLU2VydmVyU3RvcmUSEwoLc2VydmVyX25hbWUYASABKAkSDwoHY2x1c3RlchgCIAEoCRIQCghyZXBvcnRlZBgDIAEoCBIRCgR1c2VkGAQgASgDSACIAQESEgoFbGltaXQYBSABKANIAYgBARIUCgdwZXJfZGF5GAYgASgBSAKIAQESGQoMZGF5c190b19mdWxsGAcgASgBSAOIAQESEgoKZmluZGluZ19pZBgIIAEoCRIUCgxmaW5kaW5nX2NvZGUYCSABKAkSLwoQZmluZGluZ19zZXZlcml0eRgKIAEoDjIVLm5hdHNsZW5zLnYxLlNldmVyaXR5EhkKDGZpbmRpbmdfZGF5cxgLIAEoAUgEiAEBQgcKBV91c2VkQggKBl9saW1pdEIKCghfcGVyX2RheUIPCg1fZGF5c190b19mdWxsQg8KDV9maW5kaW5nX2RheXMikwEKCU5leHRMaW1pdBIpCgVsaW1pdBgBIAEoDjIaLm5hdHNsZW5zLnYxLk5leHRMaW1pdEtpbmQSKgoFc3RhdGUYAiABKA4yGy5uYXRzbGVucy52MS5OZXh0TGltaXRTdGF0ZRIRCgRkYXlzGAMgASgBSACIAQESEwoLZGlzY2FyZF9uZXcYBCABKAhCBwoFX2RheXMijgcKDkNhcGFjaXR5U3RyZWFtEg8KB2FjY291bnQYASABKAkSFAoMYWNjb3VudF9uYW1lGAIgASgJEg4KBnN0cmVhbRgDIAEoCRItCgRraW5kGAQgASgOMh8ubmF0c2xlbnMudjEuQ2FwYWNpdHlTdHJlYW1LaW5kEhEKCXJldGVudGlvbhgFIAEoCRIPCgdzdG9yYWdlGAYgASgJEhAKCHJlcGxpY2FzGAcgASgFEg4KBm1pcnJvchgIIAEoCRIPCgdzb3VyY2VzGAkgASgFEhUKCG1lc3NhZ2VzGAogASgDSACIAQESEgoFYnl0ZXMYCyABKANIAYgBARIRCgRrZXlzGAwgASgDSAKIAQESLAoIZmlyc3RfdHMYDSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhUKCG1heF9tc2dzGA4gASgDSAOIAQESFgoJbWF4X2J5dGVzGA8gASgDSASIAQESKgoHbWF4X2FnZRgQIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIhChRtYXhfbXNnc19wZXJfc3ViamVjdBgRIAEoA0gFiAEBEg8KB2Rpc2NhcmQYEiABKAkSFQoNYWxsb3dfbXNnX3R0bBgTIAEoCBIaCg1ieXRlc19wZXJfZGF5GBQgASgBSAaIAQESGQoMbXNnc19wZXJfZGF5GBUgASgBSAeIAQESKgoKbmV4dF9saW1pdBgWIAEoCzIWLm5hdHNsZW5zLnYxLk5leHRMaW1pdBIrCgZzdGF0dXMYFyABKA4yGy5uYXRzbGVucy52MS5DYXBhY2l0eVN0YXR1cxISCgpmaW5kaW5nX2lkGBggASgJEhkKDGZpbmRpbmdfZGF5cxgZIAEoAUgIiAEBEh8KBG11dGUYGiABKAsyES5uYXRzbGVucy52MS5NdXRlEhcKD2RlY2xhcmVkX3JlYXNvbhgbIAEoCRIaCg1hY2NvdW50X2xpbWl0GBwgASgDSAmIAQFCCwoJX21lc3NhZ2VzQggKBl9ieXRlc0IHCgVfa2V5c0ILCglfbWF4X21zZ3NCDAoKX21heF9ieXRlc0IXChVfbWF4X21zZ3NfcGVyX3N1YmplY3RCEAoOX2J5dGVzX3Blcl9kYXlCDwoNX21zZ3NfcGVyX2RheUIPCg1fZmluZGluZ19kYXlzQhAKDl9hY2NvdW50X2xpbWl0Ir8BCgxBY2NvdW50U3RvcmUSDwoHYWNjb3VudBgBIAEoCRIUCgxhY2NvdW50X25hbWUYAiABKAkSDwoHc3RvcmFnZRgDIAEoCRIRCgR1c2VkGAQgASgDSACIAQESDQoFbGltaXQYBSABKAMSFAoHcGVyX2RheRgGIAEoAUgBiAEBEhkKDGRheXNfdG9fZnVsbBgHIAEoAUgCiAEBQgcKBV91c2VkQgoKCF9wZXJfZGF5Qg8KDV9kYXlzX3RvX2Z1bGwi+gIKE0dldENhcGFjaXR5UmVzcG9uc2USDQoFZXBvY2gYASABKAMSLAoIZXBvY2hfYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEikKB3NlcnZlcnMYAyADKAsyGC5uYXRzbGVucy52MS5TZXJ2ZXJTdG9yZRIhChlzZXJ2ZXJzX3dpdGhvdXRfamV0c3RyZWFtGAQgASgFEiwKB3N0cmVhbXMYBSADKAsyGy5uYXRzbGVucy52MS5DYXBhY2l0eVN0cmVhbRIVCg1zdHJlYW1zX3RvdGFsGAYgASgFEi8KC2dyb3d0aF9mcm9tGAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCg1tZW1vcnlfc3RvcmVzGAggAygLMhgubmF0c2xlbnMudjEuU2VydmVyU3RvcmUSMQoOYWNjb3VudF9zdG9yZXMYCSADKAsyGS5uYXRzbGVucy52MS5BY2NvdW50U3RvcmUqpgEKEkNhcGFjaXR5U3RyZWFtS2luZBIkCiBDQVBBQ0lUWV9TVFJFQU1fS0lORF9VTlNQRUNJRklFRBAAEh8KG0NBUEFDSVRZX1NUUkVBTV9LSU5EX1NUUkVBTRABEiIKHkNBUEFDSVRZX1NUUkVBTV9LSU5EX0tFWV9WQUxVRRACEiUKIUNBUEFDSVRZX1NUUkVBTV9LSU5EX09CSkVDVF9TVE9SRRADKvUBCg1OZXh0TGltaXRLaW5kEh8KG05FWFRfTElNSVRfS0lORF9VTlNQRUNJRklFRBAAEhgKFE5FWFRfTElNSVRfS0lORF9OT05FEAESGQoVTkVYVF9MSU1JVF9LSU5EX0VNUFRZEAISFwoTTkVYVF9MSU1JVF9LSU5EX0FHRRADEhwKGE5FWFRfTElNSVRfS0lORF9NRVNTQUdFUxAEEhkKFU5FWFRfTElNSVRfS0lORF9CWVRFUxAFEh8KG05FWFRfTElNSVRfS0lORF9QRVJfU1VCSkVDVBAGEhsKF05FWFRfTElNSVRfS0lORF9BQ0NPVU5UEAcq2QEKDk5leHRMaW1pdFN0YXRlEiAKHE5FWFRfTElNSVRfU1RBVEVfVU5TUEVDSUZJRUQQABIbChdORVhUX0xJTUlUX1NUQVRFX1NURUFEWRABEiUKIU5FWFRfTElNSVRfU1RBVEVfUkVBQ0hFRF9SRUZVU0lORxACEhwKGE5FWFRfTElNSVRfU1RBVEVfUkVBQ0hFUxADEiAKHE5FWFRfTElNSVRfU1RBVEVfTk9UX1JFQUNIRUQQBBIhCh1ORVhUX0xJTUlUX1NUQVRFX05PVF9GT1JFQ0FTVBAFKosCCg5DYXBhY2l0eVN0YXR1cxIfChtDQVBBQ0lUWV9TVEFUVVNfVU5TUEVDSUZJRUQQABIeChpDQVBBQ0lUWV9TVEFUVVNfRklMTFNfU09PThABEhwKGENBUEFDSVRZX1NUQVRVU19BQ0NFUFRFRBACEhwKGENBUEFDSVRZX1NUQVRVU19ERUNMQVJFRBADEhkKFUNBUEFDSVRZX1NUQVRVU19NVVRFRBAEEiUKIUNBUEFDSVRZX1NUQVRVU19BV0FJVElOR19ERUNJU0lPThAFEh0KGUNBUEFDSVRZX1NUQVRVU19VTkJPVU5ERUQQBhIbChdDQVBBQ0lUWV9TVEFUVVNfQk9VTkRFRBAHQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings]);
 
 /**
  * Request for what each stream keeps, what bounds it, and when the
@@ -49,7 +49,8 @@ export const GetCapacityRequestSchema: GenMessage<GetCapacityRequest> = /*@__PUR
   messageDesc(file_natslens_v1_capacity, 0);
 
 /**
- * One server's JetStream file store in the epoch.
+ * One server's JetStream file store in the epoch; in memory_stores, its
+ * memory store.
  *
  * @generated from message natslens.v1.ServerStore
  */
@@ -394,6 +395,16 @@ export type CapacityStream = Message<"natslens.v1.CapacityStream"> & {
    * @generated from field: string declared_reason = 27;
    */
   declaredReason: string;
+
+  /**
+   * The JetStream limit the account JWT sets for the stream's storage
+   * (file or memory), bytes counted over replicas, shared by every stream
+   * of the account: the limit of the matching AccountStore. Unset when the
+   * account has no JWT, or its limit is -1 (none) or 0 (none allowed).
+   *
+   * @generated from field: optional int64 account_limit = 28;
+   */
+  accountLimit?: bigint | undefined;
 };
 
 /**
@@ -402,6 +413,75 @@ export type CapacityStream = Message<"natslens.v1.CapacityStream"> & {
  */
 export const CapacityStreamSchema: GenMessage<CapacityStream> = /*@__PURE__*/
   messageDesc(file_natslens_v1_capacity, 3);
+
+/**
+ * One account's JetStream limit for one storage, as the account JWT sets
+ * it in operator mode, against the account's use.
+ *
+ * @generated from message natslens.v1.AccountStore
+ */
+export type AccountStore = Message<"natslens.v1.AccountStore"> & {
+  /**
+   * Account as the servers report it.
+   *
+   * @generated from field: string account = 1;
+   */
+  account: string;
+
+  /**
+   * Readable name of the account; empty when none is known.
+   *
+   * @generated from field: string account_name = 2;
+   */
+  accountName: string;
+
+  /**
+   * "file" (the JWT's disk limit) or "memory".
+   *
+   * @generated from field: string storage = 3;
+   */
+  storage: string;
+
+  /**
+   * In use, bytes counted over replicas: the largest any server reports
+   * for the account in the epoch (each reports the account total), as the
+   * Accounts page reads it. Unset when no server reported the account.
+   *
+   * @generated from field: optional int64 used = 4;
+   */
+  used?: bigint | undefined;
+
+  /**
+   * The JWT's limit, bytes, above 0.
+   *
+   * @generated from field: int64 limit = 5;
+   */
+  limit: bigint;
+
+  /**
+   * Growth of used over the range, bytes per day, by Theil-Sen
+   * (RobustPerDay) over the largest report of each collection; unset under
+   * 6 hours of data or when used is unset. May be negative.
+   *
+   * @generated from field: optional double per_day = 6;
+   */
+  perDay?: number | undefined;
+
+  /**
+   * Days until used reaches limit at per_day; set only when per_day is
+   * above 0 and used is known.
+   *
+   * @generated from field: optional double days_to_full = 7;
+   */
+  daysToFull?: number | undefined;
+};
+
+/**
+ * Describes the message natslens.v1.AccountStore.
+ * Use `create(AccountStoreSchema)` to create a new message.
+ */
+export const AccountStoreSchema: GenMessage<AccountStore> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_capacity, 4);
 
 /**
  * What each stream keeps and what bounds it, and how full each server's
@@ -465,6 +545,28 @@ export type GetCapacityResponse = Message<"natslens.v1.GetCapacityResponse"> & {
    * @generated from field: google.protobuf.Timestamp growth_from = 7;
    */
   growthFrom?: Timestamp | undefined;
+
+  /**
+   * One card per server's JetStream memory store, for the same servers as
+   * servers and in the same order: used and limit from the memory store
+   * (max_memory_store), growth and days to full by the same rule. The
+   * finding fields are empty: server-007 reads both stores and its finding
+   * is on the file store card. Empty unless a reported server holds memory
+   * in use above 0 or a stream of the epoch uses memory storage.
+   *
+   * @generated from field: repeated natslens.v1.ServerStore memory_stores = 8;
+   */
+  memoryStores: ServerStore[];
+
+  /**
+   * One card per account and storage whose account JWT sets a JetStream
+   * limit above 0, from the account's newest lookup no older than the
+   * Accounts page reads: the soonest full first (as the card words it),
+   * then the fullest, then by account and storage (file first).
+   *
+   * @generated from field: repeated natslens.v1.AccountStore account_stores = 9;
+   */
+  accountStores: AccountStore[];
 };
 
 /**
@@ -472,7 +574,7 @@ export type GetCapacityResponse = Message<"natslens.v1.GetCapacityResponse"> & {
  * Use `create(GetCapacityResponseSchema)` to create a new message.
  */
 export const GetCapacityResponseSchema: GenMessage<GetCapacityResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_capacity, 4);
+  messageDesc(file_natslens_v1_capacity, 5);
 
 /**
  * What a stream row is.
@@ -569,6 +671,20 @@ export enum NextLimitKind {
    * @generated from enum value: NEXT_LIMIT_KIND_PER_SUBJECT = 6;
    */
   PER_SUBJECT = 6,
+
+  /**
+   * The JetStream limit of the stream's account for the stream's storage
+   * (account_limit), shared by every stream of the account: days is the
+   * account's days to full (AccountStore), not a forecast of the stream
+   * alone. Chosen when the stream has no age, message or byte limit, or
+   * when the account fills before the stream reaches its own; never over
+   * a limit the stream holds at now (steady or refusing) or an empty
+   * stream. An account at its limit refuses new messages, so discard_new
+   * is true.
+   *
+   * @generated from enum value: NEXT_LIMIT_KIND_ACCOUNT = 7;
+   */
+  ACCOUNT = 7,
 }
 
 /**

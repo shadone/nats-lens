@@ -98,6 +98,15 @@ const (
 	NextLimitKind_NEXT_LIMIT_KIND_BYTES NextLimitKind = 5
 	// max_msgs_per_subject, the only limit set (a bucket's history).
 	NextLimitKind_NEXT_LIMIT_KIND_PER_SUBJECT NextLimitKind = 6
+	// The JetStream limit of the stream's account for the stream's storage
+	// (account_limit), shared by every stream of the account: days is the
+	// account's days to full (AccountStore), not a forecast of the stream
+	// alone. Chosen when the stream has no age, message or byte limit, or
+	// when the account fills before the stream reaches its own; never over
+	// a limit the stream holds at now (steady or refusing) or an empty
+	// stream. An account at its limit refuses new messages, so discard_new
+	// is true.
+	NextLimitKind_NEXT_LIMIT_KIND_ACCOUNT NextLimitKind = 7
 )
 
 // Enum value maps for NextLimitKind.
@@ -110,6 +119,7 @@ var (
 		4: "NEXT_LIMIT_KIND_MESSAGES",
 		5: "NEXT_LIMIT_KIND_BYTES",
 		6: "NEXT_LIMIT_KIND_PER_SUBJECT",
+		7: "NEXT_LIMIT_KIND_ACCOUNT",
 	}
 	NextLimitKind_value = map[string]int32{
 		"NEXT_LIMIT_KIND_UNSPECIFIED": 0,
@@ -119,6 +129,7 @@ var (
 		"NEXT_LIMIT_KIND_MESSAGES":    4,
 		"NEXT_LIMIT_KIND_BYTES":       5,
 		"NEXT_LIMIT_KIND_PER_SUBJECT": 6,
+		"NEXT_LIMIT_KIND_ACCOUNT":     7,
 	}
 )
 
@@ -353,7 +364,8 @@ func (x *GetCapacityRequest) GetRange() *TimeRange {
 	return nil
 }
 
-// One server's JetStream file store in the epoch.
+// One server's JetStream file store in the epoch; in memory_stores, its
+// memory store.
 type ServerStore struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Server name.
@@ -639,8 +651,13 @@ type CapacityStream struct {
 	// "writer_ttls" (a KV bucket the inventory lists that allows per-message
 	// TTLs); empty unless status is declared.
 	DeclaredReason string `protobuf:"bytes,27,opt,name=declared_reason,json=declaredReason,proto3" json:"declared_reason,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The JetStream limit the account JWT sets for the stream's storage
+	// (file or memory), bytes counted over replicas, shared by every stream
+	// of the account: the limit of the matching AccountStore. Unset when the
+	// account has no JWT, or its limit is -1 (none) or 0 (none allowed).
+	AccountLimit  *int64 `protobuf:"varint,28,opt,name=account_limit,json=accountLimit,proto3,oneof" json:"account_limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CapacityStream) Reset() {
@@ -862,6 +879,119 @@ func (x *CapacityStream) GetDeclaredReason() string {
 	return ""
 }
 
+func (x *CapacityStream) GetAccountLimit() int64 {
+	if x != nil && x.AccountLimit != nil {
+		return *x.AccountLimit
+	}
+	return 0
+}
+
+// One account's JetStream limit for one storage, as the account JWT sets
+// it in operator mode, against the account's use.
+type AccountStore struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Account as the servers report it.
+	Account string `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"`
+	// Readable name of the account; empty when none is known.
+	AccountName string `protobuf:"bytes,2,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
+	// "file" (the JWT's disk limit) or "memory".
+	Storage string `protobuf:"bytes,3,opt,name=storage,proto3" json:"storage,omitempty"`
+	// In use, bytes counted over replicas: the largest any server reports
+	// for the account in the epoch (each reports the account total), as the
+	// Accounts page reads it. Unset when no server reported the account.
+	Used *int64 `protobuf:"varint,4,opt,name=used,proto3,oneof" json:"used,omitempty"`
+	// The JWT's limit, bytes, above 0.
+	Limit int64 `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Growth of used over the range, bytes per day, by Theil-Sen
+	// (RobustPerDay) over the largest report of each collection; unset under
+	// 6 hours of data or when used is unset. May be negative.
+	PerDay *float64 `protobuf:"fixed64,6,opt,name=per_day,json=perDay,proto3,oneof" json:"per_day,omitempty"`
+	// Days until used reaches limit at per_day; set only when per_day is
+	// above 0 and used is known.
+	DaysToFull    *float64 `protobuf:"fixed64,7,opt,name=days_to_full,json=daysToFull,proto3,oneof" json:"days_to_full,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AccountStore) Reset() {
+	*x = AccountStore{}
+	mi := &file_natslens_v1_capacity_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccountStore) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccountStore) ProtoMessage() {}
+
+func (x *AccountStore) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_capacity_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccountStore.ProtoReflect.Descriptor instead.
+func (*AccountStore) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_capacity_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *AccountStore) GetAccount() string {
+	if x != nil {
+		return x.Account
+	}
+	return ""
+}
+
+func (x *AccountStore) GetAccountName() string {
+	if x != nil {
+		return x.AccountName
+	}
+	return ""
+}
+
+func (x *AccountStore) GetStorage() string {
+	if x != nil {
+		return x.Storage
+	}
+	return ""
+}
+
+func (x *AccountStore) GetUsed() int64 {
+	if x != nil && x.Used != nil {
+		return *x.Used
+	}
+	return 0
+}
+
+func (x *AccountStore) GetLimit() int64 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *AccountStore) GetPerDay() float64 {
+	if x != nil && x.PerDay != nil {
+		return *x.PerDay
+	}
+	return 0
+}
+
+func (x *AccountStore) GetDaysToFull() float64 {
+	if x != nil && x.DaysToFull != nil {
+		return *x.DaysToFull
+	}
+	return 0
+}
+
 // What each stream keeps and what bounds it, and how full each server's
 // JetStream file store is and when it fills, in the range's newest epoch.
 type GetCapacityResponse struct {
@@ -886,14 +1016,26 @@ type GetCapacityResponse struct {
 	StreamsTotal int32 `protobuf:"varint,6,opt,name=streams_total,json=streamsTotal,proto3" json:"streams_total,omitempty"`
 	// The first collection the growth reads: the range's start or, when the
 	// history is shorter, the first stored collection. Unset when no epoch.
-	GrowthFrom    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=growth_from,json=growthFrom,proto3" json:"growth_from,omitempty"`
+	GrowthFrom *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=growth_from,json=growthFrom,proto3" json:"growth_from,omitempty"`
+	// One card per server's JetStream memory store, for the same servers as
+	// servers and in the same order: used and limit from the memory store
+	// (max_memory_store), growth and days to full by the same rule. The
+	// finding fields are empty: server-007 reads both stores and its finding
+	// is on the file store card. Empty unless a reported server holds memory
+	// in use above 0 or a stream of the epoch uses memory storage.
+	MemoryStores []*ServerStore `protobuf:"bytes,8,rep,name=memory_stores,json=memoryStores,proto3" json:"memory_stores,omitempty"`
+	// One card per account and storage whose account JWT sets a JetStream
+	// limit above 0, from the account's newest lookup no older than the
+	// Accounts page reads: the soonest full first (as the card words it),
+	// then the fullest, then by account and storage (file first).
+	AccountStores []*AccountStore `protobuf:"bytes,9,rep,name=account_stores,json=accountStores,proto3" json:"account_stores,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetCapacityResponse) Reset() {
 	*x = GetCapacityResponse{}
-	mi := &file_natslens_v1_capacity_proto_msgTypes[4]
+	mi := &file_natslens_v1_capacity_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -905,7 +1047,7 @@ func (x *GetCapacityResponse) String() string {
 func (*GetCapacityResponse) ProtoMessage() {}
 
 func (x *GetCapacityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_capacity_proto_msgTypes[4]
+	mi := &file_natslens_v1_capacity_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -918,7 +1060,7 @@ func (x *GetCapacityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCapacityResponse.ProtoReflect.Descriptor instead.
 func (*GetCapacityResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_capacity_proto_rawDescGZIP(), []int{4}
+	return file_natslens_v1_capacity_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetCapacityResponse) GetEpoch() int64 {
@@ -970,6 +1112,20 @@ func (x *GetCapacityResponse) GetGrowthFrom() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *GetCapacityResponse) GetMemoryStores() []*ServerStore {
+	if x != nil {
+		return x.MemoryStores
+	}
+	return nil
+}
+
+func (x *GetCapacityResponse) GetAccountStores() []*AccountStore {
+	if x != nil {
+		return x.AccountStores
+	}
+	return nil
+}
+
 var File_natslens_v1_capacity_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_capacity_proto_rawDesc = "" +
@@ -1006,7 +1162,7 @@ const file_natslens_v1_capacity_proto_rawDesc = "" +
 	"\x04days\x18\x03 \x01(\x01H\x00R\x04days\x88\x01\x01\x12\x1f\n" +
 	"\vdiscard_new\x18\x04 \x01(\bR\n" +
 	"discardNewB\a\n" +
-	"\x05_days\"\xf1\b\n" +
+	"\x05_days\"\xad\t\n" +
 	"\x0eCapacityStream\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
 	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12\x16\n" +
@@ -1038,7 +1194,8 @@ const file_natslens_v1_capacity_proto_rawDesc = "" +
 	"finding_id\x18\x18 \x01(\tR\tfindingId\x12&\n" +
 	"\ffinding_days\x18\x19 \x01(\x01H\bR\vfindingDays\x88\x01\x01\x12%\n" +
 	"\x04mute\x18\x1a \x01(\v2\x11.natslens.v1.MuteR\x04mute\x12'\n" +
-	"\x0fdeclared_reason\x18\x1b \x01(\tR\x0edeclaredReasonB\v\n" +
+	"\x0fdeclared_reason\x18\x1b \x01(\tR\x0edeclaredReason\x12(\n" +
+	"\raccount_limit\x18\x1c \x01(\x03H\tR\faccountLimit\x88\x01\x01B\v\n" +
 	"\t_messagesB\b\n" +
 	"\x06_bytesB\a\n" +
 	"\x05_keysB\v\n" +
@@ -1048,7 +1205,21 @@ const file_natslens_v1_capacity_proto_rawDesc = "" +
 	"\x15_max_msgs_per_subjectB\x10\n" +
 	"\x0e_bytes_per_dayB\x0f\n" +
 	"\r_msgs_per_dayB\x0f\n" +
-	"\r_finding_days\"\xeb\x02\n" +
+	"\r_finding_daysB\x10\n" +
+	"\x0e_account_limit\"\xff\x01\n" +
+	"\fAccountStore\x12\x18\n" +
+	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
+	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12\x18\n" +
+	"\astorage\x18\x03 \x01(\tR\astorage\x12\x17\n" +
+	"\x04used\x18\x04 \x01(\x03H\x00R\x04used\x88\x01\x01\x12\x14\n" +
+	"\x05limit\x18\x05 \x01(\x03R\x05limit\x12\x1c\n" +
+	"\aper_day\x18\x06 \x01(\x01H\x01R\x06perDay\x88\x01\x01\x12%\n" +
+	"\fdays_to_full\x18\a \x01(\x01H\x02R\n" +
+	"daysToFull\x88\x01\x01B\a\n" +
+	"\x05_usedB\n" +
+	"\n" +
+	"\b_per_dayB\x0f\n" +
+	"\r_days_to_full\"\xec\x03\n" +
 	"\x13GetCapacityResponse\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x125\n" +
 	"\bepoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt\x122\n" +
@@ -1057,12 +1228,14 @@ const file_natslens_v1_capacity_proto_rawDesc = "" +
 	"\astreams\x18\x05 \x03(\v2\x1b.natslens.v1.CapacityStreamR\astreams\x12#\n" +
 	"\rstreams_total\x18\x06 \x01(\x05R\fstreamsTotal\x12;\n" +
 	"\vgrowth_from\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"growthFrom*\xa6\x01\n" +
+	"growthFrom\x12=\n" +
+	"\rmemory_stores\x18\b \x03(\v2\x18.natslens.v1.ServerStoreR\fmemoryStores\x12@\n" +
+	"\x0eaccount_stores\x18\t \x03(\v2\x19.natslens.v1.AccountStoreR\raccountStores*\xa6\x01\n" +
 	"\x12CapacityStreamKind\x12$\n" +
 	" CAPACITY_STREAM_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bCAPACITY_STREAM_KIND_STREAM\x10\x01\x12\"\n" +
 	"\x1eCAPACITY_STREAM_KIND_KEY_VALUE\x10\x02\x12%\n" +
-	"!CAPACITY_STREAM_KIND_OBJECT_STORE\x10\x03*\xd8\x01\n" +
+	"!CAPACITY_STREAM_KIND_OBJECT_STORE\x10\x03*\xf5\x01\n" +
 	"\rNextLimitKind\x12\x1f\n" +
 	"\x1bNEXT_LIMIT_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14NEXT_LIMIT_KIND_NONE\x10\x01\x12\x19\n" +
@@ -1070,7 +1243,8 @@ const file_natslens_v1_capacity_proto_rawDesc = "" +
 	"\x13NEXT_LIMIT_KIND_AGE\x10\x03\x12\x1c\n" +
 	"\x18NEXT_LIMIT_KIND_MESSAGES\x10\x04\x12\x19\n" +
 	"\x15NEXT_LIMIT_KIND_BYTES\x10\x05\x12\x1f\n" +
-	"\x1bNEXT_LIMIT_KIND_PER_SUBJECT\x10\x06*\xd9\x01\n" +
+	"\x1bNEXT_LIMIT_KIND_PER_SUBJECT\x10\x06\x12\x1b\n" +
+	"\x17NEXT_LIMIT_KIND_ACCOUNT\x10\a*\xd9\x01\n" +
 	"\x0eNextLimitState\x12 \n" +
 	"\x1cNEXT_LIMIT_STATE_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17NEXT_LIMIT_STATE_STEADY\x10\x01\x12%\n" +
@@ -1101,7 +1275,7 @@ func file_natslens_v1_capacity_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_capacity_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_natslens_v1_capacity_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_natslens_v1_capacity_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_natslens_v1_capacity_proto_goTypes = []any{
 	(CapacityStreamKind)(0),       // 0: natslens.v1.CapacityStreamKind
 	(NextLimitKind)(0),            // 1: natslens.v1.NextLimitKind
@@ -1111,33 +1285,36 @@ var file_natslens_v1_capacity_proto_goTypes = []any{
 	(*ServerStore)(nil),           // 5: natslens.v1.ServerStore
 	(*NextLimit)(nil),             // 6: natslens.v1.NextLimit
 	(*CapacityStream)(nil),        // 7: natslens.v1.CapacityStream
-	(*GetCapacityResponse)(nil),   // 8: natslens.v1.GetCapacityResponse
-	(*TimeRange)(nil),             // 9: natslens.v1.TimeRange
-	(Severity)(0),                 // 10: natslens.v1.Severity
-	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),   // 12: google.protobuf.Duration
-	(*Mute)(nil),                  // 13: natslens.v1.Mute
+	(*AccountStore)(nil),          // 8: natslens.v1.AccountStore
+	(*GetCapacityResponse)(nil),   // 9: natslens.v1.GetCapacityResponse
+	(*TimeRange)(nil),             // 10: natslens.v1.TimeRange
+	(Severity)(0),                 // 11: natslens.v1.Severity
+	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),   // 13: google.protobuf.Duration
+	(*Mute)(nil),                  // 14: natslens.v1.Mute
 }
 var file_natslens_v1_capacity_proto_depIdxs = []int32{
-	9,  // 0: natslens.v1.GetCapacityRequest.range:type_name -> natslens.v1.TimeRange
-	10, // 1: natslens.v1.ServerStore.finding_severity:type_name -> natslens.v1.Severity
+	10, // 0: natslens.v1.GetCapacityRequest.range:type_name -> natslens.v1.TimeRange
+	11, // 1: natslens.v1.ServerStore.finding_severity:type_name -> natslens.v1.Severity
 	1,  // 2: natslens.v1.NextLimit.limit:type_name -> natslens.v1.NextLimitKind
 	2,  // 3: natslens.v1.NextLimit.state:type_name -> natslens.v1.NextLimitState
 	0,  // 4: natslens.v1.CapacityStream.kind:type_name -> natslens.v1.CapacityStreamKind
-	11, // 5: natslens.v1.CapacityStream.first_ts:type_name -> google.protobuf.Timestamp
-	12, // 6: natslens.v1.CapacityStream.max_age:type_name -> google.protobuf.Duration
+	12, // 5: natslens.v1.CapacityStream.first_ts:type_name -> google.protobuf.Timestamp
+	13, // 6: natslens.v1.CapacityStream.max_age:type_name -> google.protobuf.Duration
 	6,  // 7: natslens.v1.CapacityStream.next_limit:type_name -> natslens.v1.NextLimit
 	3,  // 8: natslens.v1.CapacityStream.status:type_name -> natslens.v1.CapacityStatus
-	13, // 9: natslens.v1.CapacityStream.mute:type_name -> natslens.v1.Mute
-	11, // 10: natslens.v1.GetCapacityResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	14, // 9: natslens.v1.CapacityStream.mute:type_name -> natslens.v1.Mute
+	12, // 10: natslens.v1.GetCapacityResponse.epoch_at:type_name -> google.protobuf.Timestamp
 	5,  // 11: natslens.v1.GetCapacityResponse.servers:type_name -> natslens.v1.ServerStore
 	7,  // 12: natslens.v1.GetCapacityResponse.streams:type_name -> natslens.v1.CapacityStream
-	11, // 13: natslens.v1.GetCapacityResponse.growth_from:type_name -> google.protobuf.Timestamp
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	12, // 13: natslens.v1.GetCapacityResponse.growth_from:type_name -> google.protobuf.Timestamp
+	5,  // 14: natslens.v1.GetCapacityResponse.memory_stores:type_name -> natslens.v1.ServerStore
+	8,  // 15: natslens.v1.GetCapacityResponse.account_stores:type_name -> natslens.v1.AccountStore
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_capacity_proto_init() }
@@ -1150,13 +1327,14 @@ func file_natslens_v1_capacity_proto_init() {
 	file_natslens_v1_capacity_proto_msgTypes[1].OneofWrappers = []any{}
 	file_natslens_v1_capacity_proto_msgTypes[2].OneofWrappers = []any{}
 	file_natslens_v1_capacity_proto_msgTypes[3].OneofWrappers = []any{}
+	file_natslens_v1_capacity_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_capacity_proto_rawDesc), len(file_natslens_v1_capacity_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
