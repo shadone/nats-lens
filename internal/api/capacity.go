@@ -192,14 +192,14 @@ func serverStore(s ServerStoreFact, firing map[string]*v1.Finding) *v1.ServerSto
 	return out
 }
 
-// memoryStores are the servers' memory store cards, when a server that
-// answered holds memory (HoldsMemory); none otherwise, so a system that
-// keeps everything on file shows no memory cards. Then a card goes to
+// memoryStores are the servers' memory store cards, when MemoryShown;
+// none otherwise, so a system that keeps everything on file shows no
+// memory cards. Then a card goes to
 // each server that holds memory and to each that did not answer (its
 // memory is unknown); the servers that answered holding none are only
 // counted, in empty.
 func memoryStores(f *CapacityFacts) (cards []*v1.ServerStore, empty int32) {
-	if !slices.ContainsFunc(f.Servers, HoldsMemory) {
+	if !MemoryShown(f) {
 		return nil, 0
 	}
 	for _, s := range f.Servers {
@@ -215,6 +215,15 @@ func memoryStores(f *CapacityFacts) (cards []*v1.ServerStore, empty int32) {
 		cards = append(cards, m)
 	}
 	return cards, empty
+}
+
+// MemoryShown is whether the page shows memory store cards: a server that
+// answered holds memory in use, or a memory stream of the epoch holds
+// bytes (its servers may all have missed the collection).
+func MemoryShown(f *CapacityFacts) bool {
+	return slices.ContainsFunc(f.Servers, HoldsMemory) || slices.ContainsFunc(f.Streams, func(s CapacityStreamFact) bool {
+		return s.Storage == StorageMemory && s.Bytes != nil && *s.Bytes > 0
+	})
 }
 
 // HoldsMemory is whether a server that answered holds memory in use.

@@ -54,6 +54,22 @@ func TestCapacityMemoryStores(t *testing.T) {
 	}
 }
 
+// A memory stream with bytes shows the group even when every server that
+// holds it missed the collection: its not-reported card stays visible.
+func TestCapacityMemoryStoresWhileHoldersMissing(t *testing.T) {
+	f := &api.CapacityFacts{Epoch: 1, EpochAt: capAt,
+		Servers: []api.ServerStoreFact{
+			{Name: "nats-0", Reported: true, Used: i64(1), Limit: i64(10), MemUsed: i64(0), MemLimit: i64(1000)},
+			{Name: "nats-1"},
+		},
+		Streams: []api.CapacityStreamFact{{Account: "APP", Stream: "KV_presence", Storage: "memory", Bytes: i64(4096)}},
+	}
+	res := api.FinishCapacity(f)
+	if m := res.GetMemoryStores(); len(m) != 1 || m[0].GetServerName() != "nats-1" || m[0].GetReported() || res.GetMemoryStoresEmpty() != 1 {
+		t.Errorf("memory stores = %v, %d empty", m, res.GetMemoryStoresEmpty())
+	}
+}
+
 // An account card per storage whose JWT sets a limit above 0; none for
 // -1, 0, no JWT or a lookup too old.
 func TestCapacityAccountStores(t *testing.T) {

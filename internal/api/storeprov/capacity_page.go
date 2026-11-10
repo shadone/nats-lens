@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -31,10 +30,12 @@ func (p *Provider) Capacity(ctx context.Context, req *v1.GetCapacityRequest) (*a
 		return nil, fmt.Errorf("capacity growth start: %w", err)
 	}
 	f.GrowthFrom = ntime(from)
-	if err := p.capacityServers(ctx, f, start, end); err != nil {
+	// Streams first: whether the servers' memory growth is read depends on
+	// them (api.MemoryShown).
+	if err := p.capacityStreams(ctx, f, start, end); err != nil {
 		return nil, err
 	}
-	if err := p.capacityStreams(ctx, f, start, end); err != nil {
+	if err := p.capacityServers(ctx, f, start, end); err != nil {
 		return nil, err
 	}
 	if err := p.capacityAccounts(ctx, f, start, end); err != nil {
@@ -92,7 +93,7 @@ ORDER BY n.name`, f.Epoch)
 	}
 	// Memory growth is read only when a memory card can be sent.
 	kinds := "('file')"
-	if slices.ContainsFunc(f.Servers, api.HoldsMemory) {
+	if api.MemoryShown(f) {
 		kinds = "('file'), ('memory')"
 	}
 	growth, err := p.storeGrowth(ctx, fmt.Sprintf(serverStoreSeries, kinds), start, end)
