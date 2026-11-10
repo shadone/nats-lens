@@ -109,6 +109,11 @@ func startOrders(t *testing.T, url, version string) micro.Service {
 	})); err != nil {
 		t.Fatal(err)
 	}
+	// AddService does not flush: without this, a request sent right after
+	// can reach the server before the $SRV subscriptions do.
+	if err := nc.Flush(); err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = svc.Stop() })
 	return svc
 }
@@ -391,6 +396,9 @@ func TestMicroScopedUser(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = svc.Stop() }()
+	if err := svcConn.Flush(); err != nil {
+		t.Fatal(err)
+	}
 	at := time.Now()
 	c := microCollector(2*time.Second, 5*time.Minute, &at,
 		fixedConn("app", cl.Connect(0, testcluster.ScopedAppUser, testcluster.ScopedAppPass)))

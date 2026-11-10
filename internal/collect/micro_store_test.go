@@ -33,6 +33,9 @@ func TestMicroStoredWithEpoch(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = svc.Stop() }()
+	if err := svcConn.Flush(); err != nil {
+		t.Fatal(err)
+	}
 	client := c.Connect(0, testcluster.AppUser, testcluster.AppPass)
 	for range 4 {
 		if _, err := client.Request("inventory.reserve", nil, 2*time.Second); err != nil {
