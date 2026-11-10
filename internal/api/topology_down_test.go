@@ -74,3 +74,71 @@ func TestTopologyDownNeedsTwoCollections(t *testing.T) {
 		t.Errorf("routes = %v, want %v", got, want)
 	}
 }
+
+// edgeFacts are two sites whose 2-server clusters are both named edge,
+// each meshed inside, never routed to each other, every server answering
+// ROUTEZ in this and the collection before.
+func edgeFacts() *api.TopologyFacts {
+	f := topoFacts()
+	for _, n := range []string{"l0", "l1", "m0", "m1"} {
+		f.Servers = append(f.Servers, api.TopologyServerFact{Name: n, Cluster: "edge"})
+		f.Answered[api.EndpointRoutez] = append(f.Answered[api.EndpointRoutez], n)
+		f.RoutezBefore = append(f.RoutezBefore, n)
+	}
+	mk := func(a, b string) api.TopologyRouteRow {
+		return api.TopologyRouteRow{Server: a, Remote: b, Cluster: "edge", RTT: ms(0.4), Pending: i64(1)}
+	}
+	f.Routes = []api.TopologyRouteRow{mk("l0", "l1"), mk("l1", "l0"), mk("m0", "m1"), mk("m1", "m0")}
+	f.RoutesBefore = slices.Clone(f.Routes)
+	return f
+}
+
+func downOf(f *api.TopologyFacts) []string {
+	var out []string
+	for _, r := range api.FinishTopology(f).GetRoutes() {
+		if r.GetDown() {
+			out = append(out, r.GetServerA()+"-"+r.GetServerB())
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// Two sites sharing a cluster name are two meshes, not one with every
+// cross pair down; one site's server that lists no route at all is down
+// to every server of the name; a site in another JetStream domain is
+// never paired.
+func TestTopologyDownByMesh(t *testing.T) {
+	if got := downOf(edgeFacts()); len(got) != 0 {
+		t.Errorf("two sites named edge: down %v, want none", got)
+	}
+	f := edgeFacts()
+	f.Routes, f.RoutesBefore = f.Routes[2:], f.RoutesBefore[2:] // l0 and l1 list nothing
+	if got, want := downOf(f), []string{"l0-l1", "l0-m0", "l0-m1", "l1-m0", "l1-m1"}; !slices.Equal(got, want) {
+		t.Errorf("site l without routes: down %v, want %v", got, want)
+	}
+	for i := range f.Servers {
+		if f.Servers[i].Name[0] == 'm' {
+			f.Servers[i].Domain = "shop-2"
+		}
+	}
+	if got, want := downOf(f), []string{"l0-l1"}; !slices.Equal(got, want) {
+		t.Errorf("site m in its own domain: down %v, want %v", got, want)
+	}
+}
+
+// A pair one end listed in the collection before is not down yet: a
+// route reconnecting while the two ROUTEZ replies were taken does not
+// read as down for one collection.
+func TestTopologyDownNeedsTwoCollectionsUnlisted(t *testing.T) {
+	f := edgeFacts()
+	f.Routes = f.Routes[2:] // l0-l1 gone now, listed before
+	if got := downOf(f); len(got) != 0 {
+		t.Errorf("listed in the collection before: down %v, want none", got)
+	}
+	f.RoutesBefore = f.RoutesBefore[2:]
+	f.RoutesBefore = append(f.RoutesBefore, api.TopologyRouteRow{Server: "l0", Remote: "m0", Cluster: "edge"}) // joins the sites
+	if got, want := downOf(f), []string{"l0-l1", "l0-m1", "l1-m0", "l1-m1"}; !slices.Equal(got, want) {
+		t.Errorf("gone in both: down %v, want %v", got, want)
+	}
+}

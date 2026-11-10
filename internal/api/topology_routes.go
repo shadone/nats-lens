@@ -10,17 +10,12 @@ import (
 )
 
 // topologyRoutes pairs the epoch's routes by server, marks the slow ones
-// using the shared rule in this and the earlier collection, and adds each
-// pair's drops. The servers of a cluster form a full mesh, so two servers
-// of one cluster that both answered ROUTEZ in the epoch and in the
-// collection before it under the same server IDs, and that do not list
-// each other, are added as a pair that is down.
+// using the shared rule in this and the earlier collection, adds each
+// pair's drops, and adds the pairs that are down (downPairs).
 func topologyRoutes(f *TopologyFacts, servers []TopologyServerFact) []*v1.TopologyRoute {
 	clusterOf := map[string]string{}
-	missing := map[string]bool{}
 	for _, s := range servers {
 		clusterOf[s.Name] = s.Cluster
-		missing[s.Name] = s.Missing
 	}
 	answered := map[string]bool{}
 	for _, n := range f.Answered[EndpointRoutez] {
@@ -31,28 +26,9 @@ func topologyRoutes(f *TopologyFacts, servers []TopologyServerFact) []*v1.Topolo
 	for _, r := range out {
 		listed[[2]string{r.GetServerA(), r.GetServerB()}] = r
 	}
-	before := map[string]bool{}
-	for _, n := range f.RoutezBefore {
-		before[n] = true
-	}
-	steady := map[string][]string{}
-	for _, sv := range servers {
-		if sv.Cluster != "" && !missing[sv.Name] && answered[sv.Name] && before[sv.Name] {
-			steady[sv.Cluster] = append(steady[sv.Cluster], sv.Name)
-		}
-	}
-	for cluster, names := range steady {
-		slices.Sort(names)
-		names = slices.Compact(names)
-		for i, a := range names {
-			for _, b := range names[i+1:] {
-				if listed[[2]string{a, b}] == nil {
-					r := &v1.TopologyRoute{Cluster: cluster, ServerA: a, ServerB: b, Down: true}
-					listed[[2]string{a, b}] = r
-					out = append(out, r)
-				}
-			}
-		}
+	for _, r := range downPairs(f, servers, answered, listed) {
+		listed[[2]string{r.GetServerA(), r.GetServerB()}] = r
+		out = append(out, r)
 	}
 	for _, d := range f.Drops.Routes {
 		r := listed[[2]string{d.A, d.B}]
@@ -72,5 +48,73 @@ func topologyRoutes(f *TopologyFacts, servers []TopologyServerFact) []*v1.Topolo
 			cmp.Compare(a.GetCluster(), b.GetCluster()),
 			cmp.Compare(a.GetServerA(), b.GetServerA()), cmp.Compare(a.GetServerB(), b.GetServerB()))
 	})
+	return out
+}
+
+// downPairs are the pairs of a cluster's full mesh that neither end
+// lists. A pair is down when both servers are of one cluster and one
+// JetStream domain, answered ROUTEZ in the epoch and in the collection
+// before it under the same server IDs, and neither lists the other in
+// either collection; and when they are joined through other routes of
+// those two collections, or one of them lists no route at all. Joined
+// through other routes: two sites that share a cluster name and never
+// route to each other are two meshes, not one with every cross pair
+// down.
+func downPairs(f *TopologyFacts, servers []TopologyServerFact, answered map[string]bool, listed map[[2]string]*v1.TopologyRoute) []*v1.TopologyRoute {
+	before := map[string]bool{}
+	for _, n := range f.RoutezBefore {
+		before[n] = true
+	}
+	parent := map[string]string{}
+	var find func(string) string
+	find = func(n string) string {
+		p, ok := parent[n]
+		if !ok || p == n {
+			parent[n] = n
+			return n
+		}
+		r := find(p)
+		parent[n] = r
+		return r
+	}
+	routed := map[string]bool{}
+	listedBefore := map[[2]string]bool{}
+	for _, rows := range [][]TopologyRouteRow{f.Routes, f.RoutesBefore} {
+		for _, r := range rows {
+			if r.Server == r.Remote || r.Remote == "" {
+				continue
+			}
+			routed[r.Server], routed[r.Remote] = true, true
+			parent[find(r.Server)] = find(r.Remote)
+		}
+	}
+	for _, r := range f.RoutesBefore {
+		listedBefore[pairOf(r.Server, r.Remote)] = true
+	}
+	type mesh struct{ cluster, domain string }
+	steady := map[mesh][]string{}
+	for _, sv := range servers {
+		if sv.Cluster != "" && !sv.Missing && answered[sv.Name] && before[sv.Name] {
+			k := mesh{sv.Cluster, sv.Domain}
+			steady[k] = append(steady[k], sv.Name)
+		}
+	}
+	var out []*v1.TopologyRoute
+	for k, names := range steady {
+		slices.Sort(names)
+		names = slices.Compact(names)
+		for i, a := range names {
+			for _, b := range names[i+1:] {
+				p := [2]string{a, b}
+				if listed[p] != nil || listedBefore[p] {
+					continue
+				}
+				if routed[a] && routed[b] && find(a) != find(b) {
+					continue
+				}
+				out = append(out, &v1.TopologyRoute{Cluster: k.cluster, ServerA: a, ServerB: b, Down: true})
+			}
+		}
+	}
 	return out
 }

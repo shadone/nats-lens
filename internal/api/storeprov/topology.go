@@ -65,7 +65,7 @@ names AS (SELECT DISTINCT unnest(expected_names || observed_names || missing_nam
 procs AS (
   SELECT s.*, row_number() OVER (PARTITION BY server_name ORDER BY last_epoch DESC) AS rn
   FROM servers s WHERE first_epoch <= ? AND server_name IN (SELECT name FROM names))
-SELECT n.name, coalesce(p.cluster, ''), coalesce(p.tags, []), list_contains((SELECT missing_names FROM e), n.name),
+SELECT n.name, coalesce(p.cluster, ''), coalesce(p.domain, ''), coalesce(p.tags, []), list_contains((SELECT missing_names FROM e), n.name),
   ss.js_streams_leader, ss.mem_bytes, ss.js_memory, ss.js_max_memory, ss.js_storage, ss.js_max_storage
 FROM names n
 LEFT JOIN procs p ON p.server_name = n.name AND p.rn = 1
@@ -80,7 +80,7 @@ ORDER BY n.name`, f.Epoch, f.Epoch, f.Epoch)
 		var tags []any
 		var led sql.NullInt32
 		var mem, jsMem, jsMax, jsFile, jsFileMax sql.NullInt64
-		if err := rows.Scan(&s.Name, &s.Cluster, &tags, &s.Missing, &led, &mem, &jsMem, &jsMax, &jsFile, &jsFileMax); err != nil {
+		if err := rows.Scan(&s.Name, &s.Cluster, &s.Domain, &tags, &s.Missing, &led, &mem, &jsMem, &jsMax, &jsFile, &jsFileMax); err != nil {
 			return err
 		}
 		s.Mem, s.JSMemory, s.JSMaxMemory = int64Ptr(mem), int64Ptr(jsMem), int64Ptr(jsMax)
@@ -121,24 +121,31 @@ ORDER BY 1`, f.Epoch, api.EndpointRoutez, api.EndpointGatewayz, api.EndpointLeaf
 	return rows.Err()
 }
 
-// topologyRoutezBefore reads the servers whose ROUTEZ answered ok in the
-// epoch and in the collection before it, under the same server ID: the
-// newest earlier epoch that started no earlier than
-// api.TopologyEarliestEarlier; none when the collect interval is not
-// known. The start is compared with the column directly, so the session
-// time zone does not shift it.
+// topologyRoutezBefore reads the collection before the epoch for the
+// down rule: the newest earlier epoch that started no earlier than
+// api.TopologyEarliestEarlier (none when the collect interval is not
+// known), the servers whose ROUTEZ answered ok in it and in the epoch
+// under the same server ID, and its routes. The start is compared with
+// the column directly, so the session time zone does not shift it.
 func (p *Provider) topologyRoutezBefore(ctx context.Context, f *api.TopologyFacts) error {
 	bound, known := api.TopologyEarliestEarlier(f.EpochAt, p.Interval)
 	if !known {
 		return nil
 	}
+	var prev sql.NullInt64
+	if err := p.db().QueryRowContext(ctx, `SELECT max(epoch) FROM epochs WHERE epoch < ? AND started_at >= ? AND started_at < ?`,
+		f.Epoch, bound, f.EpochAt).Scan(&prev); err != nil {
+		return fmt.Errorf("topology collection before: %w", err)
+	}
+	if !prev.Valid {
+		return nil
+	}
 	rows, err := p.db().QueryContext(ctx, `
-WITH prev AS (SELECT max(epoch) AS epoch FROM epochs WHERE epoch < ? AND started_at >= ? AND started_at < ?)
 SELECT DISTINCT s.server_name
 FROM epoch_endpoints a JOIN epoch_endpoints b ON b.server_id = a.server_id JOIN servers s ON s.server_id = a.server_id
-WHERE a.epoch = ? AND b.epoch = (SELECT epoch FROM prev) AND a.endpoint = 'ROUTEZ' AND b.endpoint = 'ROUTEZ'
+WHERE a.epoch = ? AND b.epoch = ? AND a.endpoint = 'ROUTEZ' AND b.endpoint = 'ROUTEZ'
   AND a.state = 'ok' AND b.state = 'ok'
-ORDER BY 1`, f.Epoch, bound, f.EpochAt, f.Epoch)
+ORDER BY 1`, f.Epoch, prev.Int64)
 	if err != nil {
 		return fmt.Errorf("topology ROUTEZ before: %w", err)
 	}
@@ -150,7 +157,11 @@ ORDER BY 1`, f.Epoch, bound, f.EpochAt, f.Epoch)
 		}
 		f.RoutezBefore = append(f.RoutezBefore, name)
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	f.RoutesBefore, err = p.routeRows(ctx, prev.Int64)
+	return err
 }
 
 // topologyRoutes reads the epoch's routes.

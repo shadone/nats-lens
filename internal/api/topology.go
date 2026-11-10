@@ -58,6 +58,8 @@ type TopologyFacts struct {
 	// TopologyGapIntervals collect intervals earlier) and in the epoch,
 	// under the same server ID; empty without such a collection.
 	RoutezBefore []string
+	// RoutesBefore are the routes of that collection; nil without one.
+	RoutesBefore []TopologyRouteRow
 	Routes       []TopologyRouteRow
 	Gateways     []TopologyGatewayRow
 	Leafnodes    []TopologyLeafRow
@@ -94,10 +96,11 @@ func TopologyEarliestEarlier(epochAt time.Time, interval time.Duration) (time.Ti
 
 // TopologyServerFact is one server expected in the epoch.
 type TopologyServerFact struct {
-	// Cluster is empty when not known.
-	Name, Cluster string
-	Tags          []string
-	Missing       bool
+	// Cluster is empty when not known; Domain is the JetStream domain,
+	// empty without one.
+	Name, Cluster, Domain string
+	Tags                  []string
+	Missing               bool
 	// StreamsLed is the streams the server leads; nil when not reported.
 	StreamsLed *int32
 	// Mem is the resident memory of the process, JSMemory and JSMaxMemory

@@ -444,6 +444,7 @@ func (p *Provider) Topology(_ context.Context, req *v1.GetTopologyRequest) (*api
 				f.RoutezBefore = append(f.RoutezBefore, sp.name)
 			}
 		}
+		f.RoutesBefore = s.routeRows(prev)
 	}
 	f.Routes = s.routeRows(at)
 	f.Earlier = s.earlierRoutes(at)

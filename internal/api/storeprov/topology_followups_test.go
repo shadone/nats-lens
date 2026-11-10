@@ -15,8 +15,9 @@ import (
 //     failed in epoch 1, while a route of nats-eu-0 to it was replaced
 //     (no drop); one route of the pair was replaced between epochs 2 and
 //     3 (one drop). nats-eu-2 restarted before epoch 4 (no drop on its
-//     pairs); in epoch 5 neither nats-eu-0 nor nats-eu-2 lists the other
-//     (one drop, and the pair is down).
+//     pairs), and from epoch 4 on neither nats-eu-0 nor nats-eu-2 lists
+//     the other (no drop, as the routes went with the restart; the pair
+//     is down).
 //   - Memory in epoch 5: nats-eu-2 at 1 GiB, the others about 210 MiB,
 //     with server-008 firing on nats-eu-2.
 //   - Streams: ORDERS in eu; ARCHIVE in ap mirrors it, 1,500 behind after
@@ -79,7 +80,7 @@ func followupStore(t *testing.T, last time.Time) *store.Store {
 		route(e, "nats-eu-0", "nats-eu-1", first)
 		route(e, "nats-eu-0", "nats-eu-1", 2)
 		route(e, "nats-eu-2", "nats-eu-1", 30+e/4)
-		if e < 5 {
+		if e < 4 {
 			route(e, "nats-eu-0", "nats-eu-2", 20+e/4)
 			route(e, "nats-eu-2", "nats-eu-0", 40+e/4)
 		}
@@ -140,7 +141,7 @@ func TestTopologyFollowupsFromStore(t *testing.T) {
 	for _, rt := range res.GetRoutes() {
 		routes = append(routes, fmt.Sprintf("%s-%s %s/%s %v", rt.GetServerA(), rt.GetServerB(), drops(rt.Drops_1H), drops(rt.Drops_24H), rt.GetDown()))
 	}
-	want := []string{"nats-eu-0-nats-eu-2 1/1 true", "nats-eu-0-nats-eu-1 1/1 false", "nats-eu-1-nats-eu-2 0/0 false"}
+	want := []string{"nats-eu-0-nats-eu-2 0/0 true", "nats-eu-0-nats-eu-1 1/1 false", "nats-eu-1-nats-eu-2 0/0 false"}
 	if !slices.Equal(routes, want) {
 		t.Errorf("routes = %v, want %v", routes, want)
 	}
