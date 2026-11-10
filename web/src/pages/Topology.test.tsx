@@ -92,7 +92,10 @@ describe("Topology", () => {
     const rc = within(route).getAllByRole("cell");
     expect(rc[0]).toHaveTextContent(/^– not observed$/);
     expect(rc[1]).toHaveTextContent(/^– not observed$/);
-    expect(rc[2]).toHaveTextContent("none");
+    // Route drops not observed are a dash too.
+    expect(rc[2]).toHaveTextContent(/^– not observed$/);
+    expect(rc[3]).toHaveTextContent(/^– not observed$/);
+    expect(rc[4]).toHaveTextContent("none");
   });
 
   it("marks a slow route and lists it first", async () => {
@@ -105,7 +108,7 @@ describe("Topology", () => {
     expect(within(rows[0]).getByRole("rowheader")).toHaveTextContent("nats-eu-0 → nats-eu-3");
     expect(within(rows[0]).getAllByRole("cell")[0]).toHaveTextContent("4.1 msSlow");
     expect(rows[1]).not.toHaveClass("warn");
-    expect(within(rows[1]).getAllByRole("cell")[3]).toHaveTextContent("APP");
+    expect(within(rows[1]).getAllByRole("cell")[5]).toHaveTextContent("APP");
   });
 
   it("picks the routes table's cluster with the select or a click on a cluster, and keeps it in the link", async () => {

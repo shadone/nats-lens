@@ -19,8 +19,10 @@ import {
   labelTokens,
   leafBox,
   neighbours,
+  routeLineParts,
   rowFractions,
   rowLayout,
+  serverMemory,
 } from "../lib/topologyView";
 import { serverPath } from "../lib/view";
 import { Num, RLink } from "./common";
@@ -193,14 +195,15 @@ function LeafBox({ c }: { c: TopologyCluster }) {
 
 function ClusterBox(p: { c: TopologyCluster; t: Topology; dropping: Set<string>; picked: boolean; pickable: boolean; onPick: (c: string) => void; withLeaf?: boolean }) {
   const { c } = p;
-  const note = clusterNote(c, p.t.gateways);
+  const note = clusterNote(c, p.t.gateways, p.t.routes, p.t.replication);
+  const routeLine = routeLineParts(c, p.t.routes);
   // A click anywhere on the box but a server's link picks the cluster; the name is the keyboard's way.
   const onClick = (e: MouseEvent) => {
     if (!p.pickable || (e.target as HTMLElement).closest("a,button")) return;
     p.onPick(c.name);
   };
   return (
-    <div className={`tm-box${clusterWarns(c, p.dropping, p.t.gateways) ? " warn" : ""}${p.picked ? " on" : ""}${p.pickable ? " pickable" : ""}`} onClick={onClick}>
+    <div className={`tm-box${clusterWarns(c, p.dropping, p.t.gateways, p.t.routes) ? " warn" : ""}${p.picked ? " on" : ""}${p.pickable ? " pickable" : ""}`} onClick={onClick}>
       <div className="tm-box-h">
         {p.pickable ? (
           <button type="button" className="tm-name mono" aria-pressed={p.picked} onClick={() => p.onPick(c.name)} title={`Show the routes inside ${clusterLabel(c.name)}`}>
@@ -214,17 +217,37 @@ function ClusterBox(p: { c: TopologyCluster; t: Topology; dropping: Set<string>;
       </div>
       <ul className="tm-chips" aria-label={`Servers of ${clusterLabel(c.name)}`}>
         {c.servers.map((s) => {
-          const why = s.missing ? "missing" : p.dropping.has(s.name) ? "gateway dropping" : "";
+          const mem = serverMemory(s);
+          const why = s.missing ? "missing" : p.dropping.has(s.name) ? "gateway dropping" : (mem.warn ?? "");
+          const title = [s.name, why, mem.title].filter(Boolean).join(": ");
           return (
             <li key={s.name}>
-              <RLink to={serverPath(s.name)} className={`tm-chip mono${why ? " warn" : ""}`} title={why ? `${s.name}: ${why}` : s.name}>
+              <RLink to={serverPath(s.name)} className={`tm-chip mono${why ? " warn" : ""}`} title={title}>
                 {s.name}
+                {mem.text && (
+                  <>
+                    <span className="tm-mem" aria-hidden="true">
+                      {mem.text}
+                    </span>
+                    <span className="sr-only">{`, memory ${mem.text}`}</span>
+                  </>
+                )}
                 {why && <span className="sr-only">{`, ${why}`}</span>}
               </RLink>
             </li>
           );
         })}
       </ul>
+      {routeLine.parts.length > 0 && (
+        <div className="tm-routes mono">
+          {routeLine.parts.map((part, k) => (
+            <span key={part} className={`tm-nw${k > 0 ? " tp-warn" : ""}`}>
+              {k > 0 && " · "}
+              {part}
+            </span>
+          ))}
+        </div>
+      )}
       {note && <div className="tm-note">{note}</div>}
       {p.withLeaf && <LeafBox c={c} />}
     </div>

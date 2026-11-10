@@ -1,7 +1,7 @@
 // The Topology page's wording and map layout, apart from React so they can
 // be tested on their own.
-import type { Topology, TopologyCluster, TopologyGateway } from "../api/topology";
-import { fmtDuration, fmtInt, fmtShortDuration } from "./format";
+import type { Topology, TopologyCluster, TopologyGateway, TopologyReplication, TopologyRoute, TopologyServer } from "../api/topology";
+import { fmtBytes, fmtDuration, fmtInt, fmtShortDuration } from "./format";
 
 /** The board's layout holds at most this many clusters in a row. */
 export const MAP_MAX_CLUSTERS = 4;
@@ -99,8 +99,30 @@ function droppingTo(c: TopologyCluster, gateways: TopologyGateway[]): string[] {
     .map((g) => other(g, c));
 }
 
-/** "JetStream meta leader · 5 streams led · gateway to us dropping" */
-export function clusterNote(c: TopologyCluster, gateways: TopologyGateway[]): string {
+/** The routes of a cluster that dropped in the last hour, and those that are down. */
+function routeTrouble(c: TopologyCluster, routes: TopologyRoute[]): { dropping: TopologyRoute[]; down: TopologyRoute[] } {
+  const mine = routes.filter((r) => r.cluster === c.name);
+  return { dropping: mine.filter((r) => !r.down && (r.drops1h ?? 0) > 0), down: mine.filter((r) => r.down) };
+}
+
+/** "route nats-eu-3 – nats-eu-5 dropping", or "3 routes dropping". */
+function routeNote(list: TopologyRoute[], what: string): string | undefined {
+  if (list.length === 0) return undefined;
+  return list.length === 1 ? `route ${list[0].a} – ${list[0].b} ${what}` : `${plural(list.length, "route")} ${what}`;
+}
+
+/** "mirrors from eu", "sources from us": the other clusters a cluster's streams copy from. */
+export function copiesFrom(c: TopologyCluster, replication: TopologyReplication[]): string[] {
+  const out: string[] = [];
+  for (const kind of ["mirror", "source"] as const) {
+    const from = [...new Set(replication.filter((r) => r.cluster === c.name && r.kind === kind).map((r) => clusterLabel(r.originCluster)))].sort();
+    if (from.length > 0) out.push(`${kind === "mirror" ? "mirrors" : "sources"} from ${from.join(", ")}`);
+  }
+  return out;
+}
+
+/** "JetStream meta leader · 5 streams led · gateway to us dropping · route nats-eu-3 – nats-eu-5 dropping · mirrors from eu" */
+export function clusterNote(c: TopologyCluster, gateways: TopologyGateway[], routes: TopologyRoute[] = [], replication: TopologyReplication[] = []): string {
   const parts: string[] = [];
   if (c.metaLeader) parts.push("JetStream meta leader");
   if (c.streamsLed !== undefined) parts.push(`${plural(c.streamsLed, "stream")} led`);
@@ -108,12 +130,81 @@ export function clusterNote(c: TopologyCluster, gateways: TopologyGateway[]): st
   if (missing > 0) parts.push(`${missing} missing`);
   for (const g of gateways) if (touches(g, c) && gatewayDown(g)) parts.push(`gateway to ${other(g, c)} down`);
   for (const o of droppingTo(c, gateways)) parts.push(`gateway to ${o} dropping`);
+  const { dropping, down } = routeTrouble(c, routes);
+  for (const n of [routeNote(down, "down"), routeNote(dropping, "dropping")]) if (n) parts.push(n);
+  parts.push(...copiesFrom(c, replication));
   return parts.join(" · ");
 }
 
-/** Whether the cluster's box is drawn in the warning colour: a server missing or dropping, or a gateway pair of it down. */
-export function clusterWarns(c: TopologyCluster, dropping: Set<string>, gateways: TopologyGateway[]): boolean {
-  return c.servers.some((s) => s.missing || dropping.has(s.name)) || gateways.some((g) => touches(g, c) && gatewayDown(g));
+/** Whether the cluster's box is drawn in the warning colour: a server missing or dropping, a gateway pair of it down, or a route of it down or dropping in the last hour. */
+export function clusterWarns(c: TopologyCluster, dropping: Set<string>, gateways: TopologyGateway[], routes: TopologyRoute[] = []): boolean {
+  const r = routeTrouble(c, routes);
+  return (
+    c.servers.some((s) => s.missing || dropping.has(s.name)) ||
+    gateways.some((g) => touches(g, c) && gatewayDown(g)) ||
+    r.dropping.length > 0 ||
+    r.down.length > 0
+  );
+}
+
+/**
+ * The parts of a cluster's routes line: ["routes 0.4 ms", "2 drops/h",
+ * "1 down"]; the median round trip of its pairs, then the collections in
+ * the last hour in which a route dropped, summed over its pairs. Empty
+ * without routes.
+ */
+export function routeLineParts(c: TopologyCluster, routes: TopologyRoute[]): { parts: string[]; warn: boolean } {
+  const mine = routes.filter((r) => r.cluster === c.name);
+  if (mine.length === 0) return { parts: [], warn: false };
+  const rtts = mine.flatMap((r) => (r.rttMs === undefined ? [] : [r.rttMs])).sort((a, b) => a - b);
+  const n = rtts.length;
+  const median = n === 0 ? undefined : n % 2 === 1 ? rtts[(n - 1) / 2] : (rtts[n / 2 - 1] + rtts[n / 2]) / 2;
+  const parts = [median === undefined ? "routes" : `routes ${fmtShortDuration(median)}`];
+  const drops = mine.reduce((sum, r) => sum + (r.drops1h ?? 0), 0);
+  const down = mine.filter((r) => r.down).length;
+  if (drops > 0) parts.push(`${fmtInt(drops)} ${drops === 1 ? "drop" : "drops"}/h`);
+  if (down > 0) parts.push(`${fmtInt(down)} down`);
+  return { parts, warn: drops > 0 || down > 0 };
+}
+
+/** The share of its limit at which a JetStream memory store is high: server-007's default warn_ratio. */
+export const JS_MEMORY_WARN = 0.75;
+
+/** A server chip's memory figure and the reason it is in the warning colour, if any. */
+export function serverMemory(s: TopologyServer): { text?: string; warn?: string; title?: string } {
+  if (s.memBytes === undefined) return {};
+  const text = fmtBytes(s.memBytes);
+  const parts = [`memory ${text}`];
+  let warn: string | undefined;
+  if (s.memHigh) warn = "memory far above the other servers";
+  if (s.jsMemoryBytes !== undefined && s.jsMaxMemoryBytes !== undefined && s.jsMaxMemoryBytes > 0) {
+    const share = s.jsMemoryBytes / s.jsMaxMemoryBytes;
+    parts.push(`JetStream memory ${fmtBytes(s.jsMemoryBytes)} of ${fmtBytes(s.jsMaxMemoryBytes)}`);
+    if (share >= JS_MEMORY_WARN) warn ??= `JetStream memory ${Math.floor(share * 100)}% of its limit`;
+  }
+  return { text, warn, title: parts.join("; ") };
+}
+
+/** Whether a mirror or source between clusters is drawn in the warning colour. */
+export function replicationWarns(r: TopologyReplication): boolean {
+  return r.error !== "" || r.notActive || r.fallingBehind;
+}
+
+/** What is wrong with a copy, in words: "falling behind: 1,500 messages, 1,200 in the collection before". */
+export function replicationProblem(r: TopologyReplication): string | undefined {
+  const parts: string[] = [];
+  if (r.notActive) parts.push(r.neverHeard ? "never heard from its origin" : `not heard from its origin for ${fmtDuration(r.lastActiveMs ?? 0)}`);
+  if (r.fallingBehind && r.lag !== undefined && r.lagBefore !== undefined)
+    parts.push(`falling behind: ${plural(r.lag, "message")}, ${fmtInt(r.lagBefore)} in the collection before`);
+  if (r.error) parts.push(`error: ${r.error}`);
+  return parts.length > 0 ? parts.join("; ") : undefined;
+}
+
+/** "0.8 s ago", "never", or undefined when not reported. */
+export function lastHeard(r: TopologyReplication): string | undefined {
+  if (r.neverHeard) return "never";
+  if (r.lastActiveMs === undefined) return undefined;
+  return r.lastActiveMs < 60_000 ? `${fmtShortDuration(r.lastActiveMs)} ago` : `${fmtDuration(r.lastActiveMs)} ago`;
 }
 
 /** A gateway pair is drawn in the warning colour when it dropped in the last hour or has connections down. */

@@ -4,9 +4,9 @@ import type { TopologyModel } from "../pages/Topology";
 // then the leaf node sites worst first and the routes inside one cluster.
 // The cluster of the routes table lives in the URL as ?cluster=.
 import type { Topology as TopologyData } from "../api/topology";
-import { Empty, QueryView } from "../components/common";
+import { Empty, QueryView, RLink } from "../components/common";
 import { TopologyMap } from "../components/TopologyMap";
-import { LeafTable, RouteTable } from "../components/TopologyTables";
+import { LeafTable, ReplicationTable, RouteTable } from "../components/TopologyTables";
 import { dayMonHm, hms } from "../lib/format";
 import { dropsLine, leafBox, routesCluster, unobservedLines } from "../lib/topologyView";
 import { useElementWidth } from "../lib/useWidth";
@@ -55,8 +55,9 @@ function Body({ t, asked, onPick }: { t: TopologyData; asked: string | null; onP
   const picked = routesCluster(t, asked);
   const anyLeaf = t.leafnodes.length > 0 || t.clusters.some((c) => leafBox(c) !== undefined);
   const showMap = t.clusters.length > 1 || anyLeaf;
-  const drops = t.gateways.length > 0 || anyLeaf;
+  const drops = t.gateways.length > 0 || anyLeaf || t.routes.some((r) => r.drops24h !== undefined);
   const notes = unobservedLines(t);
+  const anyMem = t.clusters.some((c) => c.servers.some((s) => s.memBytes !== undefined));
   const shortHistory = t.dropsWindowStart !== undefined && t.epochAt !== undefined && t.epochAt - t.dropsWindowStart < DAY - 60_000;
   return (
     <>
@@ -67,12 +68,17 @@ function Body({ t, asked, onPick }: { t: TopologyData; asked: string | null; onP
           </div>
         </section>
       )}
-      {(drops || notes.length > 0) && (
+      {(drops || notes.length > 0 || (showMap && anyMem)) && (
         <div className="tp-notes">
           {drops && (
             <p>
               {dropsLine(t)}
               {shortHistory && ` The history starts at ${dayMonHm(t.dropsWindowStart!)} UTC, so fewer than 24 hours are counted.`}
+            </p>
+          )}
+          {showMap && anyMem && (
+            <p>
+              Under each server is its process memory. JetStream memory stores are on <RLink to="/capacity">Capacity</RLink>.
             </p>
           )}
           {notes.map((n) => (
@@ -86,6 +92,11 @@ function Body({ t, asked, onPick }: { t: TopologyData; asked: string | null; onP
         {t.leafnodes.length > 0 && <LeafTable rows={t.leafnodes} total={t.leafnodesTotal} at={t.epochAt} leafzFailed={leafzFailedByCluster(t)} />}
         <RouteTable routes={t.routes} clusters={t.clusters} picked={picked} onPick={onPick} single={t.clusters.length === 1 && !showMap} />
       </div>
+      {t.replication.length > 0 && (
+        <div className="tp-tables">
+          <ReplicationTable rows={t.replication} />
+        </div>
+      )}
     </>
   );
 }

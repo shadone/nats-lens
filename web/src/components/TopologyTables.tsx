@@ -1,10 +1,10 @@
-// The Topology page's two tables: leaf node sites worst first, and the
-// routes inside one cluster.
+// The Topology page's tables: leaf node sites worst first, the routes
+// inside one cluster, and the mirrors and sources between clusters.
 import type { ReactNode } from "react";
-import type { TopologyCluster, TopologyLeafnode, TopologyRoute } from "../api/topology";
+import type { TopologyCluster, TopologyLeafnode, TopologyReplication, TopologyRoute } from "../api/topology";
 import { fmtBytes, fmtInt, fmtShortDuration, shortWhen } from "../lib/format";
-import { clusterLabel } from "../lib/topologyView";
-import { serverPath } from "../lib/view";
+import { clusterLabel, lastHeard, replicationProblem, replicationWarns } from "../lib/topologyView";
+import { serverPath, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { Num, RLink } from "./common";
 
@@ -148,8 +148,9 @@ export function LeafTable({ rows, total, at, leafzFailed = {} }: { rows: Topolog
   );
 }
 
-/** Who reports a route that not both ends report. */
+/** Who reports a route that not both ends report, or why a pair is down. */
 function reportNote(r: TopologyRoute): string | undefined {
+  if (r.down) return "down: neither server lists a route to the other";
   if (r.reportedBy.length !== 1) return undefined;
   const by = r.reportedBy[0];
   const other = by === r.a ? r.b : r.a;
@@ -197,6 +198,8 @@ export function RouteTable({
                 <th scope="col">From → to</th>
                 <th scope="col">RTT</th>
                 <th scope="col">Pending</th>
+                <th scope="col">Drops 1 h</th>
+                <th scope="col">Drops 24 h</th>
                 <th scope="col">Pool</th>
                 <th scope="col">Pinned accounts</th>
               </tr>
@@ -204,8 +207,9 @@ export function RouteTable({
             <tbody>
               {rows.map((r) => {
                 const note = reportNote(r);
+                const dropping = (r.drops1h ?? 0) > 0;
                 return (
-                  <tr key={`${r.a}|${r.b}`} className={r.slow ? "warn" : undefined}>
+                  <tr key={`${r.a}|${r.b}`} className={r.slow || r.down || dropping ? "warn" : undefined}>
                     <th scope="row" className="mono">
                       <ServerLink name={r.a} /> → <ServerLink name={r.b} />
                       {note && <small>{note}</small>}
@@ -217,8 +221,16 @@ export function RouteTable({
                     <td className="mono">
                       <Num v={r.pendingBytes} fmt={fmtBytes} />
                     </td>
-                    <td className="mono">{r.pool === undefined ? <span className="tp-none">none</span> : fmtInt(r.pool)}</td>
-                    <td className="mono">{r.pinnedAccounts.length === 0 ? <span className="tp-none">none</span> : r.pinnedAccounts.join(", ")}</td>
+                    <td className={`mono${dropping ? " tp-warn" : ""}`}>
+                      <Num v={r.drops1h} />
+                    </td>
+                    <td className="mono">
+                      <Num v={r.drops24h} />
+                    </td>
+                    <td className="mono">{r.down ? <Unset why="down" /> : r.pool === undefined ? <span className="tp-none">none</span> : fmtInt(r.pool)}</td>
+                    <td className="mono">
+                      {r.down ? <Unset why="down" /> : r.pinnedAccounts.length === 0 ? <span className="tp-none">none</span> : r.pinnedAccounts.join(", ")}
+                    </td>
                   </tr>
                 );
               })}
@@ -227,6 +239,62 @@ export function RouteTable({
         </div>
       )}
       {single && <p className="tp-foot">For a single cluster this page shows just the routes; with no gateways or leaf nodes those sections stay hidden.</p>}
+    </Card>
+  );
+}
+
+/** A stream's name, linked to its page. */
+function StreamLink({ account, stream }: { account: string; stream: string }) {
+  return <RLink to={streamPath(account, stream)}>{stream}</RLink>;
+}
+
+/** The streams that mirror or source a stream placed in another cluster, those with a warning first. */
+export function ReplicationTable({ rows }: { rows: TopologyReplication[] }) {
+  return (
+    <Card title="Replication between clusters" className="tp-repl">
+      <div className="table-wrap scroll-cue">
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th scope="col">From → to</th>
+              <th scope="col">Kind</th>
+              <th scope="col">Lag</th>
+              <th scope="col">Last heard</th>
+              <th scope="col">Account</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const problem = replicationProblem(r);
+              const heard = lastHeard(r);
+              const noLeader = r.leader === "" ? "no leader" : "not reported";
+              return (
+                <tr key={`${r.account}|${r.stream}|${r.kind}|${r.originStream}`} className={replicationWarns(r) ? "warn" : undefined}>
+                  <th scope="row" className="mono">
+                    <span className="tm-nw">
+                      <StreamLink account={r.account} stream={r.originStream} /> on {clusterLabel(r.originCluster)}
+                    </span>{" "}
+                    →{" "}
+                    <span className="tm-nw">
+                      <StreamLink account={r.account} stream={r.stream} /> on {clusterLabel(r.cluster)}
+                    </span>
+                    {problem && <small>{problem}</small>}
+                  </th>
+                  <td>{r.kind === "mirror" ? "Mirror" : "Source"}</td>
+                  <td className={`mono${r.fallingBehind ? " tp-warn" : ""}`}>
+                    {r.lag === undefined ? <Unset why={noLeader} /> : fmtInt(r.lag)}
+                  </td>
+                  <td className={`mono${r.notActive ? " tp-warn" : ""}`}>{heard ?? <Unset why={noLeader} />}</td>
+                  <td className="mono">
+                    <AccountName id={r.account} name={r.accountName} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="tp-foot">Lag and last heard are the copying stream leader&apos;s report. Mirrors and sources inside one cluster are not listed.</p>
     </Card>
   );
 }

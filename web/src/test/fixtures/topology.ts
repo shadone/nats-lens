@@ -1,7 +1,7 @@
 // Topology view models for tests: the shop's three clusters with a dropping
 // gateway, a slow route and a leaf node site not connected, and a single
 // cluster with routes only.
-import type { Topology, TopologyCluster, TopologyGateway, TopologyLeafnode, TopologyRoute } from "../../api/topology";
+import type { Topology, TopologyCluster, TopologyGateway, TopologyLeafnode, TopologyReplication, TopologyRoute } from "../../api/topology";
 
 export const EPOCH_AT = Date.parse("2026-10-17T14:30:00Z");
 
@@ -10,7 +10,7 @@ export function cluster(name: string, servers: string[], o: Partial<TopologyClus
   return {
     name,
     place: "",
-    servers: servers.map((s) => ({ name: s, missing: missing.includes(s), metaLeader: false })),
+    servers: servers.map((s) => ({ name: s, missing: missing.includes(s), metaLeader: false, memHigh: false })),
     metaLeader: false,
     ...rest,
   };
@@ -21,7 +21,28 @@ export function gateway(a: string, b: string, rttMs: number, o: Partial<Topology
 }
 
 export function route(cluster: string, a: string, b: string, o: Partial<TopologyRoute> = {}): TopologyRoute {
-  return { cluster, a, b, rttMs: 0.4, pendingBytes: 0, pool: 3, pinnedAccounts: [], oneSided: false, slow: false, reportedBy: [a, b], ...o };
+  return { cluster, a, b, rttMs: 0.4, pendingBytes: 0, pool: 3, pinnedAccounts: [], oneSided: false, slow: false, reportedBy: [a, b], down: false, ...o };
+}
+
+export function copy(stream: string, cluster: string, origin: string, originCluster: string, o: Partial<TopologyReplication> = {}): TopologyReplication {
+  return {
+    account: "APP",
+    accountName: "",
+    stream,
+    cluster,
+    originStream: origin,
+    originCluster,
+    kind: "mirror",
+    leader: `nats-${cluster}-0`,
+    lag: 4,
+    lagBefore: 6,
+    lastActiveMs: 800,
+    neverHeard: false,
+    error: "",
+    notActive: false,
+    fallingBehind: false,
+    ...o,
+  };
 }
 
 export function leaf(name: string, hub: string, o: Partial<TopologyLeafnode> = {}): TopologyLeafnode {
@@ -73,6 +94,7 @@ export function global(): Topology {
     unobserved: [],
     dropsWindowStart: EPOCH_AT - 86_400_000,
     collectIntervalMs: 30_000,
+    replication: [],
   };
 }
 
@@ -89,9 +111,10 @@ export function single(): Topology {
     unobserved: [],
     dropsWindowStart: EPOCH_AT - 86_400_000,
     collectIntervalMs: 30_000,
+    replication: [],
   };
 }
 
 export function empty(): Topology {
-  return { collected: false, clusters: [], gateways: [], routes: [], leafnodes: [], leafnodesTotal: 0, unobserved: [] };
+  return { collected: false, clusters: [], gateways: [], routes: [], leafnodes: [], leafnodesTotal: 0, unobserved: [], replication: [] };
 }

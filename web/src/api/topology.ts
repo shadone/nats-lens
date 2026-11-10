@@ -15,6 +15,12 @@ export interface TopologyServer {
   /** Expected in the collection and answered nothing. */
   missing: boolean;
   metaLeader: boolean;
+  /** Resident memory of the process; undefined when not reported and for a missing server. */
+  memBytes?: number;
+  /** Far above the other servers' memory, as server-008 judges it by default. */
+  memHigh: boolean;
+  jsMemoryBytes?: number;
+  jsMaxMemoryBytes?: number;
 }
 
 export interface TopologyCluster {
@@ -52,6 +58,30 @@ export interface TopologyRoute {
   oneSided: boolean;
   slow: boolean;
   reportedBy: string[];
+  /** Collections in which a route of the pair dropped; undefined when not observed. */
+  drops1h?: number;
+  drops24h?: number;
+  /** Neither end lists a route to the other, though both answered ROUTEZ and a route dropped in the 24 hours. */
+  down: boolean;
+}
+
+export interface TopologyReplication {
+  account: string;
+  accountName: string;
+  stream: string;
+  cluster: string;
+  originStream: string;
+  originCluster: string;
+  kind: "mirror" | "source";
+  leader: string;
+  lag?: number;
+  lagBefore?: number;
+  /** Since the copy last heard from its origin; undefined when not reported or never heard. */
+  lastActiveMs?: number;
+  neverHeard: boolean;
+  error: string;
+  notActive: boolean;
+  fallingBehind: boolean;
 }
 
 export interface TopologyLeafnode {
@@ -90,6 +120,8 @@ export interface Topology {
   unobserved: TopologyUnobserved[];
   dropsWindowStart?: number;
   collectIntervalMs?: number;
+  /** Mirrors and sources between clusters, those with a warning first. */
+  replication: TopologyReplication[];
 }
 
 export function topology(r: GetTopologyResponse): Topology {
@@ -99,7 +131,15 @@ export function topology(r: GetTopologyResponse): Topology {
     clusters: r.clusters.map((c) => ({
       name: c.name,
       place: c.place,
-      servers: c.servers.map((s) => ({ name: s.name, missing: s.missing, metaLeader: s.metaLeader })),
+      servers: c.servers.map((s) => ({
+        name: s.name,
+        missing: s.missing,
+        metaLeader: s.metaLeader,
+        memBytes: optN(s.memBytes),
+        memHigh: s.memHigh,
+        jsMemoryBytes: optN(s.jsMemoryBytes),
+        jsMaxMemoryBytes: optN(s.jsMaxMemoryBytes),
+      })),
       metaLeader: c.metaLeader,
       streamsLed: c.streamsLed,
       leafConnected: c.leafnodesConnected,
@@ -128,6 +168,9 @@ export function topology(r: GetTopologyResponse): Topology {
       oneSided: x.oneSided,
       slow: x.slow,
       reportedBy: x.reportedBy,
+      drops1h: x.drops1h,
+      drops24h: x.drops24h,
+      down: x.down,
     })),
     leafnodes: r.leafnodes.map((l) => ({
       name: l.name,
@@ -148,5 +191,22 @@ export function topology(r: GetTopologyResponse): Topology {
     unobserved: r.unobserved.map((u) => ({ endpoint: u.endpoint, servers: u.servers })),
     dropsWindowStart: ms(r.dropsWindowStart),
     collectIntervalMs: dur(r.collectInterval),
+    replication: r.replication.map((x) => ({
+      account: x.account,
+      accountName: x.accountName,
+      stream: x.stream,
+      cluster: x.cluster,
+      originStream: x.originStream,
+      originCluster: x.originCluster,
+      kind: x.kind === "mirror" ? "mirror" : "source",
+      leader: x.leader,
+      lag: optN(x.lag),
+      lagBefore: optN(x.lagBefore),
+      lastActiveMs: rtt(x.lastActive),
+      neverHeard: x.neverHeard,
+      error: x.error,
+      notActive: x.notActive,
+      fallingBehind: x.fallingBehind,
+    })),
   };
 }
