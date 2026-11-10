@@ -417,9 +417,10 @@ export type TopologyRoute = Message<"natslens.v1.TopologyRoute"> & {
    * Whether the pair is down: the servers of a cluster form a full mesh,
    * and both ends, of one cluster and JetStream domain, answered ROUTEZ in
    * the epoch and in the collection before it under the same server IDs,
-   * neither lists the other in either collection, and they are joined
-   * through other routes of the two collections or one lists no route at
-   * all. rtt, pending_bytes and pool are unset.
+   * neither lists the other in either collection, and the pair had a
+   * route in the 24 hours before the epoch, or both list routes in the
+   * two collections and are joined through them. rtt, pending_bytes and
+   * pool are unset.
    *
    * @generated from field: bool down = 13;
    */

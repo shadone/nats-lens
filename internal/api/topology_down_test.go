@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 )
@@ -171,5 +172,71 @@ func TestTopologyDownNeedsTwoCollectionsUnlisted(t *testing.T) {
 	f.Drops.RoutePairs = [][2]string{{"l0", "l1"}}
 	if got, want := downOf(f), []string{"l0-l1", "l0-m1"}; !slices.Equal(got, want) {
 		t.Errorf("gone in both: down %v, want %v", got, want)
+	}
+}
+
+// meshCase is cluster c of the named servers, all answering ROUTEZ now and
+// in the collection before, with the same routes (both directions) in
+// both collections and the given pairs routed in the 24-hour window.
+func meshCase(names []string, edges, window [][2]string) *api.TopologyFacts {
+	f := &api.TopologyFacts{Epoch: 100, EpochAt: topoAt, Interval: 30 * time.Second, Answered: map[string][]string{}, Unanswered: map[string][]string{}}
+	for _, n := range names {
+		f.Servers = append(f.Servers, api.TopologyServerFact{Name: n, Cluster: "c"})
+		f.Answered[api.EndpointRoutez] = append(f.Answered[api.EndpointRoutez], n)
+		f.RoutezBefore = append(f.RoutezBefore, n)
+	}
+	for _, e := range edges {
+		f.Routes = append(f.Routes, api.TopologyRouteRow{Server: e[0], Remote: e[1], Cluster: "c", RTT: ms(0.4)},
+			api.TopologyRouteRow{Server: e[1], Remote: e[0], Cluster: "c", RTT: ms(0.4)})
+	}
+	f.RoutesBefore = slices.Clone(f.Routes)
+	f.Drops.RoutePairs = window
+	return f
+}
+
+// fullMesh is every pair of names, in name order.
+func fullMesh(names ...string) [][2]string {
+	var out [][2]string
+	for i, a := range names {
+		for _, b := range names[i+1:] {
+			out = append(out, [2]string{a, b})
+		}
+	}
+	return out
+}
+
+// A pair is down when it had a route in the window, or when both servers
+// route and are joined through others; a mesh that split into meshed
+// halves shows every cross pair down while the window holds them.
+func TestTopologyDownCases(t *testing.T) {
+	without := func(all [][2]string, drop ...string) [][2]string {
+		var out [][2]string
+		for _, e := range all {
+			if !slices.Contains(drop, e[0]) && !slices.Contains(drop, e[1]) {
+				out = append(out, e)
+			}
+		}
+		return out
+	}
+	n3, n5 := []string{"n0", "n1", "n2"}, []string{"n0", "n1", "n2", "n3", "n4"}
+	split := []string{"a1", "a2", "b1", "b2"}
+	split32 := []string{"a1", "a2", "a3", "b1", "b2"}
+	for _, c := range []struct {
+		name string
+		f    *api.TopologyFacts
+		want []string
+	}{
+		{"3-node mesh", meshCase(n3, fullMesh(n3...), fullMesh(n3...)), nil},
+		{"5-node mesh", meshCase(n5, fullMesh(n5...), fullMesh(n5...)), nil},
+		{"n2 restarted and never rejoined", meshCase(n3, without(fullMesh(n3...), "n2"), fullMesh(n3...)), []string{"n0-n2", "n1-n2"}},
+		{"2+2 split", meshCase(split, [][2]string{{"a1", "a2"}, {"b1", "b2"}}, fullMesh(split...)),
+			[]string{"a1-b1", "a1-b2", "a2-b1", "a2-b2"}},
+		{"3+2 split", meshCase(split32, append(fullMesh("a1", "a2", "a3"), [2]string{"b1", "b2"}), fullMesh(split32...)),
+			[]string{"a1-b1", "a1-b2", "a2-b1", "a2-b2", "a3-b1", "a3-b2"}},
+		{"templated sites", meshCase(split, [][2]string{{"a1", "a2"}, {"b1", "b2"}}, [][2]string{{"a1", "a2"}, {"b1", "b2"}}), nil},
+	} {
+		if got := downOf(c.f); !slices.Equal(got, c.want) {
+			t.Errorf("%s: down %v, want %v", c.name, got, c.want)
+		}
 	}
 }

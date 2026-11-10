@@ -55,13 +55,12 @@ func topologyRoutes(f *TopologyFacts, servers []TopologyServerFact) []*v1.Topolo
 // lists. A pair is down when both servers are of one cluster and one
 // JetStream domain, answered ROUTEZ in the epoch and in the collection
 // before it under the same server IDs, and neither lists the other in
-// either collection; and when they are joined through other routes of
-// those two collections, or, when one of them lists no route at all,
-// when the pair had a route row in the drop window. Two sites that share
-// a cluster name and never route to each other are two meshes, not one
-// with every cross pair down; single-server sites of one name never
-// routed to each other are not paired either, while a server that was
-// meshed and lost every route still is.
+// either collection; and when the pair had a route row in the drop
+// window, or both servers list routes in those two collections (routed)
+// and are joined through them. So a server that lost its routes, and a
+// mesh split into meshed halves, show down while the window holds their
+// routes; sites that share a cluster name and never routed to each
+// other, single-server ones included, are never paired.
 func downPairs(f *TopologyFacts, servers []TopologyServerFact, answered map[string]bool, listed map[[2]string]*v1.TopologyRoute) []*v1.TopologyRoute {
 	before := map[string]bool{}
 	for _, n := range f.RoutezBefore {
@@ -115,7 +114,7 @@ func downPairs(f *TopologyFacts, servers []TopologyServerFact, answered map[stri
 				if listed[p] != nil || listedBefore[p] {
 					continue
 				}
-				if routed[a] && routed[b] && find(a) != find(b) || (!routed[a] || !routed[b]) && !inWindow[p] {
+				if !inWindow[p] && !(routed[a] && routed[b] && find(a) == find(b)) {
 					continue
 				}
 				out = append(out, &v1.TopologyRoute{Cluster: k.cluster, ServerA: a, ServerB: b, Down: true})
