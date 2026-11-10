@@ -39,3 +39,7 @@ kubernetes:
   nats_selector: app.kubernetes.io/name=nats,app.kubernetes.io/component=nats
   # The Helm chart sets SERVER_NAME to the pod name.
   server_name: "{pod}"
+  # Optional: where the applications run, from the pods of the NATS
+  # clients in these namespaces. Needs the client-pods component.
+  # client_pod_watch:
+  #   namespaces: [shop]

@@ -16,6 +16,11 @@ resources:
   - ../../base
   - networkpolicy.yaml
 
+# Applications "Runs on" (kubernetes.client_pod_watch in natslens.yaml):
+# uncomment to grant the read access to the client pods of namespace shop.
+# components:
+#   - ../../components/client-pods
+
 images:
   - name: natslens
     # The image `make image` builds, pushed to a registry the cluster can pull from.

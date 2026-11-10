@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Optional: lets natslens watch the pods of NATS clients in namespace shop,
+# for kubernetes.client_pod_watch.namespaces: [shop], so that the
+# Applications page shows where each application runs. Not in the base:
+# without kubernetes.client_pod_watch natslens asks for no client pod and
+# needs none of this. For another namespace, patch the Role's and the
+# RoleBinding's metadata.namespace; for several, add a copy of both per
+# namespace. For every namespace use k8s/components/client-pods-all
+# instead.
+resources:
+  - rbac.yaml

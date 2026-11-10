@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Optional: lets natslens watch the pods of every namespace, for
+# kubernetes.client_pod_watch.all_namespaces: true. Not in the base:
+# without kubernetes.client_pod_watch natslens asks for no client pod and
+# needs none of this. To watch a few namespaces only, use
+# k8s/components/client-pods, which needs a Role per namespace instead of
+# a ClusterRole.
+resources:
+  - rbac.yaml

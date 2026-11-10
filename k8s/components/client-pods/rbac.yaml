@@ -1,0 +1,25 @@
+# Read-only access to the pods of namespace shop. natslens lists and
+# watches them; it never writes to the API server.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: natslens-client-pods
+  namespace: shop
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: natslens-client-pods
+  namespace: shop
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: natslens-client-pods
+subjects:
+  - kind: ServiceAccount
+    name: natslens
+    namespace: nats-lens
