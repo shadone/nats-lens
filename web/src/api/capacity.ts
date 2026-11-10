@@ -93,8 +93,10 @@ export interface Capacity {
   epochAt?: number;
   servers: ServerStore[];
   serversWithoutJetstream: number;
-  /** Each server's memory store; empty when no server holds memory in use and no stream uses memory storage. */
+  /** The memory store of each server that holds memory or was not reported; empty when no server holds memory in use. */
   memoryStores: ServerStore[];
+  /** Servers that answered holding no memory, without a card; 0 when memoryStores is empty. */
+  memoryStoresEmpty: number;
   accountStores: AccountStore[];
   streams: CapacityStream[];
   streamsTotal: number;
@@ -163,6 +165,7 @@ export function capacity(r: GetCapacityResponse): Capacity {
     servers: r.servers.map(serverStore),
     serversWithoutJetstream: r.serversWithoutJetstream,
     memoryStores: r.memoryStores.map(serverStore),
+    memoryStoresEmpty: r.memoryStoresEmpty,
     accountStores: r.accountStores.map((a) => ({
       account: a.account,
       accountName: a.accountName,

@@ -75,6 +75,18 @@ func capacityRows() []State {
 			}
 			return ""
 		}},
+		{"a Capacity page counting the servers that hold no memory", func(q Q) string {
+			res := q.capacity()
+			if res.GetMemoryStoresEmpty() > 0 && len(res.GetMemoryStores()) > 0 {
+				for _, m := range res.GetMemoryStores() {
+					if m.GetReported() && m.GetUsed() == 0 {
+						q.t.Errorf("%s: %s holds no memory and has a card", q.System, m.GetServerName())
+					}
+				}
+				return fmt.Sprintf("%d without memory", res.GetMemoryStoresEmpty())
+			}
+			return ""
+		}},
 		{"a Capacity account card with its use, limit and time to full", func(q Q) string {
 			for _, a := range q.capacity().GetAccountStores() {
 				if a.Used != nil && a.GetLimit() > 0 && a.GetPerDay() > 0 && a.DaysToFull != nil {

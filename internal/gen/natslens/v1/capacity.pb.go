@@ -1023,16 +1023,22 @@ type GetCapacityResponse struct {
 	// servers and in the same order: used and limit from the memory store
 	// (max_memory_store), growth and days to full by the same rule. The
 	// finding fields are empty: server-007 reads both stores and its finding
-	// is on the file store card. Empty unless a reported server holds memory
-	// in use above 0 or a stream of the epoch uses memory storage.
+	// is on the file store card. Empty unless a server that answered holds
+	// memory in use above 0; then a card for each such server and for each
+	// server not reported (its memory unknown), and memory_stores_empty
+	// counts the others.
 	MemoryStores []*ServerStore `protobuf:"bytes,8,rep,name=memory_stores,json=memoryStores,proto3" json:"memory_stores,omitempty"`
 	// One card per account and storage whose account JWT sets a JetStream
 	// limit above 0, from the account's newest lookup no older than the
 	// Accounts page reads: the soonest full first (as the card words it),
 	// then the fullest, then by account and storage (file first).
 	AccountStores []*AccountStore `protobuf:"bytes,9,rep,name=account_stores,json=accountStores,proto3" json:"account_stores,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Servers that answered holding no memory, when memory_stores is sent:
+	// they get no memory card.
+	// 0 when memory_stores is empty.
+	MemoryStoresEmpty int32 `protobuf:"varint,10,opt,name=memory_stores_empty,json=memoryStoresEmpty,proto3" json:"memory_stores_empty,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *GetCapacityResponse) Reset() {
@@ -1128,6 +1134,13 @@ func (x *GetCapacityResponse) GetAccountStores() []*AccountStore {
 	return nil
 }
 
+func (x *GetCapacityResponse) GetMemoryStoresEmpty() int32 {
+	if x != nil {
+		return x.MemoryStoresEmpty
+	}
+	return 0
+}
+
 var File_natslens_v1_capacity_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_capacity_proto_rawDesc = "" +
@@ -1221,7 +1234,7 @@ const file_natslens_v1_capacity_proto_rawDesc = "" +
 	"\x05_usedB\n" +
 	"\n" +
 	"\b_per_dayB\x0f\n" +
-	"\r_days_to_full\"\xec\x03\n" +
+	"\r_days_to_full\"\x9c\x04\n" +
 	"\x13GetCapacityResponse\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x125\n" +
 	"\bepoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt\x122\n" +
@@ -1232,7 +1245,9 @@ const file_natslens_v1_capacity_proto_rawDesc = "" +
 	"\vgrowth_from\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"growthFrom\x12=\n" +
 	"\rmemory_stores\x18\b \x03(\v2\x18.natslens.v1.ServerStoreR\fmemoryStores\x12@\n" +
-	"\x0eaccount_stores\x18\t \x03(\v2\x19.natslens.v1.AccountStoreR\raccountStores*\xa6\x01\n" +
+	"\x0eaccount_stores\x18\t \x03(\v2\x19.natslens.v1.AccountStoreR\raccountStores\x12.\n" +
+	"\x13memory_stores_empty\x18\n" +
+	" \x01(\x05R\x11memoryStoresEmpty*\xa6\x01\n" +
 	"\x12CapacityStreamKind\x12$\n" +
 	" CAPACITY_STREAM_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bCAPACITY_STREAM_KIND_STREAM\x10\x01\x12\"\n" +

@@ -76,6 +76,7 @@ export function prod(): Capacity {
     servers: [store("nats-0"), store("nats-1"), store("nats-2")],
     serversWithoutJetstream: 0,
     memoryStores: [],
+    memoryStoresEmpty: 0,
     accountStores: [],
     streams: [
       stream("order-archive", { ...unbounded, status: "awaiting", findingId: "stream-005:APP/order-archive", bytes: 4 * GIB, firstTs: Date.parse("2025-12-25T12:00:00Z") }),
@@ -114,5 +115,5 @@ export function prod(): Capacity {
 }
 
 export function empty(): Capacity {
-  return { collected: false, servers: [], serversWithoutJetstream: 0, memoryStores: [], accountStores: [], streams: [], streamsTotal: 0 };
+  return { collected: false, servers: [], serversWithoutJetstream: 0, memoryStores: [], memoryStoresEmpty: 0, accountStores: [], streams: [], streamsTotal: 0 };
 }

@@ -86,9 +86,10 @@ func TestDemoCapacityProd(t *testing.T) {
 	if len(res.GetAccountStores()) != 0 || by["order-archive"].AccountLimit != nil {
 		t.Errorf("prod account stores = %v", res.GetAccountStores())
 	}
-	// KV_worker-presence is held in memory on its replicas' servers.
-	if len(res.GetMemoryStores()) != 3 {
-		t.Fatalf("prod memory stores = %v", res.GetMemoryStores())
+	// KV_worker-presence is held in memory on its replica's server, nats-1;
+	// the other two hold none and are counted.
+	if len(res.GetMemoryStores()) != 1 || res.GetMemoryStores()[0].GetServerName() != "nats-1" || res.GetMemoryStoresEmpty() != 2 {
+		t.Fatalf("prod memory stores = %v, %d empty", res.GetMemoryStores(), res.GetMemoryStoresEmpty())
 	}
 	var held int64
 	for _, m := range res.GetMemoryStores() {
@@ -160,14 +161,19 @@ func TestDemoCapacityGlobal(t *testing.T) {
 	if by["KV_session-cache"].GetAccountLimit() != 16<<30 {
 		t.Errorf("KV_session-cache = %v", by["KV_session-cache"])
 	}
-	// One memory card per server; nats-us-4 did not report.
+	// Memory cards for the three servers of KV_session-cache and for
+	// nats-us-4, which did not report; the other 20 hold none.
 	memory := map[string]*v1.ServerStore{}
 	for _, m := range res.GetMemoryStores() {
 		memory[m.GetServerName()] = m
 	}
-	if len(memory) != 24 || memory["nats-us-4"].GetReported() || memory["nats-eu-0"].GetUsed() != int64(by["KV_session-cache"].GetBytes()) ||
-		memory["nats-eu-1"].GetUsed() != 0 || memory["nats-eu-1"].GetLimit() != 2<<30 {
-		t.Errorf("global memory stores = %v", res.GetMemoryStores())
+	if len(memory) != 4 || memory["nats-us-4"] == nil || memory["nats-us-4"].GetReported() || res.GetMemoryStoresEmpty() != 20 {
+		t.Errorf("global memory stores = %v, %d empty", res.GetMemoryStores(), res.GetMemoryStoresEmpty())
+	}
+	for _, n := range []string{"nats-eu-0", "nats-eu-3", "nats-eu-6"} {
+		if m := memory[n]; m.GetUsed() != by["KV_session-cache"].GetBytes() || m.GetLimit() != 2<<30 {
+			t.Errorf("%s memory = %v", n, m)
+		}
 	}
 }
 
@@ -190,7 +196,7 @@ func TestDemoCapacityStaging(t *testing.T) {
 		}
 	}
 	// Nothing in memory and no account JWT: neither memory nor account cards.
-	if len(res.GetMemoryStores()) != 0 || len(res.GetAccountStores()) != 0 {
+	if len(res.GetMemoryStores()) != 0 || res.GetMemoryStoresEmpty() != 0 || len(res.GetAccountStores()) != 0 {
 		t.Errorf("staging memory %v, accounts %v", res.GetMemoryStores(), res.GetAccountStores())
 	}
 	checkStreams(t, fake.StagingSystem, by, map[string]v1.CapacityStatus{

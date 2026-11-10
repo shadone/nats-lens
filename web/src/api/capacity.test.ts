@@ -14,6 +14,7 @@ describe("capacity", () => {
         epoch: 7n,
         epochAt: timestampFromMs(AT),
         memoryStores: [{ serverName: "nats-0", cluster: "c", reported: true, used: 0n, perDay: 0 }],
+        memoryStoresEmpty: 4,
         accountStores: [
           { account: "A", accountName: "APP", storage: "file", used: 400n, limit: 1000n, perDay: 100, daysToFull: 6 },
           { account: "A", storage: "memory", limit: 50n },
@@ -25,6 +26,7 @@ describe("capacity", () => {
       }),
     );
     expect(d.memoryStores).toEqual([expect.objectContaining({ name: "nats-0", used: 0, limit: undefined, perDay: 0, findingId: "" })]);
+    expect(d.memoryStoresEmpty).toBe(4);
     expect(d.accountStores).toEqual([
       { account: "A", accountName: "APP", storage: "file", used: 400, limit: 1000, perDay: 100, daysToFull: 6 },
       { account: "A", accountName: "", storage: "memory", used: undefined, limit: 50, perDay: undefined, daysToFull: undefined },

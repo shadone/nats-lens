@@ -146,7 +146,7 @@ func FinishCapacity(f *CapacityFacts) *v1.GetCapacityResponse {
 		res.Servers = append(res.Servers, serverStore(s, firing))
 	}
 	slices.SortStableFunc(res.Servers, compareServerStores)
-	res.MemoryStores = memoryStores(f)
+	res.MemoryStores, res.MemoryStoresEmpty = memoryStores(f)
 	slices.SortStableFunc(res.MemoryStores, compareServerStores)
 	res.AccountStores = accountStores(f)
 	limits := map[string]*v1.AccountStore{}
@@ -192,28 +192,34 @@ func serverStore(s ServerStoreFact, firing map[string]*v1.Finding) *v1.ServerSto
 	return out
 }
 
-// memoryStores are the servers' memory store cards, when a reported
-// server holds memory in use or a stream uses memory storage; none
-// otherwise, so a system that keeps everything on file shows no memory
-// cards.
-func memoryStores(f *CapacityFacts) []*v1.ServerStore {
-	shown := slices.ContainsFunc(f.Streams, func(s CapacityStreamFact) bool { return s.Storage == StorageMemory })
-	for _, s := range f.Servers {
-		shown = shown || s.Reported && s.MemUsed != nil && *s.MemUsed > 0
+// memoryStores are the servers' memory store cards, when a server that
+// answered holds memory (HoldsMemory); none otherwise, so a system that
+// keeps everything on file shows no memory cards. Then a card goes to
+// each server that holds memory and to each that did not answer (its
+// memory is unknown); the servers that answered holding none are only
+// counted, in empty.
+func memoryStores(f *CapacityFacts) (cards []*v1.ServerStore, empty int32) {
+	if !slices.ContainsFunc(f.Servers, HoldsMemory) {
+		return nil, 0
 	}
-	if !shown {
-		return nil
-	}
-	var out []*v1.ServerStore
 	for _, s := range f.Servers {
+		if s.Reported && !HoldsMemory(s) {
+			empty++
+			continue
+		}
 		m := &v1.ServerStore{ServerName: s.Name, Cluster: s.Cluster, Reported: s.Reported}
 		if s.Reported {
 			m.Used, m.PerDay, m.Limit = s.MemUsed, s.MemPerDay, positive(s.MemLimit)
 		}
 		m.DaysToFull = DaysToFull(m.Used, m.Limit, m.PerDay)
-		out = append(out, m)
+		cards = append(cards, m)
 	}
-	return out
+	return cards, empty
+}
+
+// HoldsMemory is whether a server that answered holds memory in use.
+func HoldsMemory(s ServerStoreFact) bool {
+	return s.Reported && s.MemUsed != nil && *s.MemUsed > 0
 }
 
 // accountStores are the account cards: one per account and storage whose

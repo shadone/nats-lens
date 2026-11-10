@@ -92,6 +92,12 @@ export function growthLine(s: Growth & { reported: boolean }): string | undefine
   return [`${fmtGrowth(s.perDay)}/day`, ttf].filter(Boolean).join(" · ");
 }
 
+/** "21 servers hold nothing in memory and have no card."; empty for 0. */
+export function memoryEmptyLine(n: number): string {
+  if (n <= 0) return "";
+  return n === 1 ? "1 server holds nothing in memory and has no card." : `${fmtInt(n)} servers hold nothing in memory and have no card.`;
+}
+
 /** An account card's heading: "JetStream file limit" or "JetStream memory limit". */
 export function accountStoreTitle(a: AccountStore): string {
   return a.storage === "memory" ? "JetStream memory limit" : "JetStream file limit";

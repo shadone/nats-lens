@@ -10,7 +10,7 @@ import { ServerCards } from "../components/CapacityServers";
 import { AccountCards } from "../components/CapacityAccounts";
 import { StreamsTable } from "../components/CapacityStreams";
 import { Empty, QueryView } from "../components/common";
-import { CAPACITY_SUBTITLE, hasRate, headerLine } from "../lib/capacityView";
+import { CAPACITY_SUBTITLE, hasRate, headerLine, memoryEmptyLine } from "../lib/capacityView";
 import { hms, isoDate } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import {serverNow} from "../lib/clock";
@@ -60,6 +60,7 @@ export function Capacity() {
                   <h2 className="cap-section">Memory stores</h2>
                   <p className="cap-note cap-section-note">Memory stores hold the streams with memory storage; their bytes are not in the file store cards or totals.</p>
                   <ServerCards servers={r.memoryStores} withoutJetstream={0} memory />
+                  {r.memoryStoresEmpty > 0 && <p className="cap-line">{memoryEmptyLine(r.memoryStoresEmpty)}</p>}
                 </section>
               )}
               <AccountCards accounts={r.accountStores} />

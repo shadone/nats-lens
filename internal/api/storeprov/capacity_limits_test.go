@@ -107,8 +107,8 @@ func TestCapacityLimitsFromStore(t *testing.T) {
 		m.DaysToFull == nil || m.GetFindingId() != "" {
 		t.Errorf("nats-0 memory = %v", m)
 	}
-	if m := mem["nats-1"]; !m.GetReported() || m.GetUsed() != 0 || m.Limit != nil || m.DaysToFull != nil {
-		t.Errorf("nats-1 memory = %v", m)
+	if mem["nats-1"] != nil || len(mem) != 1 || res.GetMemoryStoresEmpty() != 1 {
+		t.Errorf("memory stores = %v, %d empty: nats-1 holds none and is counted", res.GetMemoryStores(), res.GetMemoryStoresEmpty())
 	}
 	if len(res.GetServers()) != 2 || res.GetServers()[0].GetUsed() != 10*gib {
 		t.Errorf("file stores = %v", res.GetServers())

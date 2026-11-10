@@ -41,8 +41,20 @@ describe("Capacity memory stores", () => {
     expect(c0.getByText("+2 MiB/day · full in 16 months")).toBeInTheDocument();
     expect(within(group.getByRole("region", { name: "Memory store nats-1" })).getByText("no limit reported")).toBeInTheDocument();
     expect(within(group.getByRole("region", { name: "Memory store nats-2" })).getByText("not reported in this collection")).toBeInTheDocument();
+    expect(group.queryByText(/hold(s)? nothing in memory/)).toBeNull();
     // The file store card keeps its own words.
     expect(within(screen.getByRole("region", { name: "Server nats-0" })).getByText("JetStream file store")).toBeInTheDocument();
+  });
+
+  it("counts the servers that hold nothing in memory instead of giving them cards", async () => {
+    const d = prod();
+    d.memoryStores = [store("nats-0", { used: 38 * MIB, limit: GIB })];
+    d.memoryStoresEmpty = 21;
+    getCapacity.mockResolvedValue(d);
+    renderApp(<Capacity />, "/capacity");
+    const group = within(await screen.findByRole("region", { name: "Memory stores" }));
+    expect(group.getByText("21 servers hold nothing in memory and have no card.")).toBeInTheDocument();
+    expect(group.queryByRole("region", { name: "Memory store nats-1" })).toBeNull();
   });
 
   it("says a memory store without enough history has no growth", async () => {

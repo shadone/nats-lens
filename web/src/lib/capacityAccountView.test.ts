@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GIB, MIB, stream } from "../test/fixtures/capacity";
-import { accountAsStore, boundText, fillsSoonText, growthLine, nextLimitText, storeUse, unboundedText } from "./capacityView";
+import { memoryEmptyLine, accountAsStore, boundText, fillsSoonText, growthLine, nextLimitText, storeUse, unboundedText } from "./capacityView";
 
 const limit = 50 * GIB;
 
@@ -32,6 +32,12 @@ describe("account limits in the Capacity words", () => {
   it("never gives a fills-soon tag the account's days", () => {
     const s = stream("s", { status: "fillsSoon", maxBytes: GIB, accountLimit: limit, next: { limit: "account", state: "reaches", days: 3, discardNew: true } });
     expect(fillsSoonText(s)).toBe("full soon");
+  });
+
+  it("counts the servers without memory in words", () => {
+    expect(memoryEmptyLine(0)).toBe("");
+    expect(memoryEmptyLine(1)).toBe("1 server holds nothing in memory and has no card.");
+    expect(memoryEmptyLine(1200)).toBe("1,200 servers hold nothing in memory and have no card.");
   });
 
   it("reads an account card as a store", () => {

@@ -330,8 +330,10 @@ message GetCapacityResponse {
   // servers and in the same order: used and limit from the memory store
   // (max_memory_store), growth and days to full by the same rule. The
   // finding fields are empty: server-007 reads both stores and its finding
-  // is on the file store card. Empty unless a reported server holds memory
-  // in use above 0 or a stream of the epoch uses memory storage.
+  // is on the file store card. Empty unless a server that answered holds
+  // memory in use above 0; then a card for each such server and for each
+  // server not reported (its memory unknown), and memory_stores_empty
+  // counts the others.
   repeated ServerStore memory_stores = 8;
 
   // One card per account and storage whose account JWT sets a JetStream
@@ -339,4 +341,9 @@ message GetCapacityResponse {
   // Accounts page reads: the soonest full first (as the card words it),
   // then the fullest, then by account and storage (file first).
   repeated AccountStore account_stores = 9;
+
+  // Servers that answered holding no memory, when memory_stores is sent:
+  // they get no memory card.
+  // 0 when memory_stores is empty.
+  int32 memory_stores_empty = 10;
 }
