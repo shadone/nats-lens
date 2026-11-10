@@ -47,8 +47,8 @@ type SweepResult struct {
 // row that belongs only to them (check runs and finding transitions
 // included, except the current episode of every finding kept), resolved
 // findings last changed before them, acknowledgements that ended, or whose
-// episode ended, before then, and events received before then, in one
-// transaction.
+// episode ended, before then, events received before then, and client pod
+// addresses last seen before then, in one transaction.
 func (s *Store) Sweep(ctx context.Context, now time.Time, retention time.Duration) (SweepResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -110,6 +110,10 @@ SELECT coalesce(
       ON s.finding_id = f.id
     WHERE f.id = t.finding_id AND t.epoch >= s.epoch)`, cutoff); err != nil {
 		return SweepResult{}, fmt.Errorf("sweep finding_transitions: %w", err)
+	}
+	// A client pod's address goes once it was last seen before the window.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM client_pods WHERE last_seen < ?`, now.Add(-retention).UTC()); err != nil {
+		return SweepResult{}, fmt.Errorf("sweep client_pods: %w", err)
 	}
 	ev, err := tx.ExecContext(ctx, `DELETE FROM events WHERE received_at < ?`, now.Add(-retention).UTC())
 	if err != nil {

@@ -90,6 +90,21 @@ func TestArchiveRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Client pod addresses: one from h0 to h1, one live from h1, and one of
+	// the open hour, which is not exported.
+	for _, b := range []store.ClientPodBatch{
+		{At: h0.Add(5 * time.Minute), Seen: []store.ClientPod{{UID: "u-a", Namespace: "shop", Name: "cart-1", Node: "n1",
+			WorkloadKind: "Deployment", Workload: "cart", IPs: []string{"10.4.0.7"}, StartedAt: h0}}},
+		{At: h1.Add(10 * time.Minute), Ended: map[string]time.Time{"u-a": h1.Add(10 * time.Minute)}},
+		{At: h1.Add(30 * time.Minute), Seen: []store.ClientPod{{UID: "u-b", Namespace: "shop", Name: "cart-2", Node: "n2",
+			WorkloadKind: "Deployment", Workload: "cart", IPs: []string{"10.4.0.7", "fd00::7"}, StartedAt: h1.Add(20 * time.Minute)}}},
+		{At: h2.Add(time.Minute), Seen: []store.ClientPod{{UID: "u-c", Namespace: "shop", Name: "cart-3", IPs: []string{"10.4.0.9"}}}},
+	} {
+		if err := st.WriteClientPods(ctx, b); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	lifted, err := st.CreateMute(ctx, store.Mute{CheckCode: "stream-025", Reason: "known", MutedBy: "op",
 		CreatedAt: h0, ExpiresAt: h0.Add(48 * time.Hour)})
 	if err != nil {
@@ -162,6 +177,8 @@ func TestArchiveRoundTrip(t *testing.T) {
 		switch table {
 		case "events":
 			where = `received_at < '2026-10-17 00:00:00'`
+		case "client_pods":
+			where = `first_seen < '2026-10-17 00:00:00'`
 		case "micro_endpoint_hours", "client_app_hours":
 			where = `hour < '2026-10-17 00:00:00'`
 		case "servers", "accounts", "streams", "consumers", "raft_groups", "stream_config", "consumer_config", "mutes", "findings", "acknowledgements":

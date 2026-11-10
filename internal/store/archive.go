@@ -67,6 +67,11 @@ func archiveTables() []archiveTable {
 	// copy received last.
 	out = append(out, archiveTable{name: "events", where: `received_at >= %[1]s AND received_at < %[2]s`,
 		key: []string{"id"}, latest: "received_at DESC"})
+	// A client pod's address is exported in every hour from its first to
+	// its last sighting; last_seen moves while the pod lives, and a
+	// rebuild keeps the copy seen last.
+	out = append(out, archiveTable{name: "client_pods", where: `first_seen < %[2]s AND last_seen >= %[1]s`,
+		key: []string{"uid", "ip"}, latest: "last_seen DESC, ended_at IS NULL"})
 	// Mutes are operator decisions, not observations: every hour holds the
 	// whole table as it was at export, and a rebuild keeps each mute's
 	// newest copy, which is the lifted one once it was lifted. Mutes are

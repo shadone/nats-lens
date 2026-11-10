@@ -143,9 +143,9 @@ func TestOfflineRejectsUnrepresentableReference(t *testing.T) {
 func TestOfflineStructuredSourceCompatibility(t *testing.T) {
 	ctx := context.Background()
 	for _, c := range []struct{ name, change, want string }{
-		{"old schema", `DELETE FROM migrations WHERE version=39`, "unsupported_source_version"},
-		{"new schema", `INSERT INTO migrations(version,name,sha256) VALUES (40,'future','not-current')`, "unsupported_source_version"},
-		{"checksum", `UPDATE migrations SET sha256='incorrect' WHERE version=39`, "unsupported_source_version"},
+		{"old schema", `DELETE FROM migrations WHERE version=40`, "unsupported_source_version"},
+		{"new schema", `INSERT INTO migrations(version,name,sha256) VALUES (41,'future','not-current')`, "unsupported_source_version"},
+		{"checksum", `UPDATE migrations SET sha256='incorrect' WHERE version=40`, "unsupported_source_version"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			path := closedFixture(t)
