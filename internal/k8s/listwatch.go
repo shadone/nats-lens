@@ -79,6 +79,9 @@ type loop struct {
 	sleep func(ctx context.Context, d time.Duration)
 	// watchClock measures stream lifetime independently of event timestamps.
 	watchClock utilclock.Clock
+	// warnEvery spaces the repeated failure logs; zero means the
+	// package's warnEvery.
+	warnEvery time.Duration
 
 	failingSince time.Time
 	notified     bool
@@ -235,7 +238,11 @@ func (l *loop) fail(ctx context.Context, op string, err error) {
 	}
 	l.lastErr = err
 	l.retries++
-	if l.lastWarn.IsZero() || now.Sub(l.lastWarn) >= warnEvery {
+	every := warnEvery
+	if l.warnEvery > 0 {
+		every = l.warnEvery
+	}
+	if l.lastWarn.IsZero() || now.Sub(l.lastWarn) >= every {
 		l.log.Warn("kubernetes "+op+" failed", "source", l.src.name, "err", failureText(err), "retry_in", l.backoff, "retries", l.retries, "suppressed", l.suppressed)
 		l.lastWarn = now
 		l.suppressed = 0

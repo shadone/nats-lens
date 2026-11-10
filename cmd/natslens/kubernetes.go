@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/config"
@@ -20,11 +21,15 @@ const seenWindow = 3 * time.Hour
 // read, to record at start what changed while natslens was down.
 const priorWindow = 24 * time.Hour
 
+// newK8sClient makes the Kubernetes client; a variable so that tests can
+// hand in a fake clientset.
+var newK8sClient = k8s.NewClient
+
 // startKubernetes starts the Kubernetes watcher, which writes through
 // the capture. The returned stop ends it and waits; call it before the
 // capture stops, so that its last events are written.
 func startKubernetes(ctx context.Context, cfg config.Kubernetes, st *store.Store, capture *events.Capture, log *slog.Logger) (func(), error) {
-	client, own, err := k8s.NewClient(cfg, "natslens/"+version)
+	client, own, err := newK8sClient(cfg, "natslens/"+version)
 	if err != nil {
 		return nil, err
 	}
@@ -49,15 +54,39 @@ func startKubernetes(ctx context.Context, cfg config.Kubernetes, st *store.Store
 		Sink: capture, Seen: seen, Prior: prior, Log: log,
 	})
 	wctx, cancel := context.WithCancel(ctx)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		_ = w.Run(wctx)
-	}()
+	var wg sync.WaitGroup
+	wg.Go(func() { _ = w.Run(wctx) })
+	// The client pod watch is opt-in: without kubernetes.client_pod_watch
+	// no request for client pods is made.
+	if cw := cfg.ClientPodWatch; cw.On() {
+		log.Info("watching client pods", "namespaces", cw.Namespaces, "all_namespaces", cw.AllNamespaces)
+		cp := k8s.NewClientPodWatcher(k8s.ClientPodOptions{
+			Client: client, Namespaces: cw.Namespaces, AllNamespaces: cw.AllNamespaces, Record: capture.Record,
+			GapAfter: cfg.GapAfter.D(), Log: log.With("watch", "client_pods"),
+			Write: func(ctx context.Context, b k8s.ClientPodBatch) error {
+				return st.WriteClientPods(ctx, storeClientPods(b))
+			},
+		})
+		wg.Go(func() { _ = cp.Run(wctx) })
+	}
 	return func() {
 		cancel()
-		<-done
+		wg.Wait()
 	}, nil
+}
+
+// storeClientPods converts the watch's batch to the store's.
+func storeClientPods(b k8s.ClientPodBatch) store.ClientPodBatch {
+	out := store.ClientPodBatch{At: b.At, Ended: b.Ended, Touch: b.Touch}
+	for _, p := range b.Seen {
+		out.Seen = append(out.Seen, store.ClientPod{UID: p.UID, Namespace: p.Namespace, Name: p.Name, Node: p.Node,
+			WorkloadKind: p.WorkloadKind, Workload: p.Workload, AppName: p.AppName, IPs: p.IPs, HostNetwork: p.HostNetwork,
+			StartedAt: p.StartedAt})
+	}
+	for _, r := range b.Relists {
+		out.Relists = append(out.Relists, store.ClientPodRelist{Namespace: r.Namespace, Listed: r.Listed})
+	}
+	return out
 }
 
 func priorStates(in map[string]store.K8sObjectState) map[string]k8s.PriorState {
