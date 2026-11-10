@@ -89,6 +89,7 @@ func FinishReplay(f *ReplayFacts) *v1.GetReplayResponse {
 	res.Steps, res.StepsOmitted = b.finish()
 	res.StepsTruncated = res.StepsOmitted > 0 || f.EventsTruncated || f.TransitionsTruncated || f.CatchUpsTruncated
 	res.CompleteUntil = tsOrNil(b.completeUntil())
+	res.CatchUpsTruncated = f.CatchUpsTruncated
 	res.Gone, res.GoneTruncated = gone, len(gone) > maxGoneAssets
 	if res.GoneTruncated {
 		res.Gone = gone[:maxGoneAssets]

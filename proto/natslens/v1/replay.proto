@@ -389,4 +389,8 @@ message GetReplayResponse {
   // Why each unset count of counts is unset: one entry per unset count,
   // none for a set one.
   repeated ReplayUnobserved unobserved = 17;
+
+  // Whether the read limit cut the runs of replicas behind their leaders:
+  // catch-up steps may be missing or tell fewer replicas.
+  bool catch_ups_truncated = 18;
 }

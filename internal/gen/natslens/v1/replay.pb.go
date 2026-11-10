@@ -1161,9 +1161,12 @@ type GetReplayResponse struct {
 	CompleteUntil *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=complete_until,json=completeUntil,proto3" json:"complete_until,omitempty"`
 	// Why each unset count of counts is unset: one entry per unset count,
 	// none for a set one.
-	Unobserved    []*ReplayUnobserved `protobuf:"bytes,17,rep,name=unobserved,proto3" json:"unobserved,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Unobserved []*ReplayUnobserved `protobuf:"bytes,17,rep,name=unobserved,proto3" json:"unobserved,omitempty"`
+	// Whether the read limit cut the runs of replicas behind their leaders:
+	// catch-up steps may be missing or tell fewer replicas.
+	CatchUpsTruncated bool `protobuf:"varint,18,opt,name=catch_ups_truncated,json=catchUpsTruncated,proto3" json:"catch_ups_truncated,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *GetReplayResponse) Reset() {
@@ -1315,6 +1318,13 @@ func (x *GetReplayResponse) GetUnobserved() []*ReplayUnobserved {
 	return nil
 }
 
+func (x *GetReplayResponse) GetCatchUpsTruncated() bool {
+	if x != nil {
+		return x.CatchUpsTruncated
+	}
+	return false
+}
+
 var File_natslens_v1_replay_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_replay_proto_rawDesc = "" +
@@ -1402,7 +1412,7 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"\rdelete_client\x18\a \x01(\tR\fdeleteClient\x12*\n" +
 	"\x11consumers_with_it\x18\b \x01(\x05R\x0fconsumersWithIt\x12\x1f\n" +
 	"\vfinding_ids\x18\t \x03(\tR\n" +
-	"findingIds\"\xb5\x06\n" +
+	"findingIds\"\xe5\x06\n" +
 	"\x11GetReplayResponse\x12(\n" +
 	"\x01a\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x01a\x12(\n" +
 	"\x01b\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x01b\x12\x17\n" +
@@ -1425,7 +1435,8 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"\x0ecomplete_until\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\rcompleteUntil\x12=\n" +
 	"\n" +
 	"unobserved\x18\x11 \x03(\v2\x1d.natslens.v1.ReplayUnobservedR\n" +
-	"unobserved*\xe1\x02\n" +
+	"unobserved\x12.\n" +
+	"\x13catch_ups_truncated\x18\x12 \x01(\bR\x11catchUpsTruncated*\xe1\x02\n" +
 	"\x0eReplayStepKind\x12 \n" +
 	"\x1cREPLAY_STEP_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bREPLAY_STEP_KIND_KUBERNETES\x10\x01\x12\x1c\n" +

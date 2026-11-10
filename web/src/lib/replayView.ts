@@ -285,7 +285,7 @@ export function unsetGroups(tiles: CountTile[], unobserved: Unobserved[], fmt: (
 }
 
 /** What may be missing from the steps, one sentence each. */
-export function stepNotes(r: Pick<Replay, "a" | "b" | "stepsTruncated" | "stepsOmitted" | "completeUntil">): string[] {
+export function stepNotes(r: Pick<Replay, "a" | "b" | "stepsTruncated" | "stepsOmitted" | "completeUntil" | "catchUpsTruncated">): string[] {
   const out: string[] = [];
   if (r.completeUntil !== undefined) {
     const at = sameDay(r.a, r.b) && sameDay(r.completeUntil, r.a) ? hm(r.completeUntil) : dayMonHm(r.completeUntil);
@@ -296,6 +296,7 @@ export function stepNotes(r: Pick<Replay, "a" | "b" | "stepsTruncated" | "stepsO
       `${r.stepsOmitted} ${r.stepsOmitted === 1 ? "step was" : "steps were"} left out to keep at most 200 between A and B and 10 after B; critical, warning, restart, gone and gap steps are kept first.`,
     );
   }
+  if (r.catchUpsTruncated) out.push("Replicas catching up may be missing: the read limit was reached.");
   if (r.stepsTruncated && !out.length) out.push("Some steps may be missing.");
   return out;
 }

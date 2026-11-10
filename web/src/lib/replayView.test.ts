@@ -10,6 +10,15 @@ describe("stepNotes", () => {
     const twoDays = { ...base, a: Date.parse("2026-10-17T22:00:00Z"), b: Date.parse("2026-10-18T02:00:00Z"), completeUntil: Date.parse("2026-10-18T01:00:00Z") };
     expect(stepNotes(twoDays)).toEqual(["Steps after 18 Oct 01:00 may be missing: the read limit was reached."]);
   });
+
+  it("says that catch-ups may be missing beside the other notes", () => {
+    const r = { ...base, a: Date.parse("2026-10-17T09:00:00Z"), b: Date.parse("2026-10-17T10:00:00Z"), completeUntil: Date.parse("2026-10-17T09:45:00Z"), catchUpsTruncated: true };
+    expect(stepNotes(r)).toEqual([
+      "Steps after 09:45 may be missing: the read limit was reached.",
+      "Replicas catching up may be missing: the read limit was reached.",
+    ]);
+    expect(stepNotes({ ...r, completeUntil: undefined })).toEqual(["Replicas catching up may be missing: the read limit was reached."]);
+  });
 });
 
 describe("collectionNotes", () => {

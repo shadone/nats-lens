@@ -168,6 +168,8 @@ export interface Replay {
   historyStart?: number;
   /** The read limit cut events or transitions: steps after it may be missing. */
   completeUntil?: number;
+  /** Whether the read limit cut the replicas behind their leaders. */
+  catchUpsTruncated?: boolean;
   /** Why each unset count is unset, one per count. */
   unobserved: Unobserved[];
 }
@@ -242,6 +244,7 @@ export function replay(r: GetReplayResponse, asked: Replay["asked"]): Replay {
     kubernetesWatched: r.kubernetesWatched,
     historyStart: ms(r.historyStart),
     completeUntil: ms(r.completeUntil),
+    catchUpsTruncated: r.catchUpsTruncated,
     unobserved: r.unobserved.map((u) => ({ count: camel(u.count), reason: REASON[u.reason], from: ms(u.from), to: ms(u.to) })),
   };
 }

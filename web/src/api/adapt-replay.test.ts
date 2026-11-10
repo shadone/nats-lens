@@ -61,3 +61,8 @@ it("keeps the catch-up kind", () => {
   const s = replay(r, { system: "", a: 0, b: 1 }).steps[0];
   expect([s.kind, s.openAtB]).toEqual(["catch_up", true]);
 });
+
+it("keeps whether the catch-ups were cut", () => {
+  const r = create(GetReplayResponseSchema, { catchUpsTruncated: true });
+  expect(replay(r, { system: "", a: 0, b: 1 }).catchUpsTruncated).toBe(true);
+});
