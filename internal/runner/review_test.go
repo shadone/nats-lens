@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checkaccept"
 	"github.com/shadone/nats-lens/internal/store"
 )
 
@@ -68,14 +69,9 @@ func accept(t *testing.T, st *store.Store, typ, key string, growth *float64) sto
 
 func f(v float64) *float64 { return &v }
 
-// withServerReview gives server-005 the growth review for the test: no
-// built-in server check has it, but the review of a server's growth stays.
-func withServerReview(t *testing.T) {
-	t.Helper()
-	old := growthReview
-	growthReview = func(code string) bool { return code == "server-005" || old(code) }
-	t.Cleanup(func() { growthReview = old })
-}
+// serverToo gives server-005 the growth review as well: no built-in server
+// check has it, but the review of a server's growth stays.
+func serverToo(code string) bool { return code == "server-005" || checkaccept.GrowthReview(code) }
 
 // An acceptance of a check without the growth review, such as one stored
 // before its check lost the review, is neither ended nor baselined however
@@ -117,7 +113,6 @@ func mutesByID(t *testing.T, st *store.Store) map[int64]store.Mute {
 }
 
 func TestReviewEndsAcceptanceOnGrowthChange(t *testing.T) {
-	withServerReview(t)
 	ctx := context.Background()
 	st, last := growthStore(t, map[string]float64{
 		"grew-60":     16 * mib,
@@ -150,7 +145,7 @@ func TestReviewEndsAcceptanceOnGrowthChange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rev, err := ReviewAcceptances(ctx, st, last, 30*time.Second)
+	rev, err := reviewAcceptances(ctx, st, last, 30*time.Second, serverToo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +183,7 @@ func TestReviewEndsAcceptanceOnGrowthChange(t *testing.T) {
 
 	// A second review ends nothing more and leaves the ended rows as they
 	// were.
-	again, err := ReviewAcceptances(ctx, st, last, 30*time.Second)
+	again, err := reviewAcceptances(ctx, st, last, 30*time.Second, serverToo)
 	if err != nil || len(again.Ended) != 0 || len(again.Baselined) != 0 {
 		t.Fatalf("second review %+v, %v", again, err)
 	}

@@ -234,11 +234,6 @@ func (r *Runner) sweep(ctx context.Context) error {
 	return nil
 }
 
-// growthReview reports whether an acceptance of the check code has the
-// growth review; tests widen it to exercise a server's review, which no
-// built-in check has.
-var growthReview = checkaccept.GrowthReview
-
 // ReviewResult is what one growth review did.
 type ReviewResult struct {
 	// Ended are the acceptances it ended, with their end reason.
@@ -249,8 +244,9 @@ type ReviewResult struct {
 }
 
 // ReviewAcceptances reviews every acceptance of a stream or server in
-// force at the epoch whose check has the growth review (checks.GrowthReview), by the entity's week's growth at the epoch's time
-// (api.WeeklyGrowth). An acceptance that recorded a growth is ended when
+// force at the epoch whose check has the growth review
+// (checkaccept.GrowthReview), by the entity's week's growth at the
+// epoch's time (api.WeeklyGrowth). An acceptance that recorded a growth is ended when
 // the growth now differs from it by more than api.GrowthChanged allows;
 // one that recorded none (the entity was under 8 days old) gets the growth
 // now as its baseline, and is not ended that time. An entity whose growth
@@ -258,6 +254,12 @@ type ReviewResult struct {
 // changes nothing. One query reads the acceptances and one the growth of
 // all their entities.
 func ReviewAcceptances(ctx context.Context, st *store.Store, epoch int64, interval time.Duration) (ReviewResult, error) {
+	return reviewAcceptances(ctx, st, epoch, interval, checkaccept.GrowthReview)
+}
+
+// reviewAcceptances is ReviewAcceptances with the rule that says which
+// checks have the growth review.
+func reviewAcceptances(ctx context.Context, st *store.Store, epoch int64, interval time.Duration, growthReview func(code string) bool) (ReviewResult, error) {
 	var res ReviewResult
 	at, err := st.EpochStartedAt(ctx, epoch)
 	if err != nil {

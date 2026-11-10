@@ -12,7 +12,6 @@ import (
 // js_storage continues at +10 MiB/day. Matched by name, the review keeps
 // the acceptance.
 func TestReviewFollowsAServerAcrossARestart(t *testing.T) {
-	withServerReview(t)
 	ctx := context.Background()
 	st, err := store.OpenPath(ctx, "")
 	if err != nil {
@@ -38,7 +37,7 @@ FROM range(25920) r(i)`,
 	}
 	accept(t, st, "server", "nats-0", f(10*mib))
 	b := accept(t, st, "server", "nats-0", nil)
-	rev, err := ReviewAcceptances(ctx, st, epochs, 30*time.Second)
+	rev, err := reviewAcceptances(ctx, st, epochs, 30*time.Second, serverToo)
 	if err != nil {
 		t.Fatal(err)
 	}
