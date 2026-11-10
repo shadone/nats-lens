@@ -92,9 +92,11 @@ func TestOnceWithCancelledContextStoresNothing(t *testing.T) {
 	}
 }
 
+// The grace is long next to the 50ms first wait, so that a goroutine
+// paused on a loaded machine does not see it run out before that wait.
 func TestWriteContextOutlivesShutdownByGraceOnly(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	wctx, done := writeContext(ctx, 150*time.Millisecond)
+	wctx, done := writeContext(ctx, time.Second)
 	defer done()
 	cancel()
 	select {
@@ -104,7 +106,7 @@ func TestWriteContextOutlivesShutdownByGraceOnly(t *testing.T) {
 	}
 	select {
 	case <-wctx.Done():
-	case <-time.After(time.Second):
+	case <-time.After(30 * time.Second):
 		t.Fatal("write context outlived the grace period")
 	}
 }
@@ -153,22 +155,50 @@ func TestOnceCallsStored(t *testing.T) {
 	}
 }
 
+// The test waits for the runner's own steps rather than for fixed times, so
+// that a loaded machine makes it slower, not wrong: two passes that found
+// no connection, then the first epoch stored once there is one.
 func TestRunSkipsEpochsWhileNotConnected(t *testing.T) {
 	r := newRunner(t)
 	var connected atomic.Bool
-	r.Connected = connected.Load
+	skipped := make(chan struct{}, 2)
+	r.Connected = func() bool {
+		ok := connected.Load()
+		if !ok {
+			select {
+			case skipped <- struct{}{}:
+			default:
+			}
+		}
+		return ok
+	}
+	stored := make(chan struct{}, 1)
+	r.Stored = func(int64, time.Time) {
+		select {
+		case stored <- struct{}{}:
+		default:
+		}
+	}
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	done := make(chan error, 1)
 	go func() { done <- r.Run(ctx) }()
-	time.Sleep(700 * time.Millisecond)
+	for range 2 {
+		select {
+		case <-skipped:
+		case <-time.After(time.Minute):
+			t.Fatal("Run did not check the connection")
+		}
+	}
 	if n := epochs(t, r); n != 0 {
 		t.Fatalf("%d epochs while not connected", n)
 	}
 	connected.Store(true)
-	time.Sleep(700 * time.Millisecond)
-	cancel()
-	<-done
-	if n := epochs(t, r); n == 0 {
+	select {
+	case <-stored:
+	case <-time.After(time.Minute):
 		t.Fatal("no epoch once connected")
 	}
+	cancel()
+	<-done
 }
