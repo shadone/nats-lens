@@ -9,7 +9,8 @@ import (
 // routes between any two servers of a cluster, nats-eu-3's at 4 ms where
 // the others of eu and us take about 0.4 ms and those of ap about 4.6 ms; a gateway from every server to each other
 // cluster, eu-us 84 ms, eu-ap 166 ms and us-ap 212 ms, nats-ap-1's to us
-// reconnecting three times in the last hour; and 30 warehouses and pickup
+// reconnecting three times in the last hour; a route between nats-eu-3 and
+// nats-eu-5 replaced three times today, twice in the last hour; and 30 warehouses and pickup
 // points of the shop as leaf nodes on eu and us. pickup-0417 dropped 17
 // times in the last day and has not connected since 13:52; pickup-0420
 // connected for the first time in the newest collection. The upgrade of
@@ -29,6 +30,7 @@ func globalLinks() *linkSpec {
 		},
 		gatewayPending: map[string]int64{"nats-ap-1>us": 18 * kib},
 		flaps:          map[string][]time.Time{"nats-ap-1>us": {fixed(13, 41, 10), fixed(13, 58, 40), fixed(14, 17, 20)}},
+		routeFlaps:     map[[2]string][]time.Time{{"nats-eu-3", "nats-eu-5"}: {fixed(11, 4, 50), fixed(13, 47, 20), fixed(14, 12, 40)}},
 		stopped:        globalStopped,
 	}
 	site := func(name, cluster string, hub int, rttMS float64, subs int64) siteSpec {

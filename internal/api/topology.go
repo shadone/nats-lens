@@ -62,6 +62,10 @@ type TopologyFacts struct {
 	// Earlier is the collection the slow rule compares the epoch with;
 	// nil when there is none.
 	Earlier *TopologyEarlier
+	// Replication are the mirrors and sources of the epoch's streams whose
+	// origin is placed, in any cluster; FinishTopology keeps those
+	// between clusters.
+	Replication []TopologyReplicationFact
 }
 
 // TopologyEarlier is the collection before the epoch that the slow rule
@@ -87,6 +91,9 @@ type TopologyServerFact struct {
 	Missing       bool
 	// StreamsLed is the streams the server leads; nil when not reported.
 	StreamsLed *int32
+	// Mem is the resident memory of the process, JSMemory and JSMaxMemory
+	// its JetStream memory store and limit, bytes; nil when not reported.
+	Mem, JSMemory, JSMaxMemory *int64
 }
 
 // TopologyRouteRow is one route as its reporting server lists it.
@@ -197,6 +204,7 @@ func FinishTopology(f *TopologyFacts) *v1.GetTopologyResponse {
 	res.Leafnodes = leafs[:min(len(leafs), MaxTopologyLeafnodes)]
 	res.Clusters = topologyClusters(f, servers, leafs)
 	res.Unobserved = topologyUnobserved(f, servers)
+	res.Replication = topologyReplication(f.Replication)
 	return res
 }
 

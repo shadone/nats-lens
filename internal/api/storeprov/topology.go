@@ -26,7 +26,7 @@ func (p *Provider) Topology(ctx context.Context, req *v1.GetTopologyRequest) (*a
 		Answered: map[string][]string{}, Unanswered: map[string][]string{}}
 	steps := []func(context.Context, *api.TopologyFacts) error{
 		p.topologyServers, p.topologyEndpoints, p.topologyRoutes, p.topologyEarlier, p.topologyGateways, p.topologyLeafs,
-		p.topologyDrops,
+		p.topologyDrops, p.topologyReplication,
 	}
 	for _, step := range steps {
 		if err := step(ctx, f); err != nil {
@@ -54,7 +54,7 @@ func int64Ptr(v sql.NullInt64) *int64 {
 
 // topologyServers reads the servers the epoch expected, answered or
 // missed, each with the cluster and tags of its process of the epoch (its
-// last one up to it) and the streams it led then.
+// last one up to it) and the streams it led and the memory it used then.
 func (p *Provider) topologyServers(ctx context.Context, f *api.TopologyFacts) error {
 	rows, err := p.db().QueryContext(ctx, `
 WITH e AS (SELECT * FROM epochs WHERE epoch = ?),
@@ -63,7 +63,7 @@ procs AS (
   SELECT s.*, row_number() OVER (PARTITION BY server_name ORDER BY last_epoch DESC) AS rn
   FROM servers s WHERE first_epoch <= ? AND server_name IN (SELECT name FROM names))
 SELECT n.name, coalesce(p.cluster, ''), coalesce(p.tags, []), list_contains((SELECT missing_names FROM e), n.name),
-  ss.js_streams_leader
+  ss.js_streams_leader, ss.mem_bytes, ss.js_memory, ss.js_max_memory
 FROM names n
 LEFT JOIN procs p ON p.server_name = n.name AND p.rn = 1
 LEFT JOIN server_stats ss ON ss.server_id = p.server_id AND ss.epoch = ?
@@ -76,9 +76,11 @@ ORDER BY n.name`, f.Epoch, f.Epoch, f.Epoch)
 		var s api.TopologyServerFact
 		var tags []any
 		var led sql.NullInt32
-		if err := rows.Scan(&s.Name, &s.Cluster, &tags, &s.Missing, &led); err != nil {
+		var mem, jsMem, jsMax sql.NullInt64
+		if err := rows.Scan(&s.Name, &s.Cluster, &tags, &s.Missing, &led, &mem, &jsMem, &jsMax); err != nil {
 			return err
 		}
+		s.Mem, s.JSMemory, s.JSMaxMemory = int64Ptr(mem), int64Ptr(jsMem), int64Ptr(jsMax)
 		s.Tags = strs(tags)
 		if led.Valid {
 			s.StreamsLed = &led.Int32

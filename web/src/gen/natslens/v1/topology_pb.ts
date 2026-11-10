@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/topology.proto.
  */
 export const file_natslens_v1_topology: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS90b3BvbG9neS5wcm90bxILbmF0c2xlbnMudjEiSwoSR2V0VG9wb2xvZ3lSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSJECg5Ub3BvbG9neVNlcnZlchIMCgRuYW1lGAEgASgJEg8KB21pc3NpbmcYAiABKAgSEwoLbWV0YV9sZWFkZXIYAyABKAgilwIKD1RvcG9sb2d5Q2x1c3RlchIMCgRuYW1lGAEgASgJEg0KBXBsYWNlGAIgASgJEiwKB3NlcnZlcnMYAyADKAsyGy5uYXRzbGVucy52MS5Ub3BvbG9neVNlcnZlchITCgttZXRhX2xlYWRlchgEIAEoCBIYCgtzdHJlYW1zX2xlZBgFIAEoBUgAiAEBEiAKE2xlYWZub2Rlc19jb25uZWN0ZWQYBiABKAVIAYgBARIkChdsZWFmbm9kZXNfbm90X2Nvbm5lY3RlZBgHIAEoBUgCiAEBQg4KDF9zdHJlYW1zX2xlZEIWChRfbGVhZm5vZGVzX2Nvbm5lY3RlZEIaChhfbGVhZm5vZGVzX25vdF9jb25uZWN0ZWQiywIKD1RvcG9sb2d5R2F0ZXdheRIRCgljbHVzdGVyX2EYASABKAkSEQoJY2x1c3Rlcl9iGAIgASgJEhMKC2Nvbm5lY3Rpb25zGAMgASgFEhAKCGV4cGVjdGVkGAQgASgFEioKB3J0dF9tYXgYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SLQoKcnR0X21lZGlhbhgGIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1wZW5kaW5nX2J5dGVzGAcgASgDSACIAQESFQoIZHJvcHNfMWgYCCABKAVIAYgBARIWCglkcm9wc18yNGgYCSABKAVIAogBARIYChBkcm9wcGluZ19zZXJ2ZXJzGAogAygJQhAKDl9wZW5kaW5nX2J5dGVzQgsKCV9kcm9wc18xaEIMCgpfZHJvcHNfMjRoIoUCCg1Ub3BvbG9neVJvdXRlEg8KB2NsdXN0ZXIYASABKAkSEAoIc2VydmVyX2EYAiABKAkSEAoIc2VydmVyX2IYAyABKAkSJgoDcnR0GAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhoKDXBlbmRpbmdfYnl0ZXMYBSABKANIAIgBARIRCgRwb29sGAYgASgFSAGIAQESFwoPcGlubmVkX2FjY291bnRzGAcgAygJEhEKCW9uZV9zaWRlZBgIIAEoCBIMCgRzbG93GAkgASgIEhMKC3JlcG9ydGVkX2J5GAogAygJQhAKDl9wZW5kaW5nX2J5dGVzQgcKBV9wb29sIvQCChBUb3BvbG9neUxlYWZub2RlEgwKBG5hbWUYASABKAkSDwoHYWNjb3VudBgCIAEoCRIUCgxhY2NvdW50X25hbWUYAyABKAkSEgoKaHViX3NlcnZlchgEIAEoCRITCgtodWJfY2x1c3RlchgFIAEoCRIRCgljb25uZWN0ZWQYBiABKAgSJgoDcnR0GAcgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhoKDXN1YnNjcmlwdGlvbnMYCCABKANIAIgBARIWCglkcm9wc18yNGgYCSABKAVIAYgBARItCglsYXN0X3NlZW4YCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NvbXByZXNzaW9uGAsgASgJEhMKC2h1Yl9zZXJ2ZXJzGAwgAygJEhoKEmNvbm5lY3Rpb25fdW5rbm93bhgNIAEoCEIQCg5fc3Vic2NyaXB0aW9uc0IMCgpfZHJvcHNfMjRoIjcKElRvcG9sb2d5VW5vYnNlcnZlZBIQCghlbmRwb2ludBgBIAEoCRIPCgdzZXJ2ZXJzGAIgAygJIssDChNHZXRUb3BvbG9neVJlc3BvbnNlEg0KBWVwb2NoGAEgASgDEiwKCGVwb2NoX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCghjbHVzdGVycxgDIAMoCzIcLm5hdHNsZW5zLnYxLlRvcG9sb2d5Q2x1c3RlchIuCghnYXRld2F5cxgEIAMoCzIcLm5hdHNsZW5zLnYxLlRvcG9sb2d5R2F0ZXdheRIqCgZyb3V0ZXMYBSADKAsyGi5uYXRzbGVucy52MS5Ub3BvbG9neVJvdXRlEjAKCWxlYWZub2RlcxgGIAMoCzIdLm5hdHNsZW5zLnYxLlRvcG9sb2d5TGVhZm5vZGUSFwoPbGVhZm5vZGVzX3RvdGFsGAcgASgFEjMKCnVub2JzZXJ2ZWQYCCADKAsyHy5uYXRzbGVucy52MS5Ub3BvbG9neVVub2JzZXJ2ZWQSNgoSZHJvcHNfd2luZG93X3N0YXJ0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIzChBjb2xsZWN0X2ludGVydmFsGAogASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChpuYXRzbGVucy92MS90b3BvbG9neS5wcm90bxILbmF0c2xlbnMudjEiSwoSR2V0VG9wb2xvZ3lSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSLoAQoOVG9wb2xvZ3lTZXJ2ZXISDAoEbmFtZRgBIAEoCRIPCgdtaXNzaW5nGAIgASgIEhMKC21ldGFfbGVhZGVyGAMgASgIEhYKCW1lbV9ieXRlcxgEIAEoA0gAiAEBEhAKCG1lbV9oaWdoGAUgASgIEhwKD2pzX21lbW9yeV9ieXRlcxgGIAEoA0gBiAEBEiAKE2pzX21heF9tZW1vcnlfYnl0ZXMYByABKANIAogBAUIMCgpfbWVtX2J5dGVzQhIKEF9qc19tZW1vcnlfYnl0ZXNCFgoUX2pzX21heF9tZW1vcnlfYnl0ZXMilwIKD1RvcG9sb2d5Q2x1c3RlchIMCgRuYW1lGAEgASgJEg0KBXBsYWNlGAIgASgJEiwKB3NlcnZlcnMYAyADKAsyGy5uYXRzbGVucy52MS5Ub3BvbG9neVNlcnZlchITCgttZXRhX2xlYWRlchgEIAEoCBIYCgtzdHJlYW1zX2xlZBgFIAEoBUgAiAEBEiAKE2xlYWZub2Rlc19jb25uZWN0ZWQYBiABKAVIAYgBARIkChdsZWFmbm9kZXNfbm90X2Nvbm5lY3RlZBgHIAEoBUgCiAEBQg4KDF9zdHJlYW1zX2xlZEIWChRfbGVhZm5vZGVzX2Nvbm5lY3RlZEIaChhfbGVhZm5vZGVzX25vdF9jb25uZWN0ZWQiywIKD1RvcG9sb2d5R2F0ZXdheRIRCgljbHVzdGVyX2EYASABKAkSEQoJY2x1c3Rlcl9iGAIgASgJEhMKC2Nvbm5lY3Rpb25zGAMgASgFEhAKCGV4cGVjdGVkGAQgASgFEioKB3J0dF9tYXgYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SLQoKcnR0X21lZGlhbhgGIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1wZW5kaW5nX2J5dGVzGAcgASgDSACIAQESFQoIZHJvcHNfMWgYCCABKAVIAYgBARIWCglkcm9wc18yNGgYCSABKAVIAogBARIYChBkcm9wcGluZ19zZXJ2ZXJzGAogAygJQhAKDl9wZW5kaW5nX2J5dGVzQgsKCV9kcm9wc18xaEIMCgpfZHJvcHNfMjRoIt0CCg1Ub3BvbG9neVJvdXRlEg8KB2NsdXN0ZXIYASABKAkSEAoIc2VydmVyX2EYAiABKAkSEAoIc2VydmVyX2IYAyABKAkSJgoDcnR0GAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhoKDXBlbmRpbmdfYnl0ZXMYBSABKANIAIgBARIRCgRwb29sGAYgASgFSAGIAQESFwoPcGlubmVkX2FjY291bnRzGAcgAygJEhEKCW9uZV9zaWRlZBgIIAEoCBIMCgRzbG93GAkgASgIEhMKC3JlcG9ydGVkX2J5GAogAygJEhUKCGRyb3BzXzFoGAsgASgFSAKIAQESFgoJZHJvcHNfMjRoGAwgASgFSAOIAQESDAoEZG93bhgNIAEoCEIQCg5fcGVuZGluZ19ieXRlc0IHCgVfcG9vbEILCglfZHJvcHNfMWhCDAoKX2Ryb3BzXzI0aCL0AgoQVG9wb2xvZ3lMZWFmbm9kZRIMCgRuYW1lGAEgASgJEg8KB2FjY291bnQYAiABKAkSFAoMYWNjb3VudF9uYW1lGAMgASgJEhIKCmh1Yl9zZXJ2ZXIYBCABKAkSEwoLaHViX2NsdXN0ZXIYBSABKAkSEQoJY29ubmVjdGVkGAYgASgIEiYKA3J0dBgHIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1zdWJzY3JpcHRpb25zGAggASgDSACIAQESFgoJZHJvcHNfMjRoGAkgASgFSAGIAQESLQoJbGFzdF9zZWVuGAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBITCgtjb21wcmVzc2lvbhgLIAEoCRITCgtodWJfc2VydmVycxgMIAMoCRIaChJjb25uZWN0aW9uX3Vua25vd24YDSABKAhCEAoOX3N1YnNjcmlwdGlvbnNCDAoKX2Ryb3BzXzI0aCLsAgoTVG9wb2xvZ3lSZXBsaWNhdGlvbhIPCgdhY2NvdW50GAEgASgJEhQKDGFjY291bnRfbmFtZRgCIAEoCRIOCgZzdHJlYW0YAyABKAkSDwoHY2x1c3RlchgEIAEoCRIVCg1vcmlnaW5fc3RyZWFtGAUgASgJEhYKDm9yaWdpbl9jbHVzdGVyGAYgASgJEgwKBGtpbmQYByABKAkSDgoGbGVhZGVyGAggASgJEhAKA2xhZxgJIAEoA0gAiAEBEhcKCmxhZ19iZWZvcmUYCiABKANIAYgBARIuCgtsYXN0X2FjdGl2ZRgLIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhITCgtuZXZlcl9oZWFyZBgMIAEoCBINCgVlcnJvchgNIAEoCRISCgpub3RfYWN0aXZlGA4gASgIEhYKDmZhbGxpbmdfYmVoaW5kGA8gASgIQgYKBF9sYWdCDQoLX2xhZ19iZWZvcmUiNwoSVG9wb2xvZ3lVbm9ic2VydmVkEhAKCGVuZHBvaW50GAEgASgJEg8KB3NlcnZlcnMYAiADKAkiggQKE0dldFRvcG9sb2d5UmVzcG9uc2USDQoFZXBvY2gYASABKAMSLAoIZXBvY2hfYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCGNsdXN0ZXJzGAMgAygLMhwubmF0c2xlbnMudjEuVG9wb2xvZ3lDbHVzdGVyEi4KCGdhdGV3YXlzGAQgAygLMhwubmF0c2xlbnMudjEuVG9wb2xvZ3lHYXRld2F5EioKBnJvdXRlcxgFIAMoCzIaLm5hdHNsZW5zLnYxLlRvcG9sb2d5Um91dGUSMAoJbGVhZm5vZGVzGAYgAygLMh0ubmF0c2xlbnMudjEuVG9wb2xvZ3lMZWFmbm9kZRIXCg9sZWFmbm9kZXNfdG90YWwYByABKAUSMwoKdW5vYnNlcnZlZBgIIAMoCzIfLm5hdHNsZW5zLnYxLlRvcG9sb2d5VW5vYnNlcnZlZBI2ChJkcm9wc193aW5kb3dfc3RhcnQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjMKEGNvbGxlY3RfaW50ZXJ2YWwYCiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SNQoLcmVwbGljYXRpb24YCyADKAsyIC5uYXRzbGVucy52MS5Ub3BvbG9neVJlcGxpY2F0aW9uQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * Request for how the servers of a system connect.
@@ -71,6 +71,36 @@ export type TopologyServer = Message<"natslens.v1.TopologyServer"> & {
    * @generated from field: bool meta_leader = 3;
    */
   metaLeader: boolean;
+
+  /**
+   * Resident memory of the server process (VARZ mem), bytes; unset when
+   * not reported and for a missing server.
+   *
+   * @generated from field: optional int64 mem_bytes = 4;
+   */
+  memBytes?: bigint | undefined;
+
+  /**
+   * Whether mem_bytes is far above the other servers: at least 512 MiB
+   * and more than 1.5 times the median of the other servers of the system
+   * that report it, the defaults of server-008.
+   *
+   * @generated from field: bool mem_high = 5;
+   */
+  memHigh: boolean;
+
+  /**
+   * JetStream memory store in use and its limit (max_memory_store),
+   * bytes; unset when not reported.
+   *
+   * @generated from field: optional int64 js_memory_bytes = 6;
+   */
+  jsMemoryBytes?: bigint | undefined;
+
+  /**
+   * @generated from field: optional int64 js_max_memory_bytes = 7;
+   */
+  jsMaxMemoryBytes?: bigint | undefined;
 };
 
 /**
@@ -332,6 +362,36 @@ export type TopologyRoute = Message<"natslens.v1.TopologyRoute"> & {
    * @generated from field: repeated string reported_by = 10;
    */
   reportedBy: string[];
+
+  /**
+   * Collections in the last hour before the epoch in which a route of the
+   * pair dropped: a connection one end listed was gone in the next
+   * collection, at most 3 collect intervals later, while both ends
+   * answered ROUTEZ both times under the same server IDs. One count per
+   * collection, however many of the pair's routes (pooled or pinned)
+   * went; unset when no two such collections in that hour listed a route
+   * of the pair.
+   *
+   * @generated from field: optional int32 drops_1h = 11;
+   */
+  drops1h?: number | undefined;
+
+  /**
+   * As drops_1h, over the 24 hours before the epoch (from
+   * drops_window_start).
+   *
+   * @generated from field: optional int32 drops_24h = 12;
+   */
+  drops24h?: number | undefined;
+
+  /**
+   * Whether the pair is down: a route of it dropped in the 24 hours, both
+   * ends answered ROUTEZ in the epoch, and neither lists a route to the
+   * other. rtt, pending_bytes and pool are unset.
+   *
+   * @generated from field: bool down = 13;
+   */
+  down: boolean;
 };
 
 /**
@@ -456,6 +516,131 @@ export const TopologyLeafnodeSchema: GenMessage<TopologyLeafnode> = /*@__PURE__*
   messageDesc(file_natslens_v1_topology, 5);
 
 /**
+ * A stream that mirrors or sources a stream placed in another cluster of
+ * the system, in the epoch. Origins in another account or JetStream
+ * domain (external), and origins no server reports, are not listed.
+ *
+ * @generated from message natslens.v1.TopologyReplication
+ */
+export type TopologyReplication = Message<"natslens.v1.TopologyReplication"> & {
+  /**
+   * Account of both streams.
+   *
+   * @generated from field: string account = 1;
+   */
+  account: string;
+
+  /**
+   * Readable name of the account; empty when none is known.
+   *
+   * @generated from field: string account_name = 2;
+   */
+  accountName: string;
+
+  /**
+   * The stream that copies, and the cluster it is placed in.
+   *
+   * @generated from field: string stream = 3;
+   */
+  stream: string;
+
+  /**
+   * @generated from field: string cluster = 4;
+   */
+  cluster: string;
+
+  /**
+   * The stream it copies from, and that stream's cluster.
+   *
+   * @generated from field: string origin_stream = 5;
+   */
+  originStream: string;
+
+  /**
+   * @generated from field: string origin_cluster = 6;
+   */
+  originCluster: string;
+
+  /**
+   * "mirror" or "source".
+   *
+   * @generated from field: string kind = 7;
+   */
+  kind: string;
+
+  /**
+   * Server that leads the copying stream; empty when it has no leader in
+   * the epoch, and then lag and activity are unset.
+   *
+   * @generated from field: string leader = 8;
+   */
+  leader: string;
+
+  /**
+   * Messages the copy is behind its origin, as its leader reports; unset
+   * when not reported.
+   *
+   * @generated from field: optional int64 lag = 9;
+   */
+  lag?: bigint | undefined;
+
+  /**
+   * The lag in the collection before the epoch (the newest earlier one
+   * with stream reports, at most 3 collect intervals earlier); unset
+   * without one.
+   *
+   * @generated from field: optional int64 lag_before = 10;
+   */
+  lagBefore?: bigint | undefined;
+
+  /**
+   * Time since the copy last heard from its origin, data or heartbeat;
+   * unset when not reported or never heard.
+   *
+   * @generated from field: google.protobuf.Duration last_active = 11;
+   */
+  lastActive?: Duration | undefined;
+
+  /**
+   * Whether the leader reports that it never heard from the origin.
+   *
+   * @generated from field: bool never_heard = 12;
+   */
+  neverHeard: boolean;
+
+  /**
+   * Error the leader reports for the copy; empty without one.
+   *
+   * @generated from field: string error = 13;
+   */
+  error: string;
+
+  /**
+   * Whether the copy is not hearing from its origin: nothing for more
+   * than 2 minutes, or never heard in the epoch and the collection
+   * before.
+   *
+   * @generated from field: bool not_active = 14;
+   */
+  notActive: boolean;
+
+  /**
+   * Whether the copy falls behind: its lag is at least 1000 messages and
+   * higher than in the collection before.
+   *
+   * @generated from field: bool falling_behind = 15;
+   */
+  fallingBehind: boolean;
+};
+
+/**
+ * Describes the message natslens.v1.TopologyReplication.
+ * Use `create(TopologyReplicationSchema)` to create a new message.
+ */
+export const TopologyReplicationSchema: GenMessage<TopologyReplication> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_topology, 6);
+
+/**
  * Servers whose reply to one monitoring request is missing or in error in
  * the epoch; their links of that kind are left out rather than drawn as
  * down.
@@ -483,7 +668,7 @@ export type TopologyUnobserved = Message<"natslens.v1.TopologyUnobserved"> & {
  * Use `create(TopologyUnobservedSchema)` to create a new message.
  */
 export const TopologyUnobservedSchema: GenMessage<TopologyUnobserved> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_topology, 6);
+  messageDesc(file_natslens_v1_topology, 7);
 
 /**
  * How the servers of a system connect, in the range's newest epoch.
@@ -523,7 +708,8 @@ export type GetTopologyResponse = Message<"natslens.v1.GetTopologyResponse"> & {
   gateways: TopologyGateway[];
 
   /**
-   * Routes, slow ones first, then by round trip time, highest first.
+   * Routes, pairs that are down first, then slow ones, then by round trip
+   * time, highest first.
    * Round trips of 0 (sent before the first ping) count as not reported.
    *
    * @generated from field: repeated natslens.v1.TopologyRoute routes = 5;
@@ -569,6 +755,14 @@ export type GetTopologyResponse = Message<"natslens.v1.GetTopologyResponse"> & {
    * @generated from field: google.protobuf.Duration collect_interval = 10;
    */
   collectInterval?: Duration | undefined;
+
+  /**
+   * Mirrors and sources between clusters: those with an error, not
+   * active or falling behind first, then by cluster, stream and origin.
+   *
+   * @generated from field: repeated natslens.v1.TopologyReplication replication = 11;
+   */
+  replication: TopologyReplication[];
 };
 
 /**
@@ -576,5 +770,5 @@ export type GetTopologyResponse = Message<"natslens.v1.GetTopologyResponse"> & {
  * Use `create(GetTopologyResponseSchema)` to create a new message.
  */
 export const GetTopologyResponseSchema: GenMessage<GetTopologyResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_topology, 7);
+  messageDesc(file_natslens_v1_topology, 8);
 

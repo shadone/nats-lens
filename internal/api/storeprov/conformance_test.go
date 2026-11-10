@@ -313,6 +313,8 @@ func TestStoreConformance(t *testing.T) {
 		{Ref: &v1.SystemRef{Id: "replay", Name: "replay"}, Provider: replayConformance(t, clock)},
 		{Ref: &v1.SystemRef{Id: "topology", Name: "topology"}, Provider: &storeprov.Provider{St: topologyStore(t, clock.Add(-30*time.Second)),
 			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
+		{Ref: &v1.SystemRef{Id: "topology-followups", Name: "topology-followups"}, Provider: &storeprov.Provider{St: followupStore(t, clock.Add(-30*time.Second)),
+			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
 		{Ref: &v1.SystemRef{Id: "topology-single", Name: "topology-single"}, Provider: &storeprov.Provider{St: topologySingle(t, clock.Add(-30*time.Second)),
 			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
 		{Ref: &v1.SystemRef{Id: "accounts", Name: "accounts"}, Provider: &storeprov.Provider{St: accountsHeadlineStore(t, clock.Add(-30*time.Second), set),
@@ -359,7 +361,7 @@ func TestStoreConformance(t *testing.T) {
 		CreatedAt: clock.Add(-32 * time.Minute), QuietUntil: clock.Add(-2 * time.Minute)}); err != nil {
 		t.Fatal(err)
 	}
-	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "short-retention", "replay", "topology", "topology-single", "accounts", "accounts-config", "capacity", "capacity-limits", "capacity-missing-memory", "subjects", "micro", "apps", "history"}, Now: clock})
+	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "short-retention", "replay", "topology", "topology-followups", "topology-single", "accounts", "accounts-config", "capacity", "capacity-limits", "capacity-missing-memory", "subjects", "micro", "apps", "history"}, Now: clock})
 }
 
 // accountsHeadlineStore is accountsStore with the findings its data

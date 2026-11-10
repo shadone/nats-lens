@@ -3,6 +3,7 @@ package fake
 import (
 	"context"
 	"hash/fnv"
+	"slices"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
@@ -32,6 +33,9 @@ type linkSpec struct {
 	// flaps are when one server's outbound gateway reconnected, keyed
 	// "server>cluster".
 	flaps map[string][]time.Time
+	// routeFlaps are when the first pooled route between two servers,
+	// keyed in name order, was replaced.
+	routeFlaps map[[2]string][]time.Time
 	// stopped is when a server first stopped answering on the scenario's
 	// day; a gateway or leaf node connected to it moves then to the next
 	// server of its cluster that never stops.
@@ -197,6 +201,41 @@ func (s scen) routeRows(at time.Time) []api.TopologyRouteRow {
 		}
 	}
 	return out
+}
+
+// routeConns are the route connections at the scenario time at, one per
+// two servers and direction: the first pooled route, whose route ID
+// changes with each of the pair's routeFlaps. The other routes of a pool
+// never change, and the drop rule counts a pair once however many of its
+// routes went, so they are left out.
+func (s scen) routeConns(at time.Time) []api.TopologyRouteConn {
+	var flaps map[[2]string][]time.Time
+	if s.sc.links != nil {
+		flaps = s.sc.links.routeFlaps
+	}
+	c := s.clock(at)
+	var out []api.TopologyRouteConn
+	for _, sp := range s.sc.servers {
+		if s.downAt(sp, at) {
+			continue
+		}
+		for _, x := range s.sc.servers {
+			if x.cluster != sp.cluster || x.name == sp.name || s.downAt(x, at) {
+				continue
+			}
+			rid := int64(100*s.sc.indexIn(x)) + 1000*int64(timesIn(flaps[pairOfNames(sp.name, x.name)], time.Time{}, c))
+			out = append(out, api.TopologyRouteConn{ServerID: s.processID(sp, at), Server: sp.name, RID: rid,
+				RemoteID: s.processID(x, at), Remote: x.name})
+		}
+	}
+	return out
+}
+
+func pairOfNames(a, b string) [2]string {
+	if b < a {
+		a, b = b, a
+	}
+	return [2]string{a, b}
 }
 
 // earlierRoutes is the collection the slow rule compares the epoch at at
@@ -390,6 +429,7 @@ func (p *Provider) Topology(_ context.Context, req *v1.GetTopologyRequest) (*api
 		}
 		streams, _ := s.leads(sp, at)
 		sf.StreamsLed = ptr(streams)
+		sf.Mem, sf.JSMemory, sf.JSMaxMemory = ptr(sp.mem), ptr(s.sc.memStore(sp.name)), ptr(sp.maxMemStore)
 		f.Servers = append(f.Servers, sf)
 		for _, e := range []string{api.EndpointRoutez, api.EndpointGatewayz, api.EndpointLeafz} {
 			f.Answered[e] = append(f.Answered[e], sp.name)
@@ -406,7 +446,7 @@ func (p *Provider) Topology(_ context.Context, req *v1.GetTopologyRequest) (*api
 	var history []api.TopologyCollection
 	for t := first; !t.After(at); t = t.Add(sampleEvery) {
 		c := api.TopologyCollection{Epoch: s.epochNumber(t), At: t, Gatewayz: s.answeringIDs(t),
-			Gateways: s.gatewayRows(t), Leafnodes: s.leafRows(t)}
+			Gateways: s.gatewayRows(t), Leafnodes: s.leafRows(t), Routes: s.routeConns(t)}
 		if prev.Gatewayz != nil && sameIDs(prev.Gatewayz, c.Gatewayz) {
 			c.Gatewayz = prev.Gatewayz
 		}
@@ -416,10 +456,54 @@ func (p *Provider) Topology(_ context.Context, req *v1.GetTopologyRequest) (*api
 		if prev.Leafnodes != nil && sameLeafs(prev.Leafnodes, c.Leafnodes) {
 			c.Leafnodes = prev.Leafnodes
 		}
-		c.Leafz = c.Gatewayz
+		if prev.Routes != nil && slices.Equal(prev.Routes, c.Routes) {
+			c.Routes = prev.Routes
+		}
+		c.Leafz, c.Routez = c.Gatewayz, c.Gatewayz
 		history = append(history, c)
 		prev = c
 	}
 	f.Drops = api.CountTopologyDrops(history, sampleEvery, epoch, at)
+	f.Replication = s.replication(at)
 	return f, nil
+}
+
+// replication are the mirrors and sources of the scenario's streams at
+// the scenario time at, each placed in the cluster of its first peer, and
+// the lag and activity their leaders report then and a collection
+// before: a few messages behind, heard from within the last 1.5 seconds.
+func (s scen) replication(at time.Time) []api.TopologyReplicationFact {
+	clusterOf := func(sp streamSpec) string {
+		if x, ok := s.sc.server(s.sc.peers(sp)[0]); ok {
+			return x.cluster
+		}
+		return ""
+	}
+	report := func(key string, t time.Time) (*int64, *time.Duration) {
+		c := s.clock(t)
+		return ptr(int64(6 + 10*noise(key+"/lag", c))), ptr(time.Duration(800+1400*noise(key+"/active", c)) * time.Millisecond)
+	}
+	var out []api.TopologyReplicationFact
+	for _, sp := range s.sc.streams {
+		origins := sp.sources
+		kind := api.ReplicationSource
+		if sp.mirror != "" {
+			origins, kind = []string{sp.mirror}, api.ReplicationMirror
+		}
+		for _, o := range origins {
+			origin, err := s.sc.findStream(Account, o)
+			if err != nil {
+				continue
+			}
+			f := api.TopologyReplicationFact{Account: Account, Stream: sp.name, Cluster: clusterOf(sp), Kind: kind,
+				Origin: o, OriginCluster: clusterOf(origin), Leader: s.streamLeaderAt(sp, at)}
+			if f.Leader != "" {
+				key := sp.name + "<" + o
+				f.Lag, f.Active = report(key, at)
+				f.LagBefore, f.ActiveBefore = report(key, at.Add(-sampleEvery))
+			}
+			out = append(out, f)
+		}
+	}
+	return out
 }

@@ -122,6 +122,33 @@ func topologyRows() []State {
 			}
 			return ""
 		}},
+		{"a Topology route that dropped in the last hour, with its 24-hour count", func(q Q) string {
+			for _, r := range q.topology().GetRoutes() {
+				if r.GetDrops_1H() > 0 && r.GetDrops_24H() >= r.GetDrops_1H() {
+					return r.GetServerA() + "-" + r.GetServerB()
+				}
+			}
+			return ""
+		}},
+		{"a Topology mirror between clusters with its lag now and before", func(q Q) string {
+			for _, r := range q.topology().GetReplication() {
+				if r.GetKind() == "mirror" && r.GetCluster() != r.GetOriginCluster() && r.GetCluster() != "" && r.GetOriginCluster() != "" &&
+					r.Lag != nil && r.LagBefore != nil && r.GetLeader() != "" {
+					return r.GetStream() + " from " + r.GetOriginStream()
+				}
+			}
+			return ""
+		}},
+		{"a Topology server with its process memory and JetStream memory store", func(q Q) string {
+			for _, c := range q.topology().GetClusters() {
+				for _, s := range c.GetServers() {
+					if !s.GetMissing() && s.MemBytes != nil && s.JsMemoryBytes != nil && s.JsMaxMemoryBytes != nil {
+						return s.GetName()
+					}
+				}
+			}
+			return ""
+		}},
 		{"a Topology leaf node whose drops are unset: no two consecutive collections cover it",
 			topologyLeaf(func(l *v1.TopologyLeafnode) bool { return l.GetConnected() && l.Drops_24H == nil })},
 		{"a single-cluster Topology with routes only", func(q Q) string {

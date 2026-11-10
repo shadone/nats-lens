@@ -28,6 +28,20 @@ message TopologyServer {
 
   // Whether the server is the JetStream meta leader.
   bool meta_leader = 3;
+
+  // Resident memory of the server process (VARZ mem), bytes; unset when
+  // not reported and for a missing server.
+  optional int64 mem_bytes = 4;
+
+  // Whether mem_bytes is far above the other servers: at least 512 MiB
+  // and more than 1.5 times the median of the other servers of the system
+  // that report it, the defaults of server-008.
+  bool mem_high = 5;
+
+  // JetStream memory store in use and its limit (max_memory_store),
+  // bytes; unset when not reported.
+  optional int64 js_memory_bytes = 6;
+  optional int64 js_max_memory_bytes = 7;
 }
 
 // One cluster of a system: its servers and what sits on it.
@@ -148,6 +162,24 @@ message TopologyRoute {
 
   // The ends that report the pair, by name.
   repeated string reported_by = 10;
+
+  // Collections in the last hour before the epoch in which a route of the
+  // pair dropped: a connection one end listed was gone in the next
+  // collection, at most 3 collect intervals later, while both ends
+  // answered ROUTEZ both times under the same server IDs. One count per
+  // collection, however many of the pair's routes (pooled or pinned)
+  // went; unset when no two such collections in that hour listed a route
+  // of the pair.
+  optional int32 drops_1h = 11;
+
+  // As drops_1h, over the 24 hours before the epoch (from
+  // drops_window_start).
+  optional int32 drops_24h = 12;
+
+  // Whether the pair is down: a route of it dropped in the 24 hours, both
+  // ends answered ROUTEZ in the epoch, and neither lists a route to the
+  // other. rtt, pending_bytes and pool are unset.
+  bool down = 13;
 }
 
 // One leaf node site: a remote server connected to a hub server of the
@@ -201,6 +233,60 @@ message TopologyLeafnode {
   bool connection_unknown = 13;
 }
 
+// A stream that mirrors or sources a stream placed in another cluster of
+// the system, in the epoch. Origins in another account or JetStream
+// domain (external), and origins no server reports, are not listed.
+message TopologyReplication {
+  // Account of both streams.
+  string account = 1;
+
+  // Readable name of the account; empty when none is known.
+  string account_name = 2;
+
+  // The stream that copies, and the cluster it is placed in.
+  string stream = 3;
+  string cluster = 4;
+
+  // The stream it copies from, and that stream's cluster.
+  string origin_stream = 5;
+  string origin_cluster = 6;
+
+  // "mirror" or "source".
+  string kind = 7;
+
+  // Server that leads the copying stream; empty when it has no leader in
+  // the epoch, and then lag and activity are unset.
+  string leader = 8;
+
+  // Messages the copy is behind its origin, as its leader reports; unset
+  // when not reported.
+  optional int64 lag = 9;
+
+  // The lag in the collection before the epoch (the newest earlier one
+  // with stream reports, at most 3 collect intervals earlier); unset
+  // without one.
+  optional int64 lag_before = 10;
+
+  // Time since the copy last heard from its origin, data or heartbeat;
+  // unset when not reported or never heard.
+  google.protobuf.Duration last_active = 11;
+
+  // Whether the leader reports that it never heard from the origin.
+  bool never_heard = 12;
+
+  // Error the leader reports for the copy; empty without one.
+  string error = 13;
+
+  // Whether the copy is not hearing from its origin: nothing for more
+  // than 2 minutes, or never heard in the epoch and the collection
+  // before.
+  bool not_active = 14;
+
+  // Whether the copy falls behind: its lag is at least 1000 messages and
+  // higher than in the collection before.
+  bool falling_behind = 15;
+}
+
 // Servers whose reply to one monitoring request is missing or in error in
 // the epoch; their links of that kind are left out rather than drawn as
 // down.
@@ -229,7 +315,8 @@ message GetTopologyResponse {
   // then highest round trip time.
   repeated TopologyGateway gateways = 4;
 
-  // Routes, slow ones first, then by round trip time, highest first.
+  // Routes, pairs that are down first, then slow ones, then by round trip
+  // time, highest first.
   // Round trips of 0 (sent before the first ping) count as not reported.
   repeated TopologyRoute routes = 5;
 
@@ -252,4 +339,8 @@ message GetTopologyResponse {
   // Time between collections: a drop and reconnect within one is seen
   // only as a new connection ID.
   google.protobuf.Duration collect_interval = 10;
+
+  // Mirrors and sources between clusters: those with an error, not
+  // active or falling behind first, then by cluster, stream and origin.
+  repeated TopologyReplication replication = 11;
 }

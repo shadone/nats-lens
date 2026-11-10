@@ -87,9 +87,20 @@ type TopologyServer struct {
 	// Whether the server was expected and answered no request in the epoch.
 	Missing bool `protobuf:"varint,2,opt,name=missing,proto3" json:"missing,omitempty"`
 	// Whether the server is the JetStream meta leader.
-	MetaLeader    bool `protobuf:"varint,3,opt,name=meta_leader,json=metaLeader,proto3" json:"meta_leader,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	MetaLeader bool `protobuf:"varint,3,opt,name=meta_leader,json=metaLeader,proto3" json:"meta_leader,omitempty"`
+	// Resident memory of the server process (VARZ mem), bytes; unset when
+	// not reported and for a missing server.
+	MemBytes *int64 `protobuf:"varint,4,opt,name=mem_bytes,json=memBytes,proto3,oneof" json:"mem_bytes,omitempty"`
+	// Whether mem_bytes is far above the other servers: at least 512 MiB
+	// and more than 1.5 times the median of the other servers of the system
+	// that report it, the defaults of server-008.
+	MemHigh bool `protobuf:"varint,5,opt,name=mem_high,json=memHigh,proto3" json:"mem_high,omitempty"`
+	// JetStream memory store in use and its limit (max_memory_store),
+	// bytes; unset when not reported.
+	JsMemoryBytes    *int64 `protobuf:"varint,6,opt,name=js_memory_bytes,json=jsMemoryBytes,proto3,oneof" json:"js_memory_bytes,omitempty"`
+	JsMaxMemoryBytes *int64 `protobuf:"varint,7,opt,name=js_max_memory_bytes,json=jsMaxMemoryBytes,proto3,oneof" json:"js_max_memory_bytes,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *TopologyServer) Reset() {
@@ -141,6 +152,34 @@ func (x *TopologyServer) GetMetaLeader() bool {
 		return x.MetaLeader
 	}
 	return false
+}
+
+func (x *TopologyServer) GetMemBytes() int64 {
+	if x != nil && x.MemBytes != nil {
+		return *x.MemBytes
+	}
+	return 0
+}
+
+func (x *TopologyServer) GetMemHigh() bool {
+	if x != nil {
+		return x.MemHigh
+	}
+	return false
+}
+
+func (x *TopologyServer) GetJsMemoryBytes() int64 {
+	if x != nil && x.JsMemoryBytes != nil {
+		return *x.JsMemoryBytes
+	}
+	return 0
+}
+
+func (x *TopologyServer) GetJsMaxMemoryBytes() int64 {
+	if x != nil && x.JsMaxMemoryBytes != nil {
+		return *x.JsMaxMemoryBytes
+	}
+	return 0
 }
 
 // One cluster of a system: its servers and what sits on it.
@@ -424,7 +463,22 @@ type TopologyRoute struct {
 	// pair, it is not slow.
 	Slow bool `protobuf:"varint,9,opt,name=slow,proto3" json:"slow,omitempty"`
 	// The ends that report the pair, by name.
-	ReportedBy    []string `protobuf:"bytes,10,rep,name=reported_by,json=reportedBy,proto3" json:"reported_by,omitempty"`
+	ReportedBy []string `protobuf:"bytes,10,rep,name=reported_by,json=reportedBy,proto3" json:"reported_by,omitempty"`
+	// Collections in the last hour before the epoch in which a route of the
+	// pair dropped: a connection one end listed was gone in the next
+	// collection, at most 3 collect intervals later, while both ends
+	// answered ROUTEZ both times under the same server IDs. One count per
+	// collection, however many of the pair's routes (pooled or pinned)
+	// went; unset when no two such collections in that hour listed a route
+	// of the pair.
+	Drops_1H *int32 `protobuf:"varint,11,opt,name=drops_1h,json=drops1h,proto3,oneof" json:"drops_1h,omitempty"`
+	// As drops_1h, over the 24 hours before the epoch (from
+	// drops_window_start).
+	Drops_24H *int32 `protobuf:"varint,12,opt,name=drops_24h,json=drops24h,proto3,oneof" json:"drops_24h,omitempty"`
+	// Whether the pair is down: a route of it dropped in the 24 hours, both
+	// ends answered ROUTEZ in the epoch, and neither lists a route to the
+	// other. rtt, pending_bytes and pool are unset.
+	Down          bool `protobuf:"varint,13,opt,name=down,proto3" json:"down,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -527,6 +581,27 @@ func (x *TopologyRoute) GetReportedBy() []string {
 		return x.ReportedBy
 	}
 	return nil
+}
+
+func (x *TopologyRoute) GetDrops_1H() int32 {
+	if x != nil && x.Drops_1H != nil {
+		return *x.Drops_1H
+	}
+	return 0
+}
+
+func (x *TopologyRoute) GetDrops_24H() int32 {
+	if x != nil && x.Drops_24H != nil {
+		return *x.Drops_24H
+	}
+	return 0
+}
+
+func (x *TopologyRoute) GetDown() bool {
+	if x != nil {
+		return x.Down
+	}
+	return false
 }
 
 // One leaf node site: a remote server connected to a hub server of the
@@ -692,6 +767,186 @@ func (x *TopologyLeafnode) GetConnectionUnknown() bool {
 	return false
 }
 
+// A stream that mirrors or sources a stream placed in another cluster of
+// the system, in the epoch. Origins in another account or JetStream
+// domain (external), and origins no server reports, are not listed.
+type TopologyReplication struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Account of both streams.
+	Account string `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"`
+	// Readable name of the account; empty when none is known.
+	AccountName string `protobuf:"bytes,2,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
+	// The stream that copies, and the cluster it is placed in.
+	Stream  string `protobuf:"bytes,3,opt,name=stream,proto3" json:"stream,omitempty"`
+	Cluster string `protobuf:"bytes,4,opt,name=cluster,proto3" json:"cluster,omitempty"`
+	// The stream it copies from, and that stream's cluster.
+	OriginStream  string `protobuf:"bytes,5,opt,name=origin_stream,json=originStream,proto3" json:"origin_stream,omitempty"`
+	OriginCluster string `protobuf:"bytes,6,opt,name=origin_cluster,json=originCluster,proto3" json:"origin_cluster,omitempty"`
+	// "mirror" or "source".
+	Kind string `protobuf:"bytes,7,opt,name=kind,proto3" json:"kind,omitempty"`
+	// Server that leads the copying stream; empty when it has no leader in
+	// the epoch, and then lag and activity are unset.
+	Leader string `protobuf:"bytes,8,opt,name=leader,proto3" json:"leader,omitempty"`
+	// Messages the copy is behind its origin, as its leader reports; unset
+	// when not reported.
+	Lag *int64 `protobuf:"varint,9,opt,name=lag,proto3,oneof" json:"lag,omitempty"`
+	// The lag in the collection before the epoch (the newest earlier one
+	// with stream reports, at most 3 collect intervals earlier); unset
+	// without one.
+	LagBefore *int64 `protobuf:"varint,10,opt,name=lag_before,json=lagBefore,proto3,oneof" json:"lag_before,omitempty"`
+	// Time since the copy last heard from its origin, data or heartbeat;
+	// unset when not reported or never heard.
+	LastActive *durationpb.Duration `protobuf:"bytes,11,opt,name=last_active,json=lastActive,proto3" json:"last_active,omitempty"`
+	// Whether the leader reports that it never heard from the origin.
+	NeverHeard bool `protobuf:"varint,12,opt,name=never_heard,json=neverHeard,proto3" json:"never_heard,omitempty"`
+	// Error the leader reports for the copy; empty without one.
+	Error string `protobuf:"bytes,13,opt,name=error,proto3" json:"error,omitempty"`
+	// Whether the copy is not hearing from its origin: nothing for more
+	// than 2 minutes, or never heard in the epoch and the collection
+	// before.
+	NotActive bool `protobuf:"varint,14,opt,name=not_active,json=notActive,proto3" json:"not_active,omitempty"`
+	// Whether the copy falls behind: its lag is at least 1000 messages and
+	// higher than in the collection before.
+	FallingBehind bool `protobuf:"varint,15,opt,name=falling_behind,json=fallingBehind,proto3" json:"falling_behind,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TopologyReplication) Reset() {
+	*x = TopologyReplication{}
+	mi := &file_natslens_v1_topology_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TopologyReplication) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TopologyReplication) ProtoMessage() {}
+
+func (x *TopologyReplication) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_topology_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TopologyReplication.ProtoReflect.Descriptor instead.
+func (*TopologyReplication) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_topology_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *TopologyReplication) GetAccount() string {
+	if x != nil {
+		return x.Account
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetAccountName() string {
+	if x != nil {
+		return x.AccountName
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetStream() string {
+	if x != nil {
+		return x.Stream
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetCluster() string {
+	if x != nil {
+		return x.Cluster
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetOriginStream() string {
+	if x != nil {
+		return x.OriginStream
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetOriginCluster() string {
+	if x != nil {
+		return x.OriginCluster
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetLeader() string {
+	if x != nil {
+		return x.Leader
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetLag() int64 {
+	if x != nil && x.Lag != nil {
+		return *x.Lag
+	}
+	return 0
+}
+
+func (x *TopologyReplication) GetLagBefore() int64 {
+	if x != nil && x.LagBefore != nil {
+		return *x.LagBefore
+	}
+	return 0
+}
+
+func (x *TopologyReplication) GetLastActive() *durationpb.Duration {
+	if x != nil {
+		return x.LastActive
+	}
+	return nil
+}
+
+func (x *TopologyReplication) GetNeverHeard() bool {
+	if x != nil {
+		return x.NeverHeard
+	}
+	return false
+}
+
+func (x *TopologyReplication) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *TopologyReplication) GetNotActive() bool {
+	if x != nil {
+		return x.NotActive
+	}
+	return false
+}
+
+func (x *TopologyReplication) GetFallingBehind() bool {
+	if x != nil {
+		return x.FallingBehind
+	}
+	return false
+}
+
 // Servers whose reply to one monitoring request is missing or in error in
 // the epoch; their links of that kind are left out rather than drawn as
 // down.
@@ -707,7 +962,7 @@ type TopologyUnobserved struct {
 
 func (x *TopologyUnobserved) Reset() {
 	*x = TopologyUnobserved{}
-	mi := &file_natslens_v1_topology_proto_msgTypes[6]
+	mi := &file_natslens_v1_topology_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -719,7 +974,7 @@ func (x *TopologyUnobserved) String() string {
 func (*TopologyUnobserved) ProtoMessage() {}
 
 func (x *TopologyUnobserved) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_topology_proto_msgTypes[6]
+	mi := &file_natslens_v1_topology_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -732,7 +987,7 @@ func (x *TopologyUnobserved) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopologyUnobserved.ProtoReflect.Descriptor instead.
 func (*TopologyUnobserved) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_topology_proto_rawDescGZIP(), []int{6}
+	return file_natslens_v1_topology_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *TopologyUnobserved) GetEndpoint() string {
@@ -763,7 +1018,8 @@ type GetTopologyResponse struct {
 	// then most drops in the last hour, then most connections missing,
 	// then highest round trip time.
 	Gateways []*TopologyGateway `protobuf:"bytes,4,rep,name=gateways,proto3" json:"gateways,omitempty"`
-	// Routes, slow ones first, then by round trip time, highest first.
+	// Routes, pairs that are down first, then slow ones, then by round trip
+	// time, highest first.
 	// Round trips of 0 (sent before the first ping) count as not reported.
 	Routes []*TopologyRoute `protobuf:"bytes,5,rep,name=routes,proto3" json:"routes,omitempty"`
 	// Leaf node sites, worst first: not connected, then those whose state is
@@ -781,13 +1037,16 @@ type GetTopologyResponse struct {
 	// Time between collections: a drop and reconnect within one is seen
 	// only as a new connection ID.
 	CollectInterval *durationpb.Duration `protobuf:"bytes,10,opt,name=collect_interval,json=collectInterval,proto3" json:"collect_interval,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Mirrors and sources between clusters: those with an error, not
+	// active or falling behind first, then by cluster, stream and origin.
+	Replication   []*TopologyReplication `protobuf:"bytes,11,rep,name=replication,proto3" json:"replication,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetTopologyResponse) Reset() {
 	*x = GetTopologyResponse{}
-	mi := &file_natslens_v1_topology_proto_msgTypes[7]
+	mi := &file_natslens_v1_topology_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -799,7 +1058,7 @@ func (x *GetTopologyResponse) String() string {
 func (*GetTopologyResponse) ProtoMessage() {}
 
 func (x *GetTopologyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_topology_proto_msgTypes[7]
+	mi := &file_natslens_v1_topology_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -812,7 +1071,7 @@ func (x *GetTopologyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTopologyResponse.ProtoReflect.Descriptor instead.
 func (*GetTopologyResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_topology_proto_rawDescGZIP(), []int{7}
+	return file_natslens_v1_topology_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetTopologyResponse) GetEpoch() int64 {
@@ -885,6 +1144,13 @@ func (x *GetTopologyResponse) GetCollectInterval() *durationpb.Duration {
 	return nil
 }
 
+func (x *GetTopologyResponse) GetReplication() []*TopologyReplication {
+	if x != nil {
+		return x.Replication
+	}
+	return nil
+}
+
 var File_natslens_v1_topology_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_topology_proto_rawDesc = "" +
@@ -892,12 +1158,20 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"\x1anatslens/v1/topology.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"Z\n" +
 	"\x12GetTopologyRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
-	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"_\n" +
+	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xb7\x02\n" +
 	"\x0eTopologyServer\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\amissing\x18\x02 \x01(\bR\amissing\x12\x1f\n" +
 	"\vmeta_leader\x18\x03 \x01(\bR\n" +
-	"metaLeader\"\xf0\x02\n" +
+	"metaLeader\x12 \n" +
+	"\tmem_bytes\x18\x04 \x01(\x03H\x00R\bmemBytes\x88\x01\x01\x12\x19\n" +
+	"\bmem_high\x18\x05 \x01(\bR\amemHigh\x12+\n" +
+	"\x0fjs_memory_bytes\x18\x06 \x01(\x03H\x01R\rjsMemoryBytes\x88\x01\x01\x122\n" +
+	"\x13js_max_memory_bytes\x18\a \x01(\x03H\x02R\x10jsMaxMemoryBytes\x88\x01\x01B\f\n" +
+	"\n" +
+	"_mem_bytesB\x12\n" +
+	"\x10_js_memory_bytesB\x16\n" +
+	"\x14_js_max_memory_bytes\"\xf0\x02\n" +
 	"\x0fTopologyCluster\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05place\x18\x02 \x01(\tR\x05place\x125\n" +
@@ -927,7 +1201,7 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"\x0e_pending_bytesB\v\n" +
 	"\t_drops_1hB\f\n" +
 	"\n" +
-	"_drops_24h\"\xe5\x02\n" +
+	"_drops_24h\"\xd6\x03\n" +
 	"\rTopologyRoute\x12\x18\n" +
 	"\acluster\x18\x01 \x01(\tR\acluster\x12\x19\n" +
 	"\bserver_a\x18\x02 \x01(\tR\aserverA\x12\x19\n" +
@@ -940,9 +1214,15 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"\x04slow\x18\t \x01(\bR\x04slow\x12\x1f\n" +
 	"\vreported_by\x18\n" +
 	" \x03(\tR\n" +
-	"reportedByB\x10\n" +
+	"reportedBy\x12\x1e\n" +
+	"\bdrops_1h\x18\v \x01(\x05H\x02R\adrops1h\x88\x01\x01\x12 \n" +
+	"\tdrops_24h\x18\f \x01(\x05H\x03R\bdrops24h\x88\x01\x01\x12\x12\n" +
+	"\x04down\x18\r \x01(\bR\x04downB\x10\n" +
 	"\x0e_pending_bytesB\a\n" +
-	"\x05_pool\"\x86\x04\n" +
+	"\x05_poolB\v\n" +
+	"\t_drops_1hB\f\n" +
+	"\n" +
+	"_drops_24h\"\x86\x04\n" +
 	"\x10TopologyLeafnode\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aaccount\x18\x02 \x01(\tR\aaccount\x12!\n" +
@@ -963,10 +1243,33 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"\x12connection_unknown\x18\r \x01(\bR\x11connectionUnknownB\x10\n" +
 	"\x0e_subscriptionsB\f\n" +
 	"\n" +
-	"_drops_24h\"J\n" +
+	"_drops_24h\"\x87\x04\n" +
+	"\x13TopologyReplication\x12\x18\n" +
+	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
+	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12\x16\n" +
+	"\x06stream\x18\x03 \x01(\tR\x06stream\x12\x18\n" +
+	"\acluster\x18\x04 \x01(\tR\acluster\x12#\n" +
+	"\rorigin_stream\x18\x05 \x01(\tR\foriginStream\x12%\n" +
+	"\x0eorigin_cluster\x18\x06 \x01(\tR\roriginCluster\x12\x12\n" +
+	"\x04kind\x18\a \x01(\tR\x04kind\x12\x16\n" +
+	"\x06leader\x18\b \x01(\tR\x06leader\x12\x15\n" +
+	"\x03lag\x18\t \x01(\x03H\x00R\x03lag\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"lag_before\x18\n" +
+	" \x01(\x03H\x01R\tlagBefore\x88\x01\x01\x12:\n" +
+	"\vlast_active\x18\v \x01(\v2\x19.google.protobuf.DurationR\n" +
+	"lastActive\x12\x1f\n" +
+	"\vnever_heard\x18\f \x01(\bR\n" +
+	"neverHeard\x12\x14\n" +
+	"\x05error\x18\r \x01(\tR\x05error\x12\x1d\n" +
+	"\n" +
+	"not_active\x18\x0e \x01(\bR\tnotActive\x12%\n" +
+	"\x0efalling_behind\x18\x0f \x01(\bR\rfallingBehindB\x06\n" +
+	"\x04_lagB\r\n" +
+	"\v_lag_before\"J\n" +
 	"\x12TopologyUnobserved\x12\x1a\n" +
 	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x18\n" +
-	"\aservers\x18\x02 \x03(\tR\aservers\"\xc1\x04\n" +
+	"\aservers\x18\x02 \x03(\tR\aservers\"\x85\x05\n" +
 	"\x13GetTopologyResponse\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x125\n" +
 	"\bepoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt\x128\n" +
@@ -980,7 +1283,8 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"unobserved\x12H\n" +
 	"\x12drops_window_start\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x10dropsWindowStart\x12D\n" +
 	"\x10collect_interval\x18\n" +
-	" \x01(\v2\x19.google.protobuf.DurationR\x0fcollectIntervalBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	" \x01(\v2\x19.google.protobuf.DurationR\x0fcollectInterval\x12B\n" +
+	"\vreplication\x18\v \x03(\v2 .natslens.v1.TopologyReplicationR\vreplicationBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_topology_proto_rawDescOnce sync.Once
@@ -994,7 +1298,7 @@ func file_natslens_v1_topology_proto_rawDescGZIP() []byte {
 	return file_natslens_v1_topology_proto_rawDescData
 }
 
-var file_natslens_v1_topology_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_natslens_v1_topology_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_natslens_v1_topology_proto_goTypes = []any{
 	(*GetTopologyRequest)(nil),    // 0: natslens.v1.GetTopologyRequest
 	(*TopologyServer)(nil),        // 1: natslens.v1.TopologyServer
@@ -1002,33 +1306,36 @@ var file_natslens_v1_topology_proto_goTypes = []any{
 	(*TopologyGateway)(nil),       // 3: natslens.v1.TopologyGateway
 	(*TopologyRoute)(nil),         // 4: natslens.v1.TopologyRoute
 	(*TopologyLeafnode)(nil),      // 5: natslens.v1.TopologyLeafnode
-	(*TopologyUnobserved)(nil),    // 6: natslens.v1.TopologyUnobserved
-	(*GetTopologyResponse)(nil),   // 7: natslens.v1.GetTopologyResponse
-	(*TimeRange)(nil),             // 8: natslens.v1.TimeRange
-	(*durationpb.Duration)(nil),   // 9: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
+	(*TopologyReplication)(nil),   // 6: natslens.v1.TopologyReplication
+	(*TopologyUnobserved)(nil),    // 7: natslens.v1.TopologyUnobserved
+	(*GetTopologyResponse)(nil),   // 8: natslens.v1.GetTopologyResponse
+	(*TimeRange)(nil),             // 9: natslens.v1.TimeRange
+	(*durationpb.Duration)(nil),   // 10: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
 }
 var file_natslens_v1_topology_proto_depIdxs = []int32{
-	8,  // 0: natslens.v1.GetTopologyRequest.range:type_name -> natslens.v1.TimeRange
+	9,  // 0: natslens.v1.GetTopologyRequest.range:type_name -> natslens.v1.TimeRange
 	1,  // 1: natslens.v1.TopologyCluster.servers:type_name -> natslens.v1.TopologyServer
-	9,  // 2: natslens.v1.TopologyGateway.rtt_max:type_name -> google.protobuf.Duration
-	9,  // 3: natslens.v1.TopologyGateway.rtt_median:type_name -> google.protobuf.Duration
-	9,  // 4: natslens.v1.TopologyRoute.rtt:type_name -> google.protobuf.Duration
-	9,  // 5: natslens.v1.TopologyLeafnode.rtt:type_name -> google.protobuf.Duration
-	10, // 6: natslens.v1.TopologyLeafnode.last_seen:type_name -> google.protobuf.Timestamp
-	10, // 7: natslens.v1.GetTopologyResponse.epoch_at:type_name -> google.protobuf.Timestamp
-	2,  // 8: natslens.v1.GetTopologyResponse.clusters:type_name -> natslens.v1.TopologyCluster
-	3,  // 9: natslens.v1.GetTopologyResponse.gateways:type_name -> natslens.v1.TopologyGateway
-	4,  // 10: natslens.v1.GetTopologyResponse.routes:type_name -> natslens.v1.TopologyRoute
-	5,  // 11: natslens.v1.GetTopologyResponse.leafnodes:type_name -> natslens.v1.TopologyLeafnode
-	6,  // 12: natslens.v1.GetTopologyResponse.unobserved:type_name -> natslens.v1.TopologyUnobserved
-	10, // 13: natslens.v1.GetTopologyResponse.drops_window_start:type_name -> google.protobuf.Timestamp
-	9,  // 14: natslens.v1.GetTopologyResponse.collect_interval:type_name -> google.protobuf.Duration
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	10, // 2: natslens.v1.TopologyGateway.rtt_max:type_name -> google.protobuf.Duration
+	10, // 3: natslens.v1.TopologyGateway.rtt_median:type_name -> google.protobuf.Duration
+	10, // 4: natslens.v1.TopologyRoute.rtt:type_name -> google.protobuf.Duration
+	10, // 5: natslens.v1.TopologyLeafnode.rtt:type_name -> google.protobuf.Duration
+	11, // 6: natslens.v1.TopologyLeafnode.last_seen:type_name -> google.protobuf.Timestamp
+	10, // 7: natslens.v1.TopologyReplication.last_active:type_name -> google.protobuf.Duration
+	11, // 8: natslens.v1.GetTopologyResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	2,  // 9: natslens.v1.GetTopologyResponse.clusters:type_name -> natslens.v1.TopologyCluster
+	3,  // 10: natslens.v1.GetTopologyResponse.gateways:type_name -> natslens.v1.TopologyGateway
+	4,  // 11: natslens.v1.GetTopologyResponse.routes:type_name -> natslens.v1.TopologyRoute
+	5,  // 12: natslens.v1.GetTopologyResponse.leafnodes:type_name -> natslens.v1.TopologyLeafnode
+	7,  // 13: natslens.v1.GetTopologyResponse.unobserved:type_name -> natslens.v1.TopologyUnobserved
+	11, // 14: natslens.v1.GetTopologyResponse.drops_window_start:type_name -> google.protobuf.Timestamp
+	10, // 15: natslens.v1.GetTopologyResponse.collect_interval:type_name -> google.protobuf.Duration
+	6,  // 16: natslens.v1.GetTopologyResponse.replication:type_name -> natslens.v1.TopologyReplication
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_topology_proto_init() }
@@ -1037,17 +1344,19 @@ func file_natslens_v1_topology_proto_init() {
 		return
 	}
 	file_natslens_v1_common_proto_init()
+	file_natslens_v1_topology_proto_msgTypes[1].OneofWrappers = []any{}
 	file_natslens_v1_topology_proto_msgTypes[2].OneofWrappers = []any{}
 	file_natslens_v1_topology_proto_msgTypes[3].OneofWrappers = []any{}
 	file_natslens_v1_topology_proto_msgTypes[4].OneofWrappers = []any{}
 	file_natslens_v1_topology_proto_msgTypes[5].OneofWrappers = []any{}
+	file_natslens_v1_topology_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_topology_proto_rawDesc), len(file_natslens_v1_topology_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

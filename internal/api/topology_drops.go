@@ -17,9 +17,15 @@ import (
 // answered GATEWAYZ in both under the same server ID and the connection
 // ID it had is gone; a leaf node connection drops when its hub answered
 // LEAFZ in both under the same server ID and the site is no longer on
-// that connection (gone, reconnected, or on another hub). A gap, a failed
-// reply and a restart (a new server ID) count no drop. A pair of
-// collections counts in a window when its earlier collection lies in it.
+// that connection (gone, reconnected, or on another hub); a route of two
+// servers drops when both answered ROUTEZ in both under the same server
+// IDs and a route connection one of them listed (its route ID) is gone.
+// Routes count once per pair of servers and pair of collections, however
+// many of the pair's pooled or pinned routes went, as both ends list
+// every route and a pool or a restarting link replaces them together. A
+// gap, a failed reply and a restart (a new server ID, of either end for
+// a route) count no drop. A pair of collections counts in a window when
+// its earlier collection lies in it.
 type TopologyDrops struct {
 	// WindowStart is the oldest collection of the window; zero without
 	// one.
@@ -37,6 +43,26 @@ type TopologyDrops struct {
 	// LastSeen is, for every site seen in the window before the epoch, its
 	// newest row and the time of that collection.
 	LastSeen []TopologyLeafSighting
+	// Routes are the counts per pair of servers, for every pair with a
+	// route observed between two consecutive collections.
+	Routes []TopologyRouteDrops
+}
+
+// TopologyRouteDrops counts the collections in which a route between
+// servers A and B (in name order) dropped, as TopologyGatewayDrops.
+type TopologyRouteDrops struct {
+	A, B                        string
+	Recent, Day                 int32
+	ObservedRecent, ObservedDay bool
+}
+
+// TopologyRouteConn is one route connection as its reporting server lists
+// it, with both ends' server IDs: the rows the route drop rule reads.
+type TopologyRouteConn struct {
+	ServerID, Server string
+	// RID is the route's connection ID on the reporting server.
+	RID              int64
+	RemoteID, Remote string
 }
 
 // TopologyGatewayDrops counts one server's outbound gateway drops to one
@@ -67,9 +93,11 @@ type TopologyLeafSighting struct {
 type TopologyCollection struct {
 	Epoch int64
 	At    time.Time
-	// Gatewayz and Leafz are the server IDs whose GATEWAYZ and LEAFZ
-	// answered ok.
-	Gatewayz, Leafz map[string]bool
+	// Gatewayz, Leafz and Routez are the server IDs whose GATEWAYZ, LEAFZ
+	// and ROUTEZ answered ok.
+	Gatewayz, Leafz, Routez map[string]bool
+	// Routes are the route connections with a remote server ID.
+	Routes []TopologyRouteConn
 	// Gateways are the outbound gateway rows with a connection ID; other
 	// rows are not read.
 	Gateways  []TopologyGatewayRow
@@ -91,6 +119,7 @@ func CountTopologyDrops(history []TopologyCollection, interval time.Duration, ep
 	leafs := map[leafSite]*TopologyLeafDrops{}
 	pairs := map[[2]string]bool{}
 	seen := map[leafSite]TopologyLeafSighting{}
+	routes := map[[2]string]*TopologyRouteDrops{}
 	for i, b := range history {
 		for _, r := range b.Gateways {
 			if r.Outbound {
@@ -138,6 +167,7 @@ func CountTopologyDrops(history []TopologyCollection, interval time.Duration, ep
 				g.Recent++
 			}
 		}
+		countRouteDrops(routes, a, b, inHour)
 		now := map[leafSite]map[leafConn]bool{}
 		for _, r := range b.Leafnodes {
 			if now[r.site()] == nil {
@@ -172,7 +202,46 @@ func CountTopologyDrops(history []TopologyCollection, interval time.Duration, ep
 	for _, s := range seen {
 		d.LastSeen = append(d.LastSeen, s)
 	}
+	for _, r := range routes {
+		d.Routes = append(d.Routes, *r)
+	}
 	return d
+}
+
+// countRouteDrops adds the route drops between consecutive collections a
+// and b to counts, keyed by pair of server names.
+func countRouteDrops(counts map[[2]string]*TopologyRouteDrops, a, b TopologyCollection, inHour bool) {
+	type conn struct {
+		server string
+		rid    int64
+	}
+	still := map[conn]bool{}
+	for _, r := range b.Routes {
+		still[conn{r.ServerID, r.RID}] = true
+	}
+	dropped := map[[2]string]bool{}
+	for _, r := range a.Routes {
+		if r.RemoteID == "" || !a.Routez[r.ServerID] || !b.Routez[r.ServerID] || !a.Routez[r.RemoteID] || !b.Routez[r.RemoteID] {
+			continue
+		}
+		k := pairOf(r.Server, r.Remote)
+		dropped[k] = dropped[k] || !still[conn{r.ServerID, r.RID}]
+	}
+	for k, gone := range dropped {
+		c := counts[k]
+		if c == nil {
+			c = &TopologyRouteDrops{A: k[0], B: k[1]}
+			counts[k] = c
+		}
+		c.ObservedDay = true
+		c.ObservedRecent = c.ObservedRecent || inHour
+		if gone {
+			c.Day++
+			if inHour {
+				c.Recent++
+			}
+		}
+	}
 }
 
 // leafConn is one leaf node connection.

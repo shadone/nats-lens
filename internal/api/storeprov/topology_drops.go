@@ -91,6 +91,40 @@ FROM obs o JOIN servers s USING (server_id) GROUP BY ALL`, append(window, f.Epoc
 	}); err != nil {
 		return err
 	}
+	if err := query("route drops", topologyWindow+`,
+rt AS (SELECT epoch, server_id, remote_id, `+nextSeen("server_id, rid")+` AS nxt
+  FROM routes WHERE remote_id IS NOT NULL AND epoch IN (SELECT epoch FROM ep)),
+ok AS (SELECT DISTINCT epoch, server_id FROM epoch_endpoints
+  WHERE endpoint = 'ROUTEZ' AND state = 'ok' AND epoch IN (SELECT epoch FROM ep)),
+-- Per reporting server, remote and pair of collections: whether a route
+-- it listed is gone, both ends answering ROUTEZ both times.
+obs AS (
+  SELECT r.server_id, r.remote_id, p.a, p.a_at >= ? AS recent, bool_or(r.nxt IS DISTINCT FROM p.b) AS dropped
+  FROM pairs p JOIN rt r ON r.epoch = p.a
+  JOIN ok oa ON oa.epoch = p.a AND oa.server_id = r.server_id
+  JOIN ok ob ON ob.epoch = p.b AND ob.server_id = r.server_id
+  JOIN ok ra ON ra.epoch = p.a AND ra.server_id = r.remote_id
+  JOIN ok rb ON rb.epoch = p.b AND rb.server_id = r.remote_id
+  GROUP BY ALL),
+-- One count per pair of server names and pair of collections, whichever
+-- end saw it.
+per AS (
+  SELECT least(s.server_name, x.server_name) AS sa, greatest(s.server_name, x.server_name) AS sb, o.a,
+    bool_or(o.recent) AS recent, bool_or(o.dropped) AS dropped
+  FROM obs o JOIN servers s ON s.server_id = o.server_id JOIN servers x ON x.server_id = o.remote_id
+  WHERE s.server_name <> x.server_name
+  GROUP BY ALL)
+SELECT sa, sb, count(*) FILTER (WHERE dropped AND recent), count(*) FILTER (WHERE dropped), bool_or(recent)
+FROM per GROUP BY sa, sb`, append(p.windowArgs(f), f.EpochAt.Add(-api.TopologyRecentWindow)), func(rows *sql.Rows) error {
+		d := api.TopologyRouteDrops{ObservedDay: true}
+		if err := rows.Scan(&d.A, &d.B, &d.Recent, &d.Day, &d.ObservedRecent); err != nil {
+			return err
+		}
+		f.Drops.Routes = append(f.Drops.Routes, d)
+		return nil
+	}); err != nil {
+		return err
+	}
 	if err := query("leaf node drops", topologyWindow+`,
 `+leafhealth.Counts(false)+` SELECT * FROM leaf_counts`, window, func(rows *sql.Rows) error {
 		var d api.TopologyLeafDrops
