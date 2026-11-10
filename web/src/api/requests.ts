@@ -83,9 +83,16 @@ export interface FindingFilter {
   text?: string;
   pageSize?: number;
   pageToken?: string;
+  /** Only the findings of this account and those of no one account (servers, clients, the system). */
+  account?: string;
 }
 
-export async function listFindings(sys: string, spec: RangeSpec, f: FindingFilter, signal?: AbortSignal): Promise<Page<Finding>> {
+/** A page of findings; with an account, how many of other accounts were left out. */
+export interface FindingPage extends Page<Finding> {
+  otherAccountCount?: number;
+}
+
+export async function listFindings(sys: string, spec: RangeSpec, f: FindingFilter, signal?: AbortSignal): Promise<FindingPage> {
   const r = await lens.listFindings(
     {
       ...systemInit(sys),
@@ -98,10 +105,11 @@ export async function listFindings(sys: string, spec: RangeSpec, f: FindingFilte
       text: f.text ?? "",
       pageSize: f.pageSize ?? 0,
       pageToken: f.pageToken ?? "",
+      account: f.account ?? "",
     },
     { signal },
   );
-  return { items: r.findings.map(finding), nextPageToken: r.nextPageToken, totalCount: r.totalCount };
+  return { items: r.findings.map(finding), nextPageToken: r.nextPageToken, totalCount: r.totalCount, otherAccountCount: r.otherAccountCount };
 }
 
 export async function getFinding(sys: string, id: string, signal?: AbortSignal) {

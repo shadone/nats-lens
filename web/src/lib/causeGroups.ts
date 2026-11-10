@@ -16,6 +16,14 @@ export interface CauseGroup {
   findings: Finding[];
 }
 
+/** Entities a card lists before "N more". */
+export const CARD_SHOWN = 8;
+
+/** Whether no finding of the group belongs to one account: servers, clients, connections, the system. They concern every account. */
+export function acrossAccounts(g: CauseGroup): boolean {
+  return g.findings.every((f) => !["account", "stream", "consumer"].includes(f.entity?.kind ?? "system"));
+}
+
 const SEV_ORDER: Record<SeverityLevel, number> = { critical: 0, warning: 1, info: 2 };
 
 /** The entity a finding's entity belongs to, as a grouping key. */

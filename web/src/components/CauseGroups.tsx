@@ -4,17 +4,33 @@ import { atHistoryStart } from "../lib/historyView";
 // The Overview's cause cards: unmuted firing findings grouped by their cause
 // event, else by check and parent entity, with the entities, open and
 // mute; and a strip of the muted findings with their reasons.
-import { useContext } from "react";
+import { createContext, useContext } from "react";
 import type { Entity, Finding } from "../api/model";
-import type { CauseGroup } from "../lib/causeGroups";
+import { acceptable, shownFindings } from "../lib/causeEvidence";
+import { acrossAccounts, type CauseGroup } from "../lib/causeGroups";
 import { hms } from "../lib/format";
 import { streamLabel, accountLabeller, entityName, entityPath, eventPath, findingPath, streamPath } from "../lib/view";
 import { RLink } from "./common";
 import { AccountLabelContext, EntityLine } from "./FindingParts";
+import { CauseEvidence, PlacementSummary, type PlacementRead } from "./CauseEvidence";
 import { Sev } from "./Severity";
 
-/** Entities listed in a card before "N more". */
-const SHOWN = 8;
+/** What every card shares: the placement read, the system, the account scope and the accept action. */
+export interface CardContext {
+  read: PlacementRead;
+  system: string;
+  scoped: boolean;
+  /** Unset: no card offers acceptance. */
+  onAccept?: (f: Finding) => void;
+}
+
+const CardCtx = createContext<CardContext>({ read: { loading: false, failed: false }, system: "", scoped: false });
+
+/** "Across accounts" on a card of findings of no one account, while the cards follow an account. */
+function ScopeLabel({ g }: { g: CauseGroup }) {
+  const { scoped } = useContext(CardCtx);
+  return scoped && acrossAccounts(g) ? <span className="lbl cg-scope">Across accounts</span> : null;
+}
 
 const PLURAL: Record<Entity["kind"], [string, string]> = {
   system: ["system", "systems"],
@@ -83,6 +99,7 @@ function EntityLink({ e }: { e?: Entity }) {
 }
 
 function Actions({ f, onMute, label }: { f: Finding; onMute: (f: Finding) => void; label: string }) {
+  const { onAccept } = useContext(CardCtx);
   return (
     <span className="cg-act">
       <RLink to={findingPath(f.id)} className="btn sm" aria-label={`Open ${label}`}>
@@ -91,6 +108,11 @@ function Actions({ f, onMute, label }: { f: Finding; onMute: (f: Finding) => voi
       <button type="button" className="btn sm" onClick={() => onMute(f)} aria-label={`Mute ${label}`}>
         Mute…
       </button>
+      {onAccept && acceptable(f) && (
+        <button type="button" className="btn sm" onClick={() => onAccept(f)} aria-label={`Accept ${label} as by design`}>
+          Accept…
+        </button>
+      )}
     </span>
   );
 }
@@ -114,6 +136,7 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
   const f = g.findings[0];
   const label = findingLabel(f, useContext(AccountLabelContext));
   const known = atHistoryStart(f, usePageHistory()?.historyStart);
+  const { read, system, onAccept } = useContext(CardCtx);
   return (
     <article className={`card cg one ${g.severity}`} aria-label={`${f.checkName}: 1 finding`}>
       <div className="cg-main">
@@ -121,11 +144,13 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
           <Sev level={g.severity} />
           <span className="code">{f.checkCode}</span>
           <h3>{f.checkName}</h3>
+          <ScopeLabel g={g} />
         </div>
         <p className="cg-d">{f.detail}</p>
         <AcknowledgementMark acknowledgement={f.acknowledgement} />
         {known && <p className="cg-d">already true when nats-lens started</p>}
         {g.cause && <CauseLine cause={g.cause} />}
+        <CauseEvidence shown={g.findings} total={1} noun={nounOf(g.findings)} read={read} system={system} />
       </div>
       <div className="cg-side">
         <p className="cg-ent">
@@ -139,6 +164,11 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
         <button type="button" className="btn" onClick={() => onMute(f)} aria-label={`Mute ${label}`}>
           Mute…
         </button>
+        {onAccept && acceptable(f) && (
+          <button type="button" className="btn" onClick={() => onAccept(f)} aria-label={`Accept ${label} as by design`}>
+            Accept as by design…
+          </button>
+        )}
       </span>
     </article>
   );
@@ -147,10 +177,12 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
 function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
   const accounts = useContext(AccountLabelContext);
   const historyStart = usePageHistory()?.historyStart;
+  const { read, system } = useContext(CardCtx);
   const n = g.findings.length;
   if (n === 1) return <SingleCard g={g} onMute={onMute} />;
   const names = [...new Set(g.findings.map((f) => f.checkName))];
-  const shown = g.findings.slice(0, SHOWN);
+  const shown = shownFindings(g);
+  const noun = nounOf(shown);
   return (
     <article className={`card cg ${g.severity}`} aria-label={`${names.join(", ")}: ${n} findings`}>
       <div className="cg-k">
@@ -160,9 +192,11 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
         </span>
         <h3>{names.join(" · ")}</h3>
         {g.cause && g.checkCodes.length > 1 && <span className="lbl">One cause</span>}
+        <ScopeLabel g={g} />
       </div>
       <p className="cg-where">{whereLine(g, accounts)}</p>
       {g.cause && <CauseLine cause={g.cause} />}
+      <PlacementSummary shown={shown} noun={noun} read={read} />
       <ul className="cg-list">
         {shown.map((f) => (
           <li key={f.id}>
@@ -180,6 +214,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
           </li>
         )}
       </ul>
+      <CauseEvidence shown={shown} total={n} noun={noun} read={read} system={system} />
     </article>
   );
 }
@@ -220,11 +255,11 @@ function MutedStrip({ muted }: { muted: Finding[] }) {
   );
 }
 
-export function CauseGroups({ groups, muted, onMute }: { groups: CauseGroup[]; muted: Finding[]; onMute: (f: Finding) => void }) {
+export function CauseGroups({ groups, muted, onMute, card }: { groups: CauseGroup[]; muted: Finding[]; onMute: (f: Finding) => void; card?: CardContext }) {
   if (groups.length === 0 && muted.length === 0) return null;
   // Every account the cards name: account entities and the accounts of streams and consumers.
   const label = accountLabeller([...groups.flatMap((g) => g.findings), ...muted].flatMap((f) => (f.entity?.account ? [f.entity] : [])));
-  return (
+  const body = (
     <AccountLabelContext.Provider value={label}>
       <section className="causes" aria-labelledby="causes-h">
         <h2 id="causes-h" className="sr-only">
@@ -237,4 +272,5 @@ export function CauseGroups({ groups, muted, onMute }: { groups: CauseGroup[]; m
       </section>
     </AccountLabelContext.Provider>
   );
+  return card ? <CardCtx.Provider value={card}>{body}</CardCtx.Provider> : body;
 }

@@ -12,8 +12,8 @@ import { entity as entityOf, ms, series } from "./adapt-common";
 import { consumer, stream } from "./adapt-entities";
 import { placement, type Placement } from "./adapt-placement";
 import { lens } from "./client";
-import type { ConsumerSummary, Point, Series, StreamSummary, StreamTotals } from "./model";
-import { listFindings, rangeInit, systemInit } from "./requests";
+import type { ConsumerSummary, Entity, Point, Series, StreamSummary, StreamTotals } from "./model";
+import { entityInit, listFindings, rangeInit, systemInit } from "./requests";
 
 /** A point with a spread: for a band metric the median as value and the lowest and highest server as low and high; for a count the bucket's last value and its lowest and highest. */
 export interface BandPoint extends Point {
@@ -120,12 +120,44 @@ export function useStreamPlacement(spec: RangeSpec, account: string) {
 /** Most findings the cause cards read; a larger set is cut and says so. */
 export const CURRENT_FINDINGS_LIMIT = 500;
 
-/** The findings that fire at the range's end, muted ones included, worst first. */
-export function useCurrentFindings(spec: RangeSpec) {
+/** The findings that fire at the range's end, muted ones included, worst first; with an account, that account's and those of no one account. No other account's stand in while they load. */
+export function useCurrentFindings(spec: RangeSpec, account = "") {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["currentFindings", sys, rangeKey(spec)],
-    queryFn: ({ signal }) => listFindings(sys, spec, { includeMuted: true, pageSize: CURRENT_FINDINGS_LIMIT }, signal),
+    queryKey: ["currentFindings", sys, rangeKey(spec), account],
+    queryFn: ({ signal }) => listFindings(sys, spec, { includeMuted: true, pageSize: CURRENT_FINDINGS_LIMIT, account }, signal),
+    refetchInterval: refetch(spec),
+    placeholderData: keepSameSystem(sys, { 3: account }),
+  });
+}
+
+/** Where a stream or consumer sits: its leader and one entry per server that holds a replica. */
+export interface AssetPlacement {
+  reported: boolean;
+  leader: string;
+  replicas: Placement[];
+}
+
+/** Most assets one placement read asks for, as the API allows. */
+export const ASSET_PLACEMENT_LIMIT = 200;
+
+/** The placement of the streams and consumers, by entity key; unknown keys are absent. */
+export async function listAssetPlacement(sys: string, spec: RangeSpec, entities: Entity[], signal?: AbortSignal): Promise<Map<string, AssetPlacement>> {
+  const r = await lens.listAssetPlacement(
+    { ...systemInit(sys), range: rangeInit(spec), entities: entities.slice(0, ASSET_PLACEMENT_LIMIT).map((e) => entityInit(e)!) },
+    { signal },
+  );
+  return new Map(r.assets.map((a) => [a.entity?.key ?? "", { reported: a.reported, leader: a.leader, replicas: placement(a.replicas) }]));
+}
+
+/** The placement of the assets the cause cards list: one read for every card, none without a stream or consumer. */
+export function useAssetPlacement(spec: RangeSpec, entities: Entity[]) {
+  const sys = useSystem();
+  const keys = entities.map((e) => `${e.kind}:${e.key}`);
+  return useQuery({
+    queryKey: ["assetPlacement", sys, rangeKey(spec), keys.join("\u0000")],
+    queryFn: ({ signal }) => listAssetPlacement(sys, spec, entities, signal),
+    enabled: entities.length > 0,
     refetchInterval: refetch(spec),
     placeholderData: keepSameSystem(sys),
   });

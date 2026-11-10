@@ -134,7 +134,8 @@ function AcceptBody({
       )}
       {need.iap && <p className="hint">The acceptance is recorded as your IAP identity.</p>}
       <p className="hint">
-        The finding leaves the Overview until the review date. nats-lens ends the acceptance early when its growth over a week changes by more than half.
+        The finding leaves the Overview until the review date.
+        {(target.entity.kind === "stream" || target.entity.kind === "server") && " nats-lens ends the acceptance early when its growth over a week changes by more than half."}
       </p>
       {mute.error && (
         <p className="field-err" role="alert">

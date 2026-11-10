@@ -3,7 +3,8 @@
 // consumers and the streams with their placement.
 import { useState } from "react";
 import type { Finding } from "../api/model";
-import { CURRENT_FINDINGS_LIMIT, useBusiestConsumers, useCurrentFindings, useStreamPlacement } from "../api/overview";
+import { ASSET_PLACEMENT_LIMIT, CURRENT_FINDINGS_LIMIT, useAssetPlacement, useBusiestConsumers, useCurrentFindings, useStreamPlacement } from "../api/overview";
+import { AcceptDialog, type AcceptTarget } from "../components/AcceptDialog";
 import { useDataHistory, useLensInfo, useOverview, useTimeline } from "../api/queries";
 import { BusiestConsumers } from "../components/BusiestConsumers";
 import { CauseGroups } from "../components/CauseGroups";
@@ -15,27 +16,48 @@ import { StoryLanes } from "../components/StoryLanes";
 import { StreamPlacementCard } from "../components/StreamPlacementCard";
 import { OverviewTiles } from "../components/OverviewTiles";
 import { Trends } from "../components/Trends";
+import { evidenceEntities } from "../lib/causeEvidence";
 import { groupCauses } from "../lib/causeGroups";
 import { serverNow } from "../lib/clock";
 import { usePageTitle } from "../lib/usePageTitle";
-import { useAccountScope } from "../lib/useSystem";
+import { useAccountScope, useSystem } from "../lib/useSystem";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
+
+/** The finding an acceptance from a card covers. */
+function acceptTarget(f: Finding): AcceptTarget {
+  return { findingId: f.id, checkCode: f.checkCode, checkName: f.checkName, entity: f.entity! };
+}
 
 function Causes({ onMute }: { onMute: (f: Finding) => void }) {
   const { spec } = useTimeRange();
-  const q = useCurrentFindings(spec);
+  const system = useSystem();
+  const [account, setAccount] = useAccountScope();
+  const q = useCurrentFindings(spec, account);
+  const [accepting, setAccepting] = useState<AcceptTarget>();
+  const { groups, muted } = groupCauses(q.data?.items ?? []);
+  const p = useAssetPlacement(spec, evidenceEntities(groups, ASSET_PLACEMENT_LIMIT));
   if (!q.data) return q.error ? <ErrorBox error={q.error} retry={() => q.refetch()} what="findings" /> : null;
-  const { groups, muted } = groupCauses(q.data.items);
   const cut = q.data.totalCount > q.data.items.length;
+  const others = q.data.otherAccountCount ?? 0;
+  const card = { read: { data: p.data, loading: p.isPending, failed: p.isError }, system, scoped: account !== "", onAccept: (f: Finding) => setAccepting(acceptTarget(f)) };
   return (
     <>
       <StaleBanner q={q} />
-      <CauseGroups groups={groups} muted={muted} onMute={onMute} />
+      <CauseGroups groups={groups} muted={muted} onMute={onMute} card={card} />
       {cut && (
         <p className="muted-note">
           The cards read the first {CURRENT_FINDINGS_LIMIT} of {q.data.totalCount} findings.
         </p>
       )}
+      {account && others > 0 && (
+        <p className="muted-note">
+          {others === 1 ? "1 finding of another account is" : `${others} findings of other accounts are`} not shown.{" "}
+          <button type="button" className="linkish" onClick={() => setAccount("")}>
+            Show all accounts
+          </button>
+        </p>
+      )}
+      <AcceptDialog target={accepting} onClose={() => setAccepting(undefined)} />
     </>
   );
 }
@@ -107,6 +129,7 @@ export function Overview() {
   useDataHistory(spec);
   const fallback = useResolvedRange(spec);
   const [muting, setMuting] = useState<Finding>();
+  const [account] = useAccountScope();
   if (!q.data) return q.error ? <ErrorBox error={q.error} retry={() => q.refetch()} what="the overview" /> : <Loading what="the overview" />;
   const o = q.data;
   const start = fallback.start;
@@ -119,6 +142,7 @@ export function Overview() {
       <section className="sec ov-health" aria-label="Health">
         <div className="sec-h"><h2>System summary</h2></div>
         <p className="muted-note">Latest available counts and reports, with history over the selected range.</p>
+        {account && <p className="muted-note">The summary, trends and timeline cover all accounts; the findings, busiest consumers and streams follow the account.</p>}
         {o.tiles.length ? <OverviewTiles tiles={o.tiles} windows={o.windows} start={start} end={end} /> : <Empty>No collection stored in this range yet.</Empty>}
       </section>
       <div className="ov-causes"><Causes onMute={setMuting} /></div>

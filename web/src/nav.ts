@@ -26,7 +26,7 @@ export interface NavItem {
 
 export const NAV: NavItem[] = [
   { path: "/fleet", label: "Fleet", group: "", icon: "M3 3h5v5H3Z M10 3h5v5h-5Z M3 10h5v5H3Z M12.5 10v5 M10 12.5h5", badge: "fleet", crossSystem: true },
-  { path: "/", label: "Overview", group: "", icon: "M3 9 9 3l6 6M5 7.5V15h8V7.5" },
+  { path: "/", label: "Overview", group: "", icon: "M3 9 9 3l6 6M5 7.5V15h8V7.5", accountScope: true },
   { path: "/findings", label: "Findings", group: "", icon: "M9 3 16 15H2Z M9 8v3 M9 13v.5", badge: "findings" },
   { path: "/checks", label: "Checks", group: "", icon: "M3 3h12v12H3Z M6 6h6 M6 9h6 M6 12h3", preserveAccount: true },
   { path: "/subjects", label: "Subjects", group: "Messaging", icon: "M3 5h12 M3 9h8 M3 13h5 M13 11l3 2-3 2", accountScope: true },
@@ -56,7 +56,7 @@ export function visibleNav(items: NavItem[] = NAV): NavItem[] {
 /** The sidebar page a path belongs to: "/streams/APP/order-jobs" belongs to Streams. */
 export function navFor(pathname: string, items: NavItem[] = NAV): NavItem | undefined {
   if(pathname==="/metrics"||pathname.startsWith("/metrics/")){const parent=items.find(i=>i.path==="/servers");return parent?{...parent,label:"Metric investigations"}:undefined}
-  if(pathname.startsWith("/timeline/")){const parent=items.find(i=>i.path==="/");const label=pathname==="/timeline/events"?"Captured Timeline events":pathname.startsWith("/timeline/windows/")?"Timeline window evidence":"Timeline";return parent?{...parent,label}:undefined}
+  if(pathname.startsWith("/timeline/")){const parent=items.find(i=>i.path==="/");const label=pathname==="/timeline/events"?"Captured Timeline events":pathname.startsWith("/timeline/windows/")?"Timeline window evidence":"Timeline";return parent?{...parent,label,accountScope:false}:undefined}
   if (pathname === "/") return items.find((i) => i.path === "/");
   return items.find((i) => i.path !== "/" && (pathname === i.path || pathname.startsWith(`${i.path}/`)));
 }
