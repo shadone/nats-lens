@@ -81,6 +81,8 @@ func capSteps(ss []*v1.ReplayStep, n int) ([]*v1.ReplayStep, int) {
 }
 
 // uniqueEvidence drops nil and repeated evidence and orders it by time.
+// Evidence repeats when it names the same record under the same label: a
+// collection opened at two entities under two labels stays twice.
 func uniqueEvidence(ev []*v1.ReplayEvidence) []*v1.ReplayEvidence {
 	seen := map[string]bool{}
 	var out []*v1.ReplayEvidence
@@ -88,7 +90,7 @@ func uniqueEvidence(ev []*v1.ReplayEvidence) []*v1.ReplayEvidence {
 		if e == nil {
 			continue
 		}
-		k := e.GetKind().String() + "|" + e.GetId() + "|" + e.GetTime().AsTime().String() + "|" + e.GetEntity().GetType().String() + "|" + e.GetEntity().GetKey()
+		k := e.GetKind().String() + "|" + e.GetId() + "|" + e.GetTime().AsTime().String() + "|" + e.GetLabel()
 		if seen[k] {
 			continue
 		}

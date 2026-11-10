@@ -306,3 +306,23 @@ func stepsOfKind(res *v1.GetReplayResponse, kind v1.ReplayStepKind) []*v1.Replay
 	}
 	return out
 }
+
+// The gone step's collection of 08:58:26, at both durables, is one piece
+// of evidence under its plain label.
+func TestDemoReplayGoneCollectionOnce(t *testing.T) {
+	res := replay(t, fake.GlobalSystem, at(8, 44, 4), at(9, 20, 30))
+	for _, s := range res.GetSteps() {
+		if s.GetTitle() != "2 durables on inventory-changes gone without a delete event" {
+			continue
+		}
+		var labels []string
+		for _, e := range s.GetEvidence() {
+			labels = append(labels, e.GetLabel())
+		}
+		if s.GetEvidenceCount() != 4 || labels[0] != "collection of 08:58:26" {
+			t.Errorf("evidence %d: %q", s.GetEvidenceCount(), labels)
+		}
+		return
+	}
+	t.Error("no gone step")
+}
