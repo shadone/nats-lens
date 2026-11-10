@@ -207,7 +207,7 @@ export function Findings() {
               <Pager page={pager.page} next={page.nextPageToken} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} total={page.totalCount} shown={page.items.length} />
               {account && (page.otherAccountCount ?? 0) > 0 && (
                 <p className="muted-note">
-                  {page.otherAccountCount === 1 ? "1 finding of another account is" : `${page.otherAccountCount} findings of other accounts are`} not shown; findings of servers, clients and the system are, as they concern every account.{" "}
+                  {page.otherAccountCount === 1 ? "1 finding of another account is" : `${page.otherAccountCount} findings of other accounts are`} not shown; findings of servers, clients, connections and the system are, as they concern every account.{" "}
                   <button type="button" className="linkish" onClick={() => setAccount("")}>
                     Show all accounts
                   </button>
