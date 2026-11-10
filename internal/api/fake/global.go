@@ -268,6 +268,7 @@ func globalScenario() *scenario {
 		transitions: globalTransitions,
 		infoUntil:   map[string]time.Time{"server-001": globalPlannedEnd, "stream-002": globalPlannedEnd, "stream-011": globalPlannedEnd},
 		gone:        globalGone,
+		catchUp:     6 * time.Minute,
 		// nats-us-1 led two consumers of inventory-changes until its restart.
 		initialLeaders: map[string]string{
 			Account + "/inventory-changes/stock-projector": "nats-us-1",

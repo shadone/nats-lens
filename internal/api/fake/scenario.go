@@ -85,6 +85,10 @@ type scenario struct {
 	// at its B besides the vanished durables of the streams; nil means
 	// none.
 	gone func(s scen, f *api.ReplayFacts) []api.ReplayGone
+	// catchUp is how long a restarted server's slowest stream replica takes
+	// to catch up in Replay (replayCatchUps); zero means its replicas are
+	// never told behind.
+	catchUp time.Duration
 	// initialLeaders are the leaders, by entity key, that differ at the
 	// start of the history from a stream's first peer and a consumer's
 	// stream leader.

@@ -1,6 +1,7 @@
 package fake_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -34,14 +35,17 @@ func TestDemoReplayGlobal(t *testing.T) {
 		"Node gke-example-pool-us-17bd drained",
 		"Client-library comparison unavailable",
 		"Node gke-example-pool-us-17bd upgraded",
+		"nats-us-1 catches up 1 stream and 4 consumers",
 		"nats-us-2 restarts",
 		"Node gke-example-pool-us-a904 drained",
 		"Node gke-example-pool-us-a904 upgraded",
 		"2 durables on inventory-changes gone without a delete event",
 		"Stream inventory-changes has no quorum for 2 min",
+		"nats-us-2 catches up 2 streams and 3 consumers",
 		"nats-us-3 restarts",
 		"Node gke-example-pool-us-5e21 drained",
 		"Node gke-example-pool-us-5e21 upgraded",
+		"nats-us-3 catches up 1 stream and 2 consumers",
 		"nats-us-4 stops answering",
 		"Stream KV_label-templates not reported at B",
 		"Node gke-example-pool-us-c3f8 drained",
@@ -65,8 +69,12 @@ func TestDemoReplayGlobal(t *testing.T) {
 	}
 	us2 := body("nats-us-2 restarts")
 	if us2 != "Lame duck mode announced at 08:56:21. Back at 08:58:56 with 2 streams and 3 consumers, 2 consumers fewer than before the restart. "+
-		"Leaders it held were elected on other servers: 2 on nats-us-4." {
+		"Leaders it held were elected on other servers: 2 on nats-us-4. Its replicas were current again by 09:04:56." {
 		t.Errorf("nats-us-2 body = %q", us2)
+	}
+	if b := body("nats-us-2 catches up 2 streams and 3 consumers"); b != "Replicas of inventory-changes, price-changes, reorder-planner on inventory-changes and 2 more. "+
+		"Current again by 09:04:56. The slowest, inventory-changes, took 6 min and was at most 18,802 operations behind." {
+		t.Errorf("nats-us-2 catch-up body = %q", b)
 	}
 	c := res.GetCounts()
 	if c.GetServersRestarted() != 3 || c.GetServersStopped() != 1 || c.GetConsumersGoneWithoutDelete() != 2 || c.GetAssetsUnknownAtB() != 1 ||
@@ -260,4 +268,41 @@ func TestDemoTransitionDetailsAreOfTheirTime(t *testing.T) {
 			t.Errorf("%v at %s names %s", tr.GetState(), when.Format("15:04:05"), last[:8])
 		}
 	}
+}
+
+// example-prod's nats-0 restarted at 09:18: its largest replicas are
+// still catching up at B, and its restart step says so.
+func TestDemoReplayProdCatchUpOpenAtB(t *testing.T) {
+	res := replay(t, fake.Cluster, at(9, 14, 0), at(9, 50, 0))
+	var got []string
+	for _, s := range stepsOfKind(res, v1.ReplayStepKind_REPLAY_STEP_KIND_CATCH_UP) {
+		got = append(got, fmt.Sprintf("%s (open %v, %v)", s.GetTitle(), s.GetOpenAtB(), s.GetSeverity()))
+	}
+	want := []string{
+		"nats-0 catches up 12 streams and 14 consumers (open false, SEVERITY_UNSPECIFIED)",
+		"nats-1 catches up 12 streams and 13 consumers (open false, SEVERITY_UNSPECIFIED)",
+		"nats-2 still catching up at B: 7 streams and 2 consumers behind, the largest 15,785 operations behind (open true, SEVERITY_WARNING)",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("catch-up steps:\n%s", strings.Join(got, "\n"))
+	}
+	found := false
+	for _, s := range res.GetSteps() {
+		if s.GetTitle() == "nats-2 restarts" {
+			found = strings.HasSuffix(s.GetBody(), "Its replicas were still catching up at B.")
+		}
+	}
+	if !found {
+		t.Error("no nats-2 restart that says its replicas were still catching up at B")
+	}
+}
+
+func stepsOfKind(res *v1.GetReplayResponse, kind v1.ReplayStepKind) []*v1.ReplayStep {
+	var out []*v1.ReplayStep
+	for _, s := range res.GetSteps() {
+		if s.GetKind() == kind {
+			out = append(out, s)
+		}
+	}
+	return out
 }

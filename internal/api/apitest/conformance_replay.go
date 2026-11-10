@@ -171,6 +171,12 @@ func replayRows() []State {
 		{"a Replay step after B that closes one in the range", replayStep(func(res *v1.GetReplayResponse, s *v1.ReplayStep) bool {
 			return s.GetOutsideRange() && s.GetTime().AsTime().After(res.GetB().AsTime())
 		})},
+		{"a Replay catch-up step with Placement evidence", replayStep(func(_ *v1.GetReplayResponse, s *v1.ReplayStep) bool {
+			return s.GetKind() == v1.ReplayStepKind_REPLAY_STEP_KIND_CATCH_UP && (s.GetEnd() != nil || s.GetOpenAtB()) &&
+				slices.ContainsFunc(s.GetEvidence(), func(e *v1.ReplayEvidence) bool {
+					return e.GetKind() == v1.ReplayEvidenceKind_REPLAY_EVIDENCE_KIND_COLLECTION && e.GetEntity() == nil
+				})
+		})},
 		{"a Replay gap step, with its gap kind", replayStep(func(_ *v1.GetReplayResponse, s *v1.ReplayStep) bool {
 			return s.GetKind() == v1.ReplayStepKind_REPLAY_STEP_KIND_GAP && s.GetGapKind() != v1.ReplayGapKind_REPLAY_GAP_KIND_UNSPECIFIED
 		})},

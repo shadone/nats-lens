@@ -47,6 +47,7 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 		f.Events = append(f.Events, e)
 	}
 	f.Restarts, f.Stops = s.replayServers(f)
+	f.CatchUps = s.replayCatchUps(f)
 	fs := p.findings(s)
 	f.Transitions = s.replayTransitions(fs, a, f.Until)
 	if f.EpochA != 0 {

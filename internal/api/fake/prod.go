@@ -79,6 +79,7 @@ func prodScenario() *scenario {
 		apiRate:       2.2,
 		apiErrors:     0,
 		metaLeader:    "nats-0",
+		catchUp:       12 * time.Minute, // nats-2, back at 09:44, is still catching up at 09:50
 		auth:          prodAuth(),
 		links:         prodLinks(),
 		serverDown:    func(sp serverSpec, c time.Time) bool { return down(sp.name, c) },

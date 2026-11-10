@@ -280,6 +280,15 @@ func replayConformance(t *testing.T, clock time.Time) *storeprov.Provider {
 	copyStats(3, 5)
 	// At B nats-1 holds what it held at epoch 40; nats-2 does not answer.
 	copyStats(40, 45)
+	// nats-0, ORDERS's leader, reports nats-1's replica behind at epochs
+	// 30 and 31 and current at 32: a catch-up between A and B.
+	for n := 30; n <= 32; n++ {
+		for _, id := range []string{"S0", "S1NEW"} {
+			r.add("stream_stats", map[string]any{"epoch": n, "server_id": id, "account": rAcc, "stream": "ORDERS", "is_leader": id == "S0"})
+		}
+		r.add("stream_replicas", map[string]any{"epoch": n, "server_id": "S0", "account": rAcc, "stream": "ORDERS", "peer_name": "nats-1",
+			"current": n == 32, "offline": false, "lag": 3200 - 1600*(n-30)})
+	}
 	return p
 }
 
