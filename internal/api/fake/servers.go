@@ -28,7 +28,10 @@ type serverSpec struct {
 	// limit, mem the resident memory, cpu the percent of one core.
 	store, maxStore int64
 	mem             int64
-	cpu             float64
+	// maxMemStore is the JetStream memory store's limit; the memory in
+	// use there is the memory streams the server holds (memStore).
+	maxMemStore int64
+	cpu         float64
 	// down is when the server stopped answering, in the fixed frame; zero
 	// while it answers.
 	down time.Time

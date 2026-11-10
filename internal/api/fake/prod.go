@@ -10,7 +10,7 @@ import (
 // prodServer is one of example-prod's three servers.
 func prodServer(name, id, oldID string, h, m, s int, conns int64) serverSpec {
 	return serverSpec{name: name, id: id, oldID: oldID, h: h, m: m, s: s, conns: conns, cluster: Cluster, version: Version,
-		store: 1980 * mib, maxStore: 50 * gib, mem: 412 * mib, cpu: 7.5}
+		store: 1980 * mib, maxStore: 50 * gib, maxMemStore: gib, mem: 412 * mib, cpu: 7.5}
 }
 
 // prodScenario is example-prod: the reference scenario.

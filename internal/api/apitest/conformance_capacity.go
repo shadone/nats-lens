@@ -67,6 +67,22 @@ func capacityRows() []State {
 		{"a Capacity card with server-014 and the check's own days", capacityCard(func(s *v1.ServerStore) bool {
 			return s.GetFindingCode() == api.CheckStoreFullSoon && s.FindingDays != nil && s.GetFindingId() != ""
 		})},
+		{"a Capacity memory store card with its use and limit", func(q Q) string {
+			for _, s := range q.capacity().GetMemoryStores() {
+				if s.GetReported() && s.GetUsed() > 0 && s.Limit != nil && s.GetFindingId() == "" {
+					return s.GetServerName()
+				}
+			}
+			return ""
+		}},
+		{"a Capacity account card with its use, limit and time to full", func(q Q) string {
+			for _, a := range q.capacity().GetAccountStores() {
+				if a.Used != nil && a.GetLimit() > 0 && a.GetPerDay() > 0 && a.DaysToFull != nil {
+					return a.GetAccount() + "/" + a.GetStorage()
+				}
+			}
+			return ""
+		}},
 		{"a Capacity row of a limits stream", capacityRow(func(s *v1.CapacityStream) bool {
 			return s.GetKind() == stream && s.GetRetention() == "limits" && s.GetMirror() == "" && s.GetSources() == 0 && s.GetStorage() == "file"
 		})},
@@ -81,6 +97,11 @@ func capacityRows() []State {
 		})},
 		{"a Capacity row in memory", capacityRow(func(s *v1.CapacityStream) bool { return s.GetStorage() == "memory" })},
 		{"a Capacity row whose next limit is none", capacityRow(nextIs(v1.NextLimitKind_NEXT_LIMIT_KIND_NONE, 0))},
+		{"a Capacity row without a limit of its own, bounded by its account's limit", capacityRow(func(s *v1.CapacityStream) bool {
+			return s.AccountLimit != nil && s.MaxAge == nil && s.MaxBytes == nil && s.MaxMsgs == nil &&
+				nextIs(v1.NextLimitKind_NEXT_LIMIT_KIND_ACCOUNT, v1.NextLimitState_NEXT_LIMIT_STATE_REACHES)(s) && s.GetNextLimit().Days != nil &&
+				s.GetNextLimit().GetDiscardNew()
+		})},
 		{"a Capacity row that is empty", capacityRow(func(s *v1.CapacityStream) bool {
 			return nextIs(v1.NextLimitKind_NEXT_LIMIT_KIND_EMPTY, 0)(s) && s.FirstTs == nil && s.GetMessages() == 0 && s.Messages != nil
 		})},

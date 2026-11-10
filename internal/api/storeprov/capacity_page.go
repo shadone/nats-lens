@@ -35,6 +35,9 @@ func (p *Provider) Capacity(ctx context.Context, req *v1.GetCapacityRequest) (*a
 	if err := p.capacityStreams(ctx, f, start, end); err != nil {
 		return nil, err
 	}
+	if err := p.capacityAccounts(ctx, f, start, end); err != nil {
+		return nil, err
+	}
 	if f.Findings, err = p.firingFindings(ctx, req.GetRange()); err != nil {
 		return nil, err
 	}
@@ -50,7 +53,7 @@ func (p *Provider) capacityServers(ctx context.Context, f *api.CapacityFacts, st
 	rows, err := p.db().QueryContext(ctx, `
 WITH cur AS (
     SELECT s.server_name AS name, any_value(s.cluster) AS cluster, bool_or(st.js_enabled) AS enabled,
-        max(st.js_storage) AS used, max(st.js_max_storage) AS lim
+        max(st.js_storage) AS used, max(st.js_max_storage) AS lim, max(st.js_memory) AS mem, max(st.js_max_memory) AS mem_lim
     FROM server_stats st JOIN servers s USING (server_id) WHERE st.epoch = $1 GROUP BY s.server_name
 ), names AS (
     SELECT DISTINCT unnest(expected_names || observed_names || missing_names) AS name FROM epochs WHERE epoch = $1
@@ -59,7 +62,7 @@ WITH cur AS (
     SELECT server_name AS name, arg_max(cluster, last_epoch) AS cluster, arg_max(jetstream, last_epoch) AS js
     FROM servers WHERE first_epoch <= $1 GROUP BY server_name
 )
-SELECT n.name, coalesce(nullif(c.cluster, ''), k.cluster, ''), c.enabled, c.used, c.lim, k.js
+SELECT n.name, coalesce(nullif(c.cluster, ''), k.cluster, ''), c.enabled, c.used, c.lim, k.js, c.mem, c.mem_lim
 FROM names n LEFT JOIN cur c USING (name) LEFT JOIN known k USING (name)
 ORDER BY n.name`, f.Epoch)
 	if err != nil {
@@ -69,8 +72,8 @@ ORDER BY n.name`, f.Epoch)
 	for rows.Next() {
 		var s api.ServerStoreFact
 		var enabled, js sql.NullBool
-		var used, lim sql.NullInt64
-		if err := rows.Scan(&s.Name, &s.Cluster, &enabled, &used, &lim, &js); err != nil {
+		var used, lim, mem, memLim sql.NullInt64
+		if err := rows.Scan(&s.Name, &s.Cluster, &enabled, &used, &lim, &js, &mem, &memLim); err != nil {
 			return err
 		}
 		switch {
@@ -79,39 +82,55 @@ ORDER BY n.name`, f.Epoch)
 			continue
 		}
 		s.Reported, s.Used, s.Limit = used.Valid, int64Ptr(used), int64Ptr(lim)
+		s.MemUsed, s.MemLimit = int64Ptr(mem), int64Ptr(memLim)
 		f.Servers = append(f.Servers, s)
 	}
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	growth, err := p.serverStoreGrowth(ctx, start, end)
+	growth, err := p.storeGrowth(ctx, serverStoreSeries, start, end)
 	if err != nil {
-		return err
+		return fmt.Errorf("capacity server growth: %w", err)
 	}
 	for i, s := range f.Servers {
-		f.Servers[i].PerDay = api.RobustPerDay(growth[s.Name])
+		f.Servers[i].PerDay = api.RobustPerDay(growth[s.Name+"/"+api.StorageFile])
+		f.Servers[i].MemPerDay = api.RobustPerDay(growth[s.Name+"/"+api.StorageMemory])
 	}
 	return nil
 }
 
-// serverStoreGrowth reads every server's file store in use over the range,
-// by server name (so a restart continues the series), reduced in SQL to at
-// most api.GrowthBuckets+1 aligned medians per server.
-func (p *Provider) serverStoreGrowth(ctx context.Context, start, end time.Time) (map[string][]api.Sample, error) {
+// serverStoreSeries is every server's file and memory store in use in
+// each epoch, by server name (so a restart continues the series), keyed
+// name/file and name/memory.
+const serverStoreSeries = `
+  SELECT s.server_name || '/' || k AS name, e.started_at AS t, max(CASE k WHEN 'file' THEN st.js_storage ELSE st.js_memory END) AS v
+  FROM server_stats st JOIN servers s USING (server_id) JOIN epochs e USING (epoch), (VALUES ('file'), ('memory')) kinds(k)
+  WHERE e.started_at >= ? AND e.started_at < ?
+  GROUP BY 1, e.epoch, e.started_at`
+
+// accountStoreSeries is every account's JetStream file and memory use in
+// each epoch, the largest any server reports, keyed account/file and
+// account/memory.
+const accountStoreSeries = `
+  SELECT a.account || '/' || k AS name, e.started_at AS t, max(CASE k WHEN 'file' THEN a.js_storage ELSE a.js_memory END) AS v
+  FROM account_stats a JOIN epochs e USING (epoch), (VALUES ('file'), ('memory')) kinds(k)
+  WHERE e.started_at >= ? AND e.started_at < ?
+  GROUP BY 1, e.epoch, e.started_at`
+
+// storeGrowth reads a series of the range (series selects name, t and v,
+// with the range's start and end as its two parameters), reduced in SQL
+// to at most api.GrowthBuckets+1 aligned medians per name.
+func (p *Provider) storeGrowth(ctx context.Context, series string, start, end time.Time) (map[string][]api.Sample, error) {
 	start = api.GrowthStart(start, end, p.Interval)
 	width := p.growthWidth(start, end)
 	rows, err := p.db().QueryContext(ctx, `
-WITH per AS (
-  SELECT s.server_name AS name, e.started_at AS t, max(st.js_storage) AS v
-  FROM server_stats st JOIN servers s USING (server_id) JOIN epochs e USING (epoch)
-  WHERE e.started_at >= ? AND e.started_at < ?
-  GROUP BY s.server_name, e.epoch, e.started_at)
+WITH per AS (`+series+`)
 SELECT name, min(t) + (max(t) - min(t)) / 2, median(v)::DOUBLE, min(t), max(t)
 FROM per WHERE v IS NOT NULL
 GROUP BY name, time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00')
 ORDER BY 1, 2`, start, end, width.Microseconds())
 	if err != nil {
-		return nil, fmt.Errorf("capacity server growth: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 	out := map[string][]api.Sample{}
@@ -201,6 +220,57 @@ ORDER BY st.account, st.stream`, f.Epoch)
 	for i, s := range f.Streams {
 		g := pts[s.Account+"/"+s.Stream]
 		f.Streams[i].BytesPerDay, f.Streams[i].MsgsPerDay = api.RobustPerDay(g.bytes), api.RobustPerDay(g.msgs)
+	}
+	return nil
+}
+
+// capacityAccounts reads the accounts the epoch lists that have a JWT
+// with a JetStream limit above 0, as the Accounts page reads them: the
+// newest lookup up to the epoch read at most api.AccountDetailsMaxAge
+// before it, and the largest use any server reports in the epoch; with
+// the growth of that use over the range.
+func (p *Provider) capacityAccounts(ctx context.Context, f *api.CapacityFacts, start, end time.Time) error {
+	rows, err := p.db().QueryContext(ctx, `
+WITH js AS (
+    SELECT account, max(js_storage) AS js_storage, max(js_memory) AS js_memory
+    FROM account_stats WHERE epoch = $1 GROUP BY account
+), d AS (
+    SELECT * FROM account_details WHERE epoch <= $1 AND looked_up_at >= $2
+    QUALIFY row_number() OVER (PARTITION BY account ORDER BY epoch DESC, looked_up_at DESC) = 1
+)
+SELECT a.account, d.looked_up_at, d.limit_js_disk, d.limit_js_memory, js.js_storage, js.js_memory
+FROM accounts a JOIN d USING (account) LEFT JOIN js USING (account)
+WHERE a.first_epoch <= $1 AND a.last_epoch >= $1 AND d.has_jwt AND (d.limit_js_disk > 0 OR d.limit_js_memory > 0)
+ORDER BY a.account`, f.Epoch, f.EpochAt.Add(-api.AccountDetailsMaxAge))
+	if err != nil {
+		return fmt.Errorf("capacity accounts: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var a api.AccountStoreFact
+		d := &api.AccountDetails{HasJWT: true}
+		var disk, mem, used, usedMem sql.NullInt64
+		if err := rows.Scan(&a.Account, &d.At, &disk, &mem, &used, &usedMem); err != nil {
+			return err
+		}
+		d.At = d.At.UTC()
+		d.LimitJSDisk, d.LimitJSMemory = int64Ptr(disk), int64Ptr(mem)
+		a.Details, a.JSStorage, a.JSMemory = d, int64Ptr(used), int64Ptr(usedMem)
+		f.Accounts = append(f.Accounts, a)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if len(f.Accounts) == 0 {
+		return nil
+	}
+	growth, err := p.storeGrowth(ctx, accountStoreSeries, start, end)
+	if err != nil {
+		return fmt.Errorf("capacity account growth: %w", err)
+	}
+	for i, a := range f.Accounts {
+		f.Accounts[i].StoragePerDay = api.RobustPerDay(growth[a.Account+"/"+api.StorageFile])
+		f.Accounts[i].MemoryPerDay = api.RobustPerDay(growth[a.Account+"/"+api.StorageMemory])
 	}
 	return nil
 }

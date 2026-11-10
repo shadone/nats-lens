@@ -35,7 +35,7 @@ var (
 func stagingScenario() *scenario {
 	server := func(name, id string, conns int64) serverSpec {
 		return serverSpec{name: name, id: id, oldID: id + "OLD", day: 9, h: 7, m: 30, conns: conns, cluster: StagingSystem,
-			version: Version, store: 2 * gib, maxStore: 20 * gib, mem: 96 * mib, cpu: 1.5}
+			version: Version, store: 2 * gib, maxStore: 20 * gib, maxMemStore: 512 * mib, mem: 96 * mib, cpu: 1.5}
 	}
 	return &scenario{
 		cluster: StagingSystem,

@@ -57,6 +57,10 @@ type CapacityFacts struct {
 	Servers                 []ServerStoreFact
 	ServersWithoutJetStream int32
 	Streams                 []CapacityStreamFact
+	// Accounts are the accounts whose lookup the provider read, with their
+	// JetStream use and its growth; FinishCapacity keeps those whose
+	// lookup is recent enough and whose JWT sets a limit above 0.
+	Accounts []AccountStoreFact
 	// Findings are the findings firing in the epoch, with the mute or
 	// acceptance in force on each; only stream-005, stream-006, server-007
 	// and server-014 are read.
@@ -72,7 +76,30 @@ type ServerStoreFact struct {
 	Used, Limit *int64
 	// PerDay is RobustPerDay of the store in use over the range.
 	PerDay *float64
+	// MemUsed, MemLimit and MemPerDay are the same of the memory store.
+	MemUsed, MemLimit *int64
+	MemPerDay         *float64
 }
+
+// AccountStoreFact is one account's JetStream use against its JWT's
+// limits.
+type AccountStoreFact struct {
+	Account string
+	// JSStorage and JSMemory are the largest any server reports in the
+	// epoch, as AccountFact's; nil when no server reported the account.
+	JSStorage, JSMemory *int64
+	// StoragePerDay and MemoryPerDay are RobustPerDay of the largest
+	// report of each collection over the range.
+	StoragePerDay, MemoryPerDay *float64
+	// Details is the account's newest lookup, as AccountFact's.
+	Details *AccountDetails
+}
+
+// Storage of a stream or account limit.
+const (
+	StorageFile   = "file"
+	StorageMemory = "memory"
+)
 
 // CapacityStreamFact is one stream of the epoch, with ListStreams' numbers.
 type CapacityStreamFact struct {
@@ -119,8 +146,21 @@ func FinishCapacity(f *CapacityFacts) *v1.GetCapacityResponse {
 		res.Servers = append(res.Servers, serverStore(s, firing))
 	}
 	slices.SortStableFunc(res.Servers, compareServerStores)
+	res.MemoryStores = memoryStores(f)
+	slices.SortStableFunc(res.MemoryStores, compareServerStores)
+	res.AccountStores = accountStores(f)
+	limits := map[string]*v1.AccountStore{}
+	for _, a := range res.AccountStores {
+		limits[a.GetAccount()+"/"+a.GetStorage()] = a
+	}
+	slices.SortStableFunc(res.AccountStores, compareAccountStores)
 	for _, s := range f.Streams {
-		res.Streams = append(res.Streams, capacityStream(f.EpochAt, s, firing))
+		out := capacityStream(f.EpochAt, s, firing)
+		if a := limits[s.Account+"/"+streamStorage(s.Storage)]; a != nil {
+			out.AccountLimit = ptrTo(a.GetLimit())
+			out.NextLimit = withAccountLimit(out.GetNextLimit(), a)
+		}
+		res.Streams = append(res.Streams, out)
 	}
 	slices.SortStableFunc(res.Streams, compareCapacityStreams)
 	res.StreamsTotal = int32(len(res.Streams))
@@ -150,6 +190,120 @@ func serverStore(s ServerStoreFact, firing map[string]*v1.Finding) *v1.ServerSto
 		}
 	}
 	return out
+}
+
+// memoryStores are the servers' memory store cards, when a reported
+// server holds memory in use or a stream uses memory storage; none
+// otherwise, so a system that keeps everything on file shows no memory
+// cards.
+func memoryStores(f *CapacityFacts) []*v1.ServerStore {
+	shown := slices.ContainsFunc(f.Streams, func(s CapacityStreamFact) bool { return s.Storage == StorageMemory })
+	for _, s := range f.Servers {
+		shown = shown || s.Reported && s.MemUsed != nil && *s.MemUsed > 0
+	}
+	if !shown {
+		return nil
+	}
+	var out []*v1.ServerStore
+	for _, s := range f.Servers {
+		m := &v1.ServerStore{ServerName: s.Name, Cluster: s.Cluster, Reported: s.Reported}
+		if s.Reported {
+			m.Used, m.PerDay, m.Limit = s.MemUsed, s.MemPerDay, positive(s.MemLimit)
+		}
+		m.DaysToFull = DaysToFull(m.Used, m.Limit, m.PerDay)
+		out = append(out, m)
+	}
+	return out
+}
+
+// accountStores are the account cards: one per account and storage whose
+// JWT, looked up at most AccountDetailsMaxAge before the epoch, sets a
+// limit above 0. -1 (no limit) and 0 (none allowed) give no card.
+func accountStores(f *CapacityFacts) []*v1.AccountStore {
+	var out []*v1.AccountStore
+	for _, a := range f.Accounts {
+		d := a.Details
+		if d == nil || !d.HasJWT || f.EpochAt.Sub(d.At) > AccountDetailsMaxAge {
+			continue
+		}
+		add := func(storage string, limit, used *int64, perDay *float64) {
+			if positive(limit) == nil {
+				return
+			}
+			s := &v1.AccountStore{Account: a.Account, Storage: storage, Used: used, Limit: *limit}
+			if used != nil {
+				s.PerDay = perDay
+			}
+			s.DaysToFull = DaysToFull(s.Used, limit, s.PerDay)
+			out = append(out, s)
+		}
+		add(StorageFile, d.LimitJSDisk, a.JSStorage, a.StoragePerDay)
+		add(StorageMemory, d.LimitJSMemory, a.JSMemory, a.MemoryPerDay)
+	}
+	return out
+}
+
+// streamStorage is the account limit a stream counts against: memory for
+// a memory stream, file for any other (also when not reported, the
+// server's default).
+func streamStorage(storage string) string {
+	if storage == StorageMemory {
+		return StorageMemory
+	}
+	return StorageFile
+}
+
+// withAccountLimit is the stream's next limit once its account's limit
+// is known. The account's limit is shared by all its streams, so it is
+// the next limit only where the stream's own limits do not come first: an
+// empty stream, or one at a limit now (steady or refusing), keeps its
+// own. An account at CountLimitReached of its limit refuses new messages
+// now. Else an account that fills in days is next when the stream has no
+// forecast of its own or reaches its own later; an account without a
+// forecast is next only for a stream without an age, message or byte
+// limit (none, or a per-subject limit alone).
+func withAccountLimit(n *v1.NextLimit, a *v1.AccountStore) *v1.NextLimit {
+	switch {
+	case n.GetLimit() == v1.NextLimitKind_NEXT_LIMIT_KIND_EMPTY,
+		n.GetState() == v1.NextLimitState_NEXT_LIMIT_STATE_STEADY,
+		n.GetState() == v1.NextLimitState_NEXT_LIMIT_STATE_REACHED_REFUSING:
+		return n
+	}
+	account := func(state v1.NextLimitState, days *float64) *v1.NextLimit {
+		return &v1.NextLimit{Limit: v1.NextLimitKind_NEXT_LIMIT_KIND_ACCOUNT, State: state, Days: days, DiscardNew: true}
+	}
+	if a.Used != nil && float64(a.GetUsed()) >= CountLimitReached*float64(a.GetLimit()) {
+		return account(v1.NextLimitState_NEXT_LIMIT_STATE_REACHED_REFUSING, nil)
+	}
+	if a.DaysToFull != nil && (n.GetState() != v1.NextLimitState_NEXT_LIMIT_STATE_REACHES || n.Days == nil || a.GetDaysToFull() < n.GetDays()) {
+		return account(v1.NextLimitState_NEXT_LIMIT_STATE_REACHES, a.DaysToFull)
+	}
+	switch n.GetLimit() {
+	case v1.NextLimitKind_NEXT_LIMIT_KIND_NONE, v1.NextLimitKind_NEXT_LIMIT_KIND_PER_SUBJECT:
+		return account(v1.NextLimitState_NEXT_LIMIT_STATE_NOT_REACHED, nil)
+	}
+	return n
+}
+
+// compareAccountStores puts the soonest full first as the card words it
+// (ShownDays), then the fullest, then orders by account and storage, file
+// first.
+func compareAccountStores(a, b *v1.AccountStore) int {
+	days := func(s *v1.AccountStore) *float64 {
+		if s.DaysToFull == nil {
+			return nil
+		}
+		d := ShownDays(s.GetDaysToFull())
+		return &d
+	}
+	share := func(s *v1.AccountStore) float64 {
+		if s.Used == nil {
+			return -1
+		}
+		return float64(s.GetUsed()) / float64(s.GetLimit())
+	}
+	return cmp.Or(compareSoonest(days(a), days(b)), cmp.Compare(share(b), share(a)), cmp.Compare(a.GetAccount(), b.GetAccount()),
+		cmp.Compare(a.GetStorage(), b.GetStorage()))
 }
 
 // DaysToFull is the days until used reaches limit at perDay; nil unless

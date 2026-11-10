@@ -82,6 +82,24 @@ func TestDemoCapacityProd(t *testing.T) {
 	if by["KV_worker-presence"].GetStorage() != "memory" || by["media-windows"].GetRetention() != "interest" {
 		t.Error("prod lacks a memory bucket or an interest stream")
 	}
+	// Config mode: no account JWT, so no account card and no account bound.
+	if len(res.GetAccountStores()) != 0 || by["order-archive"].AccountLimit != nil {
+		t.Errorf("prod account stores = %v", res.GetAccountStores())
+	}
+	// KV_worker-presence is held in memory on its replicas' servers.
+	if len(res.GetMemoryStores()) != 3 {
+		t.Fatalf("prod memory stores = %v", res.GetMemoryStores())
+	}
+	var held int64
+	for _, m := range res.GetMemoryStores() {
+		held += m.GetUsed()
+		if !m.GetReported() || m.GetLimit() != 1<<30 || m.GetFindingId() != "" {
+			t.Errorf("prod memory %s = %v", m.GetServerName(), m)
+		}
+	}
+	if p := by["KV_worker-presence"]; held != p.GetBytes()*int64(p.GetReplicas()) || held == 0 {
+		t.Errorf("prod memory in use %d, KV_worker-presence %v", held, p)
+	}
 }
 
 // example-global: nats-ap-2 fills by server-014, nats-us-4 did not
@@ -103,8 +121,12 @@ func TestDemoCapacityGlobal(t *testing.T) {
 		"order-archive": v1.CapacityStatus_CAPACITY_STATUS_MUTED, "KV_feature-flags": v1.CapacityStatus_CAPACITY_STATUS_AWAITING_DECISION,
 		"KV_session-cache": v1.CapacityStatus_CAPACITY_STATUS_DECLARED, "price-changes": v1.CapacityStatus_CAPACITY_STATUS_BOUNDED,
 	}, map[string]limitWant{
-		"price-changes":      {v1.NextLimitKind_NEXT_LIMIT_KIND_MESSAGES, v1.NextLimitState_NEXT_LIMIT_STATE_REACHED_REFUSING},
-		"OBJ_product-images": {v1.NextLimitKind_NEXT_LIMIT_KIND_BYTES, v1.NextLimitState_NEXT_LIMIT_STATE_REACHES},
+		"price-changes": {v1.NextLimitKind_NEXT_LIMIT_KIND_MESSAGES, v1.NextLimitState_NEXT_LIMIT_STATE_REACHED_REFUSING},
+		// APP's 500 GiB file limit fills before the bucket reaches its own.
+		"OBJ_product-images": {v1.NextLimitKind_NEXT_LIMIT_KIND_ACCOUNT, v1.NextLimitState_NEXT_LIMIT_STATE_REACHES},
+		"order-archive":      {v1.NextLimitKind_NEXT_LIMIT_KIND_ACCOUNT, v1.NextLimitState_NEXT_LIMIT_STATE_REACHES},
+		"KV_session-cache":   {v1.NextLimitKind_NEXT_LIMIT_KIND_ACCOUNT, v1.NextLimitState_NEXT_LIMIT_STATE_NOT_REACHED},
+		"search-index":       {v1.NextLimitKind_NEXT_LIMIT_KIND_AGE, v1.NextLimitState_NEXT_LIMIT_STATE_REACHES},
 		"shipping-updates":   {v1.NextLimitKind_NEXT_LIMIT_KIND_MESSAGES, v1.NextLimitState_NEXT_LIMIT_STATE_REACHES},
 	})
 	if s := by["order-archive"]; s.GetMirror() != "order-events" || s.GetMute().GetExpiresAt() == nil || s.GetBytesPerDay() < 1<<30 {
@@ -118,6 +140,34 @@ func TestDemoCapacityGlobal(t *testing.T) {
 	}
 	if by["search-index"].GetSources() != 2 {
 		t.Errorf("search-index = %v", by["search-index"])
+	}
+	// Operator mode: APP's JWT allows 500 GiB of file and 16 GiB of memory
+	// storage; SYS and SUPPLIERS allow none (0), so get no card.
+	stores := res.GetAccountStores()
+	if len(stores) != 2 || stores[0].GetStorage() != "file" || stores[1].GetStorage() != "memory" {
+		t.Fatalf("global account stores = %v", stores)
+	}
+	file, mem := stores[0], stores[1]
+	if file.GetAccount() != fake.Account || file.GetLimit() != 500<<30 || file.GetPerDay() <= 0 || file.DaysToFull == nil {
+		t.Errorf("APP file = %v", file)
+	}
+	if mem.GetLimit() != 16<<30 || mem.GetUsed() != int64(by["KV_session-cache"].GetBytes())*3 || mem.GetPerDay() >= 0 || mem.DaysToFull != nil {
+		t.Errorf("APP memory = %v", mem)
+	}
+	if s := by["order-archive"]; s.GetAccountLimit() != 500<<30 || s.GetNextLimit().GetDays() != file.GetDaysToFull() || !s.GetNextLimit().GetDiscardNew() {
+		t.Errorf("order-archive = %v", s)
+	}
+	if by["KV_session-cache"].GetAccountLimit() != 16<<30 {
+		t.Errorf("KV_session-cache = %v", by["KV_session-cache"])
+	}
+	// One memory card per server; nats-us-4 did not report.
+	memory := map[string]*v1.ServerStore{}
+	for _, m := range res.GetMemoryStores() {
+		memory[m.GetServerName()] = m
+	}
+	if len(memory) != 24 || memory["nats-us-4"].GetReported() || memory["nats-eu-0"].GetUsed() != int64(by["KV_session-cache"].GetBytes()) ||
+		memory["nats-eu-1"].GetUsed() != 0 || memory["nats-eu-1"].GetLimit() != 2<<30 {
+		t.Errorf("global memory stores = %v", res.GetMemoryStores())
 	}
 }
 
@@ -138,6 +188,10 @@ func TestDemoCapacityStaging(t *testing.T) {
 		if s.BytesPerDay != nil || s.MsgsPerDay != nil {
 			t.Errorf("%s grows %v", s.GetStream(), s.GetBytesPerDay())
 		}
+	}
+	// Nothing in memory and no account JWT: neither memory nor account cards.
+	if len(res.GetMemoryStores()) != 0 || len(res.GetAccountStores()) != 0 {
+		t.Errorf("staging memory %v, accounts %v", res.GetMemoryStores(), res.GetAccountStores())
 	}
 	checkStreams(t, fake.StagingSystem, by, map[string]v1.CapacityStatus{
 		"catalog-changes": v1.CapacityStatus_CAPACITY_STATUS_AWAITING_DECISION,

@@ -131,9 +131,11 @@ func (p *Provider) capacityAt(s scen, req *v1.GetCapacityRequest) (*api.Capacity
 	f := &api.CapacityFacts{Epoch: n, EpochAt: at, GrowthFrom: latest(api.GrowthStart(r.GetStart().AsTime(), r.GetEnd().AsTime(), sampleEvery), s.dataStart()),
 		Findings: current(p.findings(s), r)}
 	for _, sv := range s.sc.servers {
-		x := api.ServerStoreFact{Name: sv.name, Cluster: sv.cluster, PerDay: s.growthOf("server.js_storage_bytes", serverRef(sv.name), r)}
+		x := api.ServerStoreFact{Name: sv.name, Cluster: sv.cluster, PerDay: s.growthOf("server.js_storage_bytes", serverRef(sv.name), r),
+			MemPerDay: s.growthOf(fakeServerMemStore, serverRef(sv.name), r)}
 		if !s.offline(sv.name, at) {
 			x.Reported, x.Used, x.Limit = true, ptr(sv.store), ptr(sv.maxStore)
+			x.MemUsed, x.MemLimit = ptr(s.sc.memStore(sv.name)), ptr(sv.maxMemStore)
 		}
 		f.Servers = append(f.Servers, x)
 	}
@@ -152,5 +154,15 @@ func (p *Provider) capacityAt(s scen, req *v1.GetCapacityRequest) (*api.Capacity
 		f.Streams = append(f.Streams, x)
 	}
 	slices.SortFunc(f.Streams, func(a, b api.CapacityStreamFact) int { return cmp.Compare(a.Stream, b.Stream) })
+	// The accounts as the Accounts page reads them; Account's use grows
+	// with its streams.
+	for _, a := range s.accounts(at) {
+		x := api.AccountStoreFact{Account: a.Account, JSStorage: a.JSStorage, JSMemory: a.JSMemory, Details: a.Details}
+		if a.Account == Account {
+			x.StoragePerDay = s.growthOf(fakeAccountFileStore, accountRef(Account), r)
+			x.MemoryPerDay = s.growthOf(fakeAccountMemStore, accountRef(Account), r)
+		}
+		f.Accounts = append(f.Accounts, x)
+	}
 	return f, nil
 }

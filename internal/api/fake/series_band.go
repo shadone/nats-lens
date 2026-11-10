@@ -35,6 +35,15 @@ func countIn(times []time.Time, c time.Time) float64 {
 	return n
 }
 
+// Series the demo draws only for the Capacity page's growth, not served
+// as metrics: a server's memory store in use, and Account's JetStream use
+// of each storage.
+const (
+	fakeServerMemStore   = "fake.server_memory_store_bytes"
+	fakeAccountFileStore = "fake.account_file_store_bytes"
+	fakeAccountMemStore  = "fake.account_memory_store_bytes"
+)
+
 // value is a metric's value at fixed-frame time c: the counts that follow
 // from the scenario's streams and consumers, else the scenario's sample;
 // none inside the scenario's noEpochs.
@@ -55,6 +64,36 @@ func (sc *scenario) value(metric string, e *v1.EntityRef, c time.Time) (float64,
 		return sum, true
 	case "server.capacity_file_store_bytes":
 		return sc.value("server.js_storage_bytes", e, c)
+	case fakeServerMemStore:
+		// The memory streams the server holds, while it answers.
+		if _, ok := sc.value("server.js_storage_bytes", e, c); !ok {
+			return 0, false
+		}
+		var sum float64
+		for _, sp := range sc.streams {
+			if sc.memoryStorage(sp.name) && slices.Contains(sc.peers(sp), e.GetKey()) {
+				v, ok := sc.value("stream.bytes", streamRef(sp.name), c)
+				if !ok {
+					return 0, false
+				}
+				sum += v
+			}
+		}
+		return sum, true
+	case fakeAccountFileStore, fakeAccountMemStore:
+		// Account's streams of that storage times their replicas.
+		var sum float64
+		for _, sp := range sc.streams {
+			if sc.memoryStorage(sp.name) != (metric == fakeAccountMemStore) {
+				continue
+			}
+			v, ok := sc.value("stream.bytes", streamRef(sp.name), c)
+			if !ok {
+				return 0, false
+			}
+			sum += v * float64(len(sc.peers(sp)))
+		}
+		return sum, true
 	case "stream.observed_replica_bytes":
 		sp, err := sc.findStream(e.GetAccount(), e.GetStream())
 		if err != nil {

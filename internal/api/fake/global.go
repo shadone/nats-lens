@@ -58,7 +58,7 @@ func globalServer(cluster string, i int, conns int64, cpu float64, storePct floa
 	sp := serverSpec{
 		name: name, id: fmt.Sprintf("N%sFAKE%dGLOBAL", cluster, i), oldID: fmt.Sprintf("N%sFAKE%dOLDGLOBAL", cluster, i),
 		day: 11, h: 6, m: 10 + i, s: 0, conns: conns, cluster: cluster, version: globalVersion,
-		maxStore: 100 * gib, store: int64(storePct / 100 * 100 * gib), mem: int64(100+7*i) * mib, cpu: cpu,
+		maxStore: 100 * gib, store: int64(storePct / 100 * 100 * gib), maxMemStore: 2 * gib, mem: int64(100+7*i) * mib, cpu: cpu,
 		tags: []string{fmt.Sprintf("az:%s-1%c", cluster, 'a'+i%3), "region:" + cluster},
 		node: fmt.Sprintf("gke-example-pool-%s-%x", cluster, 0x3a10+0x1d3*i),
 	}

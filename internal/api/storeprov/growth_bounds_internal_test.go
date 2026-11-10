@@ -48,7 +48,7 @@ func TestGrowthQueriesStayBatchedAndBounded(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			servers, err := p.serverStoreGrowth(ctx, start, end)
+			servers, err := p.storeGrowth(ctx, serverStoreSeries, start, end)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -56,7 +56,7 @@ func TestGrowthQueriesStayBatchedAndBounded(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if a := api.RobustPerDay(servers["nats-0"]); a == nil || *a != 288000 || storage == nil || *storage != *a {
+			if a := api.RobustPerDay(servers["nats-0/file"]); a == nil || *a != 288000 || storage == nil || *storage != *a {
 				t.Fatalf("%s: server %v / storage %v", zone, a, storage)
 			}
 			if spy.queries != 4 || len(bytes) != n || len(both) != n {

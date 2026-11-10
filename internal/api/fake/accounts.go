@@ -152,15 +152,7 @@ func (s scen) accounts(at time.Time) []api.AccountFact {
 			}
 		}
 	}
-	var disk, mem int64
-	for _, sp := range s.sc.streams {
-		b := int64(sp.bytes) * int64(len(s.sc.peers(sp)))
-		if s.sc.memoryStorage(sp.name) {
-			mem += b
-		} else {
-			disk += b
-		}
-	}
+	disk, mem := s.sc.accountJS()
 	app := api.AccountFact{Account: Account, Connections: ptr(conns), Leafnodes: ptr(leafs), Subscriptions: ptr(subs),
 		JSStorage: ptr(disk), JSMemory: ptr(mem), Streams: ptr(int32(len(s.sc.streams))), LimitLeafnodes: ptr(limitLeafs),
 		LimitLeafnodesServer: limitServer}
@@ -344,6 +336,34 @@ func (sc *scenario) memoryStorage(stream string) bool {
 }
 
 var _ api.AccountNamer = (*Provider)(nil)
+
+// accountJS is Account's JetStream use in the newest collection: the
+// bytes of its file and of its memory streams times their replicas, as
+// each server reports the account total.
+func (sc *scenario) accountJS() (disk, mem int64) {
+	for _, sp := range sc.streams {
+		b := int64(sp.bytes) * int64(len(sc.peers(sp)))
+		if sc.memoryStorage(sp.name) {
+			mem += b
+		} else {
+			disk += b
+		}
+	}
+	return disk, mem
+}
+
+// memStore is the JetStream memory store in use on a server in the
+// newest collection: the bytes of the memory streams it holds a replica
+// of.
+func (sc *scenario) memStore(server string) int64 {
+	var n int64
+	for _, sp := range sc.streams {
+		if sc.memoryStorage(sp.name) && slices.Contains(sc.peers(sp), server) {
+			n += int64(sp.bytes)
+		}
+	}
+	return n
+}
 
 // AccountNames are the readable names of the scenario's accounts that have
 // one (SUPPLIERS in example-global), as the store reads them from its
