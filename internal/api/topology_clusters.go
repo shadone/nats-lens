@@ -84,6 +84,7 @@ func topologyClusters(f *TopologyFacts, servers []TopologyServerFact, leafs []*v
 			ts.MemBytes, ts.JsMemoryBytes, ts.JsMaxMemoryBytes = s.Mem, s.JSMemory, s.JSMaxMemory
 			if x := memoryFinding(s, firing); x != nil {
 				ts.MemoryFindingId, ts.MemoryFindingCode, ts.MemoryFindingSeverity, ts.MemoryFindingQuiet = x.GetId(), x.GetCheckCode(), x.GetSeverity(), quiet(x)
+				ts.MemoryFindingAccepted = x.GetMute().GetAccepted()
 			}
 		}
 		c.Servers = append(c.Servers, ts)

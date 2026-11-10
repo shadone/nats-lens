@@ -55,6 +55,9 @@ message TopologyServer {
 
   // Whether that finding is muted or accepted.
   bool memory_finding_quiet = 11;
+
+  // Whether the mute of that finding is an acceptance as by design.
+  bool memory_finding_accepted = 12;
 }
 
 // One cluster of a system: its servers and what sits on it.
@@ -316,6 +319,9 @@ message TopologyReplication {
 
   // Whether that finding is muted or accepted.
   bool finding_quiet = 22;
+
+  // Whether the mute of that finding is an acceptance as by design.
+  bool finding_accepted = 23;
 }
 
 // Servers whose reply to one monitoring request is missing or in error in

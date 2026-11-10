@@ -181,9 +181,13 @@ export function jsMemoryShare(s: TopologyServer): { short?: string; text: string
 
 /** A server chip's memory figure, its JetStream memory store, and the finding that puts it in the warning colour, if any. */
 export function serverMemory(s: TopologyServer): { text?: string; js?: { short?: string; text: string }; warn?: string } {
-  if (s.memBytes === undefined) return {};
   const warn = s.memoryFindingId && !s.memoryFindingQuiet ? `${s.memoryFindingCode} fires` : undefined;
-  return { text: fmtBytes(s.memBytes), js: jsMemoryShare(s), warn };
+  return { text: s.memBytes === undefined ? undefined : fmtBytes(s.memBytes), js: jsMemoryShare(s), warn };
+}
+
+/** " (accepted)" or " (muted)" for a quiet finding; empty otherwise. */
+export function quietLabel(quiet: boolean, accepted: boolean): string {
+  return quiet ? (accepted ? " (accepted)" : " (muted)") : "";
 }
 
 /** Whether a mirror or source between clusters is drawn in the warning colour: a finding about it fires and is not muted. */

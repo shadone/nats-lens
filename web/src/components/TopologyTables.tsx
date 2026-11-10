@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import type { TopologyCluster, TopologyLeafnode, TopologyReplication, TopologyRoute } from "../api/topology";
 import { fmtBytes, fmtInt, fmtShortDuration, shortWhen } from "../lib/format";
-import { clusterLabel, lastHeard, replicationWarns } from "../lib/topologyView";
+import { clusterLabel, lastHeard, quietLabel, replicationWarns } from "../lib/topologyView";
 import { findingPath, serverPath, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { Num, RLink } from "./common";
@@ -266,7 +266,8 @@ export function ReplicationTable({ rows }: { rows: TopologyReplication[] }) {
           <tbody>
             {rows.map((r) => {
               const heard = lastHeard(r);
-              const unreported = r.leader === "" ? "leader not reported" : "not reported";
+              // No leader's report at all, or one without this copy's figures.
+              const unreported = r.leader === "" ? "leader not reported" : "not in the leader's report";
               const warns = replicationWarns(r);
               return (
                 <tr key={`${r.account}|${r.stream}|${r.kind}|${r.originStream}|${r.sourceId}`} className={warns ? "warn" : undefined}>
@@ -282,9 +283,10 @@ export function ReplicationTable({ rows }: { rows: TopologyReplication[] }) {
                     {r.findingId && (
                       <small>
                         <RLink to={findingPath(r.findingId)}>{r.findingCode}</RLink>
-                        {r.findingQuiet ? " (muted)" : ""}: {r.findingDetail}
+                        {quietLabel(r.findingQuiet, r.findingAccepted)}: {r.findingDetail}
                       </small>
                     )}
+                    {!r.findingId && r.error && <small>error reported by the leader: {r.error}</small>}
                   </th>
                   <td>{r.kind === "mirror" ? "Mirror" : "Source"}</td>
                   <td className="mono">{r.lag === undefined ? <Unset why={unreported} /> : fmtInt(r.lag)}</td>

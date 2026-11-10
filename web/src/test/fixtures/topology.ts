@@ -10,7 +10,7 @@ export function cluster(name: string, servers: string[], o: Partial<TopologyClus
   return {
     name,
     place: "",
-    servers: servers.map((s) => ({ name: s, missing: missing.includes(s), metaLeader: false, memoryFindingId: "", memoryFindingCode: "", memoryFindingQuiet: false })),
+    servers: servers.map((s) => ({ name: s, missing: missing.includes(s), metaLeader: false, memoryFindingId: "", memoryFindingCode: "", memoryFindingQuiet: false, memoryFindingAccepted: false })),
     metaLeader: false,
     ...rest,
   };
@@ -45,6 +45,7 @@ export function copy(stream: string, cluster: string, origin: string, originClus
     findingCode: "",
     findingDetail: "",
     findingQuiet: false,
+    findingAccepted: false,
     ...o,
   };
 }

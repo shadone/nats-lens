@@ -24,6 +24,10 @@ function followups(): TopologyData {
   eu.servers[2] = { ...eu.servers[2], jsMemoryBytes: 80 * MIB };
   eu.servers[3] = { ...eu.servers[3], memBytes: 900 * MIB, memoryFindingId: "server-008:nats-eu-3", memoryFindingCode: "server-008" };
   eu.servers[1] = { ...eu.servers[1], memoryFindingId: "server-007:nats-eu-1", memoryFindingCode: "server-007", memoryFindingQuiet: true };
+  // server-007 fires on nats-us-0, whose process memory was not reported.
+  const us = t.clusters[2];
+  us.servers[0] = { ...us.servers[0], jsMemoryBytes: 1600 * MIB, jsMaxMemoryBytes: 2048 * MIB, memoryFindingId: "server-007:nats-us-0", memoryFindingCode: "server-007" };
+  us.servers[1] = { ...us.servers[1], memoryFindingId: "server-008:nats-us-1", memoryFindingCode: "server-008", memoryFindingQuiet: true, memoryFindingAccepted: true };
   t.replication = [
     copy("search-index", "ap", "catalog-changes", "us", {
       kind: "source",
@@ -36,6 +40,19 @@ function followups(): TopologyData {
     }),
     copy("search-index", "ap", "catalog-changes", "us", { kind: "source", sourceId: "b2", filterSubject: "catalog.eu.>" }),
     copy("order-archive", "ap", "order-events", "eu", { leader: "", lag: undefined, lastActiveMs: undefined }),
+    copy("price-index", "ap", "price-changes", "us", {
+      kind: "source",
+      sourceId: "c3",
+      lag: undefined,
+      lastActiveMs: undefined,
+      error: "stream not found",
+      findingId: "stream-022:APP/price-index",
+      findingCode: "stream-022",
+      findingDetail: "Leader nats-ap-0: price-changes: never heard from its origin.",
+      findingQuiet: true,
+      findingAccepted: true,
+    }),
+    copy("stock-index", "ap", "stock", "us", { kind: "source", sourceId: "d4", error: "consumer deleted" }),
   ];
   return t;
 }
@@ -99,10 +116,14 @@ describe("Topology follow-ups", () => {
     expect(finding).toHaveClass("tp-warn");
     // A muted finding is linked, not in the warning colour.
     expect(map.getByRole("link", { name: /^nats-eu-1, memory 110 MiB/ })).not.toHaveClass("warn");
-    const quietLink = map.getByRole("link", { name: /^server-007/ });
+    const quietLink = map.getAllByRole("link", { name: /^server-007/ }).find((l) => l.getAttribute("href")?.includes("nats-eu-1"))!;
     expect(quietLink).toHaveTextContent("server-007 (muted)");
     expect(quietLink).not.toHaveClass("tp-warn");
     expect(map.getByRole("link", { name: "nats-ap-0" })).toBeInTheDocument();
+    // A finding without a memory reading still puts the chip in the warning colour.
+    expect(map.getByRole("link", { name: /^nats-us-0, JetStream memory [0-9.]+ GiB of 2 GiB, server-007 fires$/ })).toHaveClass("warn");
+    // An acceptance says so.
+    expect(map.getAllByRole("link", { name: /^server-008/ }).map((l) => l.textContent)).toContain("server-008 (accepted)");
     expect(screen.getByRole("link", { name: "Capacity" })).toHaveAttribute("href", "/capacity");
   });
 
@@ -115,7 +136,7 @@ describe("Topology follow-ups", () => {
     expect(errors.mock.calls.filter((c) => String(c[0]).includes("same key"))).toEqual([]);
     errors.mockRestore();
     const rows = within(table).getAllByRole("row").slice(1);
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(5);
     expect(rows[0]).toHaveClass("warn");
     expect(within(rows[0]).getByRole("rowheader")).toHaveTextContent(
       "catalog-changes on us → search-index on apstream-022: Leader nats-ap-0: catalog-changes: not heard from its origin for 3m.",
@@ -126,8 +147,19 @@ describe("Topology follow-ups", () => {
     expect(rows[1]).not.toHaveClass("warn");
     expect(within(rows[1]).getByRole("rowheader")).toHaveTextContent("filter catalog.eu.>");
     // Without the leader's report.
-    expect(within(rows[2]).getAllByRole("cell")[1]).toHaveTextContent(/^– leader not reported$/);
-    expect(within(rows[2]).getByRole("link", { name: "order-events" })).toHaveAttribute("href", "/streams/APP/order-events");
+    const archive = rows.find((r) => r.textContent?.includes("order-archive"))!;
+    expect(within(archive).getAllByRole("cell")[1]).toHaveTextContent(/^– leader not reported$/);
+    expect(within(archive).getByRole("link", { name: "order-events" })).toHaveAttribute("href", "/streams/APP/order-events");
+    // An accepted finding says so and is not in the warning colour; the leader's report lacks the figures.
+    const accepted = rows.find((r) => r.textContent?.includes("price-index"))!;
+    expect(accepted).not.toHaveClass("warn");
+    expect(within(accepted).getByRole("rowheader")).toHaveTextContent("stream-022 (accepted): Leader nats-ap-0");
+    expect(within(accepted).getByRole("rowheader")).not.toHaveTextContent("error reported");
+    expect(within(accepted).getAllByRole("cell")[1]).toHaveTextContent(/^– not in the leader's report$/);
+    // An error the leader reports, with no finding yet: plain text, not the warning colour.
+    const erring = rows.find((r) => r.textContent?.includes("stock-index"))!;
+    expect(erring).not.toHaveClass("warn");
+    expect(within(erring).getByRole("rowheader")).toHaveTextContent("error reported by the leader: consumer deleted");
     const ap = (await region(/Map of clusters/)).getByRole("button", { name: "ap, show its routes" }).closest(".tm-box")!;
     expect(ap.querySelector(".tm-note")).toHaveTextContent("4 streams led · gateway to us dropping · mirrors from eu · sources from us");
   });
@@ -149,10 +181,12 @@ describe("topology view rules", () => {
   });
 
   it("gives the JetStream share at least 1% when the store holds anything, and nothing without a reading", () => {
-    const s = { name: "n", missing: false, metaLeader: false, memBytes: 100 * MIB, jsMemoryBytes: 1 * MIB, jsMaxMemoryBytes: 2048 * MIB, memoryFindingId: "", memoryFindingCode: "", memoryFindingQuiet: false };
+    const s = { name: "n", missing: false, metaLeader: false, memBytes: 100 * MIB, jsMemoryBytes: 1 * MIB, jsMaxMemoryBytes: 2048 * MIB, memoryFindingId: "", memoryFindingCode: "", memoryFindingQuiet: false, memoryFindingAccepted: false };
     expect(serverMemory(s)).toEqual({ text: "100 MiB", js: { short: "JS 1%", text: "JetStream memory 1 MiB of 2 GiB" }, warn: undefined });
     expect(serverMemory({ ...s, jsMemoryBytes: 0 }).js).toEqual({ text: "JetStream memory 0 B of 2 GiB" });
-    expect(serverMemory({ ...s, memBytes: undefined })).toEqual({});
+    expect(serverMemory({ ...s, memBytes: undefined, jsMemoryBytes: undefined })).toEqual({ text: undefined, js: undefined, warn: undefined });
+    // A finding warns though the process memory was not reported.
+    expect(serverMemory({ ...s, memBytes: undefined, memoryFindingId: "server-007:n", memoryFindingCode: "server-007" }).warn).toBe("server-007 fires");
   });
 
   it("sums a cluster's route drops in the last hour and leaves out what was not observed", () => {

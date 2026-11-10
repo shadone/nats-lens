@@ -198,6 +198,11 @@ func TestTopologyMemoryFindingUnmutedFirst(t *testing.T) {
 	if id, q := of(); id != "server-008:e0" || !q {
 		t.Errorf("both muted: %s quiet %v, want server-008:e0 quiet", id, q)
 	}
+	// An acceptance is told from a plain mute.
+	f.Findings[0].Mute.Accepted = true
+	if s := api.FinishTopology(f).GetClusters()[0].GetServers()[0]; !s.GetMemoryFindingAccepted() {
+		t.Errorf("accepted server-008: %v", s)
+	}
 }
 
 // Only copies between two clusters are listed; a mirror carries

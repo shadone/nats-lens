@@ -60,6 +60,7 @@ func topologyReplication(facts []TopologyReplicationFact, firing map[string][]*v
 		}
 		if x := copyFinding(f, firing); x != nil {
 			r.FindingId, r.FindingCode, r.FindingSeverity, r.FindingDetail, r.FindingQuiet = x.GetId(), x.GetCheckCode(), x.GetSeverity(), x.GetDetail(), quiet(x)
+			r.FindingAccepted = x.GetMute().GetAccepted()
 		}
 		out = append(out, r)
 	}

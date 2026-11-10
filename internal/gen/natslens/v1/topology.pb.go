@@ -106,8 +106,10 @@ type TopologyServer struct {
 	MemoryFindingSeverity Severity `protobuf:"varint,10,opt,name=memory_finding_severity,json=memoryFindingSeverity,proto3,enum=natslens.v1.Severity" json:"memory_finding_severity,omitempty"`
 	// Whether that finding is muted or accepted.
 	MemoryFindingQuiet bool `protobuf:"varint,11,opt,name=memory_finding_quiet,json=memoryFindingQuiet,proto3" json:"memory_finding_quiet,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Whether the mute of that finding is an acceptance as by design.
+	MemoryFindingAccepted bool `protobuf:"varint,12,opt,name=memory_finding_accepted,json=memoryFindingAccepted,proto3" json:"memory_finding_accepted,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *TopologyServer) Reset() {
@@ -206,6 +208,13 @@ func (x *TopologyServer) GetMemoryFindingSeverity() Severity {
 func (x *TopologyServer) GetMemoryFindingQuiet() bool {
 	if x != nil {
 		return x.MemoryFindingQuiet
+	}
+	return false
+}
+
+func (x *TopologyServer) GetMemoryFindingAccepted() bool {
+	if x != nil {
+		return x.MemoryFindingAccepted
 	}
 	return false
 }
@@ -847,9 +856,11 @@ type TopologyReplication struct {
 	FindingSeverity Severity `protobuf:"varint,20,opt,name=finding_severity,json=findingSeverity,proto3,enum=natslens.v1.Severity" json:"finding_severity,omitempty"`
 	FindingDetail   string   `protobuf:"bytes,21,opt,name=finding_detail,json=findingDetail,proto3" json:"finding_detail,omitempty"`
 	// Whether that finding is muted or accepted.
-	FindingQuiet  bool `protobuf:"varint,22,opt,name=finding_quiet,json=findingQuiet,proto3" json:"finding_quiet,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	FindingQuiet bool `protobuf:"varint,22,opt,name=finding_quiet,json=findingQuiet,proto3" json:"finding_quiet,omitempty"`
+	// Whether the mute of that finding is an acceptance as by design.
+	FindingAccepted bool `protobuf:"varint,23,opt,name=finding_accepted,json=findingAccepted,proto3" json:"finding_accepted,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *TopologyReplication) Reset() {
@@ -1018,6 +1029,13 @@ func (x *TopologyReplication) GetFindingDetail() string {
 func (x *TopologyReplication) GetFindingQuiet() bool {
 	if x != nil {
 		return x.FindingQuiet
+	}
+	return false
+}
+
+func (x *TopologyReplication) GetFindingAccepted() bool {
+	if x != nil {
+		return x.FindingAccepted
 	}
 	return false
 }
@@ -1233,7 +1251,7 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"\x1anatslens/v1/topology.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"Z\n" +
 	"\x12GetTopologyRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
-	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\x89\x04\n" +
+	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xc1\x04\n" +
 	"\x0eTopologyServer\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\amissing\x18\x02 \x01(\bR\amissing\x12\x1f\n" +
@@ -1246,7 +1264,8 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"\x13memory_finding_code\x18\t \x01(\tR\x11memoryFindingCode\x12M\n" +
 	"\x17memory_finding_severity\x18\n" +
 	" \x01(\x0e2\x15.natslens.v1.SeverityR\x15memoryFindingSeverity\x120\n" +
-	"\x14memory_finding_quiet\x18\v \x01(\bR\x12memoryFindingQuietB\f\n" +
+	"\x14memory_finding_quiet\x18\v \x01(\bR\x12memoryFindingQuiet\x126\n" +
+	"\x17memory_finding_accepted\x18\f \x01(\bR\x15memoryFindingAcceptedB\f\n" +
 	"\n" +
 	"_mem_bytesB\x12\n" +
 	"\x10_js_memory_bytesB\x16\n" +
@@ -1322,7 +1341,7 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"\x12connection_unknown\x18\r \x01(\bR\x11connectionUnknownB\x10\n" +
 	"\x0e_subscriptionsB\f\n" +
 	"\n" +
-	"_drops_24h\"\xfd\x05\n" +
+	"_drops_24h\"\xa8\x06\n" +
 	"\x13TopologyReplication\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
 	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12\x16\n" +
@@ -1348,7 +1367,8 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"\ffinding_code\x18\x13 \x01(\tR\vfindingCode\x12@\n" +
 	"\x10finding_severity\x18\x14 \x01(\x0e2\x15.natslens.v1.SeverityR\x0ffindingSeverity\x12%\n" +
 	"\x0efinding_detail\x18\x15 \x01(\tR\rfindingDetail\x12#\n" +
-	"\rfinding_quiet\x18\x16 \x01(\bR\ffindingQuietB\x06\n" +
+	"\rfinding_quiet\x18\x16 \x01(\bR\ffindingQuiet\x12)\n" +
+	"\x10finding_accepted\x18\x17 \x01(\bR\x0ffindingAcceptedB\x06\n" +
 	"\x04_lagB\r\n" +
 	"\v_lag_beforeJ\x04\b\x0e\x10\x0fJ\x04\b\x0f\x10\x10R\n" +
 	"not_activeR\x0efalling_behind\"J\n" +

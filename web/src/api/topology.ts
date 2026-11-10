@@ -24,6 +24,8 @@ export interface TopologyServer {
   memoryFindingCode: string;
   /** Muted or accepted. */
   memoryFindingQuiet: boolean;
+  /** The mute is an acceptance as by design. */
+  memoryFindingAccepted: boolean;
 }
 
 export interface TopologyCluster {
@@ -92,6 +94,8 @@ export interface TopologyReplication {
   findingDetail: string;
   /** Muted or accepted. */
   findingQuiet: boolean;
+  /** The mute is an acceptance as by design. */
+  findingAccepted: boolean;
 }
 
 export interface TopologyLeafnode {
@@ -151,6 +155,7 @@ export function topology(r: GetTopologyResponse): Topology {
         memoryFindingId: s.memoryFindingId,
         memoryFindingCode: s.memoryFindingCode,
         memoryFindingQuiet: s.memoryFindingQuiet,
+        memoryFindingAccepted: s.memoryFindingAccepted,
       })),
       metaLeader: c.metaLeader,
       streamsLed: c.streamsLed,
@@ -223,6 +228,7 @@ export function topology(r: GetTopologyResponse): Topology {
       findingCode: x.findingCode,
       findingDetail: x.findingDetail,
       findingQuiet: x.findingQuiet,
+      findingAccepted: x.findingAccepted,
     })),
   };
 }

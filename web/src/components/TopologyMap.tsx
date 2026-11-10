@@ -19,6 +19,7 @@ import {
   labelTokens,
   leafBox,
   neighbours,
+  quietLabel,
   routeLineParts,
   rowFractions,
   rowLayout,
@@ -241,7 +242,7 @@ function ClusterBox(p: { c: TopologyCluster; t: Topology; dropping: Set<string>;
               {s.memoryFindingId && (
                 <RLink to={findingPath(s.memoryFindingId)} className={`tm-finding mono${s.memoryFindingQuiet ? "" : " tp-warn"}`}>
                   {s.memoryFindingCode}
-                  {s.memoryFindingQuiet && <span className="sr-only">{" (muted)"}</span>}
+                  {s.memoryFindingQuiet && <span className="sr-only">{quietLabel(true, s.memoryFindingAccepted)}</span>}
                 </RLink>
               )}
             </li>
