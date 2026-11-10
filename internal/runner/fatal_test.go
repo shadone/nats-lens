@@ -26,11 +26,14 @@ func TestRunStopsOnWrappedFatalSweep(t *testing.T) {
 		calls++
 		return fmt.Errorf("outer secret: %w", &duckdb.Error{Type: duckdb.ErrorTypeFatal, Msg: "sensitive\nChunk: " + strings.Repeat("private-row", 20000)})
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	// The deadline only bounds a runner that misses the fatal. It must leave
+	// the first retention sweep time to finish on a loaded machine: a sweep
+	// cut short by the deadline is not a fatal, and Run then returns nil.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	err = r.Run(ctx)
 	if !store.IsFatal(err) {
-		t.Fatalf("Run returned %T, want typed fatal", err)
+		t.Fatalf("Run returned %v, want typed fatal; sweep calls=%d", err, calls)
 	}
 	if ctx.Err() != nil {
 		t.Error("Run waited for cancellation after fatal")
