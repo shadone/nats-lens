@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Entity, Finding } from "../api/model";
 import type { AssetPlacement } from "../api/overview";
-import { acceptable, cliCheck, evidenceEntities, placementSummary, serverRows } from "./causeEvidence";
+import { acceptable, cliCheck, distinctEntities, evidenceEntities, heldCounts, placementSummary, serverRows } from "./causeEvidence";
 import { groupCauses } from "./causeGroups";
 
 const ent = (kind: Entity["kind"], key: string, over: Partial<Entity> = {}): Entity => {
@@ -73,6 +73,39 @@ describe("serverRows", () => {
     const { rows, unplaced } = serverRows([f("x", ent("stream", "APP/new"))], new Map());
     expect(rows).toEqual([]);
     expect(unplaced).toEqual([]);
+  });
+});
+
+describe("assets, not findings", () => {
+  it("counts one stream with two findings of one cause as one stream, with its worst state", () => {
+    const s = ent("stream", "APP/orders");
+    const fs = [f("a", s, { checkCode: "stream-002" }), f("b", s, { checkCode: "stream-010" })];
+    const p = new Map([[s.key, led("n1", ["n2", "in_sync"], ["n3", "offline"])]]);
+    const { rows } = serverRows(fs, p);
+    expect(rows.map((r) => [r.server, r.assets.length, r.troubled, r.assets[0].findings.length])).toEqual([
+      ["n3", 1, 1, 2],
+      ["n1", 1, 0, 2],
+      ["n2", 1, 0, 2],
+    ]);
+    expect(heldCounts(rows)).toEqual({ held: 1, replicated: 1 });
+    expect(placementSummary(rows, heldCounts(rows).replicated, "stream")).toBeUndefined();
+    expect(distinctEntities(fs).map((x) => x.id)).toEqual(["a"]);
+  });
+
+  it("names no leader that leads only 2 of 5, and says how many were placed when fewer than listed", () => {
+    const fs = ["a", "b", "c", "d", "e"].map((n) => f(n, consumer(n)));
+    const leaders = ["n1", "n1", "n2", "n3", "n4"];
+    const p = new Map(fs.map((x, i) => [x.entity!.key, led(leaders[i], ["n9", "in_sync"])]));
+    const { rows } = serverRows(fs, p);
+    // n9 holds all five while n1 holds two: that stands out, the lead of 2 of 5 does not.
+    expect(placementSummary(rows, 5, "consumers")).toBe("All 5 consumers have a replica on n9.");
+    // Followers spread as well: nothing stands out, as 2 of 5 is not more than half.
+    const spread = new Map(fs.map((x, i) => [x.entity!.key, led(leaders[i], [`f${i}`, "in_sync"])]));
+    expect(placementSummary(serverRows(fs, spread).rows, 5, "consumers")).toBeUndefined();
+    const three = new Map(fs.map((x, i) => [x.entity!.key, led(i < 3 ? "n1" : `n${i}`, [`f${i}`, "in_sync"])]));
+    expect(placementSummary(serverRows(fs, three).rows, 5, "consumers")).toBe("n1 leads 3 of 5 consumers.");
+    const placed = new Map(fs.slice(0, 3).map((x) => [x.entity!.key, led("n1", ["n2", "in_sync"])]));
+    expect(placementSummary(serverRows(fs, placed).rows, 3, "consumers", 5)).toBe("n1 leads 3 of the 3 placed consumers.");
   });
 });
 

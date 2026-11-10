@@ -6,7 +6,7 @@ import { atHistoryStart } from "../lib/historyView";
 // mute; and a strip of the muted findings with their reasons.
 import { createContext, useContext } from "react";
 import type { Entity, Finding } from "../api/model";
-import { acceptable, shownFindings } from "../lib/causeEvidence";
+import { acceptable, distinctEntities, shownFindings } from "../lib/causeEvidence";
 import { acrossAccounts, type CauseGroup } from "../lib/causeGroups";
 import { hms } from "../lib/format";
 import { streamLabel, accountLabeller, entityName, entityPath, eventPath, findingPath, streamPath } from "../lib/view";
@@ -56,8 +56,10 @@ function nounOf(fs: Finding[]): string {
  * every entity has it.
  */
 function whereLine(g: CauseGroup, label: (id: string, name?: string) => string) {
-  const n = g.findings.length;
-  const noun = nounOf(g.findings);
+  // Entities, not findings: one stream with two findings of one cause is one stream.
+  const entities = distinctEntities(g.findings);
+  const n = entities.length;
+  const noun = nounOf(entities);
   const first = g.findings[0].entity;
   if (g.parent?.kind === "stream" && first)
     return (
@@ -182,7 +184,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
   if (n === 1) return <SingleCard g={g} onMute={onMute} />;
   const names = [...new Set(g.findings.map((f) => f.checkName))];
   const shown = shownFindings(g);
-  const noun = nounOf(shown);
+  const noun = nounOf(distinctEntities(shown));
   return (
     <article className={`card cg ${g.severity}`} aria-label={`${names.join(", ")}: ${n} findings`}>
       <div className="cg-k">

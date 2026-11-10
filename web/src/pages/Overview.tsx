@@ -35,11 +35,12 @@ function Causes({ onMute }: { onMute: (f: Finding) => void }) {
   const q = useCurrentFindings(spec, account);
   const [accepting, setAccepting] = useState<AcceptTarget>();
   const { groups, muted } = groupCauses(q.data?.items ?? []);
-  const p = useAssetPlacement(spec, evidenceEntities(groups, ASSET_PLACEMENT_LIMIT));
+  const asked = evidenceEntities(groups, ASSET_PLACEMENT_LIMIT);
+  const p = useAssetPlacement(spec, asked);
   if (!q.data) return q.error ? <ErrorBox error={q.error} retry={() => q.refetch()} what="findings" /> : null;
   const cut = q.data.totalCount > q.data.items.length;
   const others = q.data.otherAccountCount ?? 0;
-  const card = { read: { data: p.data, loading: p.isPending, failed: p.isError }, system, scoped: account !== "", onAccept: (f: Finding) => setAccepting(acceptTarget(f)) };
+  const card = { read: { data: p.data, loading: p.isPending, failed: p.isError, asked: new Set(asked.map((e) => `${e.kind}:${e.key}`)) }, system, scoped: account !== "", onAccept: (f: Finding) => setAccepting(acceptTarget(f)) };
   return (
     <>
       <StaleBanner q={q} />

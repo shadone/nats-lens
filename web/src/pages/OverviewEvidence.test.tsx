@@ -99,6 +99,21 @@ describe("Overview cause evidence", () => {
     expect(dialog).not.toHaveTextContent("growth over a week");
   });
 
+  it("says when a card's assets were beyond the 200 one read asks for", async () => {
+    // 26 cards of 8 consumers each: 208 assets listed, 200 asked for.
+    const fs = Array.from({ length: 26 }, (_, c) => Array.from({ length: 8 }, (_, i) => finding(`f${c}-${i}`, consumerEnt(`w${c}-${i}`), { checkCode: `consumer-${100 + c}`, checkName: `Check ${c}` }))).flat();
+    mock(fs);
+    renderApp(<Overview />);
+    const last = await screen.findByRole("article", { name: "Check 25: 8 findings" });
+    await waitFor(() => expect(lens.listAssetPlacement).toHaveBeenCalled());
+    expect(vi.mocked(lens.listAssetPlacement).mock.calls[0][0].entities).toHaveLength(200);
+    fireEvent.click(within(last).getByText("Evidence"));
+    expect(await within(last).findByText("Not read: more than 200 assets.")).toBeInTheDocument();
+    const first = screen.getByRole("article", { name: "Check 0: 8 findings" });
+    fireEvent.click(within(first).getByText("Evidence"));
+    expect(within(first).queryByText("Not read: more than 200 assets.")).toBeNull();
+  });
+
   it("offers no acceptance for a fault, even one it would allow by severity", async () => {
     mock([finding("crit", consumerEnt("resize-worker"), { severity: "critical", checkCode: "consumer-001", checkName: "Consumer quorum lost" })]);
     renderApp(<Overview />);
