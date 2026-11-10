@@ -2,7 +2,7 @@
 
 - **Surfaces:** `ui`, `api`
 - **Status:** shipped
-- **Related:** [data-history.md](data-history.md), [navigation.md](navigation.md), [triage-and-mutes.md](triage-and-mutes.md), [checks.md](checks.md), [kubernetes-context.md](kubernetes-context.md), [events.md](events.md), [streams.md](streams.md), [consumers.md](consumers.md), [design.md](../design.md)
+- **Related:** [data-history.md](data-history.md), [navigation.md](navigation.md), [placement.md](placement.md), [triage-and-mutes.md](triage-and-mutes.md), [checks.md](checks.md), [kubernetes-context.md](kubernetes-context.md), [events.md](events.md), [streams.md](streams.md), [consumers.md](consumers.md), [design.md](../design.md)
 
 ## What it does
 
@@ -43,7 +43,10 @@ The worst-streams table requests one bounded page; its count and totals cover al
 - **A tile's colour is a finding.** A tile takes the status of the worst firing finding of the checks behind it, or muted when that finding is muted: Servers `server-001` to `server-006` and `system-001` to `system-006` (`system-007` to `system-009` judge nats-lens itself and colour no tile); Meta leader `system-002` and `system-003`; Streams, KV Stores and Object Stores the stream checks of their own kind of stream; Consumers every consumer check; Clients the client checks, `server-009`, `server-010`, `server-011` and `server-015`; Storage `server-007`, `server-014`, `stream-004` and `stream-006`. Accounts has no checks behind it: the API reports no data as its status, and a tile with a value and no check reads as OK in the UI. A warning or critical tile colours its value and dot and shows the word beside the value; an info tile only tints its dot, with no word and no coloured value, since info is a notice that never changes an OK label.
 - **No zeros for unknowns.** A value that was not observed is a dash with no dot, never zero; with a chart but no current value the tile says "no current value". A tile's line leaves out a count it cannot know: the stream, KV and object store lines appear only with their count.
 - **Applications are names.** The Clients tile counts the distinct connection names up to an `@`, so `catalog-api@pod-7f` and `catalog-api@pod-2c` are one application; nats-lens's own connections are left out, as the client checks leave them out. Connections without a name are not counted; the [Applications](applications.md) page lists them as `(unnamed)`.
-- **Cause cards.** The unmuted findings that fire are grouped into cards: findings that name the same cause event form one card; the others group by check and parent entity, where a consumer's parent is its stream, a stream's its account, and anything else's the system. So four `consumer-009` findings on consumers of `order-jobs` are one card "consumer-009 × 4", "4 consumers on stream order-jobs". A card names a stream or account only when every entity in it has that parent; a cause that reaches consumers of two streams reads "2 consumers on 2 streams". Cards are ordered by their worst severity, then among warnings a card with a finding that is not an expiry before a card of expiry warnings only (`account-003`, `account-004`, `server-016`), then by size. A card with one finding is one compact row: severity, code and name, the detail, the entity and cause beside them, and "Open finding" and "Mute…" (named for the check and entity); a card with several lists each entity with its detail, Open and Mute… (at most 8, then "N more" to the Findings page). A cause names its event kind, time and summary, and links to the event. Text the API sends (check names, details, cause summaries) is shown as sent.
+- **Cause cards.** The unmuted findings that fire are grouped into cards: findings that name the same cause event form one card; the others group by check and parent entity, where a consumer's parent is its stream, a stream's its account, and anything else's the system. So four `consumer-009` findings on consumers of `order-jobs` are one card "consumer-009 × 4", "4 consumers on stream order-jobs". A card names a stream or account only when every entity in it has that parent; a cause that reaches consumers of two streams reads "2 consumers on 2 streams". Cards are ordered by their worst severity, then among warnings a card with a finding that is not an expiry before a card of expiry warnings only (`account-003`, `account-004`, `server-016`), then by size. A card with one finding is one compact row: severity, code and name, the detail, the entity and cause beside them, and "Open finding", "Mute…" and, where acceptance applies, "Accept as by design…" (named for the check and entity); a card with several lists each entity with its detail, Open, Mute… and Accept… (at most 8, then "N more" to the Findings page). A cause names its event kind, time and summary, and links to the event. Text the API sends (check names, details, cause summaries) is shown as sent.
+- **Cause evidence.** A card shows one line when a server stands out among the streams and consumers it lists: "nats-us-4 holds a replica of 2 of 2 streams, offline." when one server holds the replica that is behind, offline, missing, disagreeing or without a leader for two or more of them, else "nats-eu-3 leads 4 of 4 consumers." when one server leads two or more and more than half, else "All 3 consumers have a replica on nats-1." when one server holds every one while another holds fewer. "Evidence" opens a table of the servers with the listed assets each holds ("Server", "Affected" as "2 of 2", "Assets on it" with each replica's state: leader, behind, offline, missing, disagrees, no leader), most troubled first; a connection is on its server; a server's own findings list no table. Assets no server holds in the newest collection are named apart ("No server holds label-templates in the newest collection."), and a card with more than 8 says the table "Covers the 8 consumers listed above." Below, "Check it with the nats CLI" shows a command with "Copy nats CLI check" and the nats context it needs ("Run with a nats context for account APP on example-global.", or the system account for servers, clients and the system): `nats stream info --json -- <stream>` or `nats consumer info --json -- <stream> <consumer>` for one, `nats consumer report -- <stream>` for consumers of one stream, `nats stream report` for several streams, `nats server info -- <server>` or `nats server list`, `nats account info`, `nats server report connections` for clients and connections, `nats server report jetstream` for the system. A card whose entities are of several kinds or accounts has no command. Commands never name credentials. The placement comes from one `ListAssetPlacement` read for the entities every card lists, at most 200, placed as the [Placement](placement.md) page places them; while it loads the table says "Reading where the assets sit…", and "Where the assets sit could not be read." when it fails. Proposed, not yet confirmed.
+- **Accepting from a card.** A warning or info finding on one entity (not the system) offers acceptance as by design through the dialog the Capacity page uses ([triage-and-mutes.md](triage-and-mutes.md)): a reason and a review date. A critical finding does not offer it: it is an outage to fix, not a design to record. The dialog mentions the growth review only for a stream or a server, the entities nats-lens measures. Proposed, not yet confirmed.
+- **Findings by account.** The Overview offers the header's account scope ([navigation.md](navigation.md)). Scoped, the cause cards and the muted strip read that account's findings: of the account, its streams and its consumers, and the findings of no one account (servers, clients, connections and the system), which concern every account and carry "Across accounts" on their card. A line under the cards counts the rest ("9 findings of other accounts are not shown.") with "Show all accounts". The status line, the tiles, the trends and the timeline stay system-wide, and a note under "System summary" says "The summary, trends and timeline cover all accounts; the findings, busiest consumers and streams follow the account." The filter is the API's (`ListFindings` with `account`, which also returns `other_account_count`). Links to the Timeline's own pages leave the scope behind. Proposed, not yet confirmed.
 - **Muted findings.** Below the cards one strip lists the muted findings, grouped by reason: the reason in quotes, who muted, and a link to each finding.
 - **Trends.** Eight charts over the range on one time axis: Servers answering; Connections; Slow consumers as bars per bucket, with the total in the range; Messages and Bytes per second, in as a solid line and out dashed, with the current values as "in / out" ("1.45 / 4.59 MiB/s", or "in 900 B/s · out 2 MiB/s" when the units differ); CPU and Memory as a band from the lowest to the highest server, the median as a line and the busiest server (highest mean over the range) dashed and named; and Assets, streams and durable consumers stacked as replicated below and one replica above. Each chart starts at zero, except Memory, which spans its own minimum to maximum with a small margin so that its changes show; each breaks its line at a gap of more than two buckets (a lone point between gaps is a dot, a lone band point a short mark however narrow its band), and states its minimum and maximum (or "steady at N"); its legend draws each series' own stroke, dash or fill. A chart's accessible name carries its current value, the time it covers and its range.
 - **Timeline mark previews.** Hover or focus event ticks, finding boxes, per-check cells and zoom marks to read labels and full UTC times in a viewport popover. Activation opens a refresh-stable full-screen investigation with Close, Escape and focus return. Switching systems closes the selection. Finding boxes and per-check cells list retained occurrences for their fixed interval in explicit 50-row pages: repeated firings of the same finding remain separate. The Timeline transition boundary excludes later-published occurrences, including when the captured history was empty. “Open this occurrence” opens its exact retained identity and bounded transition history, separately from the latest finding. Retention never substitutes a newer recurrence. Current-only configuration, operator state and condition onset are unavailable in historical evidence. See [triage](triage-and-mutes.md) and the [occurrence contract](../reference/finding-occurrences.md). Recorded event IDs retain event links; inferred windows retain their available explanation. Overlapping-event contributor retrieval, complete-window evidence and bounded captured-group sharing are described below; whole-Timeline acceptance is tracked separately. The bounded occurrence policy is proposed, not yet confirmed.
@@ -102,8 +105,39 @@ The worst-streams table requests one bounded page; its count and totals cover al
 
 - **Given** `consumer-009` fires as info for four consumers of `order-jobs`
 - **When** I open the Overview
-- **Then** one card reads "consumer-009 × 4" and "4 consumers on stream order-jobs", listing each consumer with Open and Mute…
+- **Then** one card reads "consumer-009 × 4" and "4 consumers on stream order-jobs", listing each consumer with Open, Mute… and Accept…
 - **And** the status line still reads "Serving normally", with "4 INFO"
+
+### See where the affected streams sit
+
+- **Surfaces:** `ui`
+- **Given** `natslens demo -fixed` serves example-global, where `stream-002` fires for `price-changes` and `shipping-updates` because nats-us-4 is down
+- **When** I open its Overview and open "Evidence" on the card "stream-002 × 2"
+- **Then** the card reads "nats-us-4 holds a replica of 2 of 2 streams, offline."
+- **And** the table's first row is nats-us-4 with "2 of 2" and both streams offline, and "Copy nats CLI check" copies `nats stream report`, to run with a nats context for account APP
+
+### Accept a finding from its card
+
+- **Surfaces:** `ui`
+- **Given** a warning finding on one consumer fires
+- **When** I press "Accept…" on its row and give a reason and a review date
+- **Then** the finding is accepted as by design and moves to the muted findings strip
+- **And** a critical finding's row offers no "Accept…"
+
+### Look at one account's findings
+
+- **Surfaces:** `ui`
+- **Given** example-global, where SUPPLIERS' account JWT expires soon and APP's streams have findings
+- **When** I choose "Account: SUPPLIERS" in the Overview's header
+- **Then** the cards show `account-003` for SUPPLIERS and the server findings marked "Across accounts", and no APP stream finding
+- **And** a line reads "9 findings of other accounts are not shown." with "Show all accounts", while the status line and tiles still count every account
+
+### Read one account's findings from the API
+
+- **Surfaces:** `api`
+- **Given** `natslens demo` serves its API on 127.0.0.1:8080
+- **When** I post `{"system": "example-global", "account": "APP"}` to `/api/natslens.v1.LensService/ListFindings`
+- **Then** I receive APP's findings and those of servers, clients and the system, and `otherAccountCount` counts the findings of SUPPLIERS left out
 
 ### Read a node upgrade off the timeline
 
@@ -188,10 +222,8 @@ The worst-streams table requests one bounded page; its count and totals cover al
 
 ## Planned
 
-- **Cause evidence.** A table of the affected assets per server in a cause card, "Copy nats CLI check" and "Accept as known…" ([checks.md](checks.md)).
 - **One hover across charts.** Hovering a point marks the same moment in every chart and in the lanes. Dragging over the lanes zooms in, and a click on a mark tells its story.
 - **More lanes.** Servers (restarts, lame duck), leaders (meta, streams, consumers) and clients (connects, drops) as lanes of their own.
-- **Findings by account.** The cause cards follow the account scope.
 
 ### Read an Overview with short history
 
