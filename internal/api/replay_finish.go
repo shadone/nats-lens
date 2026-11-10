@@ -54,6 +54,8 @@ type replayBuilder struct {
 	hasStep map[string]bool
 	// byFinding are the transitions of each finding in time order.
 	byFinding map[string][]ReplayTransition
+	// catchUp is each server's catch-up, for its restart step.
+	catchUp map[string]catchUpSummary
 }
 
 // FinishReplay words, folds, orders, caps and counts the facts a provider
@@ -69,6 +71,7 @@ func FinishReplay(f *ReplayFacts) *v1.GetReplayResponse {
 	slices.SortStableFunc(f.Events, func(x, y *v1.Event) int {
 		return cmp.Or(x.GetTime().AsTime().Compare(y.GetTime().AsTime()), cmp.Compare(x.GetId(), y.GetId()))
 	})
+	b.catchUp = b.catchUps()
 	b.restarts()
 	b.stops()
 	gone := b.gone()
@@ -84,7 +87,7 @@ func FinishReplay(f *ReplayFacts) *v1.GetReplayResponse {
 		Windows: f.Windows, KubernetesWatched: f.Kubernetes, HistoryStart: tsOrNil(f.HistoryStart),
 	}
 	res.Steps, res.StepsOmitted = b.finish()
-	res.StepsTruncated = res.StepsOmitted > 0 || f.EventsTruncated || f.TransitionsTruncated
+	res.StepsTruncated = res.StepsOmitted > 0 || f.EventsTruncated || f.TransitionsTruncated || f.CatchUpsTruncated
 	res.CompleteUntil = tsOrNil(b.completeUntil())
 	res.Gone, res.GoneTruncated = gone, len(gone) > maxGoneAssets
 	if res.GoneTruncated {
@@ -241,7 +244,7 @@ func (b *replayBuilder) restarts() {
 			from = ann.GetTime().AsTime()
 		}
 		d.body = joinSentences(announcementText(ann, b.capturedOver(r.LastSeen.Add(-b.f.RestartWindow), started)), assetsAfterText(r),
-			b.leadersTaken(r.Server, r.LedBefore, from, b.upToB(r.FirstSeen.Add(b.f.Interval)), d))
+			b.leadersTaken(r.Server, r.LedBefore, from, b.upToB(r.FirstSeen.Add(b.f.Interval)), d), b.catchUpRestartText(r))
 		for _, id := range b.findingIDs() {
 			for _, t := range b.byFinding[id] {
 				if t.Check == restartCheck && t.Entity.GetKey() == r.Server && !t.Time.Before(r.LastSeen) && !t.Time.After(b.upToB(r.FirstSeen.Add(b.f.Interval))) {

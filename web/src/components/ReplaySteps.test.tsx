@@ -265,3 +265,23 @@ it("renders client-library comparisons with observation links and association li
     expect(href).toContain("app=checkout&account=APP&system=example-prod");
   }
 });
+
+it("renders a catch-up step with its Placement and stream evidence", () => {
+  const stream = { kind: "stream" as const, key: "APP/inventory-changes", name: "inventory-changes", account: "APP", stream: "inventory-changes", consumer: "", server: "" };
+  const step = rstep("catch_up:collection:12", "09:14:00", {
+    kind: "catch_up",
+    end: Date.parse("2026-10-17T09:21:00Z"),
+    title: "nats-us-2 catches up 2 streams and 4 consumers",
+    body: "Replicas of inventory-changes, price-changes, stock-projector on inventory-changes and 3 more. Current again by 09:21:00.",
+    evidence: [
+      { kind: "collection", id: "12", time: A, label: "collection of 09:14:00 in Placement" },
+      { kind: "collection", id: "26", time: Date.parse("2026-10-17T09:21:00Z"), label: "collection of 09:21:00 for inventory-changes", entity: stream },
+    ],
+    evidenceCount: 2,
+  });
+  const { container } = renderApp(<ReplaySteps steps={[step]} moments={M} notes={[]} />);
+  expect(container.querySelector('[data-step="catch_up:collection:12"]')).toHaveTextContent("09:14:00–09:21:00");
+  expect(screen.getByText("Catching up", { exact: false })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Collection of 09:14:00 in Placement" }).getAttribute("href")).toMatch(/^\/placement\?/);
+  expect(screen.getByRole("link", { name: "Collection of 09:21:00 for inventory-changes" }).getAttribute("href")).toMatch(/^\/streams\//);
+});

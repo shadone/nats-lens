@@ -143,6 +143,40 @@ type ReplayFacts struct {
 	// Nodes counts the Kubernetes node changes between A and B; read only
 	// with Kubernetes.
 	Nodes ReplayNodes
+	// CatchUps are the runs of a replica behind its leader in the
+	// collections from A's (from A when none) to B's, the earliest first;
+	// CatchUpsTruncated says that the provider's read limit cut them.
+	CatchUps          []ReplayCatchUp
+	CatchUpsTruncated bool
+}
+
+// ReplayCatchUp is one run of collections in which a stream's or
+// consumer's leader reported the replica on a server behind, by
+// Placement's rule: listed by the leader, not offline, the replica's
+// server reporting the asset itself, and not current (or a lag with
+// current unknown). A collection in which the leader did not report the
+// replica so does not end a run; one in which it reported it current
+// does.
+type ReplayCatchUp struct {
+	// Server is the replica's server; Entity the stream or consumer,
+	// account_name set when known.
+	Server string
+	Entity *v1.EntityRef
+	// From and Last are the first and last collections of the run that
+	// reported the replica behind, Behind how many did.
+	From, Last           time.Time
+	FromEpoch, LastEpoch int64
+	Behind               int
+	// PeakLag is the largest lag the leader reported in the run, LastLag
+	// the one in Last; nil when it reported none.
+	PeakLag, LastLag *int64
+	// Next is the first collection after Last, up to B's; zero when none.
+	Next      time.Time
+	NextEpoch int64
+	// Current is the first collection after Last, up to B's, in which
+	// the leader reported the replica current; zero when none.
+	Current      time.Time
+	CurrentEpoch int64
 }
 
 // ReplayRestart is one process replaced by another.

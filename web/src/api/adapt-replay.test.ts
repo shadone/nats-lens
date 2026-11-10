@@ -55,3 +55,9 @@ it("keeps the observed client-library comparison kind", () => {
   const r = create(GetReplayResponseSchema, { steps: [{ id: "client:1", kind: ReplayStepKind.CLIENT_CHANGE }] });
   expect(replay(r, { system: "", a: 0, b: 1 }).steps[0].kind).toBe("client_change");
 });
+
+it("keeps the catch-up kind", () => {
+  const r = create(GetReplayResponseSchema, { steps: [{ id: "catch_up:1", kind: ReplayStepKind.CATCH_UP, openAtB: true }] });
+  const s = replay(r, { system: "", a: 0, b: 1 }).steps[0];
+  expect([s.kind, s.openAtB]).toEqual(["catch_up", true]);
+});

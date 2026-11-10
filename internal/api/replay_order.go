@@ -88,7 +88,7 @@ func uniqueEvidence(ev []*v1.ReplayEvidence) []*v1.ReplayEvidence {
 		if e == nil {
 			continue
 		}
-		k := e.GetKind().String() + "|" + e.GetId() + "|" + e.GetTime().AsTime().String()
+		k := e.GetKind().String() + "|" + e.GetId() + "|" + e.GetTime().AsTime().String() + "|" + e.GetEntity().GetType().String() + "|" + e.GetEntity().GetKey()
 		if seen[k] {
 			continue
 		}

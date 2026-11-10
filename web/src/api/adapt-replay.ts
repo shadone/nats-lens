@@ -12,7 +12,7 @@ import { EntityType } from "../gen/natslens/v1/common_pb";
 import { entity, entityOrEmpty, ms, optSeverity } from "./adapt-common";
 import type { Entity, SeverityLevel } from "./model";
 
-export type ReplayStepKind = "kubernetes" | "restart" | "leaders" | "quorum" | "gone" | "finding" | "resolved" | "gap" | "client_change" | "other";
+export type ReplayStepKind = "kubernetes" | "restart" | "leaders" | "quorum" | "gone" | "finding" | "resolved" | "gap" | "client_change" | "catch_up" | "other";
 
 export type ReplayEvidenceKind = "event" | "finding" | "collection" | "other";
 
@@ -72,6 +72,7 @@ const STEP_KIND: Record<PStepKind, ReplayStepKind> = {
   [PStepKind.RESOLVED]: "resolved",
   [PStepKind.GAP]: "gap",
   [PStepKind.CLIENT_CHANGE]: "client_change",
+  [PStepKind.CATCH_UP]: "catch_up",
 };
 
 const EVIDENCE_KIND: Record<PEvidenceKind, ReplayEvidenceKind> = {

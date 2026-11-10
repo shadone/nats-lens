@@ -49,21 +49,27 @@ const (
 	ReplayStepKind_REPLAY_STEP_KIND_GAP ReplayStepKind = 8
 	// Observed application client-library sets at A and B, not deployments.
 	ReplayStepKind_REPLAY_STEP_KIND_CLIENT_CHANGE ReplayStepKind = 9
+	// A server's stream and consumer replicas behind their leaders and catching
+	// up: one step per server, from the first collection in which a leader
+	// reported one of its replicas behind to the one in which the last was
+	// reported current again, or open at B.
+	ReplayStepKind_REPLAY_STEP_KIND_CATCH_UP ReplayStepKind = 10
 )
 
 // Enum value maps for ReplayStepKind.
 var (
 	ReplayStepKind_name = map[int32]string{
-		0: "REPLAY_STEP_KIND_UNSPECIFIED",
-		1: "REPLAY_STEP_KIND_KUBERNETES",
-		2: "REPLAY_STEP_KIND_RESTART",
-		3: "REPLAY_STEP_KIND_LEADERS",
-		4: "REPLAY_STEP_KIND_QUORUM",
-		5: "REPLAY_STEP_KIND_GONE",
-		6: "REPLAY_STEP_KIND_FINDING",
-		7: "REPLAY_STEP_KIND_RESOLVED",
-		8: "REPLAY_STEP_KIND_GAP",
-		9: "REPLAY_STEP_KIND_CLIENT_CHANGE",
+		0:  "REPLAY_STEP_KIND_UNSPECIFIED",
+		1:  "REPLAY_STEP_KIND_KUBERNETES",
+		2:  "REPLAY_STEP_KIND_RESTART",
+		3:  "REPLAY_STEP_KIND_LEADERS",
+		4:  "REPLAY_STEP_KIND_QUORUM",
+		5:  "REPLAY_STEP_KIND_GONE",
+		6:  "REPLAY_STEP_KIND_FINDING",
+		7:  "REPLAY_STEP_KIND_RESOLVED",
+		8:  "REPLAY_STEP_KIND_GAP",
+		9:  "REPLAY_STEP_KIND_CLIENT_CHANGE",
+		10: "REPLAY_STEP_KIND_CATCH_UP",
 	}
 	ReplayStepKind_value = map[string]int32{
 		"REPLAY_STEP_KIND_UNSPECIFIED":   0,
@@ -76,6 +82,7 @@ var (
 		"REPLAY_STEP_KIND_RESOLVED":      7,
 		"REPLAY_STEP_KIND_GAP":           8,
 		"REPLAY_STEP_KIND_CLIENT_CHANGE": 9,
+		"REPLAY_STEP_KIND_CATCH_UP":      10,
 	}
 )
 
@@ -1130,7 +1137,8 @@ type GetReplayResponse struct {
 	Steps []*ReplayStep `protobuf:"bytes,7,rep,name=steps,proto3" json:"steps,omitempty"`
 	// Whether steps may be missing: some were left out to keep at most 200
 	// in the range and 10 after it, or the provider's read limit cut the
-	// events or finding transitions it reads (see complete_until).
+	// events or finding transitions it reads (see complete_until), or the
+	// runs of replicas behind their leaders (complete_until does not tell).
 	StepsTruncated bool `protobuf:"varint,8,opt,name=steps_truncated,json=stepsTruncated,proto3" json:"steps_truncated,omitempty"`
 	// Number of steps left out.
 	StepsOmitted int32 `protobuf:"varint,9,opt,name=steps_omitted,json=stepsOmitted,proto3" json:"steps_omitted,omitempty"`
@@ -1417,7 +1425,7 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"\x0ecomplete_until\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\rcompleteUntil\x12=\n" +
 	"\n" +
 	"unobserved\x18\x11 \x03(\v2\x1d.natslens.v1.ReplayUnobservedR\n" +
-	"unobserved*\xc2\x02\n" +
+	"unobserved*\xe1\x02\n" +
 	"\x0eReplayStepKind\x12 \n" +
 	"\x1cREPLAY_STEP_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bREPLAY_STEP_KIND_KUBERNETES\x10\x01\x12\x1c\n" +
@@ -1428,7 +1436,9 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"\x18REPLAY_STEP_KIND_FINDING\x10\x06\x12\x1d\n" +
 	"\x19REPLAY_STEP_KIND_RESOLVED\x10\a\x12\x18\n" +
 	"\x14REPLAY_STEP_KIND_GAP\x10\b\x12\"\n" +
-	"\x1eREPLAY_STEP_KIND_CLIENT_CHANGE\x10\t*\xac\x01\n" +
+	"\x1eREPLAY_STEP_KIND_CLIENT_CHANGE\x10\t\x12\x1d\n" +
+	"\x19REPLAY_STEP_KIND_CATCH_UP\x10\n" +
+	"*\xac\x01\n" +
 	"\rReplayGapKind\x12\x1f\n" +
 	"\x1bREPLAY_GAP_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bREPLAY_GAP_KIND_COLLECTIONS\x10\x01\x12\x1d\n" +

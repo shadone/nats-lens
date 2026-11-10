@@ -18,6 +18,7 @@ export const KIND_LABEL: Record<ReplayStepKind, string> = {
   resolved: "Resolved",
   gap: "Gap",
   client_change: "Client-library comparison",
+  catch_up: "Catching up",
   other: "Step",
 };
 

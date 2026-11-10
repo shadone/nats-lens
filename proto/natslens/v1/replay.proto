@@ -46,6 +46,11 @@ enum ReplayStepKind {
   REPLAY_STEP_KIND_GAP = 8;
   // Observed application client-library sets at A and B, not deployments.
   REPLAY_STEP_KIND_CLIENT_CHANGE = 9;
+  // A server's stream and consumer replicas behind their leaders and catching
+  // up: one step per server, from the first collection in which a leader
+  // reported one of its replicas behind to the one in which the last was
+  // reported current again, or open at B.
+  REPLAY_STEP_KIND_CATCH_UP = 10;
 }
 
 // Kind of a gap step: what was not running, and so which counts it
@@ -350,7 +355,8 @@ message GetReplayResponse {
 
   // Whether steps may be missing: some were left out to keep at most 200
   // in the range and 10 after it, or the provider's read limit cut the
-  // events or finding transitions it reads (see complete_until).
+  // events or finding transitions it reads (see complete_until), or the
+  // runs of replicas behind their leaders (complete_until does not tell).
   bool steps_truncated = 8;
 
   // Number of steps left out.

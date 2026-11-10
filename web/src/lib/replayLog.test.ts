@@ -91,3 +91,11 @@ describe("replayLog", () => {
     expect(t.match(/analytics-worker/g)).toHaveLength(1);
   });
 });
+
+it("writes a catch-up step still open at B", () => {
+  const text = replayLog(rreplay({
+    steps: [rstep("catch_up:1", "09:20:00", { kind: "catch_up", openAtB: true, severity: "warning",
+      title: "nats-0 still catching up at B: order-archive 18,400 operations behind", body: "Replicas of order-archive." })],
+  }), CTX);
+  expect(text).toContain("09:20:00–still at B  Catching up (warning)  nats-0 still catching up at B: order-archive 18,400 operations behind\n    Replicas of order-archive.\n");
+});
