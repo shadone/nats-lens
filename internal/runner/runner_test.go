@@ -93,11 +93,15 @@ func TestOnceWithCancelledContextStoresNothing(t *testing.T) {
 }
 
 // The grace is long next to the 50ms first wait, so that a goroutine
-// paused on a loaded machine does not see it run out before that wait.
+// paused on a loaded machine does not see it run out before that wait. The
+// end is measured from the cancel: never before the grace, and well before
+// DefaultShutdownGrace, with room for a loaded machine.
 func TestWriteContextOutlivesShutdownByGraceOnly(t *testing.T) {
+	const grace = time.Second
 	ctx, cancel := context.WithCancel(context.Background())
-	wctx, done := writeContext(ctx, time.Second)
+	wctx, done := writeContext(ctx, grace)
 	defer done()
+	start := time.Now()
 	cancel()
 	select {
 	case <-wctx.Done():
@@ -106,8 +110,11 @@ func TestWriteContextOutlivesShutdownByGraceOnly(t *testing.T) {
 	}
 	select {
 	case <-wctx.Done():
-	case <-time.After(30 * time.Second):
+	case <-time.After(4 * time.Second):
 		t.Fatal("write context outlived the grace period")
+	}
+	if took := time.Since(start); took < grace {
+		t.Fatalf("write context ended %v after the cancel, before the %v grace", took, grace)
 	}
 }
 
