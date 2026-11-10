@@ -39,7 +39,7 @@ The board's sample names come from a private deployment. Use the example shop of
 | "NO quorum" reports | advisory count `kind IN ('stream.quorum_lost','consumer.quorum_lost')` in `[A,B)` | Labelled as advisories; server logs are not read. |
 | Gaps | `epochs` spacing over 3 intervals (the series rule), `collector.gap` (`time` to `received_at`), `collector.k8s_gap` | `lead(started_at) OVER (ORDER BY epoch)` over `[a - 3i, b + 3i]`; leading and trailing gaps count. |
 
-Not backed, so not shown: "from disk"; why a server restarted beyond the k8s event's summary; replica catch-up time (only as `stream-003`/`server-012` finding steps); which applications reconnected.
+Not backed, so not shown: "from disk"; why a server restarted beyond the k8s event's summary; which applications reconnected. Replica catch-up was in this list; it is built from the stored replica reports (see [The catch-up step](#the-catch-up-step)).
 
 ## Where T1 departed from this plan
 
@@ -236,3 +236,15 @@ Proposed, not yet confirmed: compare only library-set membership at the two exis
 Proposed, not yet confirmed: reuse the system-wide A–B reconnect count and finding transitions as explicitly scoped context, with the existing capture-gap availability rules. Do not infer application deployments, release versions, build SHAs, exact change times, reconnect spikes relative to a baseline, or causation. CONNZ library metadata is not application release metadata. The endpoint policy can miss intermediate changes and deployments that retain the same client library. Keep existing server-upgrade and Kubernetes steps, instead of duplicating their facts.
 
 No migration or check is added. This avoids the shared schema allocation, including 0040 reserved for parallel work. The rollout query has two fixed reads and a 20,000 grouped-row bound. Collection evidence opens the existing Applications path, filtered by the exact application and account; its 500-row API limit still applies.
+
+## The catch-up step
+
+Decided in the session that built it, proposed, not yet confirmed.
+
+- Data: no new column or migration. The leader's `stream_replicas` and `consumer_replicas` rows (`current`, `offline`, `lag`) already carry what Placement draws as behind; the replica's own `stream_stats` or `consumer_stats` row says it reports the asset. `lag` is raft operations, so the step speaks of operations, not messages.
+- Shape: one `REPLAY_STEP_KIND_CATCH_UP` step per server, no new fields; the restart step of the same server adds one sentence. The counts tiles are unchanged.
+- Honesty: a catch-up time is told only when the collection right after the last one behind reported the replica current, within three collect intervals. A longer time without collections, or collections without the leader's report, make the end "not observed" with the reason; a replica behind in B's collection is "still catching up at B".
+- Noise: a run behind in one collection only is a burst of writes and makes no step, unless it is the first collection of the server's restarted process.
+- Findings: `stream-003` and `server-012` transitions over the step's span are its evidence and make no finding step of their own.
+- Bounds: the store reads at most 20,000 runs, the earliest first; a cut marks the steps truncated.
+- Demo: `scenario.catchUp` gives each restarted server's replicas a catch-up by stream size. The demo's Placement page stays without history, so it does not show these replicas behind.
