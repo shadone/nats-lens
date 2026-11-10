@@ -37,7 +37,12 @@ it('does not wait for an unrelated blocked series refresh',async()=>{
 });
 it('preserves the explicit nonwaiting acceptance option while relevant evidence refreshes',async()=>{
  const h=setup(false,'overview');await waitFor(()=>expect(h.calls.get('overview:shop:fixed-history')).toHaveBeenCalledTimes(1));
- try{await act(async()=>{await h.ready().mute.mutateAsync(input)});expect(h.ready().mute.isSuccess).toBe(true);expect(h.calls.get('overview:shop:fixed-history')).toHaveBeenCalledTimes(2)}finally{await act(async()=>h.release())}
+ // The overview refetch is held until release: the mutation resolving shows it did not wait for it. The
+ // rendered state and the refetch's start follow asynchronously, so both are waited for.
+ try{await act(async()=>{await h.ready().mute.mutateAsync(input)});
+  await waitFor(()=>expect(h.ready().mute.isSuccess).toBe(true));
+  await waitFor(()=>expect(h.calls.get('overview:shop:fixed-history')).toHaveBeenCalledTimes(2));
+  expect(h.client.isFetching({queryKey:['overview','shop','fixed-history'],exact:true})).toBe(1)}finally{await act(async()=>h.release())}
 });
 
 it('invalidates inactive historical operator reads but leaves other systems and raw history fresh',async()=>{
