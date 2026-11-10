@@ -18,8 +18,9 @@ import (
 // The SQL drop count and api.CountTopologyDrops agree on random
 // histories with restarts, failed and missing replies, rows without a
 // reply, gaps of every length, reconnects, moves, sites on two hubs,
-// sites keyed by IP and spoke rows. Seeds are fixed, so a run is
-// repeatable; written for the second review of the Topology API.
+// sites keyed by IP and spoke rows, and, from their own random source,
+// pooled routes replaced, gone, listed by one end, without a remote ID or
+// twice. Seeds are fixed, so a run is repeatable.
 
 type rndEpoch struct {
 	n  int64
@@ -27,6 +28,7 @@ type rndEpoch struct {
 	ok map[string]map[string]bool // endpoint -> server id -> ok
 	gw []api.TopologyGatewayRow   // outbound rows (cid may be nil)
 	lf []api.TopologyLeafRow      // site rows (not spoke)
+	rt []api.TopologyRouteConn    // route rows with a remote ID
 }
 
 func rndSteps(rng *rand.Rand, edgeSubMs bool) time.Duration {
@@ -90,6 +92,11 @@ func rndBuild(t *testing.T, seed int64, edgeSubMs bool) (*storeprov.Provider, []
 		sites = append(sites, s)
 	}
 	nextLID := int64(1)
+	// Routes come from their own source, so the gateway and leaf node
+	// histories stay those of the seed.
+	rrng := rand.New(rand.NewSource(seed + 1000))
+	rids := map[string][]int64{} // reporter id|remote name -> pool
+	nextRID := int64(1)
 	at := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	var hist []rndEpoch
 	K := int64(80)
@@ -97,7 +104,7 @@ func rndBuild(t *testing.T, seed int64, edgeSubMs bool) (*storeprov.Provider, []
 		if e > 1 {
 			at = at.Add(rndSteps(rng, edgeSubMs))
 		}
-		ep := rndEpoch{n: e, at: at, ok: map[string]map[string]bool{"GATEWAYZ": {}, "LEAFZ": {}}}
+		ep := rndEpoch{n: e, at: at, ok: map[string]map[string]bool{"GATEWAYZ": {}, "LEAFZ": {}, "ROUTEZ": {}}}
 		// restarts
 		for _, n := range names {
 			if rng.Intn(25) == 0 {
@@ -127,6 +134,59 @@ func rndBuild(t *testing.T, seed int64, edgeSubMs bool) (*storeprov.Provider, []
 					r.add("epoch_endpoints", map[string]any{"epoch": e, "server_id": id, "endpoint": endp, "state": "error"})
 				case x < 96:
 					r.add("epoch_endpoints", map[string]any{"epoch": e, "server_id": id, "endpoint": endp, "state": "missing"})
+				}
+			}
+		}
+		for _, id := range all {
+			switch x := rrng.Intn(100); {
+			case x < 85:
+				r.add("epoch_endpoints", map[string]any{"epoch": e, "server_id": id, "endpoint": "ROUTEZ", "state": "ok"})
+				ep.ok["ROUTEZ"][id] = true
+			case x < 95:
+				r.add("epoch_endpoints", map[string]any{"epoch": e, "server_id": id, "endpoint": "ROUTEZ", "state": "error"})
+			}
+		}
+		// routes: a pool of two from each server to each other of s0 to s3
+		for _, n := range names[:4] {
+			id := idOf(n)
+			for _, x := range names[:4] {
+				if x == n {
+					continue
+				}
+				k := id + "|" + x
+				pool := rids[k]
+				if pool == nil || rrng.Intn(30) == 0 {
+					pool = []int64{nextRID, nextRID + 1} // whole pool replaced
+					nextRID += 2
+				} else if rrng.Intn(12) == 0 {
+					pool = []int64{pool[0], nextRID} // one connection replaced
+					nextRID++
+				}
+				rids[k] = pool
+				if rrng.Intn(15) == 0 {
+					continue // the pair is gone in this collection
+				}
+				if !ep.ok["ROUTEZ"][id] && rrng.Intn(2) == 0 {
+					continue
+				}
+				for i, rid := range pool {
+					if i == 1 && rrng.Intn(10) == 0 {
+						continue // one connection not listed
+					}
+					var remoteID any = idOf(x)
+					if rrng.Intn(40) == 0 {
+						remoteID = nil
+					}
+					times := 1
+					if rrng.Intn(60) == 0 {
+						times = 2 // listed twice
+					}
+					for range times {
+						r.add("routes", map[string]any{"epoch": e, "server_id": id, "rid": rid, "remote_id": remoteID, "remote_name": x})
+						if remoteID != nil {
+							ep.rt = append(ep.rt, api.TopologyRouteConn{ServerID: id, Server: n, RID: rid, RemoteID: idOf(x), Remote: x})
+						}
+					}
 				}
 			}
 		}
@@ -234,12 +294,15 @@ func rndNorm(d api.TopologyDrops) string {
 	slices.SortFunc(d.Leafs, func(a, b api.TopologyLeafDrops) int {
 		return cmp.Or(cmp.Compare(a.Name, b.Name), cmp.Compare(a.Account, b.Account))
 	})
+	slices.SortFunc(d.Routes, func(a, b api.TopologyRouteDrops) int {
+		return cmp.Or(cmp.Compare(a.A, b.A), cmp.Compare(a.B, b.B))
+	})
 	var seen []string
 	for _, s := range d.LastSeen {
 		seen = append(seen, fmt.Sprintf("%s/%s@%s on %s lid %d", s.Row.SiteName(), s.Row.Account, s.At.UTC().Format(time.RFC3339Nano), s.Row.Server, s.Row.LID))
 	}
 	slices.Sort(seen)
-	return fmt.Sprintf("start=%s\npairs=%v\ngw=%+v\nleafs=%+v\nseen=%v", d.WindowStart.UTC().Format(time.RFC3339Nano), d.GatewayPairs, d.Gateways, d.Leafs, seen)
+	return fmt.Sprintf("start=%s\npairs=%v\ngw=%+v\nleafs=%+v\nseen=%v\nroutes=%+v", d.WindowStart.UTC().Format(time.RFC3339Nano), d.GatewayPairs, d.Gateways, d.Leafs, seen, d.Routes)
 }
 
 func rndCompare(t *testing.T, seed int64, edgeSubMs bool) int {
@@ -259,7 +322,8 @@ func rndCompare(t *testing.T, seed int64, edgeSubMs bool) int {
 			if c.at.Before(E.at.Add(-api.TopologyDropWindow)) {
 				continue
 			}
-			h = append(h, api.TopologyCollection{Epoch: c.n, At: c.at, Gatewayz: c.ok["GATEWAYZ"], Leafz: c.ok["LEAFZ"], Gateways: c.gw, Leafnodes: c.lf})
+			h = append(h, api.TopologyCollection{Epoch: c.n, At: c.at, Gatewayz: c.ok["GATEWAYZ"], Leafz: c.ok["LEAFZ"], Gateways: c.gw, Leafnodes: c.lf,
+				Routez: c.ok["ROUTEZ"], Routes: c.rt})
 		}
 		goD := api.CountTopologyDrops(h, 30*time.Second, E.n, E.at)
 		a, b := rndNorm(f.Drops), rndNorm(goD)
