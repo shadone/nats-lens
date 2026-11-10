@@ -120,6 +120,12 @@ func TestCapacityAccountBound(t *testing.T) {
 			stream("per-subject", "STILL", "file", api.CapacityStreamFact{MaxMsgsPerSubject: i64(1)}),
 			stream("not-reached", "STILL", "file", api.CapacityStreamFact{Bytes: i64(5), MaxBytes: i64(100)}),
 			stream("refused", "FULL", "file", api.CapacityStreamFact{MaxAge: age(30 * day), FirstTS: since(day)}),
+			// A full account refuses every new message, whatever the
+			// stream's own limits: also one steady at its age, one at its
+			// own refusing limit, and an empty one.
+			stream("refused-steady", "FULL", "file", api.CapacityStreamFact{MaxAge: age(day), FirstTS: since(day)}),
+			stream("refused-own", "FULL", "file", api.CapacityStreamFact{Messages: i64(100), MaxMsgs: i64(100), Discard: "new", FirstTS: since(day)}),
+			stream("refused-empty", "FULL", "file", api.CapacityStreamFact{Messages: i64(0)}),
 			stream("free", "FREE", "file", api.CapacityStreamFact{}),
 			stream("other", "NOJWT", "file", api.CapacityStreamFact{}),
 		},
@@ -151,6 +157,9 @@ func TestCapacityAccountBound(t *testing.T) {
 		{"per-subject", 1000, acc, not, 0},
 		{"not-reached", 1000, v1.NextLimitKind_NEXT_LIMIT_KIND_BYTES, not, 0},
 		{"refused", 1000, acc, v1.NextLimitState_NEXT_LIMIT_STATE_REACHED_REFUSING, 0},
+		{"refused-steady", 1000, acc, v1.NextLimitState_NEXT_LIMIT_STATE_REACHED_REFUSING, 0},
+		{"refused-own", 1000, acc, v1.NextLimitState_NEXT_LIMIT_STATE_REACHED_REFUSING, 0},
+		{"refused-empty", 1000, acc, v1.NextLimitState_NEXT_LIMIT_STATE_REACHED_REFUSING, 0},
 		{"free", 0, v1.NextLimitKind_NEXT_LIMIT_KIND_NONE, 0, 0},
 		{"other", 0, v1.NextLimitKind_NEXT_LIMIT_KIND_NONE, 0, 0},
 	} {

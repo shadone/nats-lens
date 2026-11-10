@@ -676,11 +676,13 @@ export enum NextLimitKind {
    * The JetStream limit of the stream's account for the stream's storage
    * (account_limit), shared by every stream of the account: days is the
    * account's days to full (AccountStore), not a forecast of the stream
-   * alone. Chosen when the stream has no age, message or byte limit, or
-   * when the account fills before the stream reaches its own; never over
-   * a limit the stream holds at now (steady or refusing) or an empty
-   * stream. An account at its limit refuses new messages, so discard_new
-   * is true.
+   * alone. An account at 99% of its limit or more is the next limit of
+   * every stream of that storage, refusing (nats-server refuses each new
+   * message of an account at its limit, whatever the stream's own limits
+   * and discard policy). Otherwise chosen when the stream has no age,
+   * message or byte limit, or when the account fills before the stream
+   * reaches its own; never over a limit the stream holds at now (steady
+   * or refusing) or an empty stream. discard_new is true.
    *
    * @generated from enum value: NEXT_LIMIT_KIND_ACCOUNT = 7;
    */

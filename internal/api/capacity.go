@@ -254,26 +254,29 @@ func streamStorage(storage string) string {
 }
 
 // withAccountLimit is the stream's next limit once its account's limit
-// is known. The account's limit is shared by all its streams, so it is
-// the next limit only where the stream's own limits do not come first: an
-// empty stream, or one at a limit now (steady or refusing), keeps its
-// own. An account at CountLimitReached of its limit refuses new messages
-// now. Else an account that fills in days is next when the stream has no
-// forecast of its own or reaches its own later; an account without a
-// forecast is next only for a stream without an age, message or byte
-// limit (none, or a per-subject limit alone).
+// is known. An account at CountLimitReached of its limit refuses new
+// messages now for every stream of that storage, whatever the stream's
+// own limits and discard policy (nats-server checks the account's limits
+// before it stores a message), so it is the next limit of each, also of
+// an empty stream or one at its own limit. Else the limit, shared by all
+// the account's streams, is next only where the stream's own limits do
+// not come first: an empty stream, or one at a limit now (steady or
+// refusing), keeps its own; an account that fills in days is next when
+// the stream has no forecast of its own or reaches its own later; an
+// account without a forecast is next only for a stream without an age,
+// message or byte limit (none, or a per-subject limit alone).
 func withAccountLimit(n *v1.NextLimit, a *v1.AccountStore) *v1.NextLimit {
-	switch {
-	case n.GetLimit() == v1.NextLimitKind_NEXT_LIMIT_KIND_EMPTY,
-		n.GetState() == v1.NextLimitState_NEXT_LIMIT_STATE_STEADY,
-		n.GetState() == v1.NextLimitState_NEXT_LIMIT_STATE_REACHED_REFUSING:
-		return n
-	}
 	account := func(state v1.NextLimitState, days *float64) *v1.NextLimit {
 		return &v1.NextLimit{Limit: v1.NextLimitKind_NEXT_LIMIT_KIND_ACCOUNT, State: state, Days: days, DiscardNew: true}
 	}
 	if a.Used != nil && float64(a.GetUsed()) >= CountLimitReached*float64(a.GetLimit()) {
 		return account(v1.NextLimitState_NEXT_LIMIT_STATE_REACHED_REFUSING, nil)
+	}
+	switch {
+	case n.GetLimit() == v1.NextLimitKind_NEXT_LIMIT_KIND_EMPTY,
+		n.GetState() == v1.NextLimitState_NEXT_LIMIT_STATE_STEADY,
+		n.GetState() == v1.NextLimitState_NEXT_LIMIT_STATE_REACHED_REFUSING:
+		return n
 	}
 	if a.DaysToFull != nil && (n.GetState() != v1.NextLimitState_NEXT_LIMIT_STATE_REACHES || n.Days == nil || a.GetDaysToFull() < n.GetDays()) {
 		return account(v1.NextLimitState_NEXT_LIMIT_STATE_REACHES, a.DaysToFull)
