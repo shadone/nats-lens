@@ -187,9 +187,11 @@ func TestRunSkipsEpochsWhileNotConnected(t *testing.T) {
 		}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	done := make(chan error, 1)
 	go func() { done <- r.Run(ctx) }()
+	// Run ends before newRunner's cleanup closes the store, also when a
+	// wait below fails.
+	t.Cleanup(func() { cancel(); <-done })
 	for range 2 {
 		select {
 		case <-skipped:
@@ -206,6 +208,4 @@ func TestRunSkipsEpochsWhileNotConnected(t *testing.T) {
 	case <-time.After(time.Minute):
 		t.Fatal("no epoch once connected")
 	}
-	cancel()
-	<-done
 }
