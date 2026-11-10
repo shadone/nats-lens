@@ -83,7 +83,7 @@ export function useMutes(includeInactive: boolean, pageToken = "") {
 const operatorIndependent = new Set([
   "time-windows", "series", "trends", "bandSeries", "metric-ranking", "lensInfo", "data-history",
   "events", "event", "serverEvents", "timeline-events", "timeline-window", "captured-event-selection",
-  "replay", "topology", "placement",
+  "replay", "topology", "placement", "assetPlacement",
 ]);
 // Acknowledge writes finding.acknowledged to events atomically; a mute/release does not.
 const operatorEventReads = new Set(["events", "serverEvents", "data-history"]);
