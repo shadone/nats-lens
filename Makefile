@@ -1,7 +1,7 @@
 BIN := bin/natslens
 DEV_DATA := .dev/natslens
 
-.PHONY: build build-full build-go build-release web-full web web-test web-dev proto test test-short test-fast verify-fast verify-full verify-web verify-proto verify-race lint fmt demo demo-site demo-wasm demo-wasm-smoke dev-cluster dev-cluster-stop load churn run-dev image vuln clean
+.PHONY: build build-full build-go build-release web-full web web-test web-dev proto test test-short test-fast verify-fast verify-full verify-release verify-compat verify-web verify-proto verify-race lint fmt demo demo-site demo-wasm demo-wasm-smoke dev-cluster dev-cluster-stop load churn run-dev image vuln clean
 
 # Verifies/rebuilds production assets, then builds the binary that embeds them.
 build: web/node_modules/.package-lock.json
@@ -65,6 +65,14 @@ verify-fast:
 
 verify-full:
 	python3 -B scripts/verify.py full
+
+# The full profile with the upgrade, archive and recovery compatibility
+# matrix; run before tagging a release.
+verify-release:
+	python3 -B scripts/verify.py release
+
+verify-compat:
+	python3 -B scripts/verify.py compat
 
 verify-web:
 	python3 -B scripts/verify.py web

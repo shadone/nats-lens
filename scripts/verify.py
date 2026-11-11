@@ -27,14 +27,42 @@ COMMANDS = {
     'go-full': (['go', 'test', '-p', '1', '-count=1', '-timeout', '40m', './...'], '.'),
     'race-api': (['go', 'test', '-race', '-short', '-count=1', '-timeout', '5m', './internal/api', '-run', '^(TestEntityPagesLimitsCancellationAndEviction|TestBatchHasABudget|TestBatchReviewClientCancelNoLeak)$'], '.'),
     'race-k8s': (['go', 'test', '-race', '-short', '-count=1', '-timeout', '5m', './internal/k8s', '-run', '^(TestRetryPaginationAndCancellation|TestRetryAuthLoggingAndRecovery|TestRetryQuietWatchRecoversWhileOpen)$'], '.'),
+    # The upgrade, archive and recovery compatibility matrix: every schema
+    # version as a starting point (COMPAT_ENV), with the migration, archive,
+    # crash and recovery tests it builds on. See
+    # docs/operations/upgrade-compatibility.md.
+    'compat-store': (['go', 'test', '-count=1', '-timeout', '40m', './internal/store', '-run', '^(' + '|'.join([
+        'TestCompat[A-Za-z]+', 'TestNewerDatabaseIsRefusedBeforeAnyWrite', 'TestCheckSchemaNamesANewerDatabase',
+        'TestEditedMigrationRefusedBeforeBackfill', 'TestMigrationsMatchGolden', 'TestAcceptedEarlierChecksumOpens',
+        'TestMigrationChecksumsRecorded', 'TestEditedMigrationFailsStart', 'TestMissingChecksumsBackfilled',
+        'TestEditedMigrationStopsPendingOnes', 'TestChecksumRecordedWithMigration', 'TestUpgradeFromVersion9',
+        'TestMigrationsFrom21OnAPopulatedDatabase', 'TestMigrationsFrom26OnAPopulatedDatabase', 'TestMigrationsFrom30OnMutes',
+        'TestMigrationsFrom31OnAPopulatedDatabase', 'TestMigrationsFrom32OnAPopulatedDatabase', 'TestSourceHealthUpgrade',
+        'TestNotificationIdentityUpgrade', 'TestNotifyAcknowledgementMemoryUpgrade', 'TestNotifyAcknowledgementUpgradeEvidence',
+        'TestNotifyAcknowledgementUpgradeBaselineBoundaries', 'TestReopenAfterCrashAfterOpen', 'TestReopenAfterSchemaWALReplay',
+        'TestUnreplayableWALIsErrWALReplay', 'TestIndexSurvivesWALReplayShutdown', 'TestIndexReplayProcess',
+        'TestFatalBoundaryRefusesNativeOperations', 'TestFatalEngineContainment', 'TestArchiveRoundTrip', 'TestRebuildNeedsManifest', 'TestRebuildChecksRowCounts',
+        'TestReexportCrashKeepsPreviousExport', 'TestExportIDNotReused', 'TestConcurrentExportsKeepRebuildWorking',
+        'TestCleanupKeepsLaterExports', 'TestStateRaisesSequences', 'TestStateRaisesMuteSequence',
+        'TestRebuildMixesMutesFilesFromBeforeAndAfterAcceptances', 'TestRebuildFromOldMutesFilesOnlyAddsNoRow',
+        'TestRebuildBeforeAcceptancesLoadsPlainMutes', 'TestRebuildBeforeAcknowledgements', 'TestRebuildBeforeServerLimitsLoadsNull',
+        'TestArchiveBeforeSourceHealth', 'TestDatasetCatalogAndContentsConserved']) + ')$'], '.'),
+    'compat-cmd': (['go', 'test', '-count=1', '-timeout', '10m', './cmd/natslens', '-run', '^(TestFailedRebuildIsRetried|TestEmptyDatabaseIsRebuilt|TestDatabaseWithDataIsKept|TestUnreplayableWALIsMovedAsideAndRebuilt)$'], '.'),
 }
+# COMPAT_ENV makes the compatibility tests run every schema version rather
+# than their seed versions; a non-UTC zone catches time-zone shifts.
+COMPAT_ENV = {'NATSLENS_COMPAT_MATRIX': '1', 'TZ': 'Pacific/Honolulu'}
+# Steps whose -run selector names tests the runner first checks exist.
+SELECTED = ('race-', 'compat-')
 
 def plan(profile):
     common = ['format', 'go-version', 'gate-tests', 'build-tests', 'types', 'proto', 'docs']
     return {
         'fast': common + ['vet-fast', 'go-fast', 'web-tests'],
         'full': common + ['vet-full', 'web-tests', 'go-full', 'race-api', 'race-k8s'],
+        'release': common + ['vet-full', 'web-tests', 'go-full', 'race-api', 'race-k8s', 'compat-store', 'compat-cmd'],
         'web': ['types', 'web-tests'], 'proto': ['proto'], 'race': ['race-api', 'race-k8s'],
+        'compat': ['compat-store', 'compat-cmd'],
     }[profile]
 
 def format_failed(code, output):
@@ -196,23 +224,36 @@ def check_docs(root, log, auditor=None):
         log.write('Unexpected feature-doc issues: ' + json.dumps(unexpected) + '\n'); return 1
     return 0
 
+def step_environment(step):
+    if step.startswith('race-'):
+        return {'TZ': 'Pacific/Honolulu'}
+    if step.startswith('compat-'):
+        return COMPAT_ENV
+    return None
+
+def selected_missing(selector, listed):
+    """The names in an anchored -run selector that match no listed test.
+    A name with a pattern (TestCompat[A-Za-z]+) must match at least one."""
+    inner = selector.removeprefix('^(').removesuffix(')$')
+    return sorted(name for name in inner.split('|') if not any(re.fullmatch(name, test) for test in listed))
+
 def execute(step, root, log, auditor=None):
     if step == 'format': return check_format(root, log)
     if step == 'go-version': return check_go_version(root, log)
     if step == 'proto': return check_proto(root, log)
     if step == 'docs': return check_docs(root, log, auditor)
     argv, directory = COMMANDS[step]
-    environment = {'TZ': 'Pacific/Honolulu'} if step.startswith('race-') else None
-    if step.startswith('race-'):
+    environment = step_environment(step)
+    if step.startswith(SELECTED):
         listing = [('-list' if value == '-run' else value) for value in argv]
         code = command(listing, root / directory, log, environment)
         if code:
             return code
         log.flush()
-        listed = set(Path(log.name).read_text().splitlines())
-        missing = set(re.findall(r'Test[A-Za-z0-9_]+', argv[-1])) - listed
+        listed = Path(log.name).read_text().splitlines()
+        missing = selected_missing(argv[-1], listed)
         if missing:
-            log.write('Selected race tests are missing: ' + ', '.join(sorted(missing)) + '\n')
+            log.write('Selected tests are missing: ' + ', '.join(missing) + '\n')
             return 1
     return command(argv, root / directory, log, environment)
 
@@ -231,7 +272,7 @@ def tool_metadata(root):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('profile', choices=['fast', 'full', 'web', 'proto', 'race'])
+    parser.add_argument('profile', choices=['fast', 'full', 'release', 'web', 'proto', 'race', 'compat'])
     parser.add_argument('--only', help='Explicit comma-separated stage subset; never reported as a complete profile')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--log-dir', type=Path)

@@ -92,6 +92,24 @@ class TierScopeContracts(unittest.TestCase):
         self.assertIn('-count=1', verify.COMMANDS['go-full'][0])
         self.assertNotIn('govulncheck', repr(verify.COMMANDS))
 
+    def test_release_adds_the_compatibility_matrix_to_full(self):
+        full, release, compat = verify.plan('full'), verify.plan('release'), verify.plan('compat')
+        self.assertEqual(release, full + ['compat-store', 'compat-cmd'])
+        self.assertEqual(compat, ['compat-store', 'compat-cmd'])
+        for name in compat:
+            self.assertNotIn(name, verify.plan('fast'))
+            self.assertNotIn(name, full)
+            self.assertIn('-count=1', verify.COMMANDS[name][0])
+            self.assertEqual(verify.step_environment(name)['NATSLENS_COMPAT_MATRIX'], '1')
+            self.assertEqual(verify.step_environment(name)['TZ'], 'Pacific/Honolulu')
+        self.assertIsNone(verify.step_environment('go-full'))
+
+    def test_selected_tests_must_exist(self):
+        selector = '^(TestCompat[A-Za-z]+|TestNewerDatabaseIsRefusedBeforeAnyWrite)$'
+        self.assertEqual(verify.selected_missing(selector, ['TestCompatUpgrade', 'TestNewerDatabaseIsRefusedBeforeAnyWrite']), [])
+        self.assertEqual(verify.selected_missing(selector, ['TestNewerDatabaseIsRefusedBeforeAnyWrite']), ['TestCompat[A-Za-z]+'])
+        self.assertEqual(verify.selected_missing(selector, ['TestCompatUpgrade', 'TestNewerDatabase']), ['TestNewerDatabaseIsRefusedBeforeAnyWrite'])
+
     def test_unsafe_generation_destinations_are_rejected(self):
         valid = 'plugins:\n  - out: internal/gen\n  - out: internal/gen\n  - out: web/src/gen\n'
         verify.template_outputs(valid)
