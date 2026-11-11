@@ -157,6 +157,12 @@ export function SearchJump() {
 
   useEffect(() => setActive(0), [text]);
 
+  // The list scrolls inside its box: keep the active row, such as Ask at the end, in view.
+  const activeId = open ? options[current]?.id : undefined;
+  useEffect(() => {
+    if (activeId) document.getElementById(activeId)?.scrollIntoView?.({ block: "nearest" });
+  }, [activeId]);
+
   const close = () => {
     setText("");
     setOpen(false);

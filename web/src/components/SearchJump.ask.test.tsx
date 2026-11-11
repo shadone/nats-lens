@@ -193,3 +193,22 @@ describe("Ask your agent", () => {
     expect(questionOf(write.mock.calls[0][0])).toBe("why");
   });
 });
+
+describe("the active row", () => {
+  it("scrolls into view when the arrow keys reach it, such as Ask at the end of a long list", async () => {
+    const scroll = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scroll });
+    try {
+      setup("/?system=sys-a");
+      await enter("order");
+      await waitFor(() => expect(askRow()).toBeInTheDocument());
+      scroll.mockClear();
+      await userEvent.keyboard("{ArrowUp}");
+      expect(askRow()).toHaveAttribute("aria-selected", "true");
+      expect(scroll.mock.contexts).toContain(askRow());
+      expect(scroll).toHaveBeenLastCalledWith({ block: "nearest" });
+    } finally {
+      delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+  });
+});
