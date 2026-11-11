@@ -24,8 +24,12 @@ func TestDrainDeliversBacklog(t *testing.T) {
 	ec := &eventConn{label: "t", log: quietLog(),
 		dial: func() (*nats.Conn, error) { return nats.Connect(s.ClientURL()) },
 		subscribe: func(nc *nats.Conn) error {
-			_, err := nc.Subscribe("x", func(*nats.Msg) { <-gate; got.Add(1) })
-			return err
+			if _, err := nc.Subscribe("x", func(*nats.Msg) { <-gate; got.Add(1) }); err != nil {
+				return err
+			}
+			// As the capture's own subscribe does: the server must know the
+			// interest before the messages below are published.
+			return nc.Flush()
 		}}
 	if err := ec.open(); err != nil {
 		t.Fatal(err)
