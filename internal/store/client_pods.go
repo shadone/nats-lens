@@ -73,7 +73,9 @@ func (s *Store) EndLiveClientPods(ctx context.Context) error {
 }
 
 // WriteClientPods writes one batch of client pods in one transaction:
-// the relists first, then the pods seen, the pods ended and the touch.
+// the pods ended first, so that a deletion keeps its time when a relist in
+// the same batch leaves the pod out, then the relists, the pods seen, the
+// pods ended again (those first written by the batch) and the touch.
 func (s *Store) WriteClientPods(ctx context.Context, b ClientPodBatch) error {
 	if len(b.Seen) == 0 && len(b.Ended) == 0 && len(b.Relists) == 0 && len(b.Touch) == 0 {
 		return nil
@@ -86,6 +88,9 @@ func (s *Store) WriteClientPods(ctx context.Context, b ClientPodBatch) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 	at := b.At.UTC().UnixMicro()
+	if err := endClientPods(ctx, tx, b.Ended); err != nil {
+		return err
+	}
 	for _, r := range b.Relists {
 		if _, err := tx.ExecContext(ctx, `
 UPDATE client_pods SET ended_at = last_seen
@@ -99,11 +104,11 @@ WHERE ended_at IS NULL AND (? = '' OR namespace = ?) AND uid NOT IN (SELECT unne
 			return err
 		}
 	}
-	for uid, when := range b.Ended {
-		if _, err := tx.ExecContext(ctx, `UPDATE client_pods SET ended_at = greatest(first_seen, make_timestamp(?::BIGINT)),
-  last_seen = greatest(last_seen, make_timestamp(?::BIGINT))
-WHERE uid = ? AND ended_at IS NULL`, when.UnixMicro(), when.UnixMicro(), uid); err != nil {
-			return fmt.Errorf("client pod end: %w", err)
+	// Again for the pods first written by this batch: one that lived less
+	// than a flush is seen and ended at once.
+	if len(b.Seen) > 0 {
+		if err := endClientPods(ctx, tx, b.Ended); err != nil {
+			return err
 		}
 	}
 	if len(b.Touch) > 0 {
@@ -185,6 +190,18 @@ FROM client_pods_in s
 ON CONFLICT (uid, ip) DO UPDATE SET node = excluded.node, workload_kind = excluded.workload_kind, workload = excluded.workload,
   app_name = excluded.app_name, host_network = excluded.host_network, last_seen = excluded.last_seen, ended_at = NULL`, atUs, atUs); err != nil {
 		return fmt.Errorf("client pods: %w", err)
+	}
+	return nil
+}
+
+// endClientPods ends the live addresses of the pods in ended at their end.
+func endClientPods(ctx context.Context, tx *sql.Tx, ended map[string]time.Time) error {
+	for uid, when := range ended {
+		if _, err := tx.ExecContext(ctx, `UPDATE client_pods SET ended_at = greatest(first_seen, make_timestamp(?::BIGINT)),
+  last_seen = greatest(last_seen, make_timestamp(?::BIGINT))
+WHERE uid = ? AND ended_at IS NULL`, when.UnixMicro(), when.UnixMicro(), uid); err != nil {
+			return fmt.Errorf("client pod end: %w", err)
+		}
 	}
 	return nil
 }
