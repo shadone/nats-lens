@@ -368,7 +368,10 @@ export function SearchJump() {
           </ul>
           {offerAsk && (
             <p className="search-note search-ask-note">
-              Copies this page's agent prompt with your question, up to {COUNT.format(ASK_MAX)} characters, for your own agent. nats-lens sends it nowhere.
+              Copies this page's agent prompt with your question, up to {COUNT.format(ASK_MAX)} characters, for your own agent.{" "}
+              {asking
+                ? "nats-lens sends the question nowhere."
+                : "Copying sends nothing, but text without ask: is also a search, which asks nats-lens's own API for findings and events; start with ask: to skip it."}
             </p>
           )}
           {asking && !askAgent && (

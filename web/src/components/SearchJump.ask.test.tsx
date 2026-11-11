@@ -341,3 +341,14 @@ describe("scrolling the list", () => {
     }
   });
 });
+
+describe("the note under the Ask row", () => {
+  it("says the question goes nowhere after ask:, and that text without it was searched", async () => {
+    setup("/?system=sys-a");
+    await enter("ask: why");
+    expect(await screen.findByText(/nats-lens sends the question nowhere\./)).toBeInTheDocument();
+    fireEvent.change(box(), { target: { value: "why" } });
+    expect(await screen.findByText(/text without ask: is also a search, which asks nats-lens's own API for findings and events; start with ask: to skip it\./)).toBeInTheDocument();
+    expect(screen.queryByText(/sends the question nowhere/)).toBeNull();
+  });
+});
