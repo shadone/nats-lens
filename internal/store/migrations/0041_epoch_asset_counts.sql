@@ -1,7 +1,8 @@
 -- Asset counts per epoch, written with the epoch, so that the Overview's
 -- counts and asset trends read one row per epoch instead of every stream
 -- and consumer report of the range. Epochs stored before this migration
--- are filled by the store when it opens, in batches; a rebuild from the
+-- are filled in batches when the collector opens the system's store,
+-- after setting its thread count and memory limit; a rebuild from the
 -- archive fills them after loading. The table is derived from archived
 -- rows and is not archived itself.
 
