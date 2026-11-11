@@ -41,17 +41,16 @@ func timingInterceptor(systems Systems) connect.UnaryInterceptorFunc {
 	}
 }
 
-// overloadCode answers resource_exhausted for a call that failed after one
-// of its queries was refused for the store's query budget, when the
-// failure reached the client as a deadline or an internal error: the
-// provider can return the context's error, or lose the refusal while
-// wrapping it, rather than the refusal itself.
+// overloadCode answers resource_exhausted for a call that ran out of time
+// after one of its queries was refused for the store's query budget: the
+// provider may return the context's deadline rather than the refusal.
+// Any other failure keeps its code, so that a real error is not reported
+// as a busy system.
 func overloadCode(f *admit.Flow, err error) error {
 	if err == nil || !f.Overloaded() {
 		return err
 	}
-	switch connect.CodeOf(err) {
-	case connect.CodeDeadlineExceeded, connect.CodeInternal, connect.CodeUnknown:
+	if connect.CodeOf(err) == connect.CodeDeadlineExceeded && errors.Is(err, context.DeadlineExceeded) {
 		return connect.NewError(connect.CodeResourceExhausted, errBusy)
 	}
 	return err
