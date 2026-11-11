@@ -1,6 +1,6 @@
 # Performance baseline
 
-This page records how the API, the store and the background jobs behave on synthetic stores of a large system, measured on 2026-11-11 at revision `07ec253b` (branch `perf/measure`). It gives the numbers that admission limits, indexes or caching must improve on, and the ranked changes the numbers point to. Every recommendation and budget here is **proposed, not yet confirmed**.
+This page records how the API, the store and the background jobs behave on synthetic stores of a large system, measured on 2026-11-11 (branch `perf/measure`). The `history` runs used the harness of revision `07ec253b`; the `entities` load ran on an earlier working state of the same harness, which lacked the column of failed calls' latency; the queries and scenarios were the same. It gives the numbers that admission limits, indexes or caching must improve on, and the ranked changes the numbers point to. Every recommendation and budget here is **proposed, not yet confirmed**.
 
 ## Rerun it
 
@@ -41,7 +41,7 @@ The machine was not otherwise idle, and each scenario ran once. Treat difference
 | `entities` | 5 | 2,000 | 10,000 | 50,000 (20,480 listed: 4,096 per server, the default `connz_limit`) | 24 h | 2,880 | 370 million | 4.59 GB | 73 s |
 | `history` | 5 | 200 | 1,000 | 5,000 | 7 days | 20,160 | 321 million | 4.78 GB | 128 s |
 
-`entities` has 130,000 rows per epoch: 6,000 stream reports, 12,000 stream replica peers, 30,000 consumer reports, 60,000 consumer replica peers and 20,480 connections. One epoch takes 1.6 MB of the database file, so a week of such a system takes 31 GB and the default 14-day retention 63 GB. The two profiles stand in for that week on one disk: `entities` has the full asset count over the UI's default 24-hour range, `history` a tenth of it over seven days. Writing one `entities` epoch through `WriteSnapshot` into a nearly empty store took 1.13 s.
+`entities` has 130,000 rows per epoch: 6,000 stream reports, 12,000 stream replica peers, 30,000 consumer reports, 60,000 consumer replica peers and 20,480 connections. One epoch takes 1.6 MB of the database file, so a week of such a system takes 31 GB and the default 14-day retention 63 GB. The two profiles stand in for that week on one disk: `entities` has the full asset count over the UI's default 24-hour range, `history` a tenth of it over seven days. Writing one `entities` epoch through `WriteSnapshot` into a nearly empty store took 1.20 to 1.22 s.
 
 The generator leaves out RAFTZ, SUBSZ, leaf nodes, gateways, micro services, Kubernetes and account lookups, so pages built on those read empty tables.
 
@@ -85,7 +85,7 @@ At `entities` size the Overview does not load within its limits: `GetOverview` h
 | `entities` | 4 | 53.3 s (one load) | capacity 30.3 s, consumers 30.0 s, streams 19.5 s | 5 |
 | `entities` | 16 | 30.8 s / 31.5 s | capacity 35.9 s (11 of 11 failed), consumers 30.1 s | 18 |
 | `history` | 1 | 0.78 s / 0.84 s | capacity 0.35 s | none |
-| `history` | 4 | 2.2 s / 43.3 s | capacity 14.5 s, streams 13.2 s | 2 |
+| `history` | 4 | 2.2 s / 43.3 s | streams 45.6 s, capacity 14.5 s | 2 |
 | `history` | 16 | 7.6 s / 9.2 s | capacity 3.8 s | none |
 
 Pages that read only the newest epoch or one bounded list (findings, connections, servers, events, lens info) stayed under 1.5 s at p95 in these runs, mostly under 300 ms; with epoch writes beside them (`mixed`, below) the connections page reached 9.7 s at p95. The pages that slow down read every epoch of the range for every asset: the Overview's tiles and trends, capacity, the consumers' delivered rates and the streams' sparklines. With `history` the 4-client run had a worse p95 than the 16-client one; one run each cannot say whether that is noise.
@@ -101,7 +101,7 @@ Pages that read only the newest epoch or one bounded list (findings, connections
 | `history` | 4 | 0.35 s / 0.48 s | 0.75 s / 1.0 s | 7.2 | none |
 | `history` | 8 | 0.48 s / 0.68 s | 1.7 s / 2.0 s | 7.4 | 1 batch |
 
-A 32-series batch runs 64 or 65 queries: each series also checks that its stream exists. Throughput stops growing at about four agents: from four to eight agents the `history` store's calls per second rose by 3% while each call's p50 doubled.
+A 32-series batch runs 64 or 65 queries: each series also checks that its stream exists. Throughput stops growing at about four agents: from four to eight agents the `history` store's calls per second rose by 3% while the contributors' p50 more than doubled (0.75 s to 1.7 s) and the batch's rose by 40% (0.35 s to 0.48 s).
 
 ### Per-request parallelism
 
@@ -121,9 +121,9 @@ On an idle store the parallelism makes a batch 2.5 to 3.3 times faster. Under co
 | `entities` | `writes-only` | 6 of 6 | 1.28 s / 1.52 s | 5.1 s / 5.3 s | 6.7 s | under 1 ms, except `archive_record` up to 500 ms | 24 hours, 1.1 s mean per hour |
 | `entities` | `mixed` | 1 of 7 | 8.5 s / 14.1 s | 5.4 s / 6.6 s | 17.0 s | under 1 ms | none exported in 60 s |
 | `history` | `writes-only` | 7 of 7 | 0.40 s / 0.47 s | 3.1 s / 3.3 s | 3.7 s | under 1 ms | 126 hours, 0.47 s mean per hour |
-| `history` | `mixed` | 1 of 6 | 10.05 s / 10.6 s | 5.1 s / 11.0 s | 22.7 s | 7 ms mean, under 50 ms | 8 hours, one tick 43 s |
+| `history` | `mixed` | 1 of 6 | 10.05 s / 10.6 s | 5.1 s / 11.0 s | 22.7 s | `epoch` 7 ms mean, p95 in the 50 ms bucket; `archive_record` 1.08 s mean, p95 in the 10 s bucket | 8 hours, one tick 43 s |
 
-Under API load three of seven `entities` epochs and three of six `history` epochs were not stored: their writes ran out of the 10 s limit (`context deadline exceeded` in `INSERT INTO consumer_replicas`, `UPDATE consumer_config`, the stream configuration staging). The write lock is not where they wait: `nats_lens_store_lock_wait_seconds{op="epoch"}` stayed under 1 ms while the hold grew from 1.3 s to 8.5 s. The epoch write competes with the API's queries for DuckDB's twelve threads. At production's 30 s interval the limit is three times longer, but the `entities` write's maximum of 14 s already exceeds a third of it.
+Under API load three of seven `entities` epochs and three of six `history` epochs were not stored: their writes ran out of the 10 s limit (`context deadline exceeded` in `INSERT INTO consumer_replicas`, `UPDATE consumer_config`, the stream configuration staging). The write lock is not where the epochs wait: `nats_lens_store_lock_wait_seconds{op="epoch"}` stayed under 50 ms while the hold grew from 1.3 s to 8.5 s. The epoch write competes with the API's queries for DuckDB's twelve threads. The lock does delay the archive: in the `history` `mixed` run, recording an exported hour (`op="archive_record"`) waited 1.08 s on average, with its p95 in the 10 s bucket, behind the slowed epoch writes. At production's 30 s interval the limit is three times longer, but the `entities` write's maximum of 14 s already exceeds a third of it.
 
 ### Memory
 
@@ -156,7 +156,7 @@ On the `history` store (200 streams, 24-hour range) the same queries rank first,
 ## Findings
 
 1. **The Overview's counts scan every report of the range.** The tile and trend series that count streams, KV buckets, object stores, durable consumers and replicated or single assets aggregate every stream and consumer report of every epoch in the range, to produce one number per epoch. Their cost grows with assets times epochs; at 2,000 streams and 10,000 consumers over 24 hours they exceed the API's limits, so the Overview never loads.
-2. **API reads starve epoch writes.** The write lock serialises writes only; reads run beside them. Under four tab clients and two agents, epoch writes took six times longer and half failed at a 10 s limit. A failed epoch write is a lost collection.
+2. **API reads starve epoch writes.** The write lock serialises writes only; reads run beside them, so an epoch write waits for DuckDB's threads, not for the lock. (The archive's records do wait for the lock, behind those slowed epoch writes.) Under four tab clients and two agents, epoch writes took six times longer and half failed at a 10 s limit. A failed epoch write is a lost collection.
 3. **Nothing bounds the API's total work.** Each request runs its queries as soon as it arrives; the batch adds four at a time; `database/sql` opens a DuckDB connection for each concurrent query (no `SetMaxOpenConns`). The work shows up as latency and memory: 19 GB peak resident with 16 clients.
 4. **Per-request parallelism pays only when idle.** The batch's four-at-a-time is 2.5 to 3.3 times faster alone and saturates at about four concurrent agents.
 5. **Timeouts are the only limit, and they are reached.** At `entities` size every page that reads all epochs of the range for every asset reached its 30 s or 40 s limit at least once.
@@ -183,10 +183,10 @@ Proposed from these numbers, to be tracked with the new histograms, not with wal
 | Measure | Budget | Now at `entities` | Now at `history` |
 | --- | --- | --- | --- |
 | Overview page load, 24 h, warm, one client (`nats_lens_api_request_duration_seconds`, slowest of the page's calls) | 2 s | times out | 0.84 s |
-| API calls ending in `deadline_exceeded` with four tab clients | none | 6 in 60 s | 2 in 60 s |
-| Epoch write hold, `op="epoch"`, p95 under API load | a quarter of the interval (7.5 s at 30 s) | 14 s | 10.6 s |
+| API calls ending in `deadline_exceeded` with four tab clients | none | 5 in 60 s | 2 in 60 s |
+| Epoch write under API load: the hold's p95 (`op="epoch"`) | a quarter of the interval (7.5 s at 30 s) | 30 s bucket; slowest write 14.1 s | 30 s bucket; slowest write 10.6 s |
 | Epochs lost to the write limit | none | 3 of 7 under load | 3 of 6 under load |
-| Write lock wait, p95, any op | 100 ms | 500 ms bucket (`archive_record`) | 50 ms bucket |
+| Write lock wait, p95, any op | 100 ms | 500 ms bucket (`archive_record`, no API load) | 10 s bucket (`archive_record` under API load); `epoch` 50 ms bucket |
 | Check evaluation, `job="check_evaluation"` | half the interval (15 s at 30 s) | 5.2 s, 10 s bucket under load | 3.0 s, 30 s bucket under load |
 
 ## For the follow-up: bound aggregate API work and verify cancellation
@@ -202,7 +202,7 @@ The follow-up task "Bound aggregate API work and verify cancellation under load"
 
 ## Instrumentation
 
-The `/metrics` families these numbers come from are listed in [Metrics](../metrics.md). An observation costs about 40 ns and one allocation, a timed query about 110 ns (`go test -bench . ./internal/timing`), against queries of a millisecond and more. `natslens` serves no profiling endpoint; `natslens-perf explain` sets a query hook, off by default, that the `natslens` command never sets.
+The `/metrics` families these numbers come from are listed in [Metrics](../metrics.md). Recording costs about 40 ns and one allocation per observation, and about 111 ns and one allocation per query on the query path (`go test -bench . ./internal/timing`), against queries of a millisecond and more. `natslens` serves no profiling endpoint; `natslens-perf explain` sets a query hook, off by default, that the `natslens` command never sets.
 
 ## Not measured
 
