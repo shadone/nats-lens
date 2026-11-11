@@ -395,7 +395,8 @@ type Finding struct {
 	// usual severity and, when the check has a severity rule, the rule in
 	// the check's own words and whether it raised or lowered this finding;
 	// for a resolved finding, the severity it had when it resolved. Empty
-	// for a check nats-lens does not know.
+	// for a check nats-lens does not know, and in a FindingEpisode, which is
+	// read without its historical check definition.
 	SeverityReason string `protobuf:"bytes,23,opt,name=severity_reason,json=severityReason,proto3" json:"severity_reason,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

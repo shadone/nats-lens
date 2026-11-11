@@ -58,6 +58,7 @@ func (p *Provider) demoEpisodeHistory(s scen) ([]*v1.FindingEpisode, int64, erro
 			f.ConditionSince = nil
 			f.Mute = nil
 			f.Acknowledgement = nil
+			api.DropSeverityReason(f)
 			f.Value = nil
 			f.Cause = nil
 			f.TransitionsLastHour = 0

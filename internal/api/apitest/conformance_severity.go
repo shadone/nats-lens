@@ -1,6 +1,7 @@
 package apitest
 
 import (
+	"fmt"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -57,6 +58,22 @@ func severityRows() []State {
 		})},
 		{"a finding its check's severity rule raised or lowered says so", reasonIs(func(f *v1.Finding, usual, rule string) bool {
 			return rule != "" && word(f) != usual
+		})},
+		// An occurrence is read with the check definition unavailable
+		// (historical_check_definition), so it gives no reason: today's
+		// header would misdescribe a past severity.
+		{"a finding occurrence gives no severity reason, in every system", everySystem(func(q Q) string {
+			res := must(q.env.Client.ListFindingEpisodes(ctx, connect.NewRequest(&v1.ListFindingEpisodesRequest{System: q.System, Range: q.day(), PageSize: 100}))).of(q.t)
+			for _, e := range res.GetEpisodes() {
+				if r := e.GetFinding().GetSeverityReason(); r != "" {
+					q.t.Errorf("%s occurrence at %d: severity reason %q", e.GetFinding().GetId(), e.GetFirstRetainedEpoch(), r)
+					return ""
+				}
+			}
+			if len(res.GetEpisodes()) == 0 {
+				return ""
+			}
+			return fmt.Sprintf("%d occurrences", len(res.GetEpisodes()))
 		})},
 	}
 }

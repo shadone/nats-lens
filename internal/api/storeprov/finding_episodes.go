@@ -59,6 +59,7 @@ func (p *Provider) ListFindingEpisodes(ctx context.Context, in *v1.ListFindingEp
 		out.Unavailable = []string{"matching_occurrence_history"}
 	}
 	for i, e := range page.Items {
+		api.DropSeverityReason(findings[i])
 		item := &v1.FindingEpisode{Finding: findings[i], FirstRetainedEpoch: e.FirstRetainedEpoch, FirstRetainedAt: ts(e.Finding.Since),
 			ObservedResolutionAt: ts(e.ResolutionAt), ResolutionEpoch: e.ResolutionEpoch, LatestRetainedSeverity: severityOfText[e.LatestSeverity],
 			LatestStartEpoch: e.LatestStartEpoch, LatestObservedAt: ts(e.LatestObservedAt), TransitionCount: int32(e.TransitionCount), CauseEventId: e.Finding.CauseEventID,

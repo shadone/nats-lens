@@ -364,7 +364,8 @@ export type Finding = Message<"natslens.v1.Finding"> & {
    * usual severity and, when the check has a severity rule, the rule in
    * the check's own words and whether it raised or lowered this finding;
    * for a resolved finding, the severity it had when it resolved. Empty
-   * for a check nats-lens does not know.
+   * for a check nats-lens does not know, and in a FindingEpisode, which is
+   * read without its historical check definition.
    *
    * @generated from field: string severity_reason = 23;
    */

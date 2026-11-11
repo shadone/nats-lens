@@ -108,3 +108,12 @@ func upperFirst(s string) string {
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
 }
+
+// DropSeverityReason empties the reason of a past occurrence's finding:
+// an occurrence is read without its historical check definition, and
+// today's header would misdescribe the severity it had then.
+func DropSeverityReason(f *v1.Finding) {
+	if f != nil {
+		f.SeverityReason = ""
+	}
+}
