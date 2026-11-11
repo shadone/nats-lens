@@ -32,7 +32,10 @@ func newRunnerWindow(t *testing.T, window time.Duration) *Runner {
 		Window: window, ConnzLimit: 10, Tracker: collect.NewTracker(time.Hour),
 	})
 	// Log is left nil on purpose: the runner must fall back to slog.Default.
-	return &Runner{Collector: col, Store: st, Interval: 300 * time.Millisecond, Retention: time.Hour}
+	// Interval also limits each epoch's write: under the race detector on a
+	// loaded machine a first write took longer than 300 ms. A test of Run
+	// sets its own, shorter interval.
+	return &Runner{Collector: col, Store: st, Interval: 10 * time.Second, Retention: time.Hour}
 }
 
 func epochs(t *testing.T, r *Runner) int {
@@ -51,6 +54,9 @@ func epochs(t *testing.T, r *Runner) int {
 // request in time; it is waited for in full only by the first discovery.
 func TestRunTakesEpochsUntilCancelled(t *testing.T) {
 	r := newRunnerWindow(t, 2*time.Second)
+	// A write that runs out of this interval is logged and the next epoch
+	// taken: the test waits for two stored epochs, however many tries.
+	r.Interval = 300 * time.Millisecond
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var stored atomic.Int32
@@ -167,6 +173,7 @@ func TestOnceCallsStored(t *testing.T) {
 // no connection, then the first epoch stored once there is one.
 func TestRunSkipsEpochsWhileNotConnected(t *testing.T) {
 	r := newRunner(t)
+	r.Interval = 300 * time.Millisecond
 	var connected atomic.Bool
 	skipped := make(chan struct{}, 2)
 	r.Connected = func() bool {
