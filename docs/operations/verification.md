@@ -16,8 +16,8 @@ Run commands from the repository root:
 
 | Entry point | Checks | Excluded work |
 | --- | --- | --- |
-| `make verify-fast` | Go format, Go release agreement (the release go.mod builds with, from its `toolchain` line or else its `go` line, and the Dockerfile's `golang` image), gate/build helper tests, TypeScript, protobuf lint/format/drift, feature docs, scoped Go vet, curated pure Go tests, complete web tests | Database/NATS Go fixtures, scale tests, targeted race tests, production build |
-| `make verify-full` | Shared static checks (Go release agreement included), all Go vet, complete web tests, uncached full Go suite, targeted API/Kubernetes race tests | Explicit environment-sized scale cases, extended fuzzing, release/container matrix, production build |
+| `make verify-fast` | Go format, Go release agreement (the release go.mod builds with, from its `toolchain` line or else its `go` line, and the Dockerfile's `golang` image), the fuzz target list (`scripts/fuzz.sh check`), gate/build helper tests, TypeScript, protobuf lint/format/drift, feature docs, scoped Go vet, curated pure Go tests, complete web tests | Database/NATS Go fixtures, scale tests, targeted race tests, production build |
+| `make verify-full` | Shared static checks (Go release agreement included, the fuzz target list too), all Go vet, complete web tests, uncached full Go suite, targeted API/Kubernetes race tests | Explicit environment-sized scale cases, extended fuzzing, release/container matrix, production build |
 | `make verify-release` | The full profile, then the compatibility matrix (`compat-store`, `compat-cmd`) | As for the full profile; see the [compatibility check](upgrade-compatibility.md) |
 | `make verify-compat` | Every schema version upgraded, interrupted and rebuilt from its archive, a newer schema refused, migration rules, with the migration, archive, crash and recovery tests they build on | Everything else |
 | `make verify-web` | TypeScript and complete web tests | Go, protobuf and documentation checks |

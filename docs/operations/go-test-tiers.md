@@ -91,7 +91,7 @@ Fuzz every target, one after another:
 scripts/fuzz.sh 3m
 ```
 
-`scripts/fuzz.sh` takes the time per target (default `3m`) and `FUZZ_PARALLEL` for the workers per target (default 4). `scripts/fuzz.sh check` fails when a `Fuzz` function is missing from its list, and every run starts with that check. The short `-fuzzminimizetime` keeps the run fuzzing: minimizing a new input holds up the other workers, and with the default 60 seconds per input a run sat idle for most of a minute at a time.
+`scripts/fuzz.sh` takes the time per target (default `3m`) and `FUZZ_PARALLEL` for the workers per target (default 4). `scripts/fuzz.sh check` fails when a `Fuzz` function is missing from its list or the list names a function that its package does not define (`go test -fuzz` passes a name that matches nothing); every fuzz run starts with that check, and the fast and full verification profiles run it as the `fuzz-targets` stage. The short `-fuzzminimizetime` keeps the run fuzzing: minimizing a new input holds up the other workers, and with the default 60 seconds per input a run sat idle for most of a minute at a time.
 
 A failure writes the input to the package's `testdata/fuzz/<target>/`. Keep that file, give it a name that says what it holds, add a regression test, and fix the cause. The inputs the fuzzer finds interesting go to the Go build cache (`$(go env GOCACHE)/fuzz`), not the repository.
 

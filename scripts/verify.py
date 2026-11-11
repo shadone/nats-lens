@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent.parent
 COMMANDS = {
+    'fuzz-targets': (['./scripts/fuzz.sh', 'check'], '.'),
     'gate-tests': ([sys.executable, '-B', '-m', 'unittest', 'discover', '-s', 'scripts', '-p', 'verify_test.py'], '.'),
     'build-tests': (['node', '--test', 'scripts/build-web.test.mjs'], '.'),
     'types': (['npm', 'run', 'typecheck'], 'web'),
@@ -56,7 +57,7 @@ COMPAT_ENV = {'NATSLENS_COMPAT_MATRIX': '1', 'TZ': 'Pacific/Honolulu'}
 SELECTED = ('race-', 'compat-')
 
 def plan(profile):
-    common = ['format', 'go-version', 'gate-tests', 'build-tests', 'types', 'proto', 'docs']
+    common = ['format', 'go-version', 'fuzz-targets', 'gate-tests', 'build-tests', 'types', 'proto', 'docs']
     return {
         'fast': common + ['vet-fast', 'go-fast', 'web-tests'],
         'full': common + ['vet-full', 'web-tests', 'go-full', 'race-api', 'race-k8s'],

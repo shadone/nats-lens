@@ -79,7 +79,7 @@ class GoVersionAgreement(unittest.TestCase):
 class TierScopeContracts(unittest.TestCase):
     def test_fast_and_full_keep_expensive_work_explicit(self):
         fast, full = verify.plan('fast'), verify.plan('full')
-        for name in ['format', 'go-version', 'types', 'proto', 'docs', 'web-tests']:
+        for name in ['format', 'go-version', 'fuzz-targets', 'types', 'proto', 'docs', 'web-tests']:
             self.assertIn(name, fast)
             self.assertIn(name, full)
         self.assertIn('go-fast', fast)

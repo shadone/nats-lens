@@ -4,7 +4,7 @@
 #
 #   scripts/fuzz.sh [TIME]   fuzz each target for TIME (default 3m)
 #   scripts/fuzz.sh list     print the targets, one "package name" per line
-#   scripts/fuzz.sh check    fail when a Fuzz function is missing from TARGETS
+#   scripts/fuzz.sh check    fail when TARGETS and the Fuzz functions disagree
 #
 # FUZZ_PARALLEL sets the workers per target (default 4). A failing input is
 # written to the package's testdata/fuzz/<name>/ directory; the script runs
@@ -29,15 +29,24 @@ TARGETS="
 "
 
 check() {
-	local found missing=0
-	found=$(git grep -h -o -E '^func Fuzz[A-Za-z0-9_]+\(f \*testing\.F\)' -- '*_test.go' | sed -E 's/^func (Fuzz[A-Za-z0-9_]+).*/\1/' | sort)
+	local found listed bad=0
+	found=$(git grep -o -E '^func Fuzz[A-Za-z0-9_]+\([a-z]+ \*testing\.F\)' -- '*_test.go' | sed -E 's#^(.*)/[^/]*:func (Fuzz[A-Za-z0-9_]+).*#./\1:\2#' | sort)
+	listed=$(printf '%s\n' "$TARGETS" | awk 'NF == 2 { print $1 ":" $2 }' | sort)
 	for name in $found; do
-		if ! printf '%s\n' "$TARGETS" | grep -q -w -- "$name"; then
-			echo "fuzz target $name is not in scripts/fuzz.sh TARGETS" >&2
-			missing=1
+		if ! printf '%s\n' "$listed" | grep -q -x -- "$name"; then
+			echo "fuzz target $name (package:name) is not in scripts/fuzz.sh TARGETS" >&2
+			bad=1
 		fi
 	done
-	return "$missing"
+	# go test -fuzz exits 0 with "no fuzz tests to fuzz" for a name that
+	# matches no function, so a stale entry would pass every run.
+	for name in $listed; do
+		if ! printf '%s\n' "$found" | grep -q -x -- "$name"; then
+			echo "scripts/fuzz.sh TARGETS names $name (package:name), which no test file there defines" >&2
+			bad=1
+		fi
+	done
+	return "$bad"
 }
 
 case "${1:-}" in

@@ -45,7 +45,7 @@ jobs:
         run: npm ci --no-audit --no-fund
         working-directory: web
       - name: Verify (fast profile without docs)
-        run: python3 -B scripts/verify.py fast --only format,go-version,gate-tests,build-tests,types,proto,vet-fast,go-fast,web-tests --log-dir "$RUNNER_TEMP/verify"
+        run: python3 -B scripts/verify.py fast --only format,go-version,fuzz-targets,gate-tests,build-tests,types,proto,vet-fast,go-fast,web-tests --log-dir "$RUNNER_TEMP/verify"
       # The demo site as Pages publishes it: the UI under its base path with
       # the WebAssembly transport, and the API, which fails to build when a
       # package it imports, such as internal/checks, gains an import that
