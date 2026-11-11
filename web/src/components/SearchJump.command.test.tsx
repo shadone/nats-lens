@@ -13,6 +13,7 @@ import * as requests from "../api/requests";
 import { GetShellStatusResponseSchema } from "../gen/natslens/v1/systems_pb";
 import { serverNow } from "../lib/clock";
 import { hm } from "../lib/format";
+import { holdDebounce } from "../test/heldDebounce";
 import { renderApp } from "../test/render";
 import { SEARCH_DEBOUNCE_MS, SearchJump } from "./SearchJump";
 
@@ -35,25 +36,9 @@ vi.mock("../api/events", async (orig) => ({
   ...(await orig<typeof import("../api/events")>()),
   searchEvents: vi.fn(),
 }));
-// While held, the search text does not settle however long the gaps between
-// keys: a loaded runner can pause longer than SEARCH_DEBOUNCE_MS mid-word,
-// which would search a prefix and leave its rows kept (shown, never chosen).
-// useDebounced.test.ts covers the delay itself.
-const debounce = vi.hoisted(() => ({ held: false, listeners: new Set<() => void>() }));
-vi.mock("../lib/useDebounced", async (orig) => {
-  const actual = await orig<typeof import("../lib/useDebounced")>();
-  const { useSyncExternalStore } = await import("react");
-  const subscribe = (l: () => void) => {
-    debounce.listeners.add(l);
-    return () => debounce.listeners.delete(l);
-  };
-  return {
-    useDebounced<T extends string | number | undefined>(value: T, ms: number, now?: (settled: T, value: T) => boolean): T {
-      const held = useSyncExternalStore(subscribe, () => debounce.held);
-      return actual.useDebounced(value, held ? 2 ** 31 - 1 : ms, now);
-    },
-  };
-});
+// A loaded runner can pause longer than SEARCH_DEBOUNCE_MS mid-word, which
+// would search a prefix and leave its rows kept (shown, never chosen).
+vi.mock("../lib/useDebounced", () => import("../test/heldDebounce"));
 const m = vi.mocked(requests);
 const ev = vi.mocked(events);
 
@@ -102,15 +87,11 @@ const box = () => screen.getByRole("combobox", { name: "Search this system" });
 const settle = () => act(() => new Promise((r) => setTimeout(r, SEARCH_DEBOUNCE_MS + 100)));
 /** Types into the box as one burst: the text settles SEARCH_DEBOUNCE_MS after the last key. */
 const type = async (text: string) => {
-  const hold = (on: boolean) => {
-    debounce.held = on;
-    debounce.listeners.forEach((l) => l());
-  };
-  act(() => hold(true));
+  act(() => holdDebounce(true));
   try {
     await userEvent.type(box(), text);
   } finally {
-    act(() => hold(false));
+    act(() => holdDebounce(false));
   }
 };
 const groupLabels = () => screen.queryAllByRole("group").map((g) => g.getAttribute("aria-labelledby") && document.getElementById(g.getAttribute("aria-labelledby")!)?.firstChild?.textContent);
