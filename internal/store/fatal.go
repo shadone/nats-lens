@@ -11,6 +11,9 @@ import (
 	"time"
 
 	duckdb "github.com/duckdb/duckdb-go/v2"
+
+	"github.com/shadone/nats-lens/internal/admit"
+	"github.com/shadone/nats-lens/internal/timing"
 )
 
 // IsFatal classifies wrapped driver errors without relying on diagnostic text.
@@ -38,6 +41,9 @@ type engineGuard struct {
 	cancel  context.CancelFunc
 	// system labels the engine's query timings; see Store.SetSystem.
 	system atomic.Pointer[string]
+	// gate is the query budget of the API and /metrics; nil admits every
+	// query. See Store.SetQueryBudget.
+	gate atomic.Pointer[admit.Gate]
 }
 
 func newEngineGuard() *engineGuard {
@@ -136,6 +142,25 @@ func (c *guardedConnector) Close() error {
 type guardedConn struct {
 	driver.Conn
 	g *engineGuard
+	// inTx is set while the connection runs a transaction, whose
+	// statements never wait for the query budget: a write holds the
+	// store's write lock around its transaction.
+	inTx atomic.Bool
+}
+
+// enter takes a slot of the query budget for a query of the API or of
+// /metrics outside a transaction; every other query passes at once. The
+// returned func gives the slot back.
+func (g *engineGuard) enter(ctx context.Context, inTx bool) (func(), error) {
+	gate := g.gate.Load()
+	if gate == nil || inTx {
+		return func() {}, nil
+	}
+	src := timing.Source(ctx)
+	if src != timing.SourceAPI && src != timing.SourceMetrics {
+		return func() {}, nil
+	}
+	return gate.Enter(ctx, admit.Request{Source: src, Priority: src == timing.SourceMetrics, Abort: g.ctx.Done(), AbortErr: g.err})
 }
 
 func (c *guardedConn) CheckNamedValue(v *driver.NamedValue) error {
@@ -155,7 +180,11 @@ func (c *guardedConn) QueryContext(ctx context.Context, q string, args []driver.
 	if err := c.g.err(); err != nil {
 		return nil, err
 	}
-	done := c.g.timedQuery(ctx, q, args)
+	release, err := c.g.enter(ctx, c.inTx.Load())
+	if err != nil {
+		return nil, err
+	}
+	done := joined(c.g.timedQuery(ctx, q, args), release)
 	ctx, stop := c.g.callContext(ctx)
 	done = joined(stop, done)
 	r, err := c.Conn.(driver.QueryerContext).QueryContext(ctx, q, args)
@@ -178,7 +207,7 @@ func (c *guardedConn) PrepareContext(ctx context.Context, q string) (driver.Stmt
 	if err != nil {
 		return nil, c.g.observe("prepare", err)
 	}
-	return &guardedStmt{Stmt: s, g: c.g, q: q}, nil
+	return &guardedStmt{Stmt: s, g: c.g, q: q, conn: c}, nil
 }
 func (c *guardedConn) Begin() (driver.Tx, error) {
 	return c.BeginTx(context.Background(), driver.TxOptions{})
@@ -193,22 +222,26 @@ func (c *guardedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (drive
 	if err != nil {
 		return nil, c.g.observe("begin", err)
 	}
-	return &guardedTx{Tx: tx, g: c.g}, nil
+	c.inTx.Store(true)
+	return &guardedTx{Tx: tx, g: c.g, conn: c}, nil
 }
 func (c *guardedConn) Close() error { return c.g.observe("close connection", c.Conn.Close()) }
 
 type guardedTx struct {
 	driver.Tx
-	g *engineGuard
+	g    *engineGuard
+	conn *guardedConn
 }
 
 func (t *guardedTx) Commit() error {
+	defer t.conn.inTx.Store(false)
 	if err := t.g.err(); err != nil {
 		return err
 	}
 	return t.g.observe("commit", t.Tx.Commit())
 }
 func (t *guardedTx) Rollback() error {
+	defer t.conn.inTx.Store(false)
 	if err := t.g.err(); err != nil {
 		return err
 	}
@@ -217,8 +250,9 @@ func (t *guardedTx) Rollback() error {
 
 type guardedStmt struct {
 	driver.Stmt
-	g *engineGuard
-	q string
+	g    *engineGuard
+	q    string
+	conn *guardedConn
 }
 
 func (s *guardedStmt) Exec(args []driver.Value) (driver.Result, error) {
@@ -252,7 +286,11 @@ func (s *guardedStmt) QueryContext(ctx context.Context, args []driver.NamedValue
 	if err := s.g.err(); err != nil {
 		return nil, err
 	}
-	done := s.g.timedQuery(ctx, s.q, args)
+	release, err := s.g.enter(ctx, s.conn.inTx.Load())
+	if err != nil {
+		return nil, err
+	}
+	done := joined(s.g.timedQuery(ctx, s.q, args), release)
 	ctx, stop := s.g.callContext(ctx)
 	done = joined(stop, done)
 	r, err := s.Stmt.(driver.StmtQueryContext).QueryContext(ctx, args)

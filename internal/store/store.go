@@ -142,10 +142,14 @@ func refuseBeforeOpen(ctx context.Context, path, system string) error {
 // DB exposes the handle for queries.
 func (s *Store) DB() *sql.DB { return s.db }
 
-// Close closes the database.
+// Close closes the database. Queries waiting for the query budget end
+// with admit.ErrClosed.
 func (s *Store) Close() error {
 	if s.borrowed {
 		return nil
+	}
+	if g := s.QueryBudget(); g != nil {
+		g.Close()
 	}
 	return s.db.Close()
 }
