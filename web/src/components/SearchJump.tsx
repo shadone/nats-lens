@@ -56,9 +56,9 @@ export function wantsRemote(q: CommandQuery, kind: "finding" | "event"): boolean
 }
 
 type Option =
-  | { id: string; row: ResultRow; group?: undefined; question?: undefined }
-  | { id: string; row?: undefined; group: ResultGroup; question?: undefined }
-  | { id: string; row?: undefined; group?: undefined; question: string };
+  | { id: string; key: string; row: ResultRow; group?: undefined; question?: undefined }
+  | { id: string; key: string; row?: undefined; group: ResultGroup; question?: undefined }
+  | { id: string; key: string; row?: undefined; group?: undefined; question: string };
 
 const COUNT = new Intl.NumberFormat("en-US");
 
@@ -99,9 +99,9 @@ export function SearchJump() {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [used, setUsed] = useState(false);
-  const [active, setActive] = useState(0);
-  // Whether the arrow keys or the pointer moved the active row since the text changed.
-  const [moved, setMoved] = useState(false);
+  // The row the arrow keys or the pointer moved to since the text changed, by
+  // its key: results that arrive later shift indexes, not the choice.
+  const [chosen, setChosen] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
   const listId = useId();
   const names = useSearchItems(spec, used);
@@ -139,12 +139,15 @@ export function SearchJump() {
   const options: Option[] = [];
   for (const g of groups) {
     if (g.stale) continue;
-    for (const row of g.rows) options.push({ id: `${listId}-${options.length}`, row });
-    if (g.more) options.push({ id: `${listId}-${options.length}`, group: g });
+    for (const row of g.rows) options.push({ id: `${listId}-${options.length}`, key: `row:${row.kind}:${row.key}`, row });
+    if (g.more) options.push({ id: `${listId}-${options.length}`, key: `more:${g.kind}`, group: g });
   }
-  const askOption = offerAsk && question.question !== undefined ? ({ id: `${listId}-${options.length}`, question: question.question } satisfies Option) : undefined;
+  const askOption = offerAsk && question.question !== undefined ? ({ id: `${listId}-${options.length}`, key: "ask", question: question.question } satisfies Option) : undefined;
   if (askOption) options.push(askOption);
-  const current = Math.min(active, Math.max(0, options.length - 1));
+  const chosenAt = chosen === undefined ? -1 : options.findIndex((o) => o.key === chosen);
+  // Unmoved, the first row is active, unless it is the Ask row of text
+  // without ask:, which Enter must not pick: then no row is active.
+  const current = chosenAt >= 0 ? chosenAt : options.length > 0 && (options[0].question === undefined || asking) ? 0 : -1;
   const askProblemId = `${listId}-ask-problem`;
 
   useEffect(() => {
@@ -158,10 +161,7 @@ export function SearchJump() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  useEffect(() => {
-    setActive(0);
-    setMoved(false);
-  }, [text]);
+  useEffect(() => setChosen(undefined), [text]);
 
   /**
    * Makes a row active from the keyboard. The list scrolls inside its box, so
@@ -169,8 +169,7 @@ export function SearchJump() {
    * does not scroll, which would slide the list under the pointer.
    */
   const moveTo = (i: number) => {
-    setActive(i);
-    setMoved(true);
+    setChosen(options[i].key);
     document.getElementById(options[i].id)?.scrollIntoView?.({ block: "nearest" });
   };
 
@@ -209,13 +208,13 @@ export function SearchJump() {
       moveTo((current + 1) % options.length);
     } else if (e.key === "ArrowUp" && options.length) {
       e.preventDefault();
-      moveTo((current - 1 + options.length) % options.length);
+      moveTo(current < 0 ? options.length - 1 : (current - 1 + options.length) % options.length);
     } else if (e.key === "Enter" && showList && options[current]) {
       e.preventDefault();
       // Without ask:, Enter asks only from a row the user moved to: while the
       // results load, the Ask row can be the only one, and Enter there would
       // overwrite the clipboard.
-      if (options[current].question !== undefined && !asking && !moved) return;
+      if (options[current].question !== undefined && !asking && chosenAt < 0) return;
       choose(options[current]);
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -241,8 +240,7 @@ export function SearchJump() {
         choose(o);
       },
       onMouseEnter: () => {
-        setActive(options.indexOf(o));
-        setMoved(true);
+        setChosen(o.key);
       },
     };
   };

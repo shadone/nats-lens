@@ -352,3 +352,82 @@ describe("the note under the Ask row", () => {
     expect(screen.queryByText(/sends the question nowhere/)).toBeNull();
   });
 });
+
+describe("which row Enter picks", () => {
+  const loc = () => screen.getByTestId("location").textContent;
+  const settle = () => new Promise((r) => setTimeout(r, 400));
+
+  it("shows no row active when the Ask row of text without ask: is the only one", async () => {
+    setup("/?system=sys-a");
+    await enter("zzz nothing");
+    await screen.findByRole("option", { name: /Copy prompt with question/ });
+    await settle();
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    expect(askRow()).toHaveAttribute("aria-selected", "false");
+    expect(askRow()).not.toHaveClass("on");
+    expect(box()).not.toHaveAttribute("aria-activedescendant");
+    await userEvent.keyboard("{Enter}");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(write).not.toHaveBeenCalled();
+    expect(box()).toHaveValue("zzz nothing");
+    await userEvent.keyboard("{ArrowDown}");
+    expect(askRow()).toHaveAttribute("aria-selected", "true");
+    expect(box()).toHaveAttribute("aria-activedescendant", askRow().id);
+  });
+
+  it("keeps the row moved to when results arrive after it", async () => {
+    let names: (v: unknown) => void = () => {};
+    let streams: (v: unknown) => void = () => {};
+    m.listServers.mockReturnValue(new Promise((r) => (names = r)) as never);
+    m.listStreams.mockReturnValue(new Promise((r) => (streams = r)) as never);
+    setup("/?system=sys-a");
+    await enter("nats-1");
+    await screen.findByRole("option", { name: /Copy prompt with question/ });
+    await userEvent.keyboard("{ArrowUp}");
+    expect(askRow()).toHaveAttribute("aria-selected", "true");
+    names({ servers: [{ name: "nats-1", cluster: "c" }], expected: [], missing: [] });
+    streams({ streams: [] });
+    await screen.findByRole("option", { name: /nats-1/, selected: false });
+    expect(askRow()).toHaveAttribute("aria-selected", "true");
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(write).toHaveBeenCalledOnce());
+    expect(questionOf(write.mock.calls[0][0])).toBe("nats-1");
+  });
+
+  it("still opens the first result on Enter with no move", async () => {
+    setup("/?system=sys-a");
+    await enter("nats-1");
+    await screen.findByRole("option", { name: /^Server/ });
+    await settle();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(loc()).toMatch(/^\/servers\/nats-1/));
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it("forgets the move when the text changes, after the arrow keys or the pointer", async () => {
+    setup("/?system=sys-a");
+    await enter("zzz");
+    await screen.findByRole("option", { name: /Copy prompt with question/ });
+    await userEvent.keyboard("{ArrowDown}");
+    fireEvent.change(box(), { target: { value: "zzzq" } });
+    await userEvent.keyboard("{Enter}");
+    fireEvent.mouseEnter(askRow());
+    fireEvent.change(box(), { target: { value: "zzzqq" } });
+    await userEvent.keyboard("{Enter}");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(write).not.toHaveBeenCalled();
+    expect(box()).toHaveValue("zzzqq");
+  });
+
+  it("ties a unique reason to the box only while the list shows", async () => {
+    setup("/?system=sys-a");
+    await enter(`ab ${"x".repeat(2001)}`);
+    await waitFor(() => expect(box()).toHaveAttribute("aria-describedby"));
+    const id = box().getAttribute("aria-describedby")!;
+    expect(document.querySelectorAll(`[id="${id}"]`)).toHaveLength(1);
+    expect(box()).toHaveAccessibleDescription(/2,004 characters/);
+    await userEvent.keyboard("{Escape}");
+    expect(box()).not.toHaveAttribute("aria-describedby");
+    expect(box()).not.toHaveAttribute("aria-activedescendant");
+  });
+});
