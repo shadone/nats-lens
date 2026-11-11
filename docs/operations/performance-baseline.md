@@ -191,7 +191,7 @@ Proposed from these numbers, to be tracked with the new histograms, not with wal
 
 ## After: asset counts per epoch
 
-Recommendation 1 is implemented (branch `perf/asset-counts`, migration 0041): each epoch's write stores the six counts in `epoch_asset_counts`, and the series read one row per epoch. [Design](../design.md) describes the table, the fill when the collector opens the store, and the rebuild. Measured on 2026-11-11 on the same machine, which was shared with other work: the load average before each run is given, and it was well above the baseline's 5. One `entities` store was generated with the code before the change (revision `a75af7f2`), measured, then opened by the new code, which migrated it and filled its counts, and measured again. The scenarios ran once each.
+Recommendation 1 is implemented (branch `perf/asset-counts`, migration 0041): each epoch's write stores the six counts in `epoch_asset_counts`, and the series read one row per epoch. [Design](../design.md) describes the table, the fill when the collector opens the store, and the rebuild. Measured on 2026-11-11 on the same machine, which was shared with other work: the load average before each run is given, and it was well above the baseline's 5. One `entities` store was generated with the code before the change (revision `a75af7f2`), measured, then opened by the new code, which migrated it and filled its counts, and measured again. The scenarios ran once each. They predate the per-store query budget (recommendation 2), so every run here had no budget.
 
 | Measure | Before | After |
 | --- | --- | --- |
