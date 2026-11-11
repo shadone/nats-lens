@@ -35,6 +35,25 @@ vi.mock("../api/events", async (orig) => ({
   ...(await orig<typeof import("../api/events")>()),
   searchEvents: vi.fn(),
 }));
+// While held, the search text does not settle however long the gaps between
+// keys: a loaded runner can pause longer than SEARCH_DEBOUNCE_MS mid-word,
+// which would search a prefix and leave its rows kept (shown, never chosen).
+// useDebounced.test.ts covers the delay itself.
+const debounce = vi.hoisted(() => ({ held: false, listeners: new Set<() => void>() }));
+vi.mock("../lib/useDebounced", async (orig) => {
+  const actual = await orig<typeof import("../lib/useDebounced")>();
+  const { useSyncExternalStore } = await import("react");
+  const subscribe = (l: () => void) => {
+    debounce.listeners.add(l);
+    return () => debounce.listeners.delete(l);
+  };
+  return {
+    useDebounced<T extends string | number | undefined>(value: T, ms: number, now?: (settled: T, value: T) => boolean): T {
+      const held = useSyncExternalStore(subscribe, () => debounce.held);
+      return actual.useDebounced(value, held ? 2 ** 31 - 1 : ms, now);
+    },
+  };
+});
 const m = vi.mocked(requests);
 const ev = vi.mocked(events);
 
@@ -81,6 +100,19 @@ afterEach(() => vi.useRealTimers());
 
 const box = () => screen.getByRole("combobox", { name: "Search this system" });
 const settle = () => act(() => new Promise((r) => setTimeout(r, SEARCH_DEBOUNCE_MS + 100)));
+/** Types into the box as one burst: the text settles SEARCH_DEBOUNCE_MS after the last key. */
+const type = async (text: string) => {
+  const hold = (on: boolean) => {
+    debounce.held = on;
+    debounce.listeners.forEach((l) => l());
+  };
+  act(() => hold(true));
+  try {
+    await userEvent.type(box(), text);
+  } finally {
+    act(() => hold(false));
+  }
+};
 const groupLabels = () => screen.queryAllByRole("group").map((g) => g.getAttribute("aria-labelledby") && document.getElementById(g.getAttribute("aria-labelledby")!)?.firstChild?.textContent);
 
 describe("command bar", () => {
@@ -93,7 +125,7 @@ describe("command bar", () => {
 
   it("asks for no findings or events for one character", async () => {
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "a");
+    await type("a");
     await settle();
     expect(m.listFindings).not.toHaveBeenCalled();
     expect(ev.searchEvents).not.toHaveBeenCalled();
@@ -101,7 +133,7 @@ describe("command bar", () => {
 
   it("asks once for findings and once for events while ten characters are typed", async () => {
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "analytics-");
+    await type("analytics-");
     await settle();
     await screen.findByText("consumer-010");
     expect(m.listFindings).toHaveBeenCalledTimes(1);
@@ -112,7 +144,7 @@ describe("command bar", () => {
 
   it("groups names, findings and events in order, and moves across the groups with the arrow keys", async () => {
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "analytics");
+    await type("analytics");
     await screen.findByText("consumer-010");
     await screen.findByText("CONSUMER.DELETED");
     expect(groupLabels()).toEqual(["Consumers", "Findings", "Events"]);
@@ -133,7 +165,7 @@ describe("command bar", () => {
 
   it("opens a finding's page on Enter", async () => {
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "consumer-010");
+    await type("consumer-010");
     await screen.findByText(`Warning · firing since ${hm(AT)}`);
     await userEvent.keyboard("{ArrowDown}{ArrowUp}{Enter}");
     expect(screen.getByTestId("location")).toHaveTextContent("/findings/consumer-010%3AAPP%2Forder-archive%2Fanalytics-aggregator?system=sys-a");
@@ -142,14 +174,14 @@ describe("command bar", () => {
 
   it("opens an event on the events page", async () => {
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "event: deleted");
+    await type("event: deleted");
     await userEvent.click(await screen.findByText("CONSUMER.DELETED"));
     expect(screen.getByTestId("location")).toHaveTextContent("/events?id=77&system=sys-a");
   });
 
   it("narrows to one kind with a prefix, shows it as a chip, and drops it with the chip", async () => {
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "event: since:2h");
+    await type("event: since:2h");
     await screen.findByText("CONSUMER.DELETED");
     expect(groupLabels()).toEqual(["Events"]);
     expect(m.listFindings).not.toHaveBeenCalled();
@@ -166,7 +198,7 @@ describe("command bar", () => {
   it("narrows to a group from its show all row", async () => {
     m.listFindings.mockResolvedValue({ items: [FINDING], nextPageToken: "x", totalCount: 9 });
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "consumer-010");
+    await type("consumer-010");
     const more = await screen.findByRole("option", { name: "Show all 9" });
     await userEvent.click(more);
     expect(box()).toHaveValue("finding: consumer-010");
@@ -183,10 +215,10 @@ describe("command bar", () => {
       return Promise.resolve(page([{ ...FINDING, checkCode: `match-${f.text}` }]));
     });
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "orde");
+    await type("orde");
     await settle();
     expect(signals).toHaveLength(1);
-    await userEvent.type(box(), "r");
+    await type("r");
     await settle();
     await screen.findByText("match-order");
     expect(signals).toHaveLength(2);
@@ -198,7 +230,7 @@ describe("command bar", () => {
     m.listFindings.mockImplementation(() => new Promise(() => {}));
     ev.searchEvents.mockRejectedValue(new Error("down"));
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "analytics");
+    await type("analytics");
     await screen.findByText("Could not search events");
     expect(screen.getByText("Searching…")).toBeInTheDocument();
     expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Consumeranalytics-aggregatororder-archive"]);
@@ -207,16 +239,16 @@ describe("command bar", () => {
   it("shows a folded run of events as one row with its count", async () => {
     ev.searchEvents.mockResolvedValue(page([{ ...EVENT, repeats: 5 }]));
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "event: analytics");
+    await type("event: analytics");
     expect(await screen.findByText(`×5 · ${hm(AT)}`)).toBeInTheDocument();
   });
 
   it("keeps the previous rows, dimmed, while the next text loads", async () => {
     m.listFindings.mockImplementation((_s, _r, f) => (f.text === "consumer-010" ? Promise.resolve(page([FINDING])) : new Promise(() => {})));
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "consumer-010");
+    await type("consumer-010");
     await screen.findByText(`Warning · firing since ${hm(AT)}`);
-    await userEvent.type(box(), "x");
+    await type("x");
     const stale = () => screen.getByText("consumer-010").closest("ul");
     expect(stale()).toHaveClass("search-stale");
     await settle();
@@ -238,7 +270,7 @@ describe("command bar", () => {
       </>,
       "/?system=sys-a",
     );
-    await userEvent.type(box(), "consumer-010");
+    await type("consumer-010");
     await screen.findByText("CONSUMER.DELETED");
     fireEvent.click(screen.getByRole("button", { name: "Switch" }));
     await waitFor(() => expect(m.listFindings.mock.calls.some(([sys]) => sys === "sys-b")).toBe(true));
@@ -250,9 +282,9 @@ describe("command bar", () => {
   it("never chooses a kept row: Enter and a click do nothing until the new rows arrive", async () => {
     ev.searchEvents.mockImplementation((_s, _r, t) => (t === "deleted" ? Promise.resolve(page([EVENT])) : new Promise(() => {})));
     renderApp(<SearchJump />, "/?system=sys-a");
-    await userEvent.type(box(), "event: deleted");
+    await type("event: deleted");
     await screen.findByText("CONSUMER.DELETED");
-    await userEvent.type(box(), "zzz");
+    await type("zzz");
     const kept = screen.getByText("CONSUMER.DELETED").closest("li")!;
     expect(kept).toHaveAttribute("aria-disabled", "true");
     expect(box()).not.toHaveAttribute("aria-activedescendant");
@@ -265,7 +297,7 @@ describe("command bar", () => {
   it("keeps no rows of another since: window", async () => {
     ev.searchEvents.mockImplementation((_s, r) => (r.kind === "fixed" && r.to - r.from === 86_400_000 ? Promise.resolve(page([EVENT])) : new Promise(() => {})));
     renderApp(<SearchJump />, "/?system=sys-a&range=7d");
-    await userEvent.type(box(), "event: deleted since:1d");
+    await type("event: deleted since:1d");
     await screen.findByText("CONSUMER.DELETED");
     fireEvent.change(box(), { target: { value: "event: deleted since:2h" } });
     expect(screen.queryByText("CONSUMER.DELETED")).toBeNull();
