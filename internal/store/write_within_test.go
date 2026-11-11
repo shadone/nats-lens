@@ -32,9 +32,9 @@ type lockDeadlineContext struct {
 
 func (c *lockDeadlineContext) Deadline() (time.Time, bool) {
 	c.reads++
-	if c.store.mu.m.TryLock() {
+	if c.store.mu.tryLock() {
 		c.unlocked = true
-		c.store.mu.m.Unlock()
+		<-c.store.mu.token()
 	}
 	return time.Time{}, false
 }
@@ -43,5 +43,15 @@ func TestWriteLimitStillApplies(t *testing.T) {
 	s := openMem(t)
 	if _, err := s.WriteSnapshotWithin(context.Background(), fixtureSnapshot(t, t0), time.Nanosecond); err == nil {
 		t.Fatal("a write within 1ns succeeded")
+	}
+}
+
+// tryLock takes the lock if it is free, without timing it.
+func (l *writeLock) tryLock() bool {
+	select {
+	case l.token() <- struct{}{}:
+		return true
+	default:
+		return false
 	}
 }

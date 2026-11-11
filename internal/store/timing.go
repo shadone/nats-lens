@@ -60,14 +60,23 @@ func joined(a, b func()) func() {
 }
 
 // writeLock is the store's write lock. It times each write's wait for the
-// lock and its hold, by operation, and counts the writes waiting.
+// lock and its hold, by operation, and counts the writes waiting. Writes
+// take it in arrival order; a write that waits with LockContext leaves the
+// queue when its context ends.
 type writeLock struct {
-	m sync.Mutex
+	once sync.Once
+	// ch holds one token while the lock is held.
+	ch chan struct{}
 	// system is the engine guard's label; nil for a read view.
 	system *atomic.Pointer[string]
-	// op and since describe the current holder; written under m.
+	// op and since describe the current holder; written while held.
 	op    string
 	since time.Time
+}
+
+func (l *writeLock) token() chan struct{} {
+	l.once.Do(func() { l.ch = make(chan struct{}, 1) })
+	return l.ch
 }
 
 func (l *writeLock) label() string {
@@ -82,20 +91,32 @@ func (l *writeLock) label() string {
 
 // Lock takes the lock for the write operation op.
 func (l *writeLock) Lock(op string) {
+	_ = l.LockContext(context.Background(), op)
+}
+
+// LockContext takes the lock for op, or gives up when ctx ends first and
+// returns its error; a write that gave up leaves nothing waiting behind.
+func (l *writeLock) LockContext(ctx context.Context, op string) error {
 	sys := l.label()
 	waiting := timing.LockWaiters.With(sys)
 	start := time.Now()
 	waiting.Add(1)
-	l.m.Lock()
+	select {
+	case l.token() <- struct{}{}:
+	case <-ctx.Done():
+		waiting.Add(-1)
+		return ctx.Err()
+	}
 	waiting.Add(-1)
 	l.op, l.since = op, time.Now()
 	timing.LockWait.With(sys, op).Observe(l.since.Sub(start).Seconds())
+	return nil
 }
 
 // Unlock releases the lock and records how long it was held.
 func (l *writeLock) Unlock() {
 	op, since := l.op, l.since
-	l.m.Unlock()
+	<-l.token()
 	timing.LockHeld.With(l.label(), op).Observe(time.Since(since).Seconds())
 }
 

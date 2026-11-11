@@ -47,23 +47,9 @@ var (
 
 // lock takes the write lock, or gives up when ctx ends first; a mute call
 // then fails instead of waiting behind a long epoch write or archive
-// export. A lock acquired after ctx ended is released at once.
+// export, and leaves no waiter behind.
 func (s *Store) lock(ctx context.Context, op string) error {
-	got := make(chan struct{})
-	go func() {
-		s.mu.Lock(op)
-		close(got)
-	}()
-	select {
-	case <-got:
-		return nil
-	case <-ctx.Done():
-		go func() {
-			<-got
-			s.mu.Unlock()
-		}()
-		return ctx.Err()
-	}
+	return s.mu.LockContext(ctx, op)
 }
 
 const muteCols = `id, check_code, entity_type, entity_key, reason, muted_by, created_at, expires_at, unmuted_at, unmuted_by, coalesce(accepted, false), growth_per_day, end_reason`

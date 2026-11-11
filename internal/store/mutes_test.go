@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/shadone/nats-lens/internal/timing"
 )
 
 func TestMuteLifecycle(t *testing.T) {
@@ -62,6 +64,38 @@ func TestMuteLockGivesUpWithTheContext(t *testing.T) {
 	if _, err := s.CreateMute(context.Background(), Mute{CheckCode: "x-001", Reason: "r", MutedBy: "op", CreatedAt: t0, ExpiresAt: t0.Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// Writes that give up waiting for the lock leave nothing waiting behind
+// it, however long the holder keeps it.
+func TestCanceledWritesLeaveNoWaiters(t *testing.T) {
+	s := openMem(t)
+	s.SetSystem("test-lock-cancel")
+	s.mu.Lock("test")
+	ctx, cancel := context.WithCancel(context.Background())
+	errs := make(chan error, 30)
+	for range 30 {
+		go func() {
+			_, err := s.CreateMute(ctx, Mute{CheckCode: "x-001", Reason: "r", MutedBy: "op", CreatedAt: t0, ExpiresAt: t0.Add(time.Hour)})
+			errs <- err
+		}()
+	}
+	waiters := timing.LockWaiters.With("test-lock-cancel")
+	for deadline := time.Now().Add(20 * time.Second); waiters.Load() != 30; time.Sleep(time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("%d writes wait, want 30", waiters.Load())
+		}
+	}
+	cancel()
+	for range 30 {
+		if err := <-errs; !errors.Is(err, context.Canceled) {
+			t.Fatalf("a canceled write ended with %v", err)
+		}
+	}
+	if n := waiters.Load(); n != 0 {
+		t.Fatalf("%d writes still wait behind the held lock", n)
+	}
+	s.mu.Unlock()
 }
 
 func TestAcceptanceRoundTrip(t *testing.T) {
