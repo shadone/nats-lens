@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"hash/fnv"
 	"os"
 	"path/filepath"
 	"slices"
@@ -25,7 +26,7 @@ import (
 // compatSequenceSteps. Values depend on the row number n (opts.base+i) and
 // the column's type; a few columns take values their CHECK constraints
 // allow. All times fall in one hour, opts.hour, so one archive hour holds
-// every row.
+// every row: row i's in minute i, at a second that depends on the column.
 
 // compatOpts selects the fixture's values; fixtures with different bases
 // and hours can be archived together without key conflicts.
@@ -199,12 +200,31 @@ func compatCatalog(t *testing.T, db *sql.DB) string {
 
 func quoteIdent(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
 
+// compatLinkedSeconds pins the second of time columns whose equality or
+// order a migration's backfill reads: 0038 marks a channel's episode
+// acknowledged when its sent_at is the channel's baseline, an
+// acknowledgement was made before it, and the channel reconciled after.
+var compatLinkedSeconds = map[string]int{"baselined_at": 20, "sent_at": 20, "created_at": 10, "reconciled_at": 50}
+
+// compatSecond is the second, within the row's minute, of a time column
+// named name: derived from the name, so that two time columns of a row
+// (delivered_at and created_at, say) hold different times and a backfill
+// that reads the wrong one shows.
+func compatSecond(name string) int {
+	if s, ok := compatLinkedSeconds[name]; ok {
+		return s
+	}
+	h := fnv.New32a()
+	h.Write([]byte(name))
+	return int(h.Sum32() % 60)
+}
+
 // compatValue is the SQL literal of row i's value in column c of table.
 func compatValue(t *testing.T, table string, c compatColumn, opts compatOpts, i int) string {
 	t.Helper()
 	n := opts.base + i
 	at := func(day int) string {
-		return fmt.Sprintf("2026-10-%02d %02d:%02d:00", 17+day, opts.hour, i)
+		return fmt.Sprintf("2026-10-%02d %02d:%02d:%02d", 17+day, opts.hour, i, compatSecond(c.name))
 	}
 	odd := i%2 == 1
 	switch table + "." + c.name {
@@ -233,6 +253,12 @@ func compatValue(t *testing.T, table string, c compatColumn, opts compatOpts, i 
 		return "NULL"
 	case "mutes.expires_at":
 		return "TIMESTAMP '" + at(1) + "'"
+	case "notify_outbox.delivered_at":
+		// A refused message was never delivered: 0036 takes its queue
+		// time as its outcome time.
+		if i == 2 {
+			return "NULL"
+		}
 	case "notify_outbox.state":
 		return []string{"'delivered'", "'refused'", "'pending'"}[(i-1)%3]
 	}
