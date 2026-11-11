@@ -83,13 +83,13 @@ describe("Subjects", () => {
     getSubjects.mockResolvedValue(global());
     renderApp(<Subjects />, "/subjects?system=example-global");
     await screen.findByRole("region", { name: "Subject patterns" });
-    expect(table().getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Pattern", "Account", "Stored in", "Subscribers", "Stored msgs/s", "Delivered msgs/s", "Note"]);
+    expect(table().getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Pattern", "Account", "Stored in", "Subscribers", "Stored/s", "Delivered/s", "Note"]);
     expect(cells("order.events.>")).toEqual(["APP", "order-events", "4 durable consumers", "2.88", "– no delivered rate", "mirrored by order-archive"]);
     expect(cells("$KV.feature-flags.>")).toEqual(["APP", "feature-flags", "22 watchers (api-gateway, checkout-service, order-service +1)", "0.04", "– no delivered rate", ""]);
     expect(cells("orders.place")).toEqual([
       "APP",
       "",
-      "3 connections in queue group order-service (order-service)Per connection" +
+      "3 connections in queue group order-service (order-service)Per connection (3)" +
         "order-service (nats-eu-0 cid 117): 4.62 msgs/s" +
         "order-service (nats-eu-0 cid 101): 4.20 msgs/s" +
         "order-service (nats-eu-3 cid 109): not measured",
@@ -115,14 +115,14 @@ describe("Subjects", () => {
     await screen.findByRole("region", { name: "Subject patterns" });
     const r = within(rowOf("orders.place"));
     expect(r.getByText("2 of 3 measured")).toHaveClass("sj-measured");
-    const per = r.getByText("Per connection").closest("details") as HTMLElement;
+    const per = r.getByText("Per connection (3)").closest("details") as HTMLElement;
     expect(per).not.toHaveAttribute("open");
-    await userEvent.click(r.getByText("Per connection"));
+    await userEvent.click(r.getByText("Per connection (3)"));
     expect(per).toHaveAttribute("open");
     const items = within(per).getAllByRole("listitem").map((li) => li.textContent);
     expect(items).toEqual(["order-service (nats-eu-0 cid 117): 4.62 msgs/s", "order-service (nats-eu-0 cid 101): 4.20 msgs/s", "order-service (nats-eu-3 cid 109): not measured"]);
     // One connection's rate is the row's: no disclosure.
-    expect(within(rowOf(">")).queryByText("Per connection")).toBeNull();
+    expect(within(rowOf(">")).queryByText(/^Per connection/)).toBeNull();
   });
 
   it("names the connections beyond the 20 listed and an unnamed connection", async () => {
@@ -141,6 +141,7 @@ describe("Subjects", () => {
     expect(cells("a.b")[4]).toBe("1.50");
     const items = within(rowOf("a.b")).getAllByRole("listitem").map((li) => li.textContent);
     expect(items).toEqual(["unnamed (nats-eu-1 cid 12): 1.00 msgs/s", "api-gateway (nats-eu-2 cid 13): 0.50 msgs/s", "+20 more connections"]);
+    expect(within(rowOf("a.b")).getByText("Per connection (22)")).toBeInTheDocument();
   });
 
   it("shows a mirror without a pattern and a stream without a consumer as a warning row", async () => {
@@ -326,7 +327,7 @@ describe("Subjects tester", () => {
       "Core subscribers one of 3 in queue group order-service (order-service) via orders.place, 8.82 msgs/s delivered, 2 of 3 connections measured; " +
         "1 connection (ops-monitor) via orders.>, delivered rate not measured",
     );
-    const per = card.getByText("Per connection on orders.place in order-service").closest("details") as HTMLElement;
+    const per = card.getByText("Per connection on orders.place in order-service (3)").closest("details") as HTMLElement;
     expect(within(per).getAllByRole("listitem")).toHaveLength(3);
     expect(card.queryByText(/^Per connection on orders\.>/)).toBeNull();
   });

@@ -58,7 +58,9 @@ export function ConnectionRates({ d, label = "Per connection" }: { d: Delivered;
   const more = moreRatesText(d);
   return (
     <details className="sj-rates">
-      <summary>{label}</summary>
+      <summary>
+        {label} ({fmtInt(d.rates.length + d.moreRates)})
+      </summary>
       <ul>
         {d.rates.map((c) => (
           <li key={`${c.server}|${c.cid}`}>
@@ -183,10 +185,10 @@ export function SubjectsTable({ d, scoped, empty, filterParam = "" }: { d: Subje
                 <th scope="col">Stored in</th>
                 <th scope="col">Subscribers</th>
                 <th scope="col" className="num">
-                  Stored msgs/s
+                  Stored/s
                 </th>
                 <th scope="col" className="num">
-                  Delivered msgs/s
+                  Delivered/s
                 </th>
                 <th scope="col">Note</th>
               </tr>

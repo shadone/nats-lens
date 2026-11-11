@@ -41,13 +41,13 @@
 .sj-tbl .sj-account{font:var(--fs-sm) var(--mono);color:var(--text-2);white-space:nowrap}
 .sj-system{margin-left:var(--sp-2);padding:0 6px;border:1px solid var(--border);border-radius:var(--r-sm);font:var(--fs-xs) var(--sans);color:var(--text-muted)}
 .sj-tbl .sj-stream{font:var(--fs-sm) var(--mono);white-space:nowrap}
-.sj-tbl .sj-subs{min-width:220px;max-width:320px;white-space:normal}
+.sj-tbl .sj-subs{min-width:180px;max-width:300px;white-space:normal}
 .sj-tbl .sj-rate{font-family:var(--mono)}
-.sj-tbl .sj-note{min-width:200px;max-width:360px;white-space:normal;font-size:var(--fs-sm);color:var(--text-muted)}
+.sj-tbl .sj-note{min-width:120px;max-width:300px;white-space:normal;font-size:var(--fs-sm);color:var(--text-muted)}
 .sj-tbl .sj-note.sj-note-warn{color:var(--sev-warning);font-weight:500}
 .sj-tbl tr.sj-warn > *{background:var(--sev-warning-bg)}
 .sj-tbl .sj-quiet{color:var(--text-muted)}
-.sj-tbl .sj-measured{display:block;font:var(--fs-xs) var(--sans);color:var(--text-muted);white-space:nowrap}
+.sj-tbl .sj-measured{display:block;min-width:64px;font:var(--fs-xs) var(--sans);color:var(--text-muted);white-space:normal}
 .sj-rates{margin-top:var(--sp-1);font-size:var(--fs-sm)}
 .sj-rates > summary{cursor:pointer;color:var(--text-2)}
 .sj-rates ul{margin:var(--sp-1) 0 0;padding:0 0 0 var(--sp-4)}
