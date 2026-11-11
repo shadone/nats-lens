@@ -40,23 +40,31 @@ test_cumulative_seconds_count{job="a"} 4
 	}
 }
 
-func TestSeriesBeyondTheBoundGoToOther(t *testing.T) {
-	v := NewHistogramVec("test_bound_seconds", "h", []string{"procedure"}, []float64{1})
+func TestSeriesBeyondTheBoundKeepTheSystem(t *testing.T) {
+	v := NewHistogramVec("test_bound_seconds", "h", []string{"system", "procedure"}, []float64{1})
 	for i := range MaxSeries + 10 {
-		v.With(fmt.Sprint("p", i)).Observe(0.5)
+		v.With("a", fmt.Sprint("p", i)).Observe(0.5)
 	}
-	if n := len(familyLines(t, "test_bound_seconds")) / 4; n != MaxSeries+1 {
-		t.Fatalf("%d series, want %d", n, MaxSeries+1)
+	v.With("b", "p0").Observe(0.5)
+	if got := v.Count("a", Overflow); got != 10 {
+		t.Fatalf("a's overflow counted %d, want 10", got)
 	}
-	if got := v.Count(Overflow); got != 10 {
-		t.Fatalf("other counted %d, want 10", got)
+	if got := v.Count("b", "p0"); got != 1 {
+		t.Fatalf("b kept %d observations of its own, want 1", got)
 	}
-	g := NewGaugeVec("test_bound_gauge", "g", []string{"procedure"})
+	for i := range MaxSystems {
+		v.With(fmt.Sprint("s", i), "p").Observe(0.5)
+	}
+	// a, b and MaxSystems-2 of the s systems fit; the last two go to other.
+	if got := v.Count(Overflow, Overflow); got != 2 {
+		t.Fatalf("systems past the bound counted %d, want 2", got)
+	}
+	g := NewGaugeVec("test_bound_gauge", "g", []string{"system", "procedure"})
 	for i := range MaxSeries + 3 {
-		g.With(fmt.Sprint("p", i)).Add(1)
+		g.With("a", fmt.Sprint("p", i)).Add(1)
 	}
-	if got := g.With(Overflow).Load(); got != 3 {
-		t.Fatalf("gauge other %d, want 3", got)
+	if got := g.With("a", Overflow).Load(); got != 3 {
+		t.Fatalf("gauge overflow %d, want 3", got)
 	}
 }
 

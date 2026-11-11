@@ -8,6 +8,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/apitest"
 	"github.com/shadone/nats-lens/internal/api/storeprov"
 	"github.com/shadone/nats-lens/internal/archive"
@@ -62,8 +63,10 @@ func TestTimingMetricsExported(t *testing.T) {
 	if _, err := st.Sweep(ctx, clock, 14*day); err != nil {
 		t.Fatal(err)
 	}
-	srv, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Checks: set,
-		Clock: func() time.Time { return clock }})
+	// The system's own ID keeps its series apart from those other tests
+	// of the package add to the process's timings.
+	p := &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Checks: set, Clock: func() time.Time { return clock }}
+	srv, c := apitest.ServeHandler(t, &api.Handler{Systems: api.Systems{{Ref: &v1.SystemRef{Id: "timing-scrape"}, Provider: p}}, Log: apitest.Log(t)})
 	must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{})))
 	must(c.ListSystems(ctx, connect.NewRequest(&v1.ListSystemsRequest{})))
 	if _, err := c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{System: "no-such-system"})); err == nil {
@@ -87,12 +90,12 @@ func TestTimingMetricsExported(t *testing.T) {
 		}
 	}
 	positive := []string{
-		`nats_lens_api_request_duration_seconds_count{system="default",procedure="GetOverview",code="ok"}`,
-		`nats_lens_api_request_queries_count{system="default",procedure="GetOverview"}`,
+		`nats_lens_api_request_duration_seconds_count{system="timing-scrape",procedure="GetOverview",code="ok"}`,
+		`nats_lens_api_request_queries_count{system="timing-scrape",procedure="GetOverview"}`,
 		`nats_lens_api_request_duration_seconds_count{system="all",procedure="ListSystems",code="ok"}`,
 		`nats_lens_api_request_duration_seconds_count{system="unknown",procedure="GetOverview",code="invalid_argument"}`,
-		`nats_lens_api_request_queries_sum{system="default",procedure="GetOverview"}`,
-		`nats_lens_api_request_query_seconds_sum{system="default",procedure="GetOverview"}`,
+		`nats_lens_api_request_queries_sum{system="timing-scrape",procedure="GetOverview"}`,
+		`nats_lens_api_request_query_seconds_sum{system="timing-scrape",procedure="GetOverview"}`,
 		`nats_lens_db_query_duration_seconds_count{` + sys + `,source="api"}`,
 		`nats_lens_db_query_duration_seconds_count{` + sys + `,source="metrics"}`,
 		`nats_lens_db_query_duration_seconds_count{` + sys + `,source="archive"}`,
@@ -112,7 +115,7 @@ func TestTimingMetricsExported(t *testing.T) {
 	if v := sampleValue(t, body, `nats_lens_store_lock_waiters{`+sys+`}`); v != 0 {
 		t.Errorf("lock waiters %g after every write returned", v)
 	}
-	if v := sampleValue(t, body, `nats_lens_api_requests_in_flight{system="default",procedure="GetOverview"}`); v != 0 {
+	if v := sampleValue(t, body, `nats_lens_api_requests_in_flight{system="timing-scrape",procedure="GetOverview"}`); v != 0 {
 		t.Errorf("GetOverview in flight %g after it returned", v)
 	}
 }

@@ -2,9 +2,11 @@
 // /metrics: API calls, store queries, the store's write lock and the
 // background jobs. Every family has a fixed set of label names whose values
 // come from a small closed set (procedure names, job names, system IDs);
-// none carries an entity, a query or a value read from NATS. A family
-// holds at most MaxSeries label sets; later ones are counted under the
-// value "other".
+// none carries an entity, a query or a value read from NATS. The first
+// label is the system: a family holds at most MaxSeries label sets for each
+// system, later ones counted with the system kept and every other label
+// "other", and at most MaxSystems systems, later ones counted with every
+// label "other".
 package timing
 
 import (
@@ -15,10 +17,14 @@ import (
 	"sync/atomic"
 )
 
-// MaxSeries bounds the label sets of one family.
-const MaxSeries = 256
+// MaxSeries bounds the label sets of one family for one value of its
+// first label, the system: 49 procedures with about ten Connect codes fit.
+const MaxSeries = 512
 
-// Overflow is the label value a family uses once it holds MaxSeries sets.
+// MaxSystems bounds the values of a family's first label.
+const MaxSystems = 64
+
+// Overflow is the label value that counts what the bounds leave out.
 const Overflow = "other"
 
 // LatencyBuckets are the upper bounds, in seconds, of the duration
@@ -79,6 +85,34 @@ type family struct {
 	labels     []string
 	mu         sync.RWMutex
 	keys       map[string][]string // joined values -> values
+	perFirst   map[string]int      // label sets by first value
+}
+
+// place returns the key and values under which values are counted, given
+// the bounds; held with mu locked for writing. A new label set is counted
+// in perFirst by the caller through admit.
+func (f *family) place(vals []string) (string, []string) {
+	k := strings.Join(vals, "\x00")
+	if _, ok := f.keys[k]; ok {
+		return k, vals
+	}
+	n, known := f.perFirst[vals[0]]
+	switch {
+	case !known && len(f.perFirst) >= MaxSystems:
+		vals = slices.Repeat([]string{Overflow}, len(vals))
+	case n >= MaxSeries && len(vals) > 1:
+		vals = append([]string{vals[0]}, slices.Repeat([]string{Overflow}, len(vals)-1)...)
+	}
+	return strings.Join(vals, "\x00"), vals
+}
+
+// admit records a new label set.
+func (f *family) admit(k string, vals []string) {
+	if f.perFirst == nil {
+		f.perFirst = map[string]int{}
+	}
+	f.keys[k] = slices.Clone(vals)
+	f.perFirst[vals[0]]++
 }
 
 func (f *family) key(values []string) (string, []string) {
@@ -116,19 +150,12 @@ func (v *HistogramVec) With(values ...string) *Histogram {
 	}
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	if h = v.series[k]; h != nil {
-		return h
-	}
-	if len(v.series) >= MaxSeries {
-		vals = slices.Repeat([]string{Overflow}, len(vals))
-		k = strings.Join(vals, "\x00")
-		if h = v.series[k]; h != nil {
-			return h
-		}
+	if k, vals = v.place(vals); v.series[k] != nil {
+		return v.series[k]
 	}
 	h = newHistogram(v.bounds)
 	v.series[k] = h
-	v.keys[k] = slices.Clone(vals)
+	v.admit(k, vals)
 	return h
 }
 
@@ -158,19 +185,12 @@ func (g *GaugeVec) With(values ...string) *atomic.Int64 {
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if c = g.series[k]; c != nil {
-		return c
-	}
-	if len(g.series) >= MaxSeries {
-		vals = slices.Repeat([]string{Overflow}, len(vals))
-		k = strings.Join(vals, "\x00")
-		if c = g.series[k]; c != nil {
-			return c
-		}
+	if k, vals = g.place(vals); g.series[k] != nil {
+		return g.series[k]
 	}
 	c = new(atomic.Int64)
 	g.series[k] = c
-	g.keys[k] = slices.Clone(vals)
+	g.admit(k, vals)
 	return c
 }
 
