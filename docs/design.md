@@ -2,7 +2,7 @@
 
 nats-lens observes a NATS deployment and answers the questions an operator asks when something goes wrong: what failed, when, on which server, and what else happened at the same time. It is read-only towards NATS.
 
-Status: draft; the owner confirmed the decisions in "Decisions confirmed on 2026-10-26", except three that the owner changed (see "Owner review of proposed decisions, 2026-10-26"): all three are built. The owner confirmed the decisions of the account checks and the batched epoch write on 2026-10-27 (see "Owner review of proposed decisions, 2026-10-27").
+Status: draft; the owner confirmed the decisions in "Decisions confirmed on 2026-10-26", except three that the owner changed (see "Owner review of proposed decisions, 2026-10-26"): all three are built. The owner confirmed the decisions of the account checks and the batched epoch write on 2026-10-27 (see "Owner review of proposed decisions, 2026-10-27"). On 2026-11-11 the owner left a set of decisions to the session (see "Owner delegation, 2026-11-11").
 
 ## Questions it must answer
 
@@ -839,3 +839,27 @@ These decisions were made by the session that built them; none is confirmed yet.
 - **`accepted` within `muted`.** `FindingTally.accepted` (field 8) counts firing findings under an acceptance, and `muted` keeps counting them, so clients and `/metrics` that read `muted` keep their meaning; the Overview's status line shows `muted - accepted` as muted.
 - **The finding page's nats CLI check is the cards' rule.** `cliCheck` from `web/src/lib/causeEvidence.ts` for the one finding, under the remediation. The Placement link selects the leader's copy, or the first server's, since the Placement page selects a cell (asset and server) rather than an asset.
 - **What an acceptance refuses.** Decided in the session that built it, not confirmed: `MuteFinding` with `accept` and `AcceptFindings` refuse an entity whose type is not the check code's prefix (`invalid_argument`, in `normalizeMute`); an entity with no row of the check in `findings`, in any state (`not_found`), so a typo or another account's stream of the same name cannot be accepted ahead of time; an entity whose row is resolved (`failed_precondition`, `store.ErrFindingNotFiring` as for acknowledgements), as no page offers to accept a finding that does not fire and an acceptance of nothing firing would only hide a later return; and an entity with an acceptance of the check in force (`already_exists`). The store checks the last three in the transaction that inserts, under its write lock (`Store.CreateAcceptances`), so two requests cannot both pass; a batch fails whole and the error names the entity. A plain mute of an entity with an acceptance of the same check in force is refused as `already_exists` with the review date (`store.ErrAccepted`, checked by `Store.CreateMute` in its insert transaction under the same lock): otherwise the mute would hide the acceptance and its review; a mute of every entity of the check stays allowed. The demo applies the same rules to its scenario. A finding row swept by retention after it resolved can no longer be accepted, which matches the finding no longer being shown.
+
+## Owner delegation, 2026-11-11
+
+On 2026-11-11 the owner left the decisions below to the session ("you decide"). The session kept each as built. They are the session's decisions, made at the owner's request, not the owner's own.
+
+- **Ask is a handoff, with no built-in model.** The command bar's "Ask your agent" copies the page's agent prompt with the user's question added; nats-lens calls no model and makes no new network call ([command bar](features/command-bar.md)). A built-in model would need an API key and outbound access from where nats-lens runs, often a cluster with restricted egress; it would send account names, subjects, client names and addresses to a third party; its answers would rest on NATS data that anyone who can publish can shape; and its output would drift and could not be tested.
+- **Why this severity** ([triage and mutes](features/triage-and-mutes.md)):
+  - the server writes the sentence, so the UI and an agent read the same words;
+  - the phone on-call card leaves the line out;
+  - a retained occurrence carries no reason, as today's check header could misdescribe the severity it had then;
+  - an undeclared built-in severity is logged and its row kept.
+- **The Servers, Leaders and Clients lanes** ([Overview](features/overview-page.md)):
+  - the lane order;
+  - "none in range" for an empty lane, and "No … captured since" a date for a quiet source;
+  - drops leave out client closes, server shutdowns and disconnects without a reason;
+  - only the whole system's timeline has the lanes;
+  - the capture lookback is `least(start, end − 7 days)`;
+  - `jetstream_events_captured` is cleared only when nats-lens was down for the whole range;
+  - a churn summary counts in the bucket of its first connect.
+- **The shared cursor** ([Overview](features/overview-page.md)):
+  - a chart follows only when each end of its range is within a twentieth of the page range's length;
+  - on a phone a touch-and-hold inspection draws the follower lines;
+  - the lanes reuse the charts' drag gesture for an interval;
+  - a live refresh keeps the cursor.
