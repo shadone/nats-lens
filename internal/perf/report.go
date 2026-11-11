@@ -312,7 +312,7 @@ func (r *Report) Markdown() string {
 			}
 		}
 		if bg := res.Background; bg != nil {
-			fmt.Fprintf(&b, "\nEpochs every %s: %d written, %d late; write p50 %s ms, max %s ms; checks p50 %s ms, max %s ms; tick to checks done p50 %s ms, max %s ms. Archive: %d hours exported, tick p50 %s ms, max %s ms.\n",
+			fmt.Fprintf(&b, "\nEpochs every %s: %d attempted, %d late; write p50 %s ms, max %s ms; checks p50 %s ms, max %s ms; tick to checks done p50 %s ms, max %s ms. Archive: %d hours exported, tick p50 %s ms, max %s ms.\n",
 				bg.EpochInterval, bg.Epochs, bg.Missed, ms(bg.WriteP50), ms(bg.WriteMax), ms(bg.ChecksP50), ms(bg.ChecksMax), ms(bg.LagP50), ms(bg.LagMax),
 				bg.ArchivedHours, ms(bg.ArchiveTickP50), ms(bg.ArchiveTickMax))
 			for _, e := range bg.Errors {

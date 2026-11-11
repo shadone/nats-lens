@@ -19,7 +19,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 profiles="${PERF_PROFILES:-entities history}"
 out="${PERF_OUT:-.perf/$(date -u +%Y%m%dT%H%M%SZ)}"
-dir="${PERF_DIR:-$(mktemp -d -t natslens-perf)}"
+dir="${PERF_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/natslens-perf.XXXXXX")}"
 mkdir -p "$out" "$dir"
 bin="$dir/natslens-perf"
 go build -o "$bin" ./cmd/natslens-perf
