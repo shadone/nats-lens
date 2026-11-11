@@ -191,7 +191,7 @@ Proposed from these numbers, to be tracked with the new histograms, not with wal
 
 ## After: asset counts per epoch
 
-Recommendation 1 is implemented (branch `perf/asset-counts`, migration 0041): each epoch's write stores the six counts in `epoch_asset_counts`, and the series read one row per epoch. [Design](../design.md) describes the table, the fill on open and the rebuild. Measured on 2026-11-11 on the same machine, which was shared with other work: the load average before each run is given, and it was well above the baseline's 5. One `entities` store was generated with the code before the change (revision `a75af7f2`), measured, then opened by the new code, which migrated it and filled its counts, and measured again. The scenarios ran once each.
+Recommendation 1 is implemented (branch `perf/asset-counts`, migration 0041): each epoch's write stores the six counts in `epoch_asset_counts`, and the series read one row per epoch. [Design](../design.md) describes the table, the fill when the collector opens the store, and the rebuild. Measured on 2026-11-11 on the same machine, which was shared with other work: the load average before each run is given, and it was well above the baseline's 5. One `entities` store was generated with the code before the change (revision `a75af7f2`), measured, then opened by the new code, which migrated it and filled its counts, and measured again. The scenarios ran once each.
 
 | Measure | Before | After |
 | --- | --- | --- |
@@ -209,7 +209,7 @@ A second run of the old code at a load average of 19 timed out in its cold load 
 
 - **The new reads.** `EXPLAIN ANALYZE` of the 24-hour `cluster.assets_replicated` series over the counts: 13 ms, reading 2,882 count rows and 2,880 epochs with the complete-JSZ subquery over `epoch_endpoints`; `cluster.durable_consumers` 28 ms. The check for epochs without counts that each count series runs first took 1.4 ms. The asset trend took 2.0 s alone before. `natslens-perf explain` no longer lists any of the six series among the nine costliest queries; `GetOverview`'s costliest is now `cluster.accounts` at 0.27 s summed over the recorded calls.
 - **The write.** Computing one epoch's counts took 16 to 20 ms (ten epochs, load 12 to 13), about 1.3% of the 1.2 s epoch write; the `writes-only` write times above do not show it apart from noise.
-- **The fill.** Opening the migrated store filled 2,886 epochs in 2.9 s; filling all 2,893 again took 3.0 s and 4.1 s. That is about 1 ms per epoch at this size, so a 14-day store of this size fills in about 40 to 60 s once, at its first start after the upgrade. Each statement covers 120 epochs.
+- **The fill.** Filling the migrated store took 2.9 s for 2,886 epochs (measured when the fill still ran inside the open; it now runs after the store's limits are set); filling all 2,893 again took 3.0 s and 4.1 s. That is about 1 ms per epoch at this size, so a 14-day store of this size fills in about 40 to 60 s once, at its first start after the upgrade. Each statement covers 120 epochs.
 - **Queries per call.** `GetOverview` runs four more queries and the trend batch two more: the check for missing counts per count series.
 
 What still costs at `entities` size after this change: `ListConsumers`' delivered rates and `ListStreams` (recommendation 3), and the concurrency limits of recommendation 2. The Overview's 24-hour warm load is now under the 2 s budget above.
