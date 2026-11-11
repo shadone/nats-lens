@@ -68,8 +68,9 @@ FROM win w LEFT JOIN s USING (epoch) LEFT JOIN c USING (epoch)`
 // that of an hour of reports however large the store is.
 const assetCountBatch = 120
 
-// afterAssetCountBatch, when set, runs after each fill batch; for tests.
-var afterAssetCountBatch func()
+// beforeAssetCountExec and afterAssetCountBatch, when set, run before each
+// fill batch's statement and after the batch; for tests.
+var beforeAssetCountExec, afterAssetCountBatch func()
 
 type execQuerier interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
@@ -141,6 +142,9 @@ WHERE epoch NOT IN (SELECT epoch FROM epoch_asset_counts) ORDER BY epoch`)
 func fillAssetCountBatch(ctx context.Context, db execQuerier, lock func() func(), lo, hi int64) (int64, error) {
 	if lock != nil {
 		defer lock()()
+	}
+	if beforeAssetCountExec != nil {
+		beforeAssetCountExec()
 	}
 	res, err := db.ExecContext(ctx, assetCountsSQL, lo, hi)
 	if err != nil {

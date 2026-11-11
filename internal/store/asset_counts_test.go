@@ -161,8 +161,9 @@ func TestAssetCountsSwept(t *testing.T) {
 	}
 }
 
-// The fill takes the write lock for one batch at a time, so an epoch
-// write waits for one batch, not for the whole fill.
+// The fill holds the write lock during each batch's statement and
+// releases it between batches, so an epoch write waits for one batch, not
+// for the whole fill.
 func TestAssetCountsFillReleasesTheLockBetweenBatches(t *testing.T) {
 	ctx := context.Background()
 	s := openMem(t)
@@ -174,19 +175,23 @@ func TestAssetCountsFillReleasesTheLockBetweenBatches(t *testing.T) {
 FROM epochs t, range(2, ? + 1) r(i) WHERE t.epoch = 1`, n); err != nil {
 		t.Fatal(err)
 	}
-	var batches, free int
-	afterAssetCountBatch = func() {
-		batches++
-		if s.mu.m.TryLock() {
-			free++
-			s.mu.m.Unlock()
+	var batches, held, free int
+	beforeAssetCountExec = func() {
+		if len(s.mu.token()) == 1 {
+			held++
 		}
 	}
-	t.Cleanup(func() { afterAssetCountBatch = nil })
+	afterAssetCountBatch = func() {
+		batches++
+		if len(s.mu.token()) == 0 {
+			free++
+		}
+	}
+	t.Cleanup(func() { beforeAssetCountExec, afterAssetCountBatch = nil, nil })
 	if _, err := s.FillAssetCounts(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if batches != 3 || free != 3 {
-		t.Errorf("%d batches, the lock free after %d; want 3 and 3", batches, free)
+	if batches != 3 || held != 3 || free != 3 {
+		t.Errorf("%d batches, the lock held during %d and free after %d; want 3, 3 and 3", batches, held, free)
 	}
 }
