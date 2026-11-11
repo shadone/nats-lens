@@ -45,13 +45,14 @@ func (p *Provider) subjectLanes(ctx context.Context, req *v1.GetStatusTimelineRe
 	if res.Clients, err = p.clientLane(ctx, r, req.GetBucket().AsDuration(), readID); err != nil {
 		return err
 	}
-	// Events are written in time order, so the time bounds let DuckDB skip
-	// the row groups outside the lookback by their min/max, and LIMIT 1
-	// stops the scan at the first stored event of the source.
+	// Events are mostly written in time order, so the time bounds let
+	// DuckDB skip most row groups outside the span by their min/max, and
+	// LIMIT 1 stops the scan at the first stored event of the source.
+	from := api.CaptureSince(start, end)
 	captured := func(source string) (bool, error) {
 		var n int
 		err := p.db().QueryRowContext(ctx, `SELECT count(*) FROM (SELECT 1 FROM events WHERE source = ? AND time >= ? AND time < ? AND id <= ? LIMIT 1)`,
-			source, end.Add(-api.CaptureLookback), end, readID).Scan(&n)
+			source, from, end, readID).Scan(&n)
 		return n > 0, err
 	}
 	if res.SystemEventsCaptured, err = captured("sys"); err != nil {
@@ -60,17 +61,21 @@ func (p *Provider) subjectLanes(ctx context.Context, req *v1.GetStatusTimelineRe
 	if res.JetstreamEventsCaptured, err = captured("jetstream"); err != nil {
 		return fmt.Errorf("timeline advisories captured: %w", err)
 	}
-	gaps, err := p.collectorGaps(ctx, start, end)
+	gaps, err := p.collectorGaps(ctx, start, end, readID)
 	if err != nil {
 		return err
 	}
-	lost, err := p.eventsConnectionGaps(ctx, start, end)
+	conns, err := p.eventsConnectionEvents(ctx, start, end, readID)
 	if err != nil {
 		return err
 	}
-	res.EventCaptureGaps = api.CaptureGapSpans(append(gaps, lost...), start, end)
-	if api.GapsCover(res.EventCaptureGaps, start, end) {
-		res.SystemEventsCaptured, res.JetstreamEventsCaptured = false, false
+	var stopped bool
+	res.SystemCaptureGaps, res.AdvisoryCaptureGaps, stopped = api.TimelineCaptureGaps(gaps, conns, start, end)
+	if api.GapsCover(res.SystemCaptureGaps, start, end) {
+		res.SystemEventsCaptured = false
+	}
+	if stopped {
+		res.JetstreamEventsCaptured = false
 	}
 	return nil
 }

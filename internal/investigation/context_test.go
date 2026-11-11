@@ -77,3 +77,18 @@ func TestContextRoutesAndInvalidIdentity(t *testing.T) {
 		}
 	}
 }
+
+// A Timeline client bar's bound ListEvents query, as the UI copies it,
+// parses and prepares.
+func TestTimelineClientCellBoundQuery(t *testing.T) {
+	raw := `{"version":1,"deployment":"https://lens.example.com","system":"shop","range":{"start":"2026-10-17T09:15:00.000Z","end":"2026-10-17T09:20:00.000Z"},"sourcePath":"/","filters":{},
+"query":{"method":"ListEvents","request":{"range":{"start":"2026-10-17T09:15:00.000Z","end":"2026-10-17T09:20:00.000Z"},"kinds":["client.connect","client.disconnect","client.churn","client.auth_error"],"pageSize":50,"eventReadId":"99","system":"shop"}},
+"provenance":{"status":"unavailable","reason":"x"}}`
+	c, err := ParseContext(strings.NewReader(raw), "https://lens.example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Prepare("ListEvents", c, nil); err != nil {
+		t.Fatal(err)
+	}
+}

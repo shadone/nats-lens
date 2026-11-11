@@ -187,9 +187,10 @@ func TestTimelineCaptureGaps(t *testing.T) {
 	_, c := apitest.Serve(t, p)
 	whole := &v1.GetStatusTimelineRequest{Range: &v1.TimeRange{Start: timestamppb.New(start), End: timestamppb.New(start.Add(time.Hour))}, Bucket: durationpb.New(5 * time.Minute)}
 	res := must(c.GetStatusTimeline(ctx, connect.NewRequest(whole)))
-	if res.GetSystemEventsCaptured() || res.GetJetstreamEventsCaptured() || len(res.GetEventCaptureGaps()) != 1 ||
-		!res.GetEventCaptureGaps()[0].GetStart().AsTime().Equal(start) || !res.GetEventCaptureGaps()[0].GetEnd().AsTime().Equal(start.Add(time.Hour)) {
-		t.Errorf("whole range in a gap: system %v jetstream %v gaps %v", res.GetSystemEventsCaptured(), res.GetJetstreamEventsCaptured(), res.GetEventCaptureGaps())
+	if res.GetSystemEventsCaptured() || res.GetJetstreamEventsCaptured() || len(res.GetSystemCaptureGaps()) != 1 ||
+		len(res.GetAdvisoryCaptureGaps()) != 1 || res.GetAdvisoryCaptureGaps()[0].GetConnection() != "" ||
+		!res.GetSystemCaptureGaps()[0].GetStart().AsTime().Equal(start) || !res.GetSystemCaptureGaps()[0].GetEnd().AsTime().Equal(start.Add(time.Hour)) {
+		t.Errorf("whole range in a gap: system %v jetstream %v gaps %v", res.GetSystemEventsCaptured(), res.GetJetstreamEventsCaptured(), res.GetSystemCaptureGaps())
 	}
 
 	later := start.Add(3 * time.Hour)
@@ -197,8 +198,74 @@ func TestTimelineCaptureGaps(t *testing.T) {
 		"kind": "collector.connection_closed", "summary": "closed", "raw": `{"connection":"sys"}`})
 	res = must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{
 		Range: &v1.TimeRange{Start: timestamppb.New(later), End: timestamppb.New(later.Add(time.Hour))}, Bucket: durationpb.New(5 * time.Minute)})))
-	if g := res.GetEventCaptureGaps(); len(g) != 1 || !g[0].GetStart().AsTime().Equal(later.Add(10*time.Minute)) || !g[0].GetEnd().AsTime().Equal(later.Add(time.Hour)) ||
+	if g := res.GetSystemCaptureGaps(); len(g) != 1 || !g[0].GetStart().AsTime().Equal(later.Add(10*time.Minute)) || !g[0].GetEnd().AsTime().Equal(later.Add(time.Hour)) ||
 		!res.GetSystemEventsCaptured() {
 		t.Errorf("open connection gap: %v, system captured %v", g, res.GetSystemEventsCaptured())
+	}
+}
+
+// A ten-day range whose events lie in its first days reads as captured:
+// the look for a stored event starts at the range's start.
+func TestTimelineCaptureLookbackLongRange(t *testing.T) {
+	t.Setenv("TZ", "Pacific/Honolulu")
+	p, _ := replayStore(t)
+	if _, err := p.St.DB().Exec(`SET GLOBAL TimeZone = 'Pacific/Honolulu'`); err != nil {
+		t.Fatal(err)
+	}
+	_, c := apitest.Serve(t, p)
+	res := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{
+		Range: &v1.TimeRange{Start: timestamppb.New(rT.Add(-time.Hour)), End: timestamppb.New(rT.Add(10 * 24 * time.Hour))}, Bucket: durationpb.New(time.Hour)})))
+	if len(res.GetClients()) == 0 || !res.GetSystemEventsCaptured() || len(res.GetLeaders()) == 0 || !res.GetJetstreamEventsCaptured() {
+		t.Errorf("%d client buckets, system captured %v; %d elections, advisories captured %v", len(res.GetClients()), res.GetSystemEventsCaptured(),
+			len(res.GetLeaders()), res.GetJetstreamEventsCaptured())
+	}
+}
+
+// One account connection that never opened (a missing credentials file)
+// is a gap of that account's advisories only: system events stay
+// captured, and the advisories are not cleared, as other account
+// connections may still capture.
+func TestTimelineAccountConnectionGap(t *testing.T) {
+	t.Setenv("TZ", "Pacific/Honolulu")
+	p, r := replayStore(t)
+	if _, err := p.St.DB().Exec(`SET GLOBAL TimeZone = 'Pacific/Honolulu'`); err != nil {
+		t.Fatal(err)
+	}
+	r.add("events", map[string]any{"id": 7001, "time": rT.Add(-time.Hour), "received_at": rT.Add(-time.Hour), "source": "collector",
+		"kind": "collector.not_connected", "summary": "not opened", "raw": `{"connection":"APP"}`})
+	_, c := apitest.Serve(t, p)
+	res := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{
+		Range: &v1.TimeRange{Start: timestamppb.New(rT), End: timestamppb.New(rEpoch(50))}, Bucket: durationpb.New(5 * time.Minute)})))
+	if !res.GetSystemEventsCaptured() || len(res.GetSystemCaptureGaps()) != 0 || !res.GetJetstreamEventsCaptured() {
+		t.Errorf("system captured %v, system gaps %v, advisories captured %v", res.GetSystemEventsCaptured(), res.GetSystemCaptureGaps(), res.GetJetstreamEventsCaptured())
+	}
+	if g := res.GetAdvisoryCaptureGaps(); len(g) != 1 || g[0].GetConnection() != "APP" || !g[0].GetRange().GetStart().AsTime().Equal(rT) ||
+		!g[0].GetRange().GetEnd().AsTime().Equal(rEpoch(50)) {
+		t.Errorf("advisory gaps = %v", g)
+	}
+}
+
+// The gap evidence is bounded by the event boundary like the lanes: a
+// reconnect written after the boundary does not close the gap.
+func TestTimelineCaptureGapsEventReadID(t *testing.T) {
+	t.Setenv("TZ", "Pacific/Honolulu")
+	p, r := replayStore(t)
+	if _, err := p.St.DB().Exec(`SET GLOBAL TimeZone = 'Pacific/Honolulu'`); err != nil {
+		t.Fatal(err)
+	}
+	from := rT.Add(3 * time.Hour)
+	r.add("events", map[string]any{"id": 8001, "time": from.Add(10 * time.Minute), "received_at": from.Add(10 * time.Minute), "source": "collector",
+		"kind": "collector.connection_closed", "summary": "closed", "raw": `{"connection":"sys"}`})
+	r.add("events", map[string]any{"id": 8002, "time": from.Add(20 * time.Minute), "received_at": from.Add(20 * time.Minute), "source": "collector",
+		"kind": "collector.reconnected", "summary": "back", "raw": `{"connection":"sys"}`})
+	_, c := apitest.Serve(t, p)
+	req := &v1.GetStatusTimelineRequest{Range: &v1.TimeRange{Start: timestamppb.New(from), End: timestamppb.New(from.Add(time.Hour))}, Bucket: durationpb.New(5 * time.Minute)}
+	if g := must(c.GetStatusTimeline(ctx, connect.NewRequest(req))).GetSystemCaptureGaps(); len(g) != 1 || !g[0].GetEnd().AsTime().Equal(from.Add(20*time.Minute)) {
+		t.Errorf("without a boundary the gap ends at the reconnect: %v", g)
+	}
+	id := int64(8001)
+	req.EventReadId = &id
+	if g := must(c.GetStatusTimeline(ctx, connect.NewRequest(req))).GetSystemCaptureGaps(); len(g) != 1 || !g[0].GetEnd().AsTime().Equal(from.Add(time.Hour)) {
+		t.Errorf("at boundary 8001 the sys connection had not reconnected; gaps %v", g)
 	}
 }

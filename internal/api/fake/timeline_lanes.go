@@ -33,7 +33,7 @@ func (p *Provider) subjectLanes(s scen, events []*v1.Event, req *v1.GetStatusTim
 		if e.GetSource() == v1.EventSource_EVENT_SOURCE_COLLECTOR && !at.After(end) {
 			conns = append(conns, e)
 		}
-		if e.GetSource() == srcNATS && at.Before(end) && !at.Before(end.Add(-api.CaptureLookback)) {
+		if e.GetSource() == srcNATS && at.Before(end) && !at.Before(api.CaptureSince(start, end)) {
 			if api.SystemEventKind(e.GetKind()) {
 				res.SystemEventsCaptured = true
 			} else {
@@ -62,9 +62,13 @@ func (p *Provider) subjectLanes(s scen, events []*v1.Event, req *v1.GetStatusTim
 	res.Servers, res.ServersTruncated = api.NewestLane(api.TimelineLaneLimit, false, servers)
 	res.Leaders, res.LeadersTruncated = api.NewestLane(api.TimelineLaneLimit, false, leaders)
 	res.Clients = api.ClientLane(counts)
-	res.EventCaptureGaps = api.CaptureGapSpans(append(gaps, api.EventsConnectionGaps(conns)...), start, end)
-	if api.GapsCover(res.EventCaptureGaps, start, end) {
-		res.SystemEventsCaptured, res.JetstreamEventsCaptured = false, false
+	var stopped bool
+	res.SystemCaptureGaps, res.AdvisoryCaptureGaps, stopped = api.TimelineCaptureGaps(gaps, conns, start, end)
+	if api.GapsCover(res.SystemCaptureGaps, start, end) {
+		res.SystemEventsCaptured = false
+	}
+	if stopped {
+		res.JetstreamEventsCaptured = false
 	}
 }
 

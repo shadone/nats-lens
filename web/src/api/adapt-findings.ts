@@ -169,7 +169,8 @@ export function timeline(r: GetStatusTimelineResponse): Timeline {
     leadersTruncated: r.leadersTruncated,
     clients: r.clients.map((b) => ({ index: b.index, connects: Number(b.connects), closes: Number(b.closes), drops: Number(b.drops),
       shutdowns: Number(b.shutdowns), authErrors: Number(b.authErrors), unknownDisconnects: Number(b.unknownDisconnects) })),
-    eventCaptureGaps: r.eventCaptureGaps.map((g) => ({ start: ms(g.start) ?? 0, end: ms(g.end) ?? 0 })),
+    systemCaptureGaps: r.systemCaptureGaps.map((g) => ({ start: ms(g.start) ?? 0, end: ms(g.end) ?? 0 })),
+    advisoryCaptureGaps: r.advisoryCaptureGaps.map((g) => ({ start: ms(g.range?.start) ?? 0, end: ms(g.range?.end) ?? 0, connection: g.connection })),
     systemEventsCaptured: r.systemEventsCaptured,
     jetstreamEventsCaptured: r.jetstreamEventsCaptured,
   };

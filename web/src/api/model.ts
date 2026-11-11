@@ -341,8 +341,11 @@ export interface Timeline {
   systemEventsCaptured?: boolean;
   /** Whether JetStream advisories were captured before the range's end. */
   jetstreamEventsCaptured?: boolean;
-  /** Spans of the range in which events were not captured, clipped to it. */
-  eventCaptureGaps?: Range[];
+  /** Spans of the range without system events, clipped to it. */
+  systemCaptureGaps?: Range[];
+  /** Spans of the range without JetStream advisories: connection is the
+   * lost account connection, empty when nats-lens was not running. */
+  advisoryCaptureGaps?: CaptureGap[];
 }
 
 /** Client events of one timeline bucket: counts, not single events. */
@@ -528,4 +531,10 @@ export interface LensInfo {
   demo: boolean;
   /** Start of the oldest stored epoch: the history begins here. */
   historyStart?: number;
+}
+
+/** A span of a timeline in which events were not captured. */
+export interface CaptureGap extends Range {
+  /** The lost account connection; empty when nats-lens was not running. */
+  connection: string;
 }

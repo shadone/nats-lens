@@ -18,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/timeline.proto.
  */
 export const file_natslens_v1_timeline: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS90aW1lbGluZS5wcm90bxILbmF0c2xlbnMudjEi2QEKC1RpbWVsaW5lUm93EgsKA2tleRgHIAEoCRISCgpjaGVja19jb2RlGAEgASgJEhIKCmNoZWNrX25hbWUYAiABKAkSJwoIc2V2ZXJpdHkYAyABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRImCgZlbnRpdHkYBCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSIgoFY2VsbHMYBSADKA4yEy5uYXRzbGVucy52MS5TdGF0dXMSIAoDbm93GAYgASgOMhMubmF0c2xlbnMudjEuU3RhdHVzIq4CCglMYW5lRXZlbnQSCgoCaWQYCCABKAkSKAoEdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKAoGc291cmNlGAIgASgOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDAoEa2luZBgDIAEoCRITCgtzaG9ydF9sYWJlbBgEIAEoCRINCgVsYWJlbBgFIAEoCRInCghzZXZlcml0eRgGIAEoDjIVLm5hdHNsZW5zLnYxLlNldmVyaXR5EhAKCGV2ZW50X2lkGAcgASgJEiYKBmVudGl0eRgJIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhISCgpmaW5kaW5nX2lkGAogASgJEhgKEHRyYW5zaXRpb25fZXBvY2gYCyABKAMi5gEKGEdldFN0YXR1c1RpbWVsaW5lUmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIpCgZidWNrZXQYAiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SJgoGZW50aXR5GAMgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhIKCmluY2x1ZGVfb2sYBCABKAgSDgoGc3lzdGVtGAUgASgJEhoKDWV2ZW50X3JlYWRfaWQYBiABKANIAIgBAUIQCg5fZXZlbnRfcmVhZF9pZCKcBgoZR2V0U3RhdHVzVGltZWxpbmVSZXNwb25zZRIpCgVzdGFydBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKQoGYnVja2V0GAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhQKDGJ1Y2tldF9jb3VudBgDIAEoBRImCgRyb3dzGAQgAygLMhgubmF0c2xlbnMudjEuVGltZWxpbmVSb3cSKgoKa3ViZXJuZXRlcxgFIAMoCzIWLm5hdHNsZW5zLnYxLkxhbmVFdmVudBIkCgRuYXRzGAYgAygLMhYubmF0c2xlbnMudjEuTGFuZUV2ZW50EigKB3dpbmRvd3MYByADKAsyFy5uYXRzbGVucy52MS5UaW1lV2luZG93EhYKDm5hdHNfdHJ1bmNhdGVkGAggASgIEhkKEWZpbmRpbmdfdHJ1bmNhdGVkGAkgASgIEhwKFGt1YmVybmV0ZXNfdHJ1bmNhdGVkGAogASgIEhoKEmZpbmRpbmdfcmVhZF9lcG9jaBgLIAEoAxIaCg1ldmVudF9yZWFkX2lkGAwgASgDSACIAQESJQoFcmFuZ2UYDSABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USJwoHc2VydmVycxgOIAMoCzIWLm5hdHNsZW5zLnYxLkxhbmVFdmVudBIZChFzZXJ2ZXJzX3RydW5jYXRlZBgPIAEoCBInCgdsZWFkZXJzGBAgAygLMhYubmF0c2xlbnMudjEuTGFuZUV2ZW50EhkKEWxlYWRlcnNfdHJ1bmNhdGVkGBEgASgIEi4KB2NsaWVudHMYEiADKAsyHS5uYXRzbGVucy52MS5DbGllbnRMYW5lQnVja2V0Eh4KFnN5c3RlbV9ldmVudHNfY2FwdHVyZWQYEyABKAgSIQoZamV0c3RyZWFtX2V2ZW50c19jYXB0dXJlZBgUIAEoCBIyChJldmVudF9jYXB0dXJlX2dhcHMYFSADKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2VCEAoOX2V2ZW50X3JlYWRfaWQilwEKEENsaWVudExhbmVCdWNrZXQSDQoFaW5kZXgYASABKAUSEAoIY29ubmVjdHMYAiABKAMSDgoGY2xvc2VzGAMgASgDEg0KBWRyb3BzGAQgASgDEhEKCXNodXRkb3ducxgFIAEoAxITCgthdXRoX2Vycm9ycxgGIAEoAxIbChN1bmtub3duX2Rpc2Nvbm5lY3RzGAcgASgDQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_events, file_natslens_v1_overview]);
+  fileDesc("ChpuYXRzbGVucy92MS90aW1lbGluZS5wcm90bxILbmF0c2xlbnMudjEi2QEKC1RpbWVsaW5lUm93EgsKA2tleRgHIAEoCRISCgpjaGVja19jb2RlGAEgASgJEhIKCmNoZWNrX25hbWUYAiABKAkSJwoIc2V2ZXJpdHkYAyABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRImCgZlbnRpdHkYBCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSIgoFY2VsbHMYBSADKA4yEy5uYXRzbGVucy52MS5TdGF0dXMSIAoDbm93GAYgASgOMhMubmF0c2xlbnMudjEuU3RhdHVzIq4CCglMYW5lRXZlbnQSCgoCaWQYCCABKAkSKAoEdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKAoGc291cmNlGAIgASgOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDAoEa2luZBgDIAEoCRITCgtzaG9ydF9sYWJlbBgEIAEoCRINCgVsYWJlbBgFIAEoCRInCghzZXZlcml0eRgGIAEoDjIVLm5hdHNsZW5zLnYxLlNldmVyaXR5EhAKCGV2ZW50X2lkGAcgASgJEiYKBmVudGl0eRgJIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhISCgpmaW5kaW5nX2lkGAogASgJEhgKEHRyYW5zaXRpb25fZXBvY2gYCyABKAMi5gEKGEdldFN0YXR1c1RpbWVsaW5lUmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIpCgZidWNrZXQYAiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SJgoGZW50aXR5GAMgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhIKCmluY2x1ZGVfb2sYBCABKAgSDgoGc3lzdGVtGAUgASgJEhoKDWV2ZW50X3JlYWRfaWQYBiABKANIAIgBAUIQCg5fZXZlbnRfcmVhZF9pZCLVBgoZR2V0U3RhdHVzVGltZWxpbmVSZXNwb25zZRIpCgVzdGFydBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKQoGYnVja2V0GAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhQKDGJ1Y2tldF9jb3VudBgDIAEoBRImCgRyb3dzGAQgAygLMhgubmF0c2xlbnMudjEuVGltZWxpbmVSb3cSKgoKa3ViZXJuZXRlcxgFIAMoCzIWLm5hdHNsZW5zLnYxLkxhbmVFdmVudBIkCgRuYXRzGAYgAygLMhYubmF0c2xlbnMudjEuTGFuZUV2ZW50EigKB3dpbmRvd3MYByADKAsyFy5uYXRzbGVucy52MS5UaW1lV2luZG93EhYKDm5hdHNfdHJ1bmNhdGVkGAggASgIEhkKEWZpbmRpbmdfdHJ1bmNhdGVkGAkgASgIEhwKFGt1YmVybmV0ZXNfdHJ1bmNhdGVkGAogASgIEhoKEmZpbmRpbmdfcmVhZF9lcG9jaBgLIAEoAxIaCg1ldmVudF9yZWFkX2lkGAwgASgDSACIAQESJQoFcmFuZ2UYDSABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USJwoHc2VydmVycxgOIAMoCzIWLm5hdHNsZW5zLnYxLkxhbmVFdmVudBIZChFzZXJ2ZXJzX3RydW5jYXRlZBgPIAEoCBInCgdsZWFkZXJzGBAgAygLMhYubmF0c2xlbnMudjEuTGFuZUV2ZW50EhkKEWxlYWRlcnNfdHJ1bmNhdGVkGBEgASgIEi4KB2NsaWVudHMYEiADKAsyHS5uYXRzbGVucy52MS5DbGllbnRMYW5lQnVja2V0Eh4KFnN5c3RlbV9ldmVudHNfY2FwdHVyZWQYEyABKAgSIQoZamV0c3RyZWFtX2V2ZW50c19jYXB0dXJlZBgUIAEoCBIzChNzeXN0ZW1fY2FwdHVyZV9nYXBzGBUgAygLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEjYKFWFkdmlzb3J5X2NhcHR1cmVfZ2FwcxgWIAMoCzIXLm5hdHNsZW5zLnYxLkNhcHR1cmVHYXBCEAoOX2V2ZW50X3JlYWRfaWQilwEKEENsaWVudExhbmVCdWNrZXQSDQoFaW5kZXgYASABKAUSEAoIY29ubmVjdHMYAiABKAMSDgoGY2xvc2VzGAMgASgDEg0KBWRyb3BzGAQgASgDEhEKCXNodXRkb3ducxgFIAEoAxITCgthdXRoX2Vycm9ycxgGIAEoAxIbChN1bmtub3duX2Rpc2Nvbm5lY3RzGAcgASgDIkcKCkNhcHR1cmVHYXASJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USEgoKY29ubmVjdGlvbhgCIAEoCUJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_events, file_natslens_v1_overview]);
 
 /**
  * One check's states over the range.
@@ -380,33 +380,46 @@ export type GetStatusTimelineResponse = Message<"natslens.v1.GetStatusTimelineRe
 
   /**
    * Whether any NATS system event (client, server and account events) is
-   * stored in the 7 days before the end of the range, up to the event
-   * boundary, and capture did not stop for the whole range (see
-   * event_capture_gaps). False means system events were not captured, so
-   * the client lane and the server lane's events cannot be shown.
+   * stored from the start of the range, or 7 days before its end when that
+   * is earlier, to its end, up to the event boundary, and system event
+   * capture did not stop for the whole range (system_capture_gaps). False
+   * means none was captured then, so the client lane and the server
+   * lane's events cannot be read as quiet.
    *
    * @generated from field: bool system_events_captured = 19;
    */
   systemEventsCaptured: boolean;
 
   /**
-   * Whether any JetStream advisory is stored in the 7 days before the end
-   * of the range, up to the event boundary, and capture did not stop for
-   * the whole range. False means leader elections were not captured.
+   * Whether any JetStream advisory is stored over the same span, up to the
+   * event boundary, and nats-lens was running for some of the range.
+   * False means none was captured then. A lost account connection alone
+   * does not clear it: the stored events do not say whether other
+   * account connections still captured.
    *
    * @generated from field: bool jetstream_events_captured = 20;
    */
   jetstreamEventsCaptured: boolean;
 
   /**
-   * Spans of the range in which events were not captured, oldest first,
-   * clipped to the range: nats-lens was not running (collector.gap) or a
-   * connection that captures events was lost (from its loss to its
-   * reconnect, or to the end of the range when it had not reconnected).
+   * Spans of the range in which system events were not captured, oldest
+   * first, clipped to the range and merged: nats-lens was not running
+   * (collector.gap) or the system account connection was lost (from its
+   * loss to its reconnect, or to the end of the range when it had not
+   * reconnected).
    *
-   * @generated from field: repeated natslens.v1.TimeRange event_capture_gaps = 21;
+   * @generated from field: repeated natslens.v1.TimeRange system_capture_gaps = 21;
    */
-  eventCaptureGaps: TimeRange[];
+  systemCaptureGaps: TimeRange[];
+
+  /**
+   * Spans of the range in which JetStream advisories were not captured,
+   * oldest first, clipped to the range: nats-lens was not running, or one
+   * account connection was lost. Not merged across connections.
+   *
+   * @generated from field: repeated natslens.v1.CaptureGap advisory_capture_gaps = 22;
+   */
+  advisoryCaptureGaps: CaptureGap[];
 };
 
 /**
@@ -482,4 +495,33 @@ export type ClientLaneBucket = Message<"natslens.v1.ClientLaneBucket"> & {
  */
 export const ClientLaneBucketSchema: GenMessage<ClientLaneBucket> = /*@__PURE__*/
   messageDesc(file_natslens_v1_timeline, 4);
+
+/**
+ * A span of a timeline in which events were not captured.
+ *
+ * @generated from message natslens.v1.CaptureGap
+ */
+export type CaptureGap = Message<"natslens.v1.CaptureGap"> & {
+  /**
+   * The span, clipped to the timeline's range.
+   *
+   * @generated from field: natslens.v1.TimeRange range = 1;
+   */
+  range?: TimeRange | undefined;
+
+  /**
+   * The connection that was lost, as nats-lens labels it (an account
+   * connection's label); empty when nats-lens was not running.
+   *
+   * @generated from field: string connection = 2;
+   */
+  connection: string;
+};
+
+/**
+ * Describes the message natslens.v1.CaptureGap.
+ * Use `create(CaptureGapSchema)` to create a new message.
+ */
+export const CaptureGapSchema: GenMessage<CaptureGap> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_timeline, 5);
 

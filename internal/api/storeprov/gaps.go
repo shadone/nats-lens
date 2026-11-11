@@ -58,10 +58,12 @@ ORDER BY epoch`, a.Add(-reach), a.Add(-reach), b, b, reach.Microseconds())
 // (collector.gap) and Kubernetes was not watched (collector.k8s_gap, not
 // a client pod watch's) that began by b and ended at or after from: each
 // from its time to its receipt, when the restarted collector recorded it.
-func (p *Provider) collectorGaps(ctx context.Context, from, b time.Time) ([]api.ReplayGap, error) {
+// A read boundary, when given, leaves out events written after it.
+func (p *Provider) collectorGaps(ctx context.Context, from, b time.Time, readID ...int64) ([]api.ReplayGap, error) {
+	bound, args := readBound(readID)
 	evs, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, e.received_at FROM events e
-WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND NOT `+api.ClientPodWatchSQL+` AND e.time <= ? AND e.received_at >= ?
-ORDER BY e.time, e.id`, b, from)
+WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND NOT `+api.ClientPodWatchSQL+` AND e.time <= ? AND e.received_at >= ?`+bound+`
+ORDER BY e.time, e.id`, append([]any{b, from}, args...)...)
 	if err != nil {
 		return nil, fmt.Errorf("collector gaps: %w", err)
 	}
@@ -88,12 +90,33 @@ ORDER BY e.time, e.id`, b, from)
 // and every collector.started from from to b. The collector's own
 // connection is left out in the query.
 func (p *Provider) eventsConnectionGaps(ctx context.Context, from, b time.Time) ([]api.ReplayGap, error) {
+	evs, err := p.eventsConnectionEvents(ctx, from, b)
+	if err != nil {
+		return nil, err
+	}
+	return api.EventsConnectionGaps(evs), nil
+}
+
+// readBound is the condition and argument that leave out events written
+// after an optional read boundary.
+func readBound(readID []int64) (string, []any) {
+	if len(readID) == 0 {
+		return "", nil
+	}
+	return " AND e.id <= ?", []any{readID[0]}
+}
+
+// eventsConnectionEvents are the connection events eventsConnectionGaps
+// reads, oldest first, each with only its connection in Raw; a read
+// boundary, when given, leaves out events written after it.
+func (p *Provider) eventsConnectionEvents(ctx context.Context, from, b time.Time, readID ...int64) ([]*v1.Event, error) {
+	bound, args := readBound(readID)
 	rows, err := p.db().QueryContext(ctx, `
 WITH s AS (
   SELECT e.*, coalesce(json_extract_string(e.raw, '$.connection'), '') AS conn FROM events e
-  WHERE e.kind = 'collector.started'
+  WHERE (e.kind = 'collector.started'
      OR (e.kind IN ('collector.disconnected', 'collector.not_connected', 'collector.connection_closed', 'collector.reconnected')
-         AND coalesce(json_extract_string(e.raw, '$.connection'), '') NOT IN ('', 'collector'))
+         AND coalesce(json_extract_string(e.raw, '$.connection'), '') NOT IN ('', 'collector')))`+bound+`
 ),
 open AS (
   SELECT * FROM s
@@ -103,7 +126,7 @@ open AS (
   QUALIFY row_number() OVER (PARTITION BY s.conn ORDER BY s.time, s.id) = 1
 )
 SELECT `+eventCols+`, e.conn FROM (SELECT * FROM open UNION ALL SELECT * FROM s WHERE s.time >= ? AND s.time <= ?) e
-ORDER BY e.time, e.id`, from, from, from, b)
+ORDER BY e.time, e.id`, append(args, from, from, from, b)...)
 	if err != nil {
 		return nil, fmt.Errorf("events connections: %w", err)
 	}
@@ -119,8 +142,5 @@ ORDER BY e.time, e.id`, from, from, from, b)
 		ev.Raw = string(raw)
 		evs = append(evs, ev)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return api.EventsConnectionGaps(evs), nil
+	return evs, rows.Err()
 }

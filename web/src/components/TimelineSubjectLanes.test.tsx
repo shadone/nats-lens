@@ -73,11 +73,13 @@ it('merges client buckets into wider marks on a narrow track',()=>{
  expect(screen.getByRole('button',{name:'Client connections 09:00–09:25: 10 connects, 5 client closes, 2 drops, 3 server-shutdown disconnects, 1 failed authentication'})).toBeInTheDocument();
 });
 
-it('says when the sources were not captured instead of drawing a quiet lane',()=>{
+it('says when no event of a source was captured instead of drawing a quiet lane',()=>{
  draw({...tl,leaders:[],clients:[],servers:[restart],systemEventsCaptured:false,jetstreamEventsCaptured:false});
- expect(screen.getByText('JetStream advisories not captured')).toBeInTheDocument();
- expect(screen.getAllByText('System events not captured')).toHaveLength(2);
- expect(screen.getByRole('group',{name:'Client connections: system events not captured'})).toBeInTheDocument();
+ // The hour's range looks back 7 days from its end.
+ expect(screen.getByText('No JetStream advisory captured since 2026-10-10 10:00:00 UTC')).toBeInTheDocument();
+ expect(screen.getAllByText('No system event captured since 2026-10-10 10:00:00 UTC')).toHaveLength(2);
+ expect(screen.getByRole('group',{name:'Client connections: no system event captured since 2026-10-10 10:00:00 UTC'})).toBeInTheDocument();
+ expect(screen.getByRole('group',{name:'Leader elections: No JetStream advisory captured since 2026-10-10 10:00:00 UTC'})).toBeInTheDocument();
  // Restarts come from the collections and stay.
  expect(screen.getByRole('button',{name:/Server restart/})).toBeInTheDocument();
 });
@@ -85,7 +87,7 @@ it('says when the sources were not captured instead of drawing a quiet lane',()=
 it('says none in range when the sources were captured but the range is quiet',()=>{
  draw({...tl,leaders:[],clients:[],servers:[]});
  expect(screen.getAllByText('none in range')).toHaveLength(3);
- expect(screen.queryByText(/not captured/)).not.toBeInTheDocument();
+ expect(screen.queryByText(/captured since/)).not.toBeInTheDocument();
 });
 
 it('draws no subject lanes for a source that does not report them',()=>{
@@ -122,7 +124,7 @@ it('counts every member of a group of restarts, not only recorded identities',()
 });
 
 it('hatches the spans where event capture stopped and says so',()=>{
- draw({...tl,eventCaptureGaps:[{start:start+30*60_000,end:start+45*60_000}]});
+ draw({...tl,systemCaptureGaps:[{start:start+30*60_000,end:start+45*60_000}],advisoryCaptureGaps:[{start:start+30*60_000,end:start+45*60_000,connection:''}]});
  const marks=screen.getAllByRole('button',{name:'Event capture stopped 09:30–09:45'});
  expect(marks).toHaveLength(3);
  fireEvent.focus(marks[0]);
@@ -132,10 +134,26 @@ it('hatches the spans where event capture stopped and says so',()=>{
 });
 
 it('says capture stopped for the whole range instead of none in range',()=>{
- draw({...tl,servers:[],leaders:[],clients:[],systemEventsCaptured:false,jetstreamEventsCaptured:false,eventCaptureGaps:[{start,end}]});
+ draw({...tl,servers:[],leaders:[],clients:[],systemEventsCaptured:false,jetstreamEventsCaptured:false,systemCaptureGaps:[{start,end}],advisoryCaptureGaps:[{start,end,connection:''}]});
  expect(screen.getAllByText('Event capture stopped for the whole range')).toHaveLength(3);
  expect(screen.queryByText('none in range')).not.toBeInTheDocument();
  expect(screen.getByRole('group',{name:'Client connections: event capture stopped for the whole range'})).toBeInTheDocument();
+ // No lane adds "capture gaps" when capture stopped for the whole range.
+ expect(screen.queryByText(/capture gaps/)).not.toBeInTheDocument();
+});
+
+it('hatches an account connection gap on the Leaders lane only, naming the account',()=>{
+ draw({...tl,advisoryCaptureGaps:[{start:start+10*60_000,end,connection:'APP'}]});
+ const mark=screen.getByRole('button',{name:'Event capture stopped 09:10–10:00 (account APP)'});
+ expect(screen.getAllByRole('button',{name:/^Event capture stopped/})).toHaveLength(1);
+ fireEvent.focus(mark);expect(screen.getByRole('tooltip')).toHaveTextContent("Other accounts' advisories may have been");
+ expect(screen.getByRole('group',{name:'Leader elections: 3, 1 meta; capture stopped 09:10–10:00 (account APP)'})).toBeInTheDocument();
+ expect(screen.getByRole('group',{name:/^Client connections: [^;]*$/})).toBeInTheDocument();
+});
+
+it('names a gap inside one minute with seconds',()=>{
+ draw({...tl,systemCaptureGaps:[{start:start+30*60_000,end:start+30*60_000+50_000}]});
+ expect(screen.getAllByRole('button',{name:'Event capture stopped 09:30:00–09:30:50'})).toHaveLength(2);
 });
 
 it('gives client cells a bound events query and restarts a server selection for the agent prompt',()=>{

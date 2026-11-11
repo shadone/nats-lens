@@ -73,3 +73,47 @@ func TestCaptureGapSpans(t *testing.T) {
 		t.Error("cover")
 	}
 }
+
+// Adjacent, nested, before-range, after-range and open gaps.
+func TestCaptureGapSpansEdges(t *testing.T) {
+	at := func(m int) time.Time { return time.Date(2026, 10, 17, 9, m, 0, 0, time.UTC) }
+	got := CaptureGapSpans([]ReplayGap{
+		{Kind: GapEvents, Start: at(20), End: at(25)},
+		{Kind: GapCollector, Start: at(15), End: at(20)},
+		{Kind: GapCollector, Start: at(16), End: at(18)},
+		{Kind: GapCollector, Start: at(0), End: at(5)},
+		{Kind: GapEvents, Start: at(70)},
+		{Kind: GapEvents, Start: at(40)},
+		{Kind: GapEvents, Start: at(45), End: at(50)},
+	}, at(10), at(60))
+	if len(got) != 2 || !got[0].GetStart().AsTime().Equal(at(15)) || !got[0].GetEnd().AsTime().Equal(at(25)) ||
+		!got[1].GetStart().AsTime().Equal(at(40)) || !got[1].GetEnd().AsTime().Equal(at(60)) {
+		t.Fatalf("spans = %v", got)
+	}
+	if !GapsCover(CaptureGapSpans([]ReplayGap{{Kind: GapEvents, Start: at(0), End: at(30)}, {Kind: GapCollector, Start: at(30)}}, at(10), at(60)), at(10), at(60)) {
+		t.Error("adjacent gaps over the whole range do not cover it")
+	}
+}
+
+// The system connection's gaps go to system events, an account
+// connection's to that account's advisories; a collector gap to both.
+func TestTimelineCaptureGaps(t *testing.T) {
+	at := func(m int) time.Time { return time.Date(2026, 10, 17, 9, m, 0, 0, time.UTC) }
+	ev := func(m int, kind, conn string) *v1.Event {
+		return &v1.Event{Time: ts(at(m)), Kind: kind, Raw: `{"connection":"` + conn + `"}`}
+	}
+	system, advisory, stopped := TimelineCaptureGaps(
+		[]ReplayGap{{Kind: GapCollector, Start: at(50), End: at(52)}, {Kind: GapKubernetes, Start: at(0), End: at(60)}},
+		[]*v1.Event{ev(10, "collector.connection_closed", "sys"), ev(20, "collector.reconnected", "sys"),
+			ev(30, "collector.not_connected", "APP"), ev(31, "collector.disconnected", "collector")}, at(0), at(60))
+	if stopped || len(system) != 2 || !system[0].GetStart().AsTime().Equal(at(10)) || !system[1].GetStart().AsTime().Equal(at(50)) {
+		t.Errorf("system = %v, stopped %v", system, stopped)
+	}
+	if len(advisory) != 2 || advisory[0].GetConnection() != "APP" || !advisory[0].GetRange().GetEnd().AsTime().Equal(at(60)) ||
+		advisory[1].GetConnection() != "" {
+		t.Errorf("advisory = %v", advisory)
+	}
+	if _, _, stopped := TimelineCaptureGaps([]ReplayGap{{Kind: GapCollector, Start: at(0), End: at(60)}}, nil, at(10), at(20)); !stopped {
+		t.Error("a collector gap over the range stops capture")
+	}
+}

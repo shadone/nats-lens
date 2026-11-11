@@ -2,6 +2,7 @@ package api
 
 import (
 	"cmp"
+	"encoding/json"
 	"slices"
 	"strconv"
 	"strings"
@@ -57,8 +58,18 @@ func SubjectLanesFor(entity *v1.EntityRef) bool {
 }
 
 // CaptureLookback is how far before a timeline's end a stored event of a
-// source counts as that source being captured.
+// source counts as that source being captured, when the range is shorter.
 const CaptureLookback = 7 * 24 * time.Hour
+
+// CaptureSince is where a timeline looks for a stored event of a source:
+// the range's start, or CaptureLookback before its end when that is
+// earlier.
+func CaptureSince(start, end time.Time) time.Time {
+	if s := end.Add(-CaptureLookback); s.Before(start) {
+		return s
+	}
+	return start
+}
 
 // CaptureGapSpans are the event capture gaps (GapCollector and GapEvents)
 // clipped to [start, end) and merged, oldest first; an open gap runs to
@@ -93,6 +104,61 @@ func CaptureGapSpans(gaps []ReplayGap, start, end time.Time) []*v1.TimeRange {
 		out = append(out, &v1.TimeRange{Start: ts(x.from), End: ts(x.to)})
 	}
 	return out
+}
+
+// SystemConnection is the label of the connection that captures the NATS
+// system events; the collector's own is "collector", the others capture
+// JetStream advisories of one account each.
+const SystemConnection = "sys"
+
+// TimelineCaptureGaps splits the event capture gaps of [start, end) by
+// what they stopped: collector holds the collector.gap gaps (GapCollector;
+// others are ignored), conns the connection events oldest first, as
+// EventsConnectionGaps takes them. system are the spans without system
+// events: collector gaps and the system connection's. advisory are the
+// collector gaps (no connection) and each account connection's gaps.
+// collectorCovers says nats-lens was not running for the whole range.
+func TimelineCaptureGaps(collector []ReplayGap, conns []*v1.Event, start, end time.Time) (system []*v1.TimeRange, advisory []*v1.CaptureGap, collectorCovers bool) {
+	groups := map[string][]*v1.Event{}
+	var labels []string
+	for _, e := range conns {
+		if e.GetKind() == "collector.started" {
+			for l := range groups {
+				groups[l] = append(groups[l], e)
+			}
+			continue
+		}
+		var raw struct {
+			Connection string `json:"connection"`
+		}
+		_ = json.Unmarshal([]byte(e.GetRaw()), &raw)
+		if raw.Connection == "" || raw.Connection == "collector" {
+			continue
+		}
+		if _, ok := groups[raw.Connection]; !ok {
+			labels = append(labels, raw.Connection)
+		}
+		groups[raw.Connection] = append(groups[raw.Connection], e)
+	}
+	stopped := CaptureGapSpans(collector, start, end)
+	collectorCovers = GapsCover(stopped, start, end)
+	system = CaptureGapSpans(append(slices.Clone(collector), EventsConnectionGaps(groups[SystemConnection])...), start, end)
+	for _, r := range stopped {
+		advisory = append(advisory, &v1.CaptureGap{Range: r})
+	}
+	slices.Sort(labels)
+	for _, l := range labels {
+		if l == SystemConnection {
+			continue
+		}
+		for _, r := range CaptureGapSpans(EventsConnectionGaps(groups[l]), start, end) {
+			advisory = append(advisory, &v1.CaptureGap{Range: r, Connection: l})
+		}
+	}
+	slices.SortStableFunc(advisory, func(a, b *v1.CaptureGap) int {
+		return a.GetRange().GetStart().AsTime().Compare(b.GetRange().GetStart().AsTime())
+	})
+	return system, advisory, collectorCovers
 }
 
 // GapsCover reports whether merged spans cover all of [start, end).

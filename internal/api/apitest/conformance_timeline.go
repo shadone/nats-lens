@@ -16,18 +16,37 @@ import (
 // those kinds on the NATS lane.
 func timelineRows() []State {
 	return []State{
+		{"a server's timeline without the server, leader and client lanes", func(q Q) string {
+			var server string
+			for _, e := range must(q.env.Client.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{System: q.System, Range: q.day()}))).of(q.t).GetServers() {
+				if e.GetEntity().GetType() == v1.EntityType_ENTITY_TYPE_SERVER {
+					server = e.GetEntity().GetKey()
+				}
+			}
+			if server == "" {
+				return ""
+			}
+			tl := must(q.env.Client.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{System: q.System, Range: q.day(),
+				Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: server}}))).of(q.t)
+			if len(tl.GetServers())+len(tl.GetLeaders())+len(tl.GetClients())+len(tl.GetSystemCaptureGaps())+len(tl.GetAdvisoryCaptureGaps()) != 0 ||
+				tl.GetSystemEventsCaptured() || tl.GetJetstreamEventsCaptured() {
+				q.t.Errorf("%s: %s's timeline has subject lanes or captured flags", q.System, server)
+				return ""
+			}
+			return server
+		}},
 		{"a timeline whose event capture stopped for part of its range", func(q Q) string {
 			tl := must(q.env.Client.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{System: q.System, Range: q.day()}))).of(q.t)
 			start, end := q.day().GetStart().AsTime(), q.day().GetEnd().AsTime()
-			for _, g := range tl.GetEventCaptureGaps() {
+			for _, g := range tl.GetSystemCaptureGaps() {
 				if g.GetStart().AsTime().Before(start) || g.GetEnd().AsTime().After(end) || !g.GetEnd().AsTime().After(g.GetStart().AsTime()) {
 					q.t.Errorf("%s: gap %v outside the range or empty", q.System, g)
 				}
 			}
-			if len(tl.GetEventCaptureGaps()) == 0 {
+			if len(tl.GetSystemCaptureGaps()) == 0 {
 				return ""
 			}
-			g := tl.GetEventCaptureGaps()[0]
+			g := tl.GetSystemCaptureGaps()[0]
 			return fmt.Sprintf("%s to %s", g.GetStart().AsTime().Format("15:04:05"), g.GetEnd().AsTime().Format("15:04:05"))
 		}},
 		{"a timeline with a restart, a leader election and client drops on lanes of their own", func(q Q) string {

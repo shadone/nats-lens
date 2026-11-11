@@ -64,7 +64,7 @@ func TestTimelineSubjectLanes(t *testing.T) {
 func TestTimelineCaptureGapsAndEntity(t *testing.T) {
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: fake.Demo(false)})
 	tl := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{System: fake.StagingSystem})))
-	gaps := tl.GetEventCaptureGaps()
+	gaps := tl.GetSystemCaptureGaps()
 	if len(gaps) == 0 || !gaps[len(gaps)-1].GetStart().AsTime().Equal(fake.FixedNow.Add(-3*time.Hour)) || !gaps[len(gaps)-1].GetEnd().AsTime().Equal(fake.FixedNow) {
 		t.Errorf("staging gaps = %v", gaps)
 	}

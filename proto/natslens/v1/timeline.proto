@@ -137,7 +137,7 @@ message GetStatusTimelineResponse {
   // Resolved query bounds, separate from the possibly partial last bucket.
   TimeRange range = 13;
 
-  // The server, leader and client lanes (fields 14 to 21) are filled only
+  // The server, leader and client lanes (fields 14 to 22) are filled only
   // for the whole system: with an entity other than the system they are
   // empty and both captured flags false.
 
@@ -164,22 +164,31 @@ message GetStatusTimelineResponse {
   repeated ClientLaneBucket clients = 18;
 
   // Whether any NATS system event (client, server and account events) is
-  // stored in the 7 days before the end of the range, up to the event
-  // boundary, and capture did not stop for the whole range (see
-  // event_capture_gaps). False means system events were not captured, so
-  // the client lane and the server lane's events cannot be shown.
+  // stored from the start of the range, or 7 days before its end when that
+  // is earlier, to its end, up to the event boundary, and system event
+  // capture did not stop for the whole range (system_capture_gaps). False
+  // means none was captured then, so the client lane and the server
+  // lane's events cannot be read as quiet.
   bool system_events_captured = 19;
 
-  // Whether any JetStream advisory is stored in the 7 days before the end
-  // of the range, up to the event boundary, and capture did not stop for
-  // the whole range. False means leader elections were not captured.
+  // Whether any JetStream advisory is stored over the same span, up to the
+  // event boundary, and nats-lens was running for some of the range.
+  // False means none was captured then. A lost account connection alone
+  // does not clear it: the stored events do not say whether other
+  // account connections still captured.
   bool jetstream_events_captured = 20;
 
-  // Spans of the range in which events were not captured, oldest first,
-  // clipped to the range: nats-lens was not running (collector.gap) or a
-  // connection that captures events was lost (from its loss to its
-  // reconnect, or to the end of the range when it had not reconnected).
-  repeated TimeRange event_capture_gaps = 21;
+  // Spans of the range in which system events were not captured, oldest
+  // first, clipped to the range and merged: nats-lens was not running
+  // (collector.gap) or the system account connection was lost (from its
+  // loss to its reconnect, or to the end of the range when it had not
+  // reconnected).
+  repeated TimeRange system_capture_gaps = 21;
+
+  // Spans of the range in which JetStream advisories were not captured,
+  // oldest first, clipped to the range: nats-lens was not running, or one
+  // account connection was lost. Not merged across connections.
+  repeated CaptureGap advisory_capture_gaps = 22;
 }
 
 // Client connection events of one bucket on the timeline's client lane:
@@ -208,4 +217,14 @@ message ClientLaneBucket {
 
   // Disconnects without a recorded reason.
   int64 unknown_disconnects = 7;
+}
+
+// A span of a timeline in which events were not captured.
+message CaptureGap {
+  // The span, clipped to the timeline's range.
+  TimeRange range = 1;
+
+  // The connection that was lost, as nats-lens labels it (an account
+  // connection's label); empty when nats-lens was not running.
+  string connection = 2;
 }

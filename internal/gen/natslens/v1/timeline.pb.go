@@ -409,22 +409,30 @@ type GetStatusTimelineResponse struct {
 	// capped.
 	Clients []*ClientLaneBucket `protobuf:"bytes,18,rep,name=clients,proto3" json:"clients,omitempty"`
 	// Whether any NATS system event (client, server and account events) is
-	// stored in the 7 days before the end of the range, up to the event
-	// boundary, and capture did not stop for the whole range (see
-	// event_capture_gaps). False means system events were not captured, so
-	// the client lane and the server lane's events cannot be shown.
+	// stored from the start of the range, or 7 days before its end when that
+	// is earlier, to its end, up to the event boundary, and system event
+	// capture did not stop for the whole range (system_capture_gaps). False
+	// means none was captured then, so the client lane and the server
+	// lane's events cannot be read as quiet.
 	SystemEventsCaptured bool `protobuf:"varint,19,opt,name=system_events_captured,json=systemEventsCaptured,proto3" json:"system_events_captured,omitempty"`
-	// Whether any JetStream advisory is stored in the 7 days before the end
-	// of the range, up to the event boundary, and capture did not stop for
-	// the whole range. False means leader elections were not captured.
+	// Whether any JetStream advisory is stored over the same span, up to the
+	// event boundary, and nats-lens was running for some of the range.
+	// False means none was captured then. A lost account connection alone
+	// does not clear it: the stored events do not say whether other
+	// account connections still captured.
 	JetstreamEventsCaptured bool `protobuf:"varint,20,opt,name=jetstream_events_captured,json=jetstreamEventsCaptured,proto3" json:"jetstream_events_captured,omitempty"`
-	// Spans of the range in which events were not captured, oldest first,
-	// clipped to the range: nats-lens was not running (collector.gap) or a
-	// connection that captures events was lost (from its loss to its
-	// reconnect, or to the end of the range when it had not reconnected).
-	EventCaptureGaps []*TimeRange `protobuf:"bytes,21,rep,name=event_capture_gaps,json=eventCaptureGaps,proto3" json:"event_capture_gaps,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Spans of the range in which system events were not captured, oldest
+	// first, clipped to the range and merged: nats-lens was not running
+	// (collector.gap) or the system account connection was lost (from its
+	// loss to its reconnect, or to the end of the range when it had not
+	// reconnected).
+	SystemCaptureGaps []*TimeRange `protobuf:"bytes,21,rep,name=system_capture_gaps,json=systemCaptureGaps,proto3" json:"system_capture_gaps,omitempty"`
+	// Spans of the range in which JetStream advisories were not captured,
+	// oldest first, clipped to the range: nats-lens was not running, or one
+	// account connection was lost. Not merged across connections.
+	AdvisoryCaptureGaps []*CaptureGap `protobuf:"bytes,22,rep,name=advisory_capture_gaps,json=advisoryCaptureGaps,proto3" json:"advisory_capture_gaps,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *GetStatusTimelineResponse) Reset() {
@@ -597,9 +605,16 @@ func (x *GetStatusTimelineResponse) GetJetstreamEventsCaptured() bool {
 	return false
 }
 
-func (x *GetStatusTimelineResponse) GetEventCaptureGaps() []*TimeRange {
+func (x *GetStatusTimelineResponse) GetSystemCaptureGaps() []*TimeRange {
 	if x != nil {
-		return x.EventCaptureGaps
+		return x.SystemCaptureGaps
+	}
+	return nil
+}
+
+func (x *GetStatusTimelineResponse) GetAdvisoryCaptureGaps() []*CaptureGap {
+	if x != nil {
+		return x.AdvisoryCaptureGaps
 	}
 	return nil
 }
@@ -708,6 +723,62 @@ func (x *ClientLaneBucket) GetUnknownDisconnects() int64 {
 	return 0
 }
 
+// A span of a timeline in which events were not captured.
+type CaptureGap struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The span, clipped to the timeline's range.
+	Range *TimeRange `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
+	// The connection that was lost, as nats-lens labels it (an account
+	// connection's label); empty when nats-lens was not running.
+	Connection    string `protobuf:"bytes,2,opt,name=connection,proto3" json:"connection,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CaptureGap) Reset() {
+	*x = CaptureGap{}
+	mi := &file_natslens_v1_timeline_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CaptureGap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CaptureGap) ProtoMessage() {}
+
+func (x *CaptureGap) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_timeline_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CaptureGap.ProtoReflect.Descriptor instead.
+func (*CaptureGap) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_timeline_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CaptureGap) GetRange() *TimeRange {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
+func (x *CaptureGap) GetConnection() string {
+	if x != nil {
+		return x.Connection
+	}
+	return ""
+}
+
 var File_natslens_v1_timeline_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_timeline_proto_rawDesc = "" +
@@ -746,7 +817,7 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"include_ok\x18\x04 \x01(\bR\tincludeOk\x12\x16\n" +
 	"\x06system\x18\x05 \x01(\tR\x06system\x12'\n" +
 	"\revent_read_id\x18\x06 \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
-	"\x0e_event_read_id\"\xb5\b\n" +
+	"\x0e_event_read_id\"\x84\t\n" +
 	"\x19GetStatusTimelineResponse\x120\n" +
 	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x121\n" +
 	"\x06bucket\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x06bucket\x12!\n" +
@@ -770,8 +841,9 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"\x11leaders_truncated\x18\x11 \x01(\bR\x10leadersTruncated\x127\n" +
 	"\aclients\x18\x12 \x03(\v2\x1d.natslens.v1.ClientLaneBucketR\aclients\x124\n" +
 	"\x16system_events_captured\x18\x13 \x01(\bR\x14systemEventsCaptured\x12:\n" +
-	"\x19jetstream_events_captured\x18\x14 \x01(\bR\x17jetstreamEventsCaptured\x12D\n" +
-	"\x12event_capture_gaps\x18\x15 \x03(\v2\x16.natslens.v1.TimeRangeR\x10eventCaptureGapsB\x10\n" +
+	"\x19jetstream_events_captured\x18\x14 \x01(\bR\x17jetstreamEventsCaptured\x12F\n" +
+	"\x13system_capture_gaps\x18\x15 \x03(\v2\x16.natslens.v1.TimeRangeR\x11systemCaptureGaps\x12K\n" +
+	"\x15advisory_capture_gaps\x18\x16 \x03(\v2\x17.natslens.v1.CaptureGapR\x13advisoryCaptureGapsB\x10\n" +
 	"\x0e_event_read_id\"\xe2\x01\n" +
 	"\x10ClientLaneBucket\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x05R\x05index\x12\x1a\n" +
@@ -781,7 +853,13 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"\tshutdowns\x18\x05 \x01(\x03R\tshutdowns\x12\x1f\n" +
 	"\vauth_errors\x18\x06 \x01(\x03R\n" +
 	"authErrors\x12/\n" +
-	"\x13unknown_disconnects\x18\a \x01(\x03R\x12unknownDisconnectsBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\x13unknown_disconnects\x18\a \x01(\x03R\x12unknownDisconnects\"Z\n" +
+	"\n" +
+	"CaptureGap\x12,\n" +
+	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x1e\n" +
+	"\n" +
+	"connection\x18\x02 \x01(\tR\n" +
+	"connectionBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_timeline_proto_rawDescOnce sync.Once
@@ -795,50 +873,53 @@ func file_natslens_v1_timeline_proto_rawDescGZIP() []byte {
 	return file_natslens_v1_timeline_proto_rawDescData
 }
 
-var file_natslens_v1_timeline_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_natslens_v1_timeline_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_natslens_v1_timeline_proto_goTypes = []any{
 	(*TimelineRow)(nil),               // 0: natslens.v1.TimelineRow
 	(*LaneEvent)(nil),                 // 1: natslens.v1.LaneEvent
 	(*GetStatusTimelineRequest)(nil),  // 2: natslens.v1.GetStatusTimelineRequest
 	(*GetStatusTimelineResponse)(nil), // 3: natslens.v1.GetStatusTimelineResponse
 	(*ClientLaneBucket)(nil),          // 4: natslens.v1.ClientLaneBucket
-	(Severity)(0),                     // 5: natslens.v1.Severity
-	(*EntityRef)(nil),                 // 6: natslens.v1.EntityRef
-	(Status)(0),                       // 7: natslens.v1.Status
-	(*timestamppb.Timestamp)(nil),     // 8: google.protobuf.Timestamp
-	(EventSource)(0),                  // 9: natslens.v1.EventSource
-	(*TimeRange)(nil),                 // 10: natslens.v1.TimeRange
-	(*durationpb.Duration)(nil),       // 11: google.protobuf.Duration
-	(*TimeWindow)(nil),                // 12: natslens.v1.TimeWindow
+	(*CaptureGap)(nil),                // 5: natslens.v1.CaptureGap
+	(Severity)(0),                     // 6: natslens.v1.Severity
+	(*EntityRef)(nil),                 // 7: natslens.v1.EntityRef
+	(Status)(0),                       // 8: natslens.v1.Status
+	(*timestamppb.Timestamp)(nil),     // 9: google.protobuf.Timestamp
+	(EventSource)(0),                  // 10: natslens.v1.EventSource
+	(*TimeRange)(nil),                 // 11: natslens.v1.TimeRange
+	(*durationpb.Duration)(nil),       // 12: google.protobuf.Duration
+	(*TimeWindow)(nil),                // 13: natslens.v1.TimeWindow
 }
 var file_natslens_v1_timeline_proto_depIdxs = []int32{
-	5,  // 0: natslens.v1.TimelineRow.severity:type_name -> natslens.v1.Severity
-	6,  // 1: natslens.v1.TimelineRow.entity:type_name -> natslens.v1.EntityRef
-	7,  // 2: natslens.v1.TimelineRow.cells:type_name -> natslens.v1.Status
-	7,  // 3: natslens.v1.TimelineRow.now:type_name -> natslens.v1.Status
-	8,  // 4: natslens.v1.LaneEvent.time:type_name -> google.protobuf.Timestamp
-	9,  // 5: natslens.v1.LaneEvent.source:type_name -> natslens.v1.EventSource
-	5,  // 6: natslens.v1.LaneEvent.severity:type_name -> natslens.v1.Severity
-	6,  // 7: natslens.v1.LaneEvent.entity:type_name -> natslens.v1.EntityRef
-	10, // 8: natslens.v1.GetStatusTimelineRequest.range:type_name -> natslens.v1.TimeRange
-	11, // 9: natslens.v1.GetStatusTimelineRequest.bucket:type_name -> google.protobuf.Duration
-	6,  // 10: natslens.v1.GetStatusTimelineRequest.entity:type_name -> natslens.v1.EntityRef
-	8,  // 11: natslens.v1.GetStatusTimelineResponse.start:type_name -> google.protobuf.Timestamp
-	11, // 12: natslens.v1.GetStatusTimelineResponse.bucket:type_name -> google.protobuf.Duration
+	6,  // 0: natslens.v1.TimelineRow.severity:type_name -> natslens.v1.Severity
+	7,  // 1: natslens.v1.TimelineRow.entity:type_name -> natslens.v1.EntityRef
+	8,  // 2: natslens.v1.TimelineRow.cells:type_name -> natslens.v1.Status
+	8,  // 3: natslens.v1.TimelineRow.now:type_name -> natslens.v1.Status
+	9,  // 4: natslens.v1.LaneEvent.time:type_name -> google.protobuf.Timestamp
+	10, // 5: natslens.v1.LaneEvent.source:type_name -> natslens.v1.EventSource
+	6,  // 6: natslens.v1.LaneEvent.severity:type_name -> natslens.v1.Severity
+	7,  // 7: natslens.v1.LaneEvent.entity:type_name -> natslens.v1.EntityRef
+	11, // 8: natslens.v1.GetStatusTimelineRequest.range:type_name -> natslens.v1.TimeRange
+	12, // 9: natslens.v1.GetStatusTimelineRequest.bucket:type_name -> google.protobuf.Duration
+	7,  // 10: natslens.v1.GetStatusTimelineRequest.entity:type_name -> natslens.v1.EntityRef
+	9,  // 11: natslens.v1.GetStatusTimelineResponse.start:type_name -> google.protobuf.Timestamp
+	12, // 12: natslens.v1.GetStatusTimelineResponse.bucket:type_name -> google.protobuf.Duration
 	0,  // 13: natslens.v1.GetStatusTimelineResponse.rows:type_name -> natslens.v1.TimelineRow
 	1,  // 14: natslens.v1.GetStatusTimelineResponse.kubernetes:type_name -> natslens.v1.LaneEvent
 	1,  // 15: natslens.v1.GetStatusTimelineResponse.nats:type_name -> natslens.v1.LaneEvent
-	12, // 16: natslens.v1.GetStatusTimelineResponse.windows:type_name -> natslens.v1.TimeWindow
-	10, // 17: natslens.v1.GetStatusTimelineResponse.range:type_name -> natslens.v1.TimeRange
+	13, // 16: natslens.v1.GetStatusTimelineResponse.windows:type_name -> natslens.v1.TimeWindow
+	11, // 17: natslens.v1.GetStatusTimelineResponse.range:type_name -> natslens.v1.TimeRange
 	1,  // 18: natslens.v1.GetStatusTimelineResponse.servers:type_name -> natslens.v1.LaneEvent
 	1,  // 19: natslens.v1.GetStatusTimelineResponse.leaders:type_name -> natslens.v1.LaneEvent
 	4,  // 20: natslens.v1.GetStatusTimelineResponse.clients:type_name -> natslens.v1.ClientLaneBucket
-	10, // 21: natslens.v1.GetStatusTimelineResponse.event_capture_gaps:type_name -> natslens.v1.TimeRange
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	11, // 21: natslens.v1.GetStatusTimelineResponse.system_capture_gaps:type_name -> natslens.v1.TimeRange
+	5,  // 22: natslens.v1.GetStatusTimelineResponse.advisory_capture_gaps:type_name -> natslens.v1.CaptureGap
+	11, // 23: natslens.v1.CaptureGap.range:type_name -> natslens.v1.TimeRange
+	24, // [24:24] is the sub-list for method output_type
+	24, // [24:24] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_timeline_proto_init() }
@@ -857,7 +938,7 @@ func file_natslens_v1_timeline_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_timeline_proto_rawDesc), len(file_natslens_v1_timeline_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
