@@ -56,3 +56,4 @@ This folder holds the documentation for running, configuring and developing nats
 | [Run the Go test tiers](operations/go-test-tiers.md) | Test selectors, dependencies and limits |
 | [Build with verified assets](operations/build-reuse.md) | How `make build` reuses web assets |
 | [Measure web loading](operations/measure-web-loading.md) | Bundle sizes and browser cost |
+| [Performance baseline](operations/performance-baseline.md) | API, query, epoch write and lock timings on synthetic stores, and `make perf` |

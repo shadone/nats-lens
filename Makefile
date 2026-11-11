@@ -103,7 +103,7 @@ churn:
 	scripts/load.sh churn
 
 # Generates synthetic stores and measures the API and the store against
-# them; about 25 minutes and 7 GiB of free disk. See
+# them; about 30 minutes and 7 GiB of free disk. See
 # docs/operations/performance-baseline.md.
 perf:
 	scripts/perf.sh
