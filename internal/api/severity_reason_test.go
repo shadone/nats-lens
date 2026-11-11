@@ -39,9 +39,11 @@ func TestSeverityReason(t *testing.T) {
 		{"lowered to info, resolved", info, true, "warning", "info while the server restarts",
 			"It was info when it resolved: lowered from warning, the usual severity of stream-001, by its severity rule: info while the server restarts."},
 		{"another severity without a rule", critical, false, "warning", "",
-			"Critical; the usual severity of stream-001 is now warning, and the check states no rule for another severity."},
+			"It is critical, though the usual severity of stream-001 is now warning and the check states no rule for another severity."},
+		{"a warning without a rule", warning, false, "info", "",
+			"It is a warning, though the usual severity of stream-001 is now info and the check states no rule for another severity."},
 		{"another severity without a rule, resolved", info, true, "warning", "",
-			"It was info when it resolved; the usual severity of stream-001 is now warning, and the check states no rule for another severity."},
+			"It was info when it resolved, though the usual severity of stream-001 is now warning and the check states no rule for another severity."},
 		{"unset severity", v1.Severity_SEVERITY_UNSPECIFIED, false, "warning", rule, ""},
 		{"unknown usual severity", warning, false, "", "", ""},
 	} {
