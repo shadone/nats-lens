@@ -153,7 +153,9 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 	if err := st.SetThreads(ctx, threads); err != nil {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
 	}
-	rt.log.Info("duckdb threads", "threads", threads)
+	budget := rt.cfg.QueryBudgetFor(threads)
+	st.SetQueryBudget(budget)
+	rt.log.Info("duckdb threads", "threads", threads, "query_budget", budget)
 	if err := loadInventory(ctx, rt.cfg, st, rt.log); err != nil {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
 	}

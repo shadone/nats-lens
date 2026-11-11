@@ -74,6 +74,10 @@ type Config struct {
 	// DuckDBMemory bounds the memory DuckDB uses; zero means 60% of the
 	// container's memory limit, or 1 GiB without one.
 	DuckDBMemory ByteSize `yaml:"duckdb_memory_limit"`
+	// QueryBudget is how many queries of the API and /metrics may run at
+	// once on each system's database; zero derives it from the database's
+	// threads (QueryBudgetFor).
+	QueryBudget int `yaml:"query_budget"`
 	// Events configures event capture.
 	Events Events `yaml:"events"`
 	// Accounts are the JetStream accounts whose advisories are captured.
@@ -262,6 +266,9 @@ func (c Config) Validate() error {
 	if c.MetricsTimeout.D() <= 0 {
 		errs = append(errs, errors.New("metrics_timeout must be positive"))
 	}
+	if c.QueryBudget < 0 {
+		errs = append(errs, errors.New("query_budget must not be negative; 0 derives it from the threads"))
+	}
 	if c.ServerForgetAfter.D() <= 0 {
 		errs = append(errs, errors.New("server_forget_after must be positive"))
 	}
@@ -351,6 +358,7 @@ func (c Config) LogValue() slog.Value {
 		slog.String("archive_dir", c.ResolvedArchiveDir()),
 		slog.String("listen", c.Listen),
 		slog.String("metrics_timeout", c.MetricsTimeout.String()),
+		slog.Int("query_budget", c.QueryBudget),
 		slog.Any("allowed_hosts", c.AllowedHosts),
 		slog.String("iap_audience", c.IAPAudience),
 		slog.Bool("allow_unauthenticated", c.AllowUnauthenticated),
