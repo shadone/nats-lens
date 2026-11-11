@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { coreMatch, global, published, row, streamMatch, sub } from "../test/fixtures/subjects";
+import { coreMatch, global, published, queueDelivered, row, streamMatch, sub } from "../test/fixtures/subjects";
 import {
+  connectionLabel,
+  connectionRateText,
   consumersText,
+  deliveredText,
+  hasDelivered,
+  measuredText,
+  moreRatesText,
   coreText,
   cutText,
   footLines,
@@ -198,5 +204,37 @@ describe("the tester's answer", () => {
     expect(listText([])).toBe("");
     expect(listText(["a"])).toBe("a");
     expect(listText(["a", "b", "c"])).toBe("a, b and c");
+  });
+});
+
+describe("delivered rates", () => {
+  it("has them only on subscription and inbox rows", () => {
+    expect(hasDelivered(sub("a"))).toBe(true);
+    expect(hasDelivered(row({ kind: "inbox" }))).toBe(true);
+    expect(hasDelivered(row())).toBe(false);
+    expect(hasDelivered(row({ kind: "jsApi" }))).toBe(false);
+  });
+
+  it("says how many connections were measured only when some were not", () => {
+    expect(measuredText(queueDelivered(), 3)).toBe("2 of 3 measured");
+    expect(measuredText({ ...queueDelivered(), measured: 3 }, 3)).toBe("");
+    expect(measuredText({ measured: 1204, rates: [], moreRates: 0, perSecond: 1 }, 1311)).toBe("1,204 of 1,311 measured");
+  });
+
+  it("words the tester's rate, never 0 for not measured", () => {
+    expect(deliveredText(queueDelivered(), 3)).toBe("8.82 msgs/s delivered, 2 of 3 connections measured");
+    expect(deliveredText({ ...queueDelivered(), measured: 3 }, 3)).toBe("8.82 msgs/s delivered");
+    expect(deliveredText({ perSecond: 0, measured: 1, rates: [], moreRates: 0 }, 1)).toBe("0 msgs/s delivered");
+    expect(deliveredText({ measured: 0, rates: [], moreRates: 0 }, 2)).toBe("delivered rate not measured");
+  });
+
+  it("names a connection by name, server and connection ID", () => {
+    const [a, , c] = queueDelivered().rates;
+    expect(connectionLabel(a)).toBe("order-service (nats-eu-0 cid 117)");
+    expect(connectionLabel({ ...a, name: "" })).toBe("unnamed (nats-eu-0 cid 117)");
+    expect(connectionRateText(a)).toBe("4.62 msgs/s");
+    expect(connectionRateText(c)).toBe("not measured");
+    expect(moreRatesText({ ...queueDelivered(), moreRates: 1 })).toBe("+1 more connection");
+    expect(moreRatesText(queueDelivered())).toBe("");
   });
 });

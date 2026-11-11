@@ -5,12 +5,12 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { Fragment } from "react";
 import type { CoreMatch, StreamMatch, SubjectMatches } from "../api/subjects";
-import { coreParts, invalidReason, JETSTREAM_API_ANSWERS, NOTHING_NOT_COLLECTED, NOTHING_REACHED, reachesNothing, readers } from "../lib/subjectsView";
+import { coreParts, deliveredText, invalidReason, JETSTREAM_API_ANSWERS, NOTHING_NOT_COLLECTED, NOTHING_REACHED, reachesNothing, readers } from "../lib/subjectsView";
 import { upperFirst } from "../lib/format";
 import { streamLabel, consumerPath, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { errorText, RLink } from "./common";
-import { Names } from "./SubjectsTable";
+import { ConnectionRates, Names } from "./SubjectsTable";
 
 /** The server's reason when it refused the subject, else undefined. */
 export function refusal(e: unknown): string | undefined {
@@ -157,6 +157,7 @@ function Reach({ m, scoped }: { m: SubjectMatches; scoped: boolean }) {
                       {i > 0 && "; "}
                       <CoreLead c={c} />
                       <Names names={c.names} more={c.moreNames} /> via <span className="mono">{c.subject}</span>
+                      <span className="sj-via">, {deliveredText(c.delivered, c.connections)}</span>
                     </Fragment>
                   ))}
                 </span>
@@ -165,6 +166,9 @@ function Reach({ m, scoped }: { m: SubjectMatches; scoped: boolean }) {
                   <span className="sj-k">Core subscribers</span> {m.subscriptionsAt === undefined ? "not collected" : "none"}
                 </span>
               )}
+              {g.core.map((c) => (
+                <ConnectionRates key={`r:${c.subject}|${c.queue}`} d={c.delivered} label={`Per connection on ${c.subject}${c.queue ? ` in ${c.queue}` : ""}`} />
+              ))}
             </div>
           )}
         </div>

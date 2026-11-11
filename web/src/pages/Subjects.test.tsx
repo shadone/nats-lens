@@ -83,12 +83,22 @@ describe("Subjects", () => {
     getSubjects.mockResolvedValue(global());
     renderApp(<Subjects />, "/subjects?system=example-global");
     await screen.findByRole("region", { name: "Subject patterns" });
-    expect(table().getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Pattern", "Account", "Stored in", "Subscribers", "Stored msgs/s", "Note"]);
-    expect(cells("order.events.>")).toEqual(["APP", "order-events", "4 durable consumers", "2.88", "mirrored by order-archive"]);
-    expect(cells("$KV.feature-flags.>")).toEqual(["APP", "feature-flags", "22 watchers (api-gateway, checkout-service, order-service +1)", "0.04", ""]);
-    expect(cells("orders.place")).toEqual(["APP", "", "3 connections in queue group order-service (order-service)", "– no stored rate", ""]);
-    expect(cells("$JS.API.>")).toEqual(["APP", "", "server", "– no stored rate", "JetStream API: 3.1 req/s, 0.2% errors"]);
-    expect(cells(">")).toEqual(["SYSsystem", "", "1 connection (ops-monitor)", "– no stored rate", "receives every message in the account"]);
+    expect(table().getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Pattern", "Account", "Stored in", "Subscribers", "Stored msgs/s", "Delivered msgs/s", "Note"]);
+    expect(cells("order.events.>")).toEqual(["APP", "order-events", "4 durable consumers", "2.88", "– no delivered rate", "mirrored by order-archive"]);
+    expect(cells("$KV.feature-flags.>")).toEqual(["APP", "feature-flags", "22 watchers (api-gateway, checkout-service, order-service +1)", "0.04", "– no delivered rate", ""]);
+    expect(cells("orders.place")).toEqual([
+      "APP",
+      "",
+      "3 connections in queue group order-service (order-service)Per connection" +
+        "order-service (nats-eu-0 cid 117): 4.62 msgs/s" +
+        "order-service (nats-eu-0 cid 101): 4.20 msgs/s" +
+        "order-service (nats-eu-3 cid 109): not measured",
+      "– no stored rate",
+      "8.82 2 of 3 measured",
+      "",
+    ]);
+    expect(cells("$JS.API.>")).toEqual(["APP", "", "server", "– no stored rate", "– no delivered rate", "JetStream API: 3.1 req/s, 0.2% errors"]);
+    expect(cells(">")).toEqual(["SYSsystem", "", "1 connection (ops-monitor)", "– no stored rate", "– not measured", "receives every message in the account"]);
 
     const r = within(rowOf("order.events.>"));
     expect(r.getByRole("link", { name: "order-events" })).toHaveAttribute("href", "/streams/APP/order-events?system=example-global");
@@ -96,7 +106,41 @@ describe("Subjects", () => {
     expect(r.getByRole("link", { name: "order-archive" })).toHaveAttribute("href", "/streams/APP/order-archive?system=example-global");
     expect(r.getByRole("link", { name: "APP" })).toHaveAttribute("href", "/subjects?account=APP&system=example-global");
     expect(within(rowOf("stock.alerts.>")).getByRole("link", { name: "1 ephemeral" })).toHaveAttribute("href", "/consumers?stream=APP%2Fstock-alerts&ephemeral=1&system=example-global");
-    expect(within(rowOf("orders.place")).getByRole("link", { name: "order-service" })).toHaveAttribute("href", "/connections?name=order-service&system=example-global");
+    expect(within(rowOf("orders.place")).getAllByRole("link", { name: "order-service" })[0]).toHaveAttribute("href", "/connections?name=order-service&system=example-global");
+  });
+
+  it("shows a subscription row's delivered rate, how many connections it measured, and each connection's rate", async () => {
+    getSubjects.mockResolvedValue(global());
+    renderApp(<Subjects />, "/subjects?system=example-global");
+    await screen.findByRole("region", { name: "Subject patterns" });
+    const r = within(rowOf("orders.place"));
+    expect(r.getByText("2 of 3 measured")).toHaveClass("sj-measured");
+    const per = r.getByText("Per connection").closest("details") as HTMLElement;
+    expect(per).not.toHaveAttribute("open");
+    await userEvent.click(r.getByText("Per connection"));
+    expect(per).toHaveAttribute("open");
+    const items = within(per).getAllByRole("listitem").map((li) => li.textContent);
+    expect(items).toEqual(["order-service (nats-eu-0 cid 117): 4.62 msgs/s", "order-service (nats-eu-0 cid 101): 4.20 msgs/s", "order-service (nats-eu-3 cid 109): not measured"]);
+    // One connection's rate is the row's: no disclosure.
+    expect(within(rowOf(">")).queryByText("Per connection")).toBeNull();
+  });
+
+  it("names the connections beyond the 20 listed and an unnamed connection", async () => {
+    const delivered = {
+      perSecond: 1.5,
+      measured: 22,
+      rates: [
+        { name: "", server: "nats-eu-1", cid: 12, perSecond: 1 },
+        { name: "api-gateway", server: "nats-eu-2", cid: 13, perSecond: 0.5 },
+      ],
+      moreRates: 20,
+    };
+    getSubjects.mockResolvedValue({ ...global(), rows: [sub("a.b", { connections: 22, names: ["api-gateway"], delivered })] });
+    renderApp(<Subjects />, "/subjects");
+    await screen.findByRole("region", { name: "Subject patterns" });
+    expect(cells("a.b")[4]).toBe("1.50");
+    const items = within(rowOf("a.b")).getAllByRole("listitem").map((li) => li.textContent);
+    expect(items).toEqual(["unnamed (nats-eu-1 cid 12): 1.00 msgs/s", "api-gateway (nats-eu-2 cid 13): 0.50 msgs/s", "+20 more connections"]);
   });
 
   it("shows a mirror without a pattern and a stream without a consumer as a warning row", async () => {
@@ -104,9 +148,9 @@ describe("Subjects", () => {
     renderApp(<Subjects />, "/subjects");
     await screen.findByRole("region", { name: "Subject patterns" });
     const mirror = table().getByRole("rowheader", { name: "no subjects of its own" }).closest("tr") as HTMLElement;
-    expect(within(mirror).getAllByRole("cell").map((c) => c.textContent)).toEqual(["APP", "order-archive", "1 durable consumer", "14.9", "mirror of order-events"]);
+    expect(within(mirror).getAllByRole("cell").map((c) => c.textContent)).toEqual(["APP", "order-archive", "1 durable consumer", "14.9", "– no delivered rate", "mirror of order-events"]);
     expect(rowOf("basket.events.>")).toHaveClass("sj-warn");
-    expect(cells("basket.events.>")[4]).toBe("stream without a consumer: messages are kept but nobody reads them");
+    expect(cells("basket.events.>")[5]).toBe("stream without a consumer: messages are kept but nobody reads them");
     expect(cells("basket.events.>")[2]).toBe("none");
     expect(rowOf("order.events.>")).not.toHaveClass("sj-warn");
   });
@@ -269,6 +313,22 @@ describe("Subjects tester", () => {
     const app = within(await card.findByRole("group", { name: "Published in APP" }));
     expect(app.getByText("The account's JetStream API answers it")).toBeInTheDocument();
     expect(within(card.getByRole("group", { name: "Published in SYS" })).getByText("system")).toBeInTheDocument();
+  });
+
+  it("gives a core subscriber's delivered rate and its connections side by side", async () => {
+    getSubjects.mockResolvedValue(global());
+    matchSubject.mockResolvedValue(matches({ accounts: [published({ core: [coreMatch(), coreMatch({ queue: "", subject: "orders.>", connections: 1, names: ["ops-monitor"], delivered: { measured: 0, rates: [{ name: "ops-monitor", server: "nats-eu-0", cid: 4 }], moreRates: 0 } })] })] }));
+    renderApp(<Subjects />, "/subjects?account=APP");
+    await userEvent.type(field(), "orders.place");
+    const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
+    const chip = await card.findByText((_, el) => el?.classList.contains("sj-chip") === true && /one of 3 in queue group/.test(el.textContent ?? ""));
+    expect(chip).toHaveTextContent(
+      "Core subscribers one of 3 in queue group order-service (order-service) via orders.place, 8.82 msgs/s delivered, 2 of 3 connections measured; " +
+        "1 connection (ops-monitor) via orders.>, delivered rate not measured",
+    );
+    const per = card.getByText("Per connection on orders.place in order-service").closest("details") as HTMLElement;
+    expect(within(per).getAllByRole("listitem")).toHaveLength(3);
+    expect(card.queryByText(/^Per connection on orders\.>/)).toBeNull();
   });
 
   it("leaves the account heading out when the page shows one account, and asks in it", async () => {

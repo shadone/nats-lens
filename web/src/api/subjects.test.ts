@@ -48,6 +48,7 @@ describe("subjects", () => {
     expect(d.rows[0]).toMatchObject({ messages: 0, storedPerSecond: 0, durable: 1, retention: "workqueue" });
     expect(d.rows[1]).toMatchObject({ morePatterns: 3, messages: undefined, storedPerSecond: undefined, ephemeral: 2, names: ["x"], moreNames: 1, mirroredBy: ["m"] });
     expect(d.rows[2]).toMatchObject({ connections: 1, wide: true, systemAccount: true });
+    expect(d.rows[2].delivered).toEqual({ perSecond: undefined, measured: 0, rates: [], moreRates: 0 });
     expect(d.rows[4]).toMatchObject({ apiPerSecond: 1.5, apiErrorShare: 0 });
     expect(d.rows[3].apiPerSecond).toBeUndefined();
     expect(d.rows[5]).toMatchObject({ overlaps: ["c"], noConsumer: true });
@@ -81,7 +82,22 @@ describe("subjectMatches", () => {
           {
             account: "APP",
             matches: [{ stream: "order-events", kind: SubjectRowKind.KEY_VALUE, pattern: "order.events.>", consumers: ["a"], ephemeralConsumers: 2, mirrors: ["order-archive"], sourcedBy: ["s"] }],
-            subscribers: [{ subject: "orders.place", queue: "order-service", connections: 3, clientNames: ["order-service"], moreNames: 0 }],
+            subscribers: [
+              {
+                subject: "orders.place",
+                queue: "order-service",
+                connections: 3,
+                clientNames: ["order-service"],
+                moreNames: 0,
+                deliveredPerSecond: 0,
+                measuredConnections: 2,
+                connectionRates: [
+                  { name: "order-service", serverName: "nats-0", cid: 7n, perSecond: 0 },
+                  { name: "", serverName: "nats-1", cid: 8n },
+                ],
+                moreConnectionRates: 1,
+              },
+            ],
           },
           { account: "SYS", accountName: "system", systemAccount: true, jetstreamApi: true },
         ],
@@ -96,7 +112,25 @@ describe("subjectMatches", () => {
           accountName: "",
           systemAccount: false,
           streams: [{ account: "APP", stream: "order-events", kind: "kv", pattern: "order.events.>", consumers: ["a"], ephemeral: 2, mirrors: ["order-archive"], sourcedBy: ["s"] }],
-          core: [{ subject: "orders.place", queue: "order-service", connections: 3, names: ["order-service"], moreNames: 0 }],
+          core: [
+            {
+              subject: "orders.place",
+              queue: "order-service",
+              connections: 3,
+              names: ["order-service"],
+              moreNames: 0,
+              // 0 is a rate; an unset one stays undefined.
+              delivered: {
+                perSecond: 0,
+                measured: 2,
+                rates: [
+                  { name: "order-service", server: "nats-0", cid: 7, perSecond: 0 },
+                  { name: "", server: "nats-1", cid: 8, perSecond: undefined },
+                ],
+                moreRates: 1,
+              },
+            },
+          ],
           jetstreamApi: false,
         },
         { account: "SYS", accountName: "system", systemAccount: true, streams: [], core: [], jetstreamApi: true },

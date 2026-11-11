@@ -2,9 +2,9 @@
 // it in the first cell), per subscribed subject, per account's reply
 // inboxes and per account's JetStream API, rows with a warning first.
 import { Fragment } from "react";
-import type { SubjectRow, Subjects } from "../api/subjects";
+import type { Delivered, SubjectRow, Subjects } from "../api/subjects";
 import { fmtInt } from "../lib/format";
-import { cutText, isStored, note, rateText, subscribers } from "../lib/subjectsView";
+import { connectionRateText, connectionWhere, cutText, hasDelivered, isStored, measuredText, moreRatesText, note, rateText, subscribers } from "../lib/subjectsView";
 import { streamLabel, accountLabeller, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { Dash, RLink } from "./common";
@@ -48,6 +48,31 @@ export function Names({ names, more }: { names: string[]; more: number }) {
   );
 }
 
+/**
+ * The connections of a row or a tester's match with their delivered
+ * rates, behind a disclosure: shown when there is more than one, as one
+ * connection's rate is the row's.
+ */
+export function ConnectionRates({ d, label = "Per connection" }: { d: Delivered; label?: string }) {
+  if (d.rates.length + d.moreRates < 2) return null;
+  const more = moreRatesText(d);
+  return (
+    <details className="sj-rates">
+      <summary>{label}</summary>
+      <ul>
+        {d.rates.map((c) => (
+          <li key={`${c.server}|${c.cid}`}>
+            {c.name ? <RLink to={connectionPath(c.name)}>{c.name}</RLink> : "unnamed"}
+            <span className="sj-rates-where"> {connectionWhere(c)}</span>:{" "}
+            <span className={c.perSecond === undefined ? "sj-quiet" : "sj-rates-v"}>{connectionRateText(c)}</span>
+          </li>
+        ))}
+        {more && <li className="sj-quiet">{more}</li>}
+      </ul>
+    </details>
+  );
+}
+
 function Subscribers({ r }: { r: SubjectRow }) {
   const s = subscribers(r);
   return (
@@ -60,6 +85,7 @@ function Subscribers({ r }: { r: SubjectRow }) {
         </>
       )}
       <Names names={s.names} more={s.more} />
+      {hasDelivered(r) && <ConnectionRates d={r.delivered} />}
     </>
   );
 }
@@ -106,13 +132,32 @@ function Patterns({ r }: { r: SubjectRow }) {
   );
 }
 
-/** No stored rate: the row is not a stream's, so it never has one. */
-function NoRate() {
+/** A dash heard as why there is no rate: "no stored rate" on a row that is not a stream's. */
+function NoRate({ why = "no stored rate" }: { why?: string }) {
   return (
     <span>
       <span aria-hidden="true">–</span>
-      <span className="sr-only">{" no stored rate"}</span>
+      <span className="sr-only">{` ${why}`}</span>
     </span>
+  );
+}
+
+/** A subscription or inbox row's delivered rate, with "2 of 3 measured" when some connections have none. */
+function DeliveredCell({ r }: { r: SubjectRow }) {
+  if (!hasDelivered(r)) return <NoRate why="no delivered rate" />;
+  const rate = rateText(r.delivered.perSecond);
+  if (rate === undefined) return <NoRate why="not measured" />;
+  const part = measuredText(r.delivered, r.connections);
+  return (
+    <>
+      {rate}
+      {part && (
+        <>
+          {" "}
+          <span className="sj-measured">{part}</span>
+        </>
+      )}
+    </>
   );
 }
 
@@ -140,6 +185,9 @@ export function SubjectsTable({ d, scoped, empty, filterParam = "" }: { d: Subje
                 <th scope="col" className="num">
                   Stored msgs/s
                 </th>
+                <th scope="col" className="num">
+                  Delivered msgs/s
+                </th>
                 <th scope="col">Note</th>
               </tr>
             </thead>
@@ -162,6 +210,9 @@ export function SubjectsTable({ d, scoped, empty, filterParam = "" }: { d: Subje
                       <Subscribers r={r} />
                     </td>
                     <td className="num sj-rate">{!isStored(r) ? <NoRate /> : rate === undefined ? <Dash /> : rate}</td>
+                    <td className="num sj-rate">
+                      <DeliveredCell r={r} />
+                    </td>
                     <NoteCell r={r} />
                   </tr>
                 );

@@ -4,6 +4,7 @@
 import {
   SubjectFilter as PFilter,
   SubjectRowKind,
+  type ConnectionRate as PConnectionRate,
   type GetSubjectsResponse,
   type MatchSubjectResponse,
 } from "../gen/natslens/v1/subjects_pb";
@@ -21,6 +22,36 @@ export const FILTER_ENUM: Record<SubjectFilter, PFilter> = {
   overlapping: PFilter.OVERLAPPING,
   wide: PFilter.WIDE,
 };
+
+/** One connection's delivered rate on a row's or a match's subscriptions. */
+export interface ConnectionRate {
+  /** Empty for an unnamed connection. */
+  name: string;
+  server: string;
+  cid: number;
+  /** Undefined when not measured. */
+  perSecond?: number;
+}
+
+/** Delivered rates of a subscription row or a tester's core match. */
+export interface Delivered {
+  /** The sum of the measured connections' rates; undefined when none is measured. */
+  perSecond?: number;
+  measured: number;
+  /** At most 20, most first, those not measured last. */
+  rates: ConnectionRate[];
+  /** Connections beyond rates. */
+  moreRates: number;
+}
+
+function delivered(x: { deliveredPerSecond?: number; measuredConnections: number; connectionRates: PConnectionRate[]; moreConnectionRates: number }): Delivered {
+  return {
+    perSecond: x.deliveredPerSecond,
+    measured: x.measuredConnections,
+    rates: x.connectionRates.map((c) => ({ name: c.name, server: c.serverName, cid: n(c.cid), perSecond: c.perSecond })),
+    moreRates: x.moreConnectionRates,
+  };
+}
 
 export interface SubjectRow {
   account: string;
@@ -55,6 +86,8 @@ export interface SubjectRow {
   overlaps: string[];
   noConsumer: boolean;
   wide: boolean;
+  /** A subscription or inbox row's delivered rates. */
+  delivered: Delivered;
 }
 
 export interface SubszServer {
@@ -118,6 +151,7 @@ export function subjects(r: GetSubjectsResponse): Subjects {
       overlaps: s.overlaps,
       noConsumer: s.noConsumer,
       wide: s.wide,
+      delivered: delivered(s),
     })),
     rowsTotal: r.rowsTotal,
     counts: { all: r.allCount, stored: r.storedCount, noConsumer: r.noConsumerCount, overlapping: r.overlappingCount, wide: r.wideCount },
@@ -147,6 +181,7 @@ export interface CoreMatch {
   connections: number;
   names: string[];
   moreNames: number;
+  delivered: Delivered;
 }
 
 /** What a message published in one account would reach. */
@@ -196,6 +231,7 @@ export function subjectMatches(r: MatchSubjectResponse): SubjectMatches {
         connections: c.connections,
         names: c.clientNames,
         moreNames: c.moreNames,
+        delivered: delivered(c),
       })),
       jetstreamApi: a.jetstreamApi,
     })),

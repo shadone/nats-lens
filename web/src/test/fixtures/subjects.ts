@@ -1,9 +1,26 @@
 // Subjects view models for tests: rows of the shop's account APP and the
 // system account as the demo's example-global has them.
-import type { CoreMatch, MatchAccount, StreamMatch, SubjectMatches, SubjectRow, Subjects } from "../../api/subjects";
+import type { CoreMatch, Delivered, MatchAccount, StreamMatch, SubjectMatches, SubjectRow, Subjects } from "../../api/subjects";
 
 export const EPOCH_AT = Date.parse("2026-10-21T12:00:00Z");
 export const SUBS_AT = Date.parse("2026-10-21T11:58:30Z");
+
+/** No delivered rate: a stream row's, or connections not measured. */
+export const NOT_DELIVERED: Delivered = { measured: 0, rates: [], moreRates: 0 };
+
+/** orders.place's three order-service connections in their queue group, one on a cut list. */
+export function queueDelivered(): Delivered {
+  return {
+    perSecond: 8.82,
+    measured: 2,
+    rates: [
+      { name: "order-service", server: "nats-eu-0", cid: 117, perSecond: 4.62 },
+      { name: "order-service", server: "nats-eu-0", cid: 101, perSecond: 4.2 },
+      { name: "order-service", server: "nats-eu-3", cid: 109 },
+    ],
+    moreRates: 0,
+  };
+}
 
 export function row(o: Partial<SubjectRow> = {}): SubjectRow {
   return {
@@ -28,6 +45,7 @@ export function row(o: Partial<SubjectRow> = {}): SubjectRow {
     overlaps: [],
     noConsumer: false,
     wide: false,
+    delivered: NOT_DELIVERED,
     ...o,
   };
 }
@@ -47,7 +65,7 @@ export function global(): Subjects {
       row({ patterns: [], stream: "order-archive", mirrorOf: "order-events", durable: 1, storedPerSecond: 14.87 }),
       row({ kind: "kv", patterns: ["$KV.feature-flags.>"], stream: "KV_feature-flags", ephemeral: 22, names: ["api-gateway", "checkout-service", "order-service"], moreNames: 1, storedPerSecond: 0.04 }),
       row({ patterns: ["stock.alerts.>"], stream: "stock-alerts", retention: "interest", ephemeral: 1, names: ["inventory-service"], storedPerSecond: 0.6 }),
-      sub("orders.place", { connections: 3, queue: "order-service", names: ["order-service"] }),
+      sub("orders.place", { connections: 3, queue: "order-service", names: ["order-service"], delivered: queueDelivered() }),
       row({ kind: "inbox", patterns: ["_INBOX.>"], stream: "", retention: "", messages: undefined, connections: 731, names: ["api-gateway", "checkout-service", "inventory-service"], moreNames: 2 }),
       row({ kind: "jsApi", patterns: ["$JS.API.>"], stream: "", retention: "", messages: undefined, apiPerSecond: 3.1, apiErrorShare: 0.002 }),
       sub(">", { account: "SYS", systemAccount: true, names: ["ops-monitor"], wide: true }),
@@ -73,7 +91,7 @@ export function streamMatch(o: Partial<StreamMatch> = {}): StreamMatch {
 }
 
 export function coreMatch(o: Partial<CoreMatch> = {}): CoreMatch {
-  return { subject: "orders.place", queue: "order-service", connections: 3, names: ["order-service"], moreNames: 0, ...o };
+  return { subject: "orders.place", queue: "order-service", connections: 3, names: ["order-service"], moreNames: 0, delivered: queueDelivered(), ...o };
 }
 
 export function published(o: Partial<MatchAccount> = {}): MatchAccount {

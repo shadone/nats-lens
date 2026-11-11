@@ -1,15 +1,16 @@
 // The Subjects page in words: the filters, a row's subscribers and note,
 // the rates, the footnote and the tester's answer grouped by account.
-import type { CoreMatch, MatchAccount, StreamMatch, SubjectFilter, SubjectRow, Subjects } from "../api/subjects";
+import type { ConnectionRate, CoreMatch, Delivered, MatchAccount, StreamMatch, SubjectFilter, SubjectRow, Subjects } from "../api/subjects";
 import { fmtInt, hms } from "./format";
 
 export const SUBJECTS_SUBTITLE = "Where messages can go: stream subjects and client subscriptions, by subject pattern.";
 
-export const SUBJECTS_FOOTNOTE =
-  "NATS servers do not count messages per subject, so rates come from streams (sequence growth) and are shown only where a stream stores the subject.";
+export const SUBJECTS_FOOTNOTE = "NATS servers do not count messages per subject, so stored rates come from streams (sequence growth).";
 
-/** The footnote's second sentence, shown only when a subscription collection was read. */
-export const SUBSCRIPTIONS_FOOTNOTE = "Subscriptions come from each server's subscription list, refreshed every few minutes rather than every collection to keep large systems cheap.";
+/** The footnote's second part, shown only when a subscription collection was read. */
+export const SUBSCRIPTIONS_FOOTNOTE =
+  "Subscriptions come from each server's subscription list, refreshed every few minutes rather than every collection to keep large systems cheap. " +
+  "Delivered rates are the messages each connection's subscriptions received between two of those lists; a connection on a list cut at the limit, or not in the list before, is not measured.";
 
 export const NOTHING_REACHED = "no stream stores it and no subscriber listens";
 
@@ -246,4 +247,47 @@ export function coreLead(c: CoreMatch): string {
 export function coreText(c: CoreMatch): string {
   const names = namesText(c.names, c.moreNames);
   return `${coreLead(c)}${names ? ` ${names}` : ""} via ${c.subject}`;
+}
+
+/** Whether a row can have a delivered rate: a subscription or inbox row. */
+export function hasDelivered(r: Pick<SubjectRow, "kind">): boolean {
+  return r.kind === "subscription" || r.kind === "inbox";
+}
+
+/** "2 of 3 measured" when some connections have no rate; "" when all do. */
+export function measuredText(d: Delivered, connections: number): string {
+  return d.measured < connections ? `${fmtInt(d.measured)} of ${fmtInt(connections)} measured` : "";
+}
+
+/**
+ * The tester's words for a core match's delivered rate: "8.82 msgs/s
+ * delivered", "8.82 msgs/s delivered, 2 of 3 connections measured",
+ * "delivered rate not measured".
+ */
+export function deliveredText(d: Delivered, connections: number): string {
+  const rate = rateText(d.perSecond);
+  if (rate === undefined) return "delivered rate not measured";
+  const part = d.measured < connections ? `, ${fmtInt(d.measured)} of ${plural(connections, "connection")} measured` : "";
+  return `${rate} msgs/s delivered${part}`;
+}
+
+/** Where a connection is: "(nats-eu-0 cid 117)". */
+export function connectionWhere(c: ConnectionRate): string {
+  return `(${c.server} cid ${c.cid})`;
+}
+
+/** "order-service (nats-eu-0 cid 117)"; an unnamed connection is "unnamed". */
+export function connectionLabel(c: ConnectionRate): string {
+  return `${c.name || "unnamed"} ${connectionWhere(c)}`;
+}
+
+/** "4.62 msgs/s", "not measured". */
+export function connectionRateText(c: ConnectionRate): string {
+  const rate = rateText(c.perSecond);
+  return rate === undefined ? "not measured" : `${rate} msgs/s`;
+}
+
+/** "+5 more connections", or "" when every connection is listed. */
+export function moreRatesText(d: Delivered): string {
+  return d.moreRates > 0 ? `+${plural(d.moreRates, "more connection")}` : "";
 }
