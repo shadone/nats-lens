@@ -161,9 +161,14 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 	}
 	rt.log.Info("duckdb threads", "threads", threads, "query_budget", logged)
 	// Epochs stored without asset counts get them now, within the
-	// store's thread count and memory limit.
+	// store's thread count and memory limit. A failed fill leaves the
+	// count series reading the reports, slower but correct, so it stops
+	// the start only when the start was cancelled or the engine failed.
 	if _, err := fillAssetCounts(st, ctx); err != nil {
-		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
+		if ctx.Err() != nil || st.Failure() != nil {
+			return fmt.Errorf("system %s: %w", rt.sys.ID, err)
+		}
+		rt.log.Warn("asset counts not filled; the count series read the reports until a later start fills them", "err", err)
 	}
 	if err := loadInventory(ctx, rt.cfg, st, rt.log); err != nil {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)

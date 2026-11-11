@@ -24,7 +24,8 @@ import (
 )
 
 // runtimeProcs is the number of CPUs the process may use at once.
-func runtimeProcs() int { return runtime.GOMAXPROCS(0) }
+// A variable so that tests can choose the share each store gets.
+var runtimeProcs = func() int { return runtime.GOMAXPROCS(0) }
 
 // systemRuntime is one monitored system: its store and archive, and in
 // natslens run its collector, event capture, Kubernetes watcher, check

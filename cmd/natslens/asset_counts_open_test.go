@@ -1,8 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log/slog"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -47,6 +52,14 @@ func TestAssetCountsFilledAfterTheLimits(t *testing.T) {
 	ctx := context.Background()
 	cfg := listConfig(t, t.TempDir(), "shop-prod", "shop-staging")
 	cfg.DuckDBMemory = 300 << 20
+	// 13 threads per store: a share no machine's default is likely to be,
+	// so the settings during the fill tell the configured ones apart.
+	procs := runtimeProcs
+	t.Cleanup(func() { runtimeProcs = procs })
+	runtimeProcs = func() int { return 26 }
+	if runtime.NumCPU() == 13 {
+		t.Skip("13 CPUs: DuckDB's default thread count equals the share")
+	}
 	for _, s := range cfg.ResolvedSystems() {
 		storeWithoutCounts(t, s.DataDir)
 	}
@@ -94,7 +107,7 @@ func TestAssetCountsFilledAfterTheLimits(t *testing.T) {
 		if err := rt.st.DB().QueryRow(`SELECT current_setting('threads'), current_setting('memory_limit')`).Scan(&after.threads, &after.memory); err != nil {
 			t.Fatal(err)
 		}
-		if after.threads != threadsPerStore(runtimeProcs(), 2) {
+		if after.threads != 13 {
 			t.Fatalf("threads after open %d", after.threads)
 		}
 		found := false
@@ -107,5 +120,62 @@ func TestAssetCountsFilledAfterTheLimits(t *testing.T) {
 		if n := countRows(t, rt.st); n != 1 {
 			t.Errorf("system %d: %d epochs with counts after the open, want 1", i, n)
 		}
+	}
+}
+
+// A fill that fails leaves the store open: the count series read the
+// reports until a later start fills them, and the other systems open as
+// usual.
+func TestAssetCountsFillFailureKeepsTheSystem(t *testing.T) {
+	ctx := context.Background()
+	cfg := listConfig(t, t.TempDir(), "shop-prod", "shop-staging")
+	for _, s := range cfg.ResolvedSystems() {
+		storeWithoutCounts(t, s.DataDir)
+	}
+	failing := cfg.ResolvedSystems()[0].ID
+	orig := fillAssetCounts
+	t.Cleanup(func() { fillAssetCounts = orig })
+	fillAssetCounts = func(st *store.Store, ctx context.Context) (int64, error) {
+		if st.System() == failing {
+			return 0, errors.New("disk full")
+		}
+		return orig(st, ctx)
+	}
+	var logs bytes.Buffer
+	rts, err := openSystems(ctx, cfg, cfg.ResolvedSystems(), slog.New(slog.NewTextHandler(&logs, nil)))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer closeSystems(rts, time.Time{})
+	for _, rt := range rts {
+		want := 1
+		if rt.sys.ID == failing {
+			want = 0
+		}
+		if n := countRows(t, rt.st); n != want {
+			t.Errorf("%s: %d epochs with counts, want %d", rt.sys.ID, n, want)
+		}
+	}
+	if !strings.Contains(logs.String(), "disk full") {
+		t.Errorf("the failure was not logged: %s", logs.String())
+	}
+}
+
+// A fill stopped by the start's cancellation still stops the start.
+func TestAssetCountsFillCancelledStopsTheStart(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cfg := listConfig(t, t.TempDir(), "shop-prod")
+	storeWithoutCounts(t, cfg.ResolvedSystems()[0].DataDir)
+	orig := fillAssetCounts
+	t.Cleanup(func() { fillAssetCounts = orig })
+	fillAssetCounts = func(_ *store.Store, ctx context.Context) (int64, error) {
+		cancel()
+		return 0, ctx.Err()
+	}
+	rts, err := openSystems(ctx, cfg, cfg.ResolvedSystems(), quietLog())
+	if err == nil {
+		closeSystems(rts, time.Time{})
+		t.Fatal("a cancelled fill did not stop the start")
 	}
 }
