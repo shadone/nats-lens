@@ -4,7 +4,7 @@ import {timelineCaptureLimits} from "./TimelineCaptureNotice";
 // leader elections, the worst finding state of any check, client
 // connection counts, and the other NATS events. "Each check" opens the
 // full status timeline, one row per check, in the same card.
-import { useId, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { useChartIntervalInteraction } from "../charts/ChartIntervals";
 import { useSharedCursor } from "../charts/sharedCursor";
 import type { CaptureGap, LaneEvent, Range, Timeline } from "../api/model";
@@ -109,6 +109,10 @@ function StoryLaneContents({ tl, end, live }: Props) {
     shared(e.pointerType === "touch" || interval?.active ? undefined : tl.start + Math.max(0, Math.min(1, (e.clientX - box.left) / box.width)) * span);
   };
   const selected = interval?.highlight;
+  // A drag or an interval dialog takes the lanes' line away.
+  useEffect(() => { if (interval?.active) shared?.(undefined); }, [interval?.active, shared]);
+  // The track takes no focus, so the dialog of a drag returns it here.
+  const picker = useRef<HTMLButtonElement>(null);
  const fixed=tl.evidenceRange??evidenceRange(tl.start,tl.start+span);
   const lanePath=(path:string)=>{const [base,query]=path.split('?'),p=evidenceQuery(system,fixed);new URLSearchParams(query).forEach((v,k)=>p.set(k,v));if(base==='/events'&&tl.eventReadId!==undefined)p.set('eventReadId',tl.eventReadId);return `${base}?${p}`};
   const runs = findingRuns(tl.rows, tl.start, tl.bucketMs, tl.bucketCount);
@@ -236,7 +240,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
             </div>
             <div className="sl-track" role="group" aria-label={l.label}
               onPointerMove={(e) => { interval?.move(e); point(e); }} onPointerDown={(e) => { interval?.down(e); point(e); }} onPointerLeave={() => shared?.(undefined)}
-              onPointerUp={(e) => interval?.up(e)} onPointerCancel={() => interval?.cancel()} onLostPointerCapture={() => interval?.cancel()} onClickCapture={(e) => interval?.click(e)} onDragStart={(e) => { if (interval) e.preventDefault(); }}>
+              onPointerUp={(e) => { if (selected) picker.current?.focus({ preventScroll: true }); interval?.up(e); }} onPointerCancel={() => interval?.cancel()} onLostPointerCapture={() => interval?.cancel()} onClickCapture={(e) => { if ((e.target as Element).closest(".timeline-mark")) shared?.(undefined); interval?.click(e); }} onDragStart={(e) => { if (interval) e.preventDefault(); }}>
               <span className="sl-base" />
               {l.marks}
               {selected && <span aria-hidden="true" className="chart-selected-interval" style={{ left: pct(frac(selected.start)), width: pct(frac(selected.end) - frac(selected.start)) }} />}
@@ -263,7 +267,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
               {asTable ? "Show chart" : "Show as table"}
             </button>
           )}
-          {interval && <button type="button" className="chip" onClick={interval.picker}>Select interval</button>}
+          {interval && <button ref={picker} type="button" className="chip" onClick={interval.picker}>Select interval</button>}
           <button type="button" className="chip" aria-expanded={checks} onClick={() => setChecks((c) => !c)}>
             {checks ? "Hide each check" : "Each check"}
           </button>

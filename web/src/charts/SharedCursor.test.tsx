@@ -344,3 +344,41 @@ it("starts the keys again from the range's start after Escape or blur", () => {
   fireEvent.focus(p);
   expect(Number(p.getAttribute("aria-valuenow"))).toBe(start);
 });
+
+it("returns focus to Select interval when the dialog of a lane drag closes", () => {
+  renderApp(<Page />);
+  const track = tracks()[0];
+  fireEvent.pointerDown(track, { pointerId: 5, isPrimary: true, button: 0, clientX: 300, clientY: 10, pointerType: "mouse" });
+  fireEvent.pointerMove(track, { pointerId: 5, clientX: 450, clientY: 10, pointerType: "mouse" });
+  fireEvent.pointerUp(track, { pointerId: 5, button: 0, clientX: 450, clientY: 10, pointerType: "mouse" });
+  fireEvent.click(within(screen.getByRole("dialog", { name: "Selected chart interval" })).getByRole("button", { name: "Cancel" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Select interval" }));
+});
+
+it("clears the lanes' line when a mark's dialog or the interval dialog opens", () => {
+  const withGap: Timeline = { ...tl, servers: [], leaders: [], clients: [], systemEventsCaptured: true, jetstreamEventsCaptured: true, advisoryCaptureGaps: [{ start: at(20), end: at(25), connection: "sys" }] };
+  renderApp(
+    <ChartIntervalProvider>
+      <SharedCursorProvider start={start} end={end}>
+        <TrendChart title="Lane follower" start={start} end={end} stepMs={step} layers={[]} />
+        <StoryLanes tl={withGap} end={end} live={false} />
+      </SharedCursorProvider>
+    </ChartIntervalProvider>,
+  );
+  const mark = screen.getByRole("button", { name: /Event capture stopped 09:20–09:25 \(system account\)/ });
+  const track = mark.closest(".sl-track") as HTMLElement;
+  const grid = track.closest(".sl-grid") as HTMLElement;
+  fireEvent.pointerMove(mark, { clientX: 135, pointerType: "mouse" });
+  expect(grid).toHaveAttribute("data-cursor");
+  expect(shown("Lane follower")).toBe(true);
+  fireEvent.click(mark);
+  expect(screen.getByRole("dialog", { name: /Event capture stopped/ })).toBeInTheDocument();
+  expect(grid).not.toHaveAttribute("data-cursor");
+  expect(shown("Lane follower")).toBe(false);
+  fireEvent.click(within(screen.getByRole("dialog", { name: /Event capture stopped/ })).getAllByRole("button")[0]);
+  // The picker's dialog clears it too.
+  fireEvent.pointerMove(track, { clientX: 300, pointerType: "mouse" });
+  expect(grid).toHaveAttribute("data-cursor");
+  fireEvent.click(screen.getAllByRole("button", { name: "Select interval" }).at(-1)!);
+  expect(grid).not.toHaveAttribute("data-cursor");
+});
