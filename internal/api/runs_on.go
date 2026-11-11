@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"maps"
 	"slices"
+	"time"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
@@ -11,6 +12,15 @@ import (
 // MaxRunsOnItems is the most workloads and nodes an application's Runs
 // on lists.
 const MaxRunsOnItems = 10
+
+// ClientPodFresh is how recently a live client pod row must have been
+// seen to match a connection: the watch refreshes the rows of a healthy
+// namespace every k8s.DefaultClientPodTouchEvery and writes every
+// k8s.DefaultClientPodFlushEvery, so a row older than this belongs to a
+// watch that stopped working, whose pod may be gone and its address
+// reused. Two refreshes and a flush of slack; a test in cmd/natslens keeps
+// it above them.
+const ClientPodFresh = 15 * time.Minute
 
 // runsOn sums where an application's connections run from the pods they
 // were matched to.

@@ -83,15 +83,18 @@ SELECT EXISTS (SELECT 1 FROM events c WHERE c.kind = 'collector.k8s_client_pods_
 // appPods matches the epoch's connections in the scope to the client
 // pods whose address their IP was when the epoch started: one pod that
 // is not on the host network is the connection's pod; a host-network pod
-// or more than one pod make it ambiguous.
+// or more than one pod make it ambiguous. A live row last seen more than
+// api.ClientPodFresh before the epoch belongs to a watch that stopped
+// working and matches nothing.
 func (p *Provider) appPods(ctx context.Context, e epochInfo, account string, conns []api.AppConnectionFact) error {
 	rows, err := p.db().QueryContext(ctx, `
 SELECT s.server_name, c.cid, count(DISTINCT cp.uid), bool_or(cp.host_network),
   any_value(cp.namespace), any_value(cp.pod), any_value(cp.node), any_value(cp.workload_kind), any_value(cp.workload)
 FROM connections c JOIN servers s USING (server_id)
-JOIN client_pods cp ON cp.ip = c.ip AND cp.first_seen <= `+usParam+` AND (cp.ended_at IS NULL OR cp.ended_at >= `+usParam+`)
+JOIN client_pods cp ON cp.ip = c.ip AND cp.first_seen <= `+usParam+`
+  AND (cp.ended_at >= `+usParam+` OR (cp.ended_at IS NULL AND cp.last_seen >= `+usParam+`))
 WHERE c.epoch = ? AND `+accountIn("c.account")+`
-GROUP BY ALL`, us(e.startedAt), us(e.startedAt), e.epoch, account, account)
+GROUP BY ALL`, us(e.startedAt), us(e.startedAt), us(e.startedAt.Add(-api.ClientPodFresh)), e.epoch, account, account)
 	if err != nil {
 		return fmt.Errorf("application pods: %w", err)
 	}

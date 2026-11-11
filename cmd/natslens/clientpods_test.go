@@ -20,8 +20,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/config"
 	"github.com/shadone/nats-lens/internal/events"
+	"github.com/shadone/nats-lens/internal/k8s"
 	"github.com/shadone/nats-lens/internal/store"
 	"github.com/shadone/nats-lens/internal/testcluster"
 )
@@ -148,5 +150,13 @@ func TestKubernetesClientPodWatchOptIn(t *testing.T) {
 				t.Fatalf("client pod requests %v with client_pod_watch %v: %v", shop, on, reqs())
 			}
 		})
+	}
+}
+
+// A live client pod row stays trusted for two refreshes and a write of
+// the watch.
+func TestClientPodFreshnessCoversTheWatch(t *testing.T) {
+	if need := 2*k8s.DefaultClientPodTouchEvery + k8s.DefaultClientPodFlushEvery; api.ClientPodFresh < need {
+		t.Fatalf("api.ClientPodFresh %v, want at least %v", api.ClientPodFresh, need)
 	}
 }
