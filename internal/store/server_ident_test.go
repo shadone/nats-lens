@@ -30,6 +30,19 @@ func readServer(t *testing.T, s *Store, id string) serverRow {
 	return r
 }
 
+// openMemNoCheckpoint is openMem without automatic checkpoints. A checkpoint
+// vacuums a table's deleted rows and renumbers the rest, so a rowid moves
+// without any write to the row; with it off, only a write that deletes and
+// reinserts the row moves its rowid.
+func openMemNoCheckpoint(t *testing.T) *Store {
+	t.Helper()
+	s := openMem(t)
+	if _, err := s.DB().Exec(`SET checkpoint_threshold = '10GB'`); err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
 // writeEpochAt writes the fixture snapshot of epoch n, started n-1
 // intervals after t0, after edit changed it.
 func writeEpochAt(t *testing.T, s *Store, n int, edit func(snap *collect.Snapshot)) {
@@ -44,7 +57,7 @@ func writeEpochAt(t *testing.T, s *Store, n int, edit func(snap *collect.Snapsho
 // Writing a known server again updates its row in place: the row keeps its
 // rowid, so the primary key index is left as it was.
 func TestServerIdentUpdatesInPlace(t *testing.T) {
-	s := openMem(t)
+	s := openMemNoCheckpoint(t)
 	for n := 1; n <= 3; n++ {
 		writeEpochAt(t, s, n, func(*collect.Snapshot) {})
 	}
@@ -68,7 +81,7 @@ func TestServerIdentUpdatesInPlace(t *testing.T) {
 // A server's tags follow its latest report, in its order, and emptied tags
 // are an empty list; an unchanged list leaves the row where it is.
 func TestServerTagsFollowTheReport(t *testing.T) {
-	s := openMem(t)
+	s := openMemNoCheckpoint(t)
 	tags := [][]string{{"zone:a"}, {"zone:b", "ssd"}, {"zone:b", "ssd"}, {"ssd", "zone:b"}, nil}
 	var rowids []int64
 	for i, want := range tags {
