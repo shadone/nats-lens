@@ -210,3 +210,22 @@ func TestSubjectsDeliveredRatesAgreeWithRules(t *testing.T) {
 		}
 	}
 }
+
+// A server without a servers row keeps its subscriptions on the page and
+// in the tester, its connections named by server ID.
+func TestSubjectsDeliveredRatesWithoutServerRow(t *testing.T) {
+	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
+	p := deliveredProvider(t, last, subjCollection-1)
+	if _, err := p.St.DB().Exec(`DELETE FROM servers WHERE server_id = 'S1'`); err != nil {
+		t.Fatal(err)
+	}
+	_, c := apitest.Serve(t, p)
+	res := must(c.GetSubjects(ctx, connect.NewRequest(&v1.GetSubjectsRequest{})))
+	if w := subjRow(res, "SYS", ">"); w == nil || w.GetConnections() != 1 || !slices.Equal(ratesText(w.GetConnectionRates()), []string{"audit-tap S1 3 -"}) {
+		t.Errorf("> = %v", w)
+	}
+	m := must(c.MatchSubject(ctx, connect.NewRequest(&v1.MatchSubjectRequest{Account: "SYS", Subject: "x"})))
+	if subs := api.MatchedSubscribers(m); len(subs) != 1 || subs[0].GetConnections() != 1 {
+		t.Errorf("tester = %v", subs)
+	}
+}

@@ -87,12 +87,13 @@ WITH `+rateCTEs("$1", "$4")+`, s AS (
   FROM s GROUP BY account, subject, queue, server_id, cid
 ), pg AS (
   SELECT account, subject, queue, sum(r) AS rate, count(r) AS measured, `+rateList()+` AS rates
-  FROM pc JOIN servers USING (server_id) GROUP BY account, subject, queue
+  FROM (SELECT pc.*, coalesce(sv.server_name, pc.server_id) AS server_name FROM pc LEFT JOIN servers sv USING (server_id))
+  GROUP BY account, subject, queue
 )
 SELECT account, subject, queue, count(DISTINCT (server_id, cid))::INTEGER,
-  coalesce(list(DISTINCT name ORDER BY name) FILTER (WHERE coalesce(name, '') <> ''), []), any_value(pg.rate), any_value(pg.measured),
+  coalesce(list(DISTINCT name ORDER BY name) FILTER (WHERE coalesce(name, '') <> ''), []), any_value(pg.rate), coalesce(any_value(pg.measured), 0),
   any_value(pg.rates)
-FROM s JOIN pg USING (account, subject, queue) GROUP BY account, subject, queue ORDER BY account, subject, queue`,
+FROM s LEFT JOIN pg USING (account, subject, queue) GROUP BY account, subject, queue ORDER BY account, subject, queue`,
 		c.epoch, req.GetAccount(), req.GetSubject(), c.startedAt.Add(-p.rateGap()))
 	if err != nil {
 		return nil, fmt.Errorf("subject subscribers: %w", err)
@@ -100,7 +101,8 @@ FROM s JOIN pg USING (account, subject, queue) GROUP BY account, subject, queue 
 	defer rows.Close()
 	for rows.Next() {
 		var g api.SubscriptionGroup
-		var names, rates []any
+		var names []any
+		var rates any
 		var rate sql.NullFloat64
 		var measured int64
 		if err := rows.Scan(&g.Account, &g.Subject, &g.Queue, &g.Connections, &names, &rate, &measured, &rates); err != nil {
@@ -112,7 +114,8 @@ FROM s JOIN pg USING (account, subject, queue) GROUP BY account, subject, queue 
 			g.PerSecond = ptr(rate.Float64)
 		}
 		g.Measured = int32(measured)
-		if g.Rates, err = connectionRates(rates); err != nil {
+		list, _ := rates.([]any)
+		if g.Rates, err = connectionRates(list); err != nil {
 			return nil, err
 		}
 		f.Core = append(f.Core, g)
@@ -460,7 +463,8 @@ WITH s AS (
   FROM g GROUP BY part, account, subject, server_id, cid
 ), pg AS (
   SELECT part, account, subject, sum(r) AS rate, count(r) AS measured, `+rateList()+` AS rates
-  FROM pc JOIN servers USING (server_id) GROUP BY part, account, subject
+  FROM (SELECT pc.*, coalesce(sv.server_name, pc.server_id) AS server_name FROM pc LEFT JOIN servers sv USING (server_id))
+  GROUP BY part, account, subject
 ), gg AS (
   SELECT part, account, subject, CASE WHEN count(DISTINCT queue) = 1 THEN min(queue) ELSE '' END AS queue,
     count(DISTINCT (server_id, cid))::BIGINT AS a, 0::BIGINT AS b,
@@ -474,8 +478,8 @@ SELECT 'left', account, '', '',
   []::VARCHAR[], 0::BIGINT, NULL::DOUBLE, 0::BIGINT, NULL
 FROM j WHERE NOT client GROUP BY account
 UNION ALL
-SELECT gg.part, gg.account, gg.subject, gg.queue, gg.a, gg.b, gg.names, gg.n, pg.rate, pg.measured, pg.rates
-FROM gg JOIN pg USING (part, account, subject)
+SELECT gg.part, gg.account, gg.subject, gg.queue, gg.a, gg.b, gg.names, gg.n, pg.rate, coalesce(pg.measured, 0), pg.rates
+FROM gg LEFT JOIN pg USING (part, account, subject)
 ORDER BY 1, 2, 3, 4`, collection.epoch, epoch, account, collection.startedAt.Add(-p.rateGap()))
 	if err != nil {
 		return fmt.Errorf("subscription groups: %w", err)
