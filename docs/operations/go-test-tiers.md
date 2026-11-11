@@ -71,6 +71,18 @@ go vet ./...
 
 `make test` uses the same 40-minute per-package timeout. `make test-short` also allows 40 minutes because it retains DuckDB integration. Neither target disables the test result cache; use the explicit `-count=1` commands for measurements. The opt-in subjects scale case still needs its environment variables during a full run.
 
+## Keep tests steady on a loaded machine
+
+A CI runner or a busy workstation can pause any goroutine for hundreds of milliseconds. Write tests so that load makes them slower, never wrong:
+
+- Wait for the condition itself: poll it with a deadline of seconds, or wait on a channel or a counter the fake keeps. A fixed `time.Sleep` before a check is either too short under load or lets the check pass without testing anything.
+- A test that tells a fast path from a timeout keeps them seconds apart: a timeout of 1 s or more and a bound well below it, not 20 ms against 30 ms. Prefer a slow path that never ends (a held fake, a long caller deadline), so the bound only has to be generous.
+- `Runner.Interval` also limits each epoch's write. A fixture that calls `Once` gives it 10 s; only a test of `Run` uses a short interval, as `Run` takes the next epoch after a write that runs out.
+- A handler can keep reading in the background after the test returns. Log through `apitest.Log(t)`, which drops lines after the test ends: the test output panics on a late write and fails the whole package.
+- Web tests: reach into a dialog opened by asynchronous work only after `findByRole("dialog", ...)`, as `Dialog` opens in an effect after the commit. Type into a debounced field with the debounce held (`web/src/test/heldDebounce.ts`), so that a pause between keys cannot settle a prefix.
+
+Check a timing-sensitive test under load before trusting it, for example with `GOMAXPROCS=1 go test -race -count=20 -cpu 1 -run <name>` beside a few `yes > /dev/null` processes, or with `npx vitest run --maxWorkers=36` on a busy 12-core machine.
+
 ## Measure a change
 
 Coordinate a bounded quiet window with other tasks before comparing runtimes. Record the revision, exact selector, Go version, race flag, test package elapsed time, and `/usr/bin/time -p` output. Use `-count=1`; build-cache reuse is separate from test-result caching. Record compilation overhead when comparing wall time.
