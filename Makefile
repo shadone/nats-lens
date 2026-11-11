@@ -1,7 +1,7 @@
 BIN := bin/natslens
 DEV_DATA := .dev/natslens
 
-.PHONY: build build-full build-go build-release web-full web web-test web-dev proto test test-short test-fast verify-fast verify-full verify-release verify-compat verify-web verify-proto verify-race lint fmt demo demo-site demo-wasm demo-wasm-smoke dev-cluster dev-cluster-stop load churn run-dev image vuln clean
+.PHONY: build build-full build-go build-release web-full web web-test web-dev proto test test-short test-fast verify-fast verify-full verify-release verify-compat verify-web verify-proto verify-race lint fmt demo demo-site demo-wasm demo-wasm-smoke dev-cluster dev-cluster-stop load churn perf run-dev image vuln clean
 
 # Verifies/rebuilds production assets, then builds the binary that embeds them.
 build: web/node_modules/.package-lock.json
@@ -101,6 +101,12 @@ load:
 
 churn:
 	scripts/load.sh churn
+
+# Generates synthetic stores and measures the API and the store against
+# them; about 25 minutes and 7 GiB of free disk. See
+# docs/operations/performance-baseline.md.
+perf:
+	scripts/perf.sh
 
 # Collects from the dev cluster every 10s into .dev/natslens, with events
 # from the system account and the APP account. The passwords are the dev

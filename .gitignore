@@ -27,3 +27,6 @@
 
 # Release archives (scripts/release-archive.sh)
 /dist/
+
+# Performance measurements (scripts/perf.sh)
+/.perf/
