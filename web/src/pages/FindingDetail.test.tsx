@@ -482,7 +482,7 @@ describe("FindingDetail extras for acceptance", () => {
 
 describe("why this severity", () => {
   const noRule = "Every stream-004 finding is a warning; its severity does not change.";
-  const usual = "A warning is the usual severity of stream-004. Its severity rule says when it is another: critical at or above crit_ratio of the limit.";
+  const usual = "A warning is the usual severity of stream-004. Its severity rule says when it differs: critical at or above crit_ratio of the limit.";
   const raised = "Raised to critical from warning, the usual severity of stream-004, by its severity rule: critical at or above crit_ratio of the limit.";
   const line = () => screen.getByText("Why this severity:").parentElement;
 

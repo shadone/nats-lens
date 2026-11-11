@@ -80,7 +80,7 @@ func SeverityReason(code string, sev v1.Severity, resolved bool, usual, rule str
 		if resolved {
 			lead = fmt.Sprintf("It was %s when it resolved, the usual severity of %s.", asNoun(at), code)
 		}
-		return lead + " Its severity rule says when it is another: " + rule
+		return lead + " Its severity rule says when it differs: " + rule
 	}
 	if rule == "" {
 		// Only a finding stored under an older header gets here: the
