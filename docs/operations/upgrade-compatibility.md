@@ -138,7 +138,7 @@ To roll back, stop the new release and restore the copied directory whole; never
 | --- | --- | --- | --- |
 | 2026-11-11 | `69867e4a` (before the fix round; documentation uncommitted) | `python3 -B scripts/verify.py compat` | Pass: `compat-store` 589 s, `compat-cmd` 25 s, on a laptop under a load average of about 35 from other work |
 | 2026-11-11 | `f57203fe` | `TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -run '^TestCompat' -v ./internal/store` | Pass in 506 s: upgrade from all 40 versions, interrupted upgrade from 39, archive rebuild alone and mixed from 40 (80 cases), the three rules tests |
-| 2026-11-12 | branch `perf/asset-counts` (migration 0041), rebased onto the query budget | `TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -timeout 40m ./internal/store -run '^TestCompat'` | Pass in 243 s at a load average of 7 to 10: upgrade from all 41 versions, interrupted upgrade from 40, archive rebuild alone and mixed from 41 (82 cases), the three rules tests |
+| 2026-11-12 | branch `perf/asset-counts` (migration 0041), rebased onto develop `c5cb0879` | `TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -timeout 40m ./internal/store -run '^TestCompat'` | Pass in 240 s at a load average of 5 to 6: upgrade from all 41 versions, interrupted upgrade from 40, archive rebuild alone and mixed from 41 (82 cases), the three rules tests |
 
 Times depend on host load; the matrix grows by about 12 s per new migration.
 
