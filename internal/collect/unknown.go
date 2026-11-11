@@ -55,7 +55,8 @@ var unmarshalerType = reflect.TypeFor[json.Unmarshaler]()
 // null. The field then holds -1 (the largest value for an unsigned type),
 // which no such enum knows. A value that a field of another kind refuses
 // is not taken out, so such a reply still does not decode and returns the
-// first error. The unknown values are returned in the order of the reply.
+// first error. The unknown values are sorted by path, list positions by
+// number, and values at one path by their text.
 func decodeTolerant(b []byte, target any) ([]UnknownValue, error) {
 	err := json.Unmarshal(b, target)
 	if err == nil {
