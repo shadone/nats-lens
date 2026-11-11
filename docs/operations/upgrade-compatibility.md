@@ -136,6 +136,7 @@ To roll back, stop the new release and restore the copied directory whole; never
 | --- | --- | --- | --- |
 | 2026-11-11 | `69867e4a` (before the fix round; documentation uncommitted) | `python3 -B scripts/verify.py compat` | Pass: `compat-store` 589 s, `compat-cmd` 25 s, on a laptop under a load average of about 35 from other work |
 | 2026-11-11 | `f57203fe` | `TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -run '^TestCompat' -v ./internal/store` | Pass in 506 s: upgrade from all 40 versions, interrupted upgrade from 39, archive rebuild alone and mixed from 40 (80 cases), the three rules tests |
+| 2026-11-11 | `d8164a59` | `TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -timeout 40m ./internal/store -run '^TestCompat' -v` | Pass in 319 s at a load average of 10 to 13: upgrade from all 41 versions, interrupted upgrade from 40, archive rebuild alone and mixed from 41 (82 cases), the three rules tests |
 
 Times depend on host load; the matrix grows by about 12 s per new migration.
 

@@ -169,7 +169,7 @@ No bug in the sense of a wrong answer was found. The instrumentation shows two d
 
 Ranked by measured benefit. Each is **proposed, not yet confirmed**.
 
-1. **Store per-epoch asset counts when the epoch is written, and read the Overview's counts from them.** A new table (one row per epoch: streams, KV buckets, object stores, durable consumers, replicated and single assets) written in the epoch's transaction, and a backfill for stored epochs, by a new migration. `cluster.streams`, `kv_buckets`, `object_stores`, `durable_consumers`, `assets_replicated` and `assets_single` then read 2,880 rows for a day instead of 17 to 86 million. Evidence: these are the top three costs (2.0 s, 3 × 0.33 s and 1.65 s alone at `entities`; 30 to 48 s in the page load) and the reason `GetOverview` and the trend batch time out. The remaining Overview calls took under 1 s at p50 in the cold load except `ListConsumers` and `ListStreams`. The write adds a few aggregates over rows already in the transaction.
+1. **Store per-epoch asset counts when the epoch is written, and read the Overview's counts from them.** Implemented; see [After: asset counts per epoch](#after-asset-counts-per-epoch). A new table (one row per epoch: streams, KV buckets, object stores, durable consumers, replicated and single assets) written in the epoch's transaction, and a backfill for stored epochs, by a new migration. `cluster.streams`, `kv_buckets`, `object_stores`, `durable_consumers`, `assets_replicated` and `assets_single` then read 2,880 rows for a day instead of 17 to 86 million. Evidence: these are the top three costs (2.0 s, 3 × 0.33 s and 1.65 s alone at `entities`; 30 to 48 s in the page load) and the reason `GetOverview` and the trend batch time out. The remaining Overview calls took under 1 s at p50 in the cold load except `ListConsumers` and `ListStreams`. The write adds a few aggregates over rows already in the transaction.
 2. **Bound the API's concurrent DuckDB work, and keep a share for epoch writes and checks.** See the follow-up below. Evidence: finding 2 (epoch write hold 1.3 s alone, 8.5 s p50 and 14 s max under load, 3 of 7 lost) and the throughput plateau at about four agents.
 3. **Do the same for the per-stream and per-consumer rates over a range.** `ListMetricContributors` (`stream.msgs_rate`), `ListConsumers`' delivered rates, the capacity page's stream points and the streams' sparklines aggregate every epoch of the range for every asset: 2.3 s alone and timeouts under load at `entities`. Options to measure: hourly rollups of per-asset counters, as `client_app_hours` and `micro_endpoint_hours` already do, or reading only the epochs at the range's bucket edges for counters, whose rate needs only the end points.
 4. **Set DuckDB's `memory_limit` explicitly** below the container's limit, with room for the Go heap. Evidence: 19 GB peak resident on a 32 GB machine with DuckDB's default of 80% of memory; in a container whose limit is below the host's memory, the default follows the host and invites an out-of-memory kill.
@@ -188,6 +188,31 @@ Proposed from these numbers, to be tracked with the new histograms, not with wal
 | Epochs lost to the write limit | none | 3 of 7 under load | 3 of 6 under load |
 | Write lock wait, p95, any op | 100 ms | 500 ms bucket (`archive_record`, no API load) | 10 s bucket (`archive_record` under API load); `epoch` 50 ms bucket |
 | Check evaluation, `job="check_evaluation"`: mean, and p95 bucket, without and with API load | half the interval (15 s at 30 s) | 5.1 s and 5.2 s mean; 10 s bucket both | 3.0 s and 6.3 s mean; 5 s and 30 s buckets |
+
+## After: asset counts per epoch
+
+Recommendation 1 is implemented (branch `perf/asset-counts`, migration 0041): each epoch's write stores the six counts in `epoch_asset_counts`, and the series read one row per epoch. [Design](../design.md) describes the table, the fill on open and the rebuild. Measured on 2026-11-11 on the same machine, which was shared with other work: the load average before each run is given, and it was well above the baseline's 5. One `entities` store was generated with the code before the change (revision `a75af7f2`), measured, then opened by the new code, which migrated it and filled its counts, and measured again. The scenarios ran once each.
+
+| Measure | Before | After |
+| --- | --- | --- |
+| `cold-overview`, page | 10.2 s (load 8.3) | 0.45 s (load 19.2) |
+| `cold-overview`, `GetOverview` | 10.2 s, 38 queries | 0.33 s, 42 queries |
+| `cold-overview`, trend `GetTimeSeriesBatch` | 8.9 s, 16 queries | 0.06 s, 18 queries |
+| `warm-overview`, page p50 / p95 | 9.0 s / 69.1 s (load 10.4) | 0.38 s / 0.41 s (load 19.2) |
+| `warm-overview`, `GetOverview` p50 / p95, failed | 8.4 s / 10.4 s, 3 of 10 `deadline_exceeded` | 0.28 s / 0.35 s, none |
+| `warm-overview`, trend batch p50 / p95, failed | 6.5 s / 8.7 s, 3 of 10 `deadline_exceeded` | 0.05 s / 0.06 s, none |
+| `warm-overview`, `ListConsumers` p50, failed | 1.2 s, 2 of 10 | 0.38 s, none |
+| Peak resident memory, `warm-overview` | 14.0 GB | 1.3 GB |
+| `writes-only`, epoch write p50 / max | 1.29 s / 1.96 s, 6 epochs (load 11.8) | 1.21 s / 1.55 s, 7 epochs (load 20.1) |
+
+A second run of the old code at a load average of 19 timed out in its cold load (49.5 s) and failed with internal errors in its warm one while the disk filled; it is left out of the table.
+
+- **The new reads.** `EXPLAIN ANALYZE` of the 24-hour `cluster.assets_replicated` series over the counts: 13 ms, reading 2,882 count rows and 2,880 epochs with the complete-JSZ subquery over `epoch_endpoints`; `cluster.durable_consumers` 28 ms. The check for epochs without counts that each count series runs first took 1.4 ms. The asset trend took 2.0 s alone before. `natslens-perf explain` no longer lists any of the six series among the nine costliest queries; `GetOverview`'s costliest is now `cluster.accounts` at 0.27 s summed over the recorded calls.
+- **The write.** Computing one epoch's counts took 16 to 20 ms (ten epochs, load 12 to 13), about 1.3% of the 1.2 s epoch write; the `writes-only` write times above do not show it apart from noise.
+- **The fill.** Opening the migrated store filled 2,886 epochs in 2.9 s; filling all 2,893 again took 3.0 s and 4.1 s. That is about 1 ms per epoch at this size, so a 14-day store of this size fills in about 40 to 60 s once, at its first start after the upgrade. Each statement covers 120 epochs.
+- **Queries per call.** `GetOverview` runs four more queries and the trend batch two more: the check for missing counts per count series.
+
+What still costs at `entities` size after this change: `ListConsumers`' delivered rates and `ListStreams` (recommendation 3), and the concurrency limits of recommendation 2. The Overview's 24-hour warm load is now under the 2 s budget above.
 
 ## For the follow-up: bound aggregate API work and verify cancellation
 
