@@ -64,3 +64,15 @@ describe("a question for the user's agent", () => {
     expect(contextOf(prompt)).toEqual(JSON.parse(JSON.stringify(server)));
   });
 });
+
+describe("the Fleet page", () => {
+  const fleet = buildInvestigationContext({ origin: "https://lens.example.com", pathname: "/fleet", search: "", system: "shop", spec: { kind: "fixed", from: 1000, to: 3000 } });
+  it("says the page lists every system while the context holds the current one, with or without a question", () => {
+    const note = "The page in sourcePath lists every configured system; the context JSON holds the current system's only.";
+    expect(buildInvestigationPrompt(fleet)).toContain(note);
+    expect(buildInvestigationPrompt(fleet, "Which system is worst?")).toContain(note);
+    expect(buildInvestigationPrompt(fleet).indexOf(note)).toBeLessThan(buildInvestigationPrompt(fleet).indexOf("BEGIN NATS LENS CONTEXT JSON"));
+    const other = buildInvestigationContext({ origin: "https://lens.example.com", pathname: "/servers", search: "", system: "shop", spec: { kind: "fixed", from: 1000, to: 3000 } });
+    expect(buildInvestigationPrompt(other)).not.toContain(note);
+  });
+});
