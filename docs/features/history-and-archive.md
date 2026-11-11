@@ -15,6 +15,7 @@ nats-lens keeps its collections, events and findings in an embedded DuckDB datab
 - **Retention.** Once an hour, nats-lens deletes the collections and events older than `retention`, together with the findings' transitions and check runs of those collections. Mutes are never deleted. A finding that is still firing keeps its current episode, so it still says when it started even after the collection it started in is gone.
 - **The database lives in `data_dir`.** The file is `natslens.duckdb` in `data_dir` (`./data` by default). DuckDB lets one process open the file while it is written, so `natslens sql` and `natslens checks run` work only while no collector holds it.
 - **Engine compatibility.** nats-lens uses DuckDB 2.0 and reads databases created by the earlier engine. New database files use the default 2.0 storage format, which engines before 2.0 cannot read. Keep a verified pre-upgrade generation for rollback; opening a database with an upgraded binary does not repair existing index divergence. The [database recovery procedure](../operations/database-recovery.md) describes validation before replacement.
+- **Schema upgrades and downgrades.** At start, nats-lens applies the schema migrations its database lacks. It refuses a database whose schema is newer than its own, written by a later release, with "database schema version N is newer than this binary (M)", and changes nothing in it. It never converts a database back to an older schema: to return to an older release, restore the backup taken before the upgrade. `natslens checks run` names a newer database the same way.
 - **Hourly Parquet files.** For every table, an hour's rows go to `archive_dir/<table>/date=YYYY-MM-DD/hour=HH.<export>.parquet` (`archive_dir` defaults to `data_dir/archive`). A manifest per hour, written last, lists exactly the files of that export with their row counts. A crash during an export therefore leaves the previous manifest and its files intact.
 - **The open hour is written early.** nats-lens writes the hour that is still open provisionally every `archive_provisional_every` (5 minutes), and again once the hour has closed. Recovery reaches the latest successful manifested export; disabled, failed or delayed exports can leave a larger gap.
 - **Late rows are written again.** An hour whose rows change after it was exported, such as an event that arrived late, is exported again. Hours missed while nats-lens was down are caught up, at most six hours per collect interval, so catching up never delays a collection. A closed hour that still waits for its export an hour after it ended, or after nats-lens started, raises `system-008` ([system-checks.md](system-checks.md)); a failed export is also logged as "archive export failed".
@@ -55,6 +56,14 @@ nats-lens keeps its collections, events and findings in an embedded DuckDB datab
 - **Then** the stored rows and unique constraints remain available
 - **And** an older DuckDB engine cannot open the new database format
 
+### Start an older release on a newer database
+
+- **Surfaces:** `cli`
+- **Given** a database that a later nats-lens release has upgraded
+- **When** an older release starts on it
+- **Then** start fails with "database schema version N is newer than this binary (M)"
+- **And** the database file is unchanged, so the later release still opens it
+
 ### Look at last week
 
 - **Surfaces:** `ui`
@@ -82,6 +91,7 @@ nats-lens keeps its collections, events and findings in an embedded DuckDB datab
 - **The UI reads the database only.** Hours that exist only in the archive, older than `retention`, cannot be shown in the UI or queried with `natslens sql`. Read the Parquet files with DuckDB or another tool.
 - **No bucket destination.** The archive is a local directory; an object storage destination is not built.
 - **No automatic index repair.** An engine upgrade does not repair pre-existing index divergence or establish that every index is sound.
+- **No automatic downgrade.** An older release never converts a newer database; restore the pre-upgrade backup instead.
 - **No partial rebuild.** A rebuild runs only for a missing or empty database, or for one whose write-ahead log cannot be replayed. It does not fill gaps in a database that exists.
 - **The inventory is not archived.** nats-lens loads the inventory file on every start instead.
 - **No high availability.** Two nats-lens processes cannot share one database, and the archive expects one writer.

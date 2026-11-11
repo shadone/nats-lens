@@ -65,6 +65,19 @@ func loadMigrations() ([]migration, error) {
 // migrate applies every migration newer than the database's version, each
 // in its own transaction together with its row in the migrations table.
 func migrate(ctx context.Context, db *sql.DB) error {
+	all, err := loadMigrations()
+	if err != nil {
+		return err
+	}
+	// A database a later binary wrote, or one with an edited migration, is
+	// refused before the statements below rewrite its migrations table's
+	// catalog.
+	if err := refuseNewer(ctx, db, all); err != nil {
+		return err
+	}
+	if _, err := checksumFixes(ctx, db, all); err != nil {
+		return err
+	}
 	if _, err := db.ExecContext(ctx, `
 CREATE TABLE IF NOT EXISTS migrations (
     version     INTEGER PRIMARY KEY,
@@ -81,17 +94,44 @@ COMMENT ON COLUMN migrations.applied_at IS 'UTC time the migration was applied.'
 	if err := db.QueryRowContext(ctx, `SELECT coalesce(max(version), 0) FROM migrations`).Scan(&current); err != nil {
 		return fmt.Errorf("read schema version: %w", err)
 	}
-	all, err := loadMigrations()
-	if err != nil {
-		return err
-	}
 	return migrateWith(ctx, db, all, current)
+}
+
+// refuseNewer returns an error when the database records a migration
+// version above the newest of all. It only reads, and does nothing on a
+// database without a migrations table.
+func refuseNewer(ctx context.Context, db *sql.DB, all []migration) error {
+	var tables int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM duckdb_tables()
+WHERE schema_name = 'main' AND table_name = 'migrations'`).Scan(&tables); err != nil {
+		return fmt.Errorf("inspect migrations table: %w", err)
+	}
+	if tables == 0 || len(all) == 0 {
+		return nil
+	}
+	var current int
+	if err := db.QueryRowContext(ctx, `SELECT coalesce(max(version), 0) FROM migrations`).Scan(&current); err != nil {
+		return fmt.Errorf("read schema version: %w", err)
+	}
+	return newerError(current, all[len(all)-1].version)
+}
+
+// newerError says that a database at version current was written by a
+// later binary than one whose newest migration is newest, or returns nil.
+func newerError(current, newest int) error {
+	if current <= newest {
+		return nil
+	}
+	return fmt.Errorf("database schema version %d is newer than this binary (%d): it was written by a later natslens; "+
+		"run that release or a later one, or restore a backup taken before the upgrade", current, newest)
 }
 
 // migrateWith brings a database at version current up to the last of all.
 func migrateWith(ctx context.Context, db *sql.DB, all []migration, current int) error {
-	if n := len(all); n > 0 && current > all[n-1].version {
-		return fmt.Errorf("database schema version %d is newer than this binary (%d)", current, all[n-1].version)
+	if n := len(all); n > 0 {
+		if err := newerError(current, all[n-1].version); err != nil {
+			return err
+		}
 	}
 	// Check what is applied before applying more, so that nothing runs on
 	// top of a schema that differs from its files.
@@ -122,15 +162,43 @@ var acceptedEarlierChecksums = map[int][]string{
 // verifyChecksums fills missing checksums from the embedded files and fails
 // when a recorded checksum differs from its file: an applied migration was
 // edited, and the database may not have the schema the code expects. It
-// does nothing while the migrations table has no checksum column yet.
+// writes nothing when it fails, and does nothing while the migrations table
+// has no checksum column yet.
 func verifyChecksums(ctx context.Context, db *sql.DB, all []migration) error {
+	fixes, err := checksumFixes(ctx, db, all)
+	if err != nil {
+		return err
+	}
+	for _, f := range fixes {
+		if _, err := db.ExecContext(ctx, `UPDATE migrations SET sha256 = ? WHERE version = ?`, f.m.sha256, f.m.version); err != nil {
+			return fmt.Errorf("record checksum of migration %04d: %w", f.m.version, err)
+		}
+		if f.recorded != "" {
+			slog.Info("migration checksum updated after an accepted edit", "migration", fmt.Sprintf("%04d_%s", f.m.version, f.m.name),
+				"recorded", f.recorded, "file", f.m.sha256)
+		}
+	}
+	return nil
+}
+
+// checksumFix is a recorded checksum to replace with its file's: a missing
+// one (recorded empty) or one of acceptedEarlierChecksums.
+type checksumFix struct {
+	m        migration
+	recorded string
+}
+
+// checksumFixes reads the recorded checksums and returns the ones to
+// replace, or an error when a recorded migration has no file or was edited.
+// It only reads.
+func checksumFixes(ctx context.Context, db *sql.DB, all []migration) ([]checksumFix, error) {
 	var hasColumn int
 	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM duckdb_columns()
 WHERE table_name = 'migrations' AND column_name = 'sha256'`).Scan(&hasColumn); err != nil {
-		return fmt.Errorf("inspect migrations table: %w", err)
+		return nil, fmt.Errorf("inspect migrations table: %w", err)
 	}
 	if hasColumn == 0 {
-		return nil
+		return nil, nil
 	}
 	byVersion := map[int]migration{}
 	for _, m := range all {
@@ -138,7 +206,7 @@ WHERE table_name = 'migrations' AND column_name = 'sha256'`).Scan(&hasColumn); e
 	}
 	rows, err := db.QueryContext(ctx, `SELECT version, sha256 FROM migrations ORDER BY version`)
 	if err != nil {
-		return fmt.Errorf("read checksums: %w", err)
+		return nil, fmt.Errorf("read checksums: %w", err)
 	}
 	type rec struct {
 		version int
@@ -149,39 +217,31 @@ WHERE table_name = 'migrations' AND column_name = 'sha256'`).Scan(&hasColumn); e
 		var r rec
 		if err := rows.Scan(&r.version, &r.sum); err != nil {
 			rows.Close()
-			return err
+			return nil, err
 		}
 		recs = append(recs, r)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return err
+		return nil, err
 	}
+	var fixes []checksumFix
 	for _, r := range recs {
 		m, ok := byVersion[r.version]
-		if !ok {
-			return fmt.Errorf("migration %04d is applied but has no file in this binary", r.version)
-		}
-		if !r.sum.Valid {
-			if _, err := db.ExecContext(ctx, `UPDATE migrations SET sha256 = ? WHERE version = ?`, m.sha256, r.version); err != nil {
-				return fmt.Errorf("record checksum of migration %04d: %w", r.version, err)
-			}
-			continue
-		}
-		if r.sum.String != m.sha256 && slices.Contains(acceptedEarlierChecksums[r.version], r.sum.String) {
-			if _, err := db.ExecContext(ctx, `UPDATE migrations SET sha256 = ? WHERE version = ?`, m.sha256, r.version); err != nil {
-				return fmt.Errorf("update checksum of migration %04d: %w", r.version, err)
-			}
-			slog.Info("migration checksum updated after an accepted edit", "migration", fmt.Sprintf("%04d_%s", m.version, m.name),
-				"recorded", r.sum.String, "file", m.sha256)
-			continue
-		}
-		if r.sum.String != m.sha256 {
-			return fmt.Errorf("migration %04d_%s was edited after it was applied (recorded sha256 %s, file %s): "+
+		switch {
+		case !ok:
+			return nil, fmt.Errorf("migration %04d is applied but has no file in this binary", r.version)
+		case !r.sum.Valid:
+			fixes = append(fixes, checksumFix{m: m})
+		case r.sum.String == m.sha256:
+		case slices.Contains(acceptedEarlierChecksums[r.version], r.sum.String):
+			fixes = append(fixes, checksumFix{m: m, recorded: r.sum.String})
+		default:
+			return nil, fmt.Errorf("migration %04d_%s was edited after it was applied (recorded sha256 %s, file %s): "+
 				"never edit an applied migration, add a new one", m.version, m.name, r.sum.String, m.sha256)
 		}
 	}
-	return nil
+	return fixes, nil
 }
 
 func applyMigration(ctx context.Context, db *sql.DB, m migration) error {
@@ -223,6 +283,9 @@ func CheckSchema(ctx context.Context, db *sql.DB) error {
 	var current int
 	if err := db.QueryRowContext(ctx, `SELECT coalesce(max(version), 0) FROM migrations`).Scan(&current); err != nil {
 		return fmt.Errorf("read schema version: %w", err)
+	}
+	if err := newerError(current, all[len(all)-1].version); err != nil {
+		return err
 	}
 	if want := all[len(all)-1].version; current != want {
 		return fmt.Errorf("database schema version %d, this binary needs %d: run natslens on it once to migrate, or use a matching binary", current, want)
