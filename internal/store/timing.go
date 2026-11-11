@@ -127,16 +127,17 @@ func (l *writeLock) LockContext(ctx context.Context, op string) error {
 
 // Unlock releases the lock and records how long it was held.
 func (l *writeLock) Unlock() {
+	// Only the holder unlocks, so an empty channel means nobody holds
+	// the lock; checked before anything of the holder's state changes.
+	if len(l.token()) == 0 {
+		panic("store: Unlock of a write lock that is not held")
+	}
 	op, since := l.op, l.since
 	if l.unyield != nil {
 		l.unyield()
 		l.unyield = nil
 	}
-	select {
-	case <-l.token():
-	default:
-		panic("store: Unlock of a write lock that is not held")
-	}
+	<-l.token()
 	timing.LockHeld.With(l.label(), op).Observe(time.Since(since).Seconds())
 }
 
