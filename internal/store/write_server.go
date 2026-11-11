@@ -23,7 +23,8 @@ func startTime(v *collect.ServerView) time.Time {
 // tags alone: DuckDB cannot update a list column in place, so setting it
 // turns the update into a delete and an insert of the row, which changes
 // the primary key index. A separate UPDATE sets the tags only when they
-// changed.
+// changed; that UPDATE still deletes and reinserts the row, so an epoch in
+// which a server's tags change still changes the index.
 func (w *writer) writeServerIdent(v *collect.ServerView) {
 	i := v.Info
 	at := w.snap.StartedAt.UTC()
