@@ -66,13 +66,17 @@ func (f *Flow) join(g *Gate) bool {
 	return true
 }
 
-func (f *Flow) add(g *Gate) {
+// add records a slot the flow acquired on g and reports whether it is the
+// flow's only one: false when another goroutine of the flow took a slot
+// of g at the same time, and the query joined that one instead.
+func (f *Flow) add(g *Gate) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.held == nil {
 		f.held = map[*Gate]int{}
 	}
 	f.held[g]++
+	return f.held[g] == 1
 }
 
 // leave ends one query of the flow on g and reports whether it was the
@@ -121,7 +125,11 @@ func (g *Gate) Enter(ctx context.Context, r Request) (func(), error) {
 	if f == nil {
 		return onceFunc(g.release), nil
 	}
-	f.add(g)
+	if !f.add(g) {
+		// Another goroutine of the flow took a slot meanwhile; the query
+		// runs on that one, and the flow keeps a single slot.
+		g.release()
+	}
 	return onceFunc(func() { g.leave(f) }), nil
 }
 
