@@ -83,6 +83,7 @@ func (p *Provider) GetStatusTimeline(ctx context.Context, req *v1.GetStatusTimel
 	}
 	res.FindingReadEpoch = boundary
 	res.Kubernetes, res.Nats = p.lanesFromEvents(capture.events, r)
+	p.subjectLanes(s, capture.events, req, res)
 	return res, nil
 }
 
@@ -163,9 +164,7 @@ func (p *Provider) lanesFromEvents(events []*v1.Event, r *v1.TimeRange) (k8s, na
 		// The kinds the store draws on the NATS lane.
 		if (e.GetSource() == srcNATS && slices.Contains(api.NATSLaneKinds, e.GetKind())) || e.GetSource() == srcFinding {
 			if inRange(e.GetTime().AsTime(), r) {
-				nats = append(nats, &v1.LaneEvent{Time: e.GetTime(), Source: e.GetSource(), Kind: e.GetKind(),
-					ShortLabel: e.GetType(), Label: e.GetType() + " " + e.GetSummary(), Severity: e.GetSeverity(),
-					Id: e.GetId(), EventId: e.GetId(), Entity: api.EventEntity(e), FindingId: e.GetTransition().GetFindingId(), TransitionEpoch: e.GetTransition().GetEpoch()})
+				nats = append(nats, api.LaneEventOf(e))
 			}
 		}
 	}

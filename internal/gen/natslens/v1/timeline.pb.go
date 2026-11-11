@@ -390,9 +390,34 @@ type GetStatusTimelineResponse struct {
 	FindingReadEpoch int64  `protobuf:"varint,11,opt,name=finding_read_epoch,json=findingReadEpoch,proto3" json:"finding_read_epoch,omitempty"`
 	EventReadId      *int64 `protobuf:"varint,12,opt,name=event_read_id,json=eventReadId,proto3,oneof" json:"event_read_id,omitempty"`
 	// Resolved query bounds, separate from the possibly partial last bucket.
-	Range         *TimeRange `protobuf:"bytes,13,opt,name=range,proto3" json:"range,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Range *TimeRange `protobuf:"bytes,13,opt,name=range,proto3" json:"range,omitempty"`
+	// Server lane, oldest first: restarts seen in the collections (a new
+	// process of a server name), and the lame duck, shutdown and
+	// out-of-storage events; at most the newest 1000.
+	Servers []*LaneEvent `protobuf:"bytes,14,rep,name=servers,proto3" json:"servers,omitempty"`
+	// Whether the range held more server lane items than the 1000 in
+	// servers.
+	ServersTruncated bool `protobuf:"varint,15,opt,name=servers_truncated,json=serversTruncated,proto3" json:"servers_truncated,omitempty"`
+	// Leader lane, oldest first: meta, stream and consumer leader elections;
+	// at most the newest 1000.
+	Leaders []*LaneEvent `protobuf:"bytes,16,rep,name=leaders,proto3" json:"leaders,omitempty"`
+	// Whether the range held more leader elections than the 1000 in leaders.
+	LeadersTruncated bool `protobuf:"varint,17,opt,name=leaders_truncated,json=leadersTruncated,proto3" json:"leaders_truncated,omitempty"`
+	// Client lane: client connection events counted per bucket, only the
+	// buckets with any; oldest first. Counts are complete for the range, not
+	// capped.
+	Clients []*ClientLaneBucket `protobuf:"bytes,18,rep,name=clients,proto3" json:"clients,omitempty"`
+	// Whether any NATS system event (client, server and account events) is
+	// stored before the end of the range, up to the event boundary. False
+	// means system events were not captured, so the client lane and the
+	// server lane's lame duck and shutdown events cannot be shown.
+	SystemEventsCaptured bool `protobuf:"varint,19,opt,name=system_events_captured,json=systemEventsCaptured,proto3" json:"system_events_captured,omitempty"`
+	// Whether any JetStream advisory is stored before the end of the range,
+	// up to the event boundary. False means leader elections were not
+	// captured.
+	JetstreamEventsCaptured bool `protobuf:"varint,20,opt,name=jetstream_events_captured,json=jetstreamEventsCaptured,proto3" json:"jetstream_events_captured,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *GetStatusTimelineResponse) Reset() {
@@ -516,6 +541,149 @@ func (x *GetStatusTimelineResponse) GetRange() *TimeRange {
 	return nil
 }
 
+func (x *GetStatusTimelineResponse) GetServers() []*LaneEvent {
+	if x != nil {
+		return x.Servers
+	}
+	return nil
+}
+
+func (x *GetStatusTimelineResponse) GetServersTruncated() bool {
+	if x != nil {
+		return x.ServersTruncated
+	}
+	return false
+}
+
+func (x *GetStatusTimelineResponse) GetLeaders() []*LaneEvent {
+	if x != nil {
+		return x.Leaders
+	}
+	return nil
+}
+
+func (x *GetStatusTimelineResponse) GetLeadersTruncated() bool {
+	if x != nil {
+		return x.LeadersTruncated
+	}
+	return false
+}
+
+func (x *GetStatusTimelineResponse) GetClients() []*ClientLaneBucket {
+	if x != nil {
+		return x.Clients
+	}
+	return nil
+}
+
+func (x *GetStatusTimelineResponse) GetSystemEventsCaptured() bool {
+	if x != nil {
+		return x.SystemEventsCaptured
+	}
+	return false
+}
+
+func (x *GetStatusTimelineResponse) GetJetstreamEventsCaptured() bool {
+	if x != nil {
+		return x.JetstreamEventsCaptured
+	}
+	return false
+}
+
+// Client connection events of one bucket on the timeline's client lane:
+// counts, not single events.
+type ClientLaneBucket struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Bucket index, from the response's start.
+	Index int32 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	// Connects: client.connect events and the connects client.churn
+	// summaries folded.
+	Connects int64 `protobuf:"varint,2,opt,name=connects,proto3" json:"connects,omitempty"`
+	// Disconnects the client closed, client.churn summaries included.
+	Closes int64 `protobuf:"varint,3,opt,name=closes,proto3" json:"closes,omitempty"`
+	// Disconnects for any other reason than a client close or a server
+	// shutdown: slow consumer, stale connection, authorization and so on.
+	Drops int64 `protobuf:"varint,4,opt,name=drops,proto3" json:"drops,omitempty"`
+	// Disconnects because the server shut down.
+	Shutdowns int64 `protobuf:"varint,5,opt,name=shutdowns,proto3" json:"shutdowns,omitempty"`
+	// Failed client authentications (client.auth_error).
+	AuthErrors    int64 `protobuf:"varint,6,opt,name=auth_errors,json=authErrors,proto3" json:"auth_errors,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientLaneBucket) Reset() {
+	*x = ClientLaneBucket{}
+	mi := &file_natslens_v1_timeline_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientLaneBucket) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientLaneBucket) ProtoMessage() {}
+
+func (x *ClientLaneBucket) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_timeline_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientLaneBucket.ProtoReflect.Descriptor instead.
+func (*ClientLaneBucket) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_timeline_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ClientLaneBucket) GetIndex() int32 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+func (x *ClientLaneBucket) GetConnects() int64 {
+	if x != nil {
+		return x.Connects
+	}
+	return 0
+}
+
+func (x *ClientLaneBucket) GetCloses() int64 {
+	if x != nil {
+		return x.Closes
+	}
+	return 0
+}
+
+func (x *ClientLaneBucket) GetDrops() int64 {
+	if x != nil {
+		return x.Drops
+	}
+	return 0
+}
+
+func (x *ClientLaneBucket) GetShutdowns() int64 {
+	if x != nil {
+		return x.Shutdowns
+	}
+	return 0
+}
+
+func (x *ClientLaneBucket) GetAuthErrors() int64 {
+	if x != nil {
+		return x.AuthErrors
+	}
+	return 0
+}
+
 var File_natslens_v1_timeline_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_timeline_proto_rawDesc = "" +
@@ -554,7 +722,7 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"include_ok\x18\x04 \x01(\bR\tincludeOk\x12\x16\n" +
 	"\x06system\x18\x05 \x01(\tR\x06system\x12'\n" +
 	"\revent_read_id\x18\x06 \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
-	"\x0e_event_read_id\"\x86\x05\n" +
+	"\x0e_event_read_id\"\xef\a\n" +
 	"\x19GetStatusTimelineResponse\x120\n" +
 	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x121\n" +
 	"\x06bucket\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x06bucket\x12!\n" +
@@ -571,8 +739,23 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	" \x01(\bR\x13kubernetesTruncated\x12,\n" +
 	"\x12finding_read_epoch\x18\v \x01(\x03R\x10findingReadEpoch\x12'\n" +
 	"\revent_read_id\x18\f \x01(\x03H\x00R\veventReadId\x88\x01\x01\x12,\n" +
-	"\x05range\x18\r \x01(\v2\x16.natslens.v1.TimeRangeR\x05rangeB\x10\n" +
-	"\x0e_event_read_idBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\x05range\x18\r \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x120\n" +
+	"\aservers\x18\x0e \x03(\v2\x16.natslens.v1.LaneEventR\aservers\x12+\n" +
+	"\x11servers_truncated\x18\x0f \x01(\bR\x10serversTruncated\x120\n" +
+	"\aleaders\x18\x10 \x03(\v2\x16.natslens.v1.LaneEventR\aleaders\x12+\n" +
+	"\x11leaders_truncated\x18\x11 \x01(\bR\x10leadersTruncated\x127\n" +
+	"\aclients\x18\x12 \x03(\v2\x1d.natslens.v1.ClientLaneBucketR\aclients\x124\n" +
+	"\x16system_events_captured\x18\x13 \x01(\bR\x14systemEventsCaptured\x12:\n" +
+	"\x19jetstream_events_captured\x18\x14 \x01(\bR\x17jetstreamEventsCapturedB\x10\n" +
+	"\x0e_event_read_id\"\xb1\x01\n" +
+	"\x10ClientLaneBucket\x12\x14\n" +
+	"\x05index\x18\x01 \x01(\x05R\x05index\x12\x1a\n" +
+	"\bconnects\x18\x02 \x01(\x03R\bconnects\x12\x16\n" +
+	"\x06closes\x18\x03 \x01(\x03R\x06closes\x12\x14\n" +
+	"\x05drops\x18\x04 \x01(\x03R\x05drops\x12\x1c\n" +
+	"\tshutdowns\x18\x05 \x01(\x03R\tshutdowns\x12\x1f\n" +
+	"\vauth_errors\x18\x06 \x01(\x03R\n" +
+	"authErrorsBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_timeline_proto_rawDescOnce sync.Once
@@ -586,45 +769,49 @@ func file_natslens_v1_timeline_proto_rawDescGZIP() []byte {
 	return file_natslens_v1_timeline_proto_rawDescData
 }
 
-var file_natslens_v1_timeline_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_natslens_v1_timeline_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_natslens_v1_timeline_proto_goTypes = []any{
 	(*TimelineRow)(nil),               // 0: natslens.v1.TimelineRow
 	(*LaneEvent)(nil),                 // 1: natslens.v1.LaneEvent
 	(*GetStatusTimelineRequest)(nil),  // 2: natslens.v1.GetStatusTimelineRequest
 	(*GetStatusTimelineResponse)(nil), // 3: natslens.v1.GetStatusTimelineResponse
-	(Severity)(0),                     // 4: natslens.v1.Severity
-	(*EntityRef)(nil),                 // 5: natslens.v1.EntityRef
-	(Status)(0),                       // 6: natslens.v1.Status
-	(*timestamppb.Timestamp)(nil),     // 7: google.protobuf.Timestamp
-	(EventSource)(0),                  // 8: natslens.v1.EventSource
-	(*TimeRange)(nil),                 // 9: natslens.v1.TimeRange
-	(*durationpb.Duration)(nil),       // 10: google.protobuf.Duration
-	(*TimeWindow)(nil),                // 11: natslens.v1.TimeWindow
+	(*ClientLaneBucket)(nil),          // 4: natslens.v1.ClientLaneBucket
+	(Severity)(0),                     // 5: natslens.v1.Severity
+	(*EntityRef)(nil),                 // 6: natslens.v1.EntityRef
+	(Status)(0),                       // 7: natslens.v1.Status
+	(*timestamppb.Timestamp)(nil),     // 8: google.protobuf.Timestamp
+	(EventSource)(0),                  // 9: natslens.v1.EventSource
+	(*TimeRange)(nil),                 // 10: natslens.v1.TimeRange
+	(*durationpb.Duration)(nil),       // 11: google.protobuf.Duration
+	(*TimeWindow)(nil),                // 12: natslens.v1.TimeWindow
 }
 var file_natslens_v1_timeline_proto_depIdxs = []int32{
-	4,  // 0: natslens.v1.TimelineRow.severity:type_name -> natslens.v1.Severity
-	5,  // 1: natslens.v1.TimelineRow.entity:type_name -> natslens.v1.EntityRef
-	6,  // 2: natslens.v1.TimelineRow.cells:type_name -> natslens.v1.Status
-	6,  // 3: natslens.v1.TimelineRow.now:type_name -> natslens.v1.Status
-	7,  // 4: natslens.v1.LaneEvent.time:type_name -> google.protobuf.Timestamp
-	8,  // 5: natslens.v1.LaneEvent.source:type_name -> natslens.v1.EventSource
-	4,  // 6: natslens.v1.LaneEvent.severity:type_name -> natslens.v1.Severity
-	5,  // 7: natslens.v1.LaneEvent.entity:type_name -> natslens.v1.EntityRef
-	9,  // 8: natslens.v1.GetStatusTimelineRequest.range:type_name -> natslens.v1.TimeRange
-	10, // 9: natslens.v1.GetStatusTimelineRequest.bucket:type_name -> google.protobuf.Duration
-	5,  // 10: natslens.v1.GetStatusTimelineRequest.entity:type_name -> natslens.v1.EntityRef
-	7,  // 11: natslens.v1.GetStatusTimelineResponse.start:type_name -> google.protobuf.Timestamp
-	10, // 12: natslens.v1.GetStatusTimelineResponse.bucket:type_name -> google.protobuf.Duration
+	5,  // 0: natslens.v1.TimelineRow.severity:type_name -> natslens.v1.Severity
+	6,  // 1: natslens.v1.TimelineRow.entity:type_name -> natslens.v1.EntityRef
+	7,  // 2: natslens.v1.TimelineRow.cells:type_name -> natslens.v1.Status
+	7,  // 3: natslens.v1.TimelineRow.now:type_name -> natslens.v1.Status
+	8,  // 4: natslens.v1.LaneEvent.time:type_name -> google.protobuf.Timestamp
+	9,  // 5: natslens.v1.LaneEvent.source:type_name -> natslens.v1.EventSource
+	5,  // 6: natslens.v1.LaneEvent.severity:type_name -> natslens.v1.Severity
+	6,  // 7: natslens.v1.LaneEvent.entity:type_name -> natslens.v1.EntityRef
+	10, // 8: natslens.v1.GetStatusTimelineRequest.range:type_name -> natslens.v1.TimeRange
+	11, // 9: natslens.v1.GetStatusTimelineRequest.bucket:type_name -> google.protobuf.Duration
+	6,  // 10: natslens.v1.GetStatusTimelineRequest.entity:type_name -> natslens.v1.EntityRef
+	8,  // 11: natslens.v1.GetStatusTimelineResponse.start:type_name -> google.protobuf.Timestamp
+	11, // 12: natslens.v1.GetStatusTimelineResponse.bucket:type_name -> google.protobuf.Duration
 	0,  // 13: natslens.v1.GetStatusTimelineResponse.rows:type_name -> natslens.v1.TimelineRow
 	1,  // 14: natslens.v1.GetStatusTimelineResponse.kubernetes:type_name -> natslens.v1.LaneEvent
 	1,  // 15: natslens.v1.GetStatusTimelineResponse.nats:type_name -> natslens.v1.LaneEvent
-	11, // 16: natslens.v1.GetStatusTimelineResponse.windows:type_name -> natslens.v1.TimeWindow
-	9,  // 17: natslens.v1.GetStatusTimelineResponse.range:type_name -> natslens.v1.TimeRange
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	12, // 16: natslens.v1.GetStatusTimelineResponse.windows:type_name -> natslens.v1.TimeWindow
+	10, // 17: natslens.v1.GetStatusTimelineResponse.range:type_name -> natslens.v1.TimeRange
+	1,  // 18: natslens.v1.GetStatusTimelineResponse.servers:type_name -> natslens.v1.LaneEvent
+	1,  // 19: natslens.v1.GetStatusTimelineResponse.leaders:type_name -> natslens.v1.LaneEvent
+	4,  // 20: natslens.v1.GetStatusTimelineResponse.clients:type_name -> natslens.v1.ClientLaneBucket
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_timeline_proto_init() }
@@ -643,7 +830,7 @@ func file_natslens_v1_timeline_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_timeline_proto_rawDesc), len(file_natslens_v1_timeline_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

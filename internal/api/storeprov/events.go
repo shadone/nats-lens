@@ -472,8 +472,7 @@ func (p *Provider) lanes(ctx context.Context, r *v1.TimeRange, entity *v1.Entity
 	})
 	out := make([]*v1.LaneEvent, 0, len(evs))
 	for _, ev := range evs {
-		out = append(out, &v1.LaneEvent{Id: ev.GetId(), Time: ev.GetTime(), Source: ev.GetSource(), Kind: ev.GetKind(),
-			ShortLabel: ev.GetType(), Label: ev.GetType() + " " + ev.GetSummary(), Severity: ev.GetSeverity(), EventId: ev.GetId(), Entity: api.EventEntity(ev), FindingId: ev.GetTransition().GetFindingId(), TransitionEpoch: ev.GetTransition().GetEpoch()})
+		out = append(out, api.LaneEventOf(ev))
 	}
 	return out, natsCut, foundCut, nil
 }

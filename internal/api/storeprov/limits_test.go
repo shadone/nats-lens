@@ -377,7 +377,7 @@ func TestTimelineLaneTruncated(t *testing.T) {
 	var evs []events.Event
 	for i := range 1001 {
 		evs = append(evs, events.Event{Time: t0.Add(time.Duration(i) * time.Second), ReceivedAt: t0.Add(time.Duration(i) * time.Second),
-			Source: events.SourceJetStream, Kind: "stream.leader_elected", Summary: "s", Raw: json.RawMessage(`{}`)})
+			Source: events.SourceJetStream, Kind: "stream.quorum_lost", Summary: "s", Raw: json.RawMessage(`{}`)})
 	}
 	if err := st.WriteEvents(ctx, evs); err != nil {
 		t.Fatal(err)

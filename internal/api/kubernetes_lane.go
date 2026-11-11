@@ -24,11 +24,11 @@ var K8sLaneKinds = []string{
 }
 
 // NATSLaneKinds are the NATS events worth drawing on the timeline's NATS
-// lane, besides the finding transitions.
+// lane, besides the finding transitions. Server events and leader
+// elections have lanes of their own (ServerLaneKinds, LeaderLaneKinds).
 var NATSLaneKinds = []string{
-	"stream.created", "stream.deleted", "stream.leader_elected", "stream.quorum_lost",
-	"consumer.created", "consumer.deleted", "consumer.leader_elected", "consumer.quorum_lost",
-	"meta.leader_elected", "server.lameduck", "server.shutdown", "server.out_of_storage", "collector.gap",
+	"stream.created", "stream.deleted", "stream.quorum_lost",
+	"consumer.created", "consumer.deleted", "consumer.quorum_lost", "collector.gap",
 }
 
 // K8sUpgradeGap is the longest quiet time inside one node upgrade window:

@@ -136,4 +136,60 @@ message GetStatusTimelineResponse {
   optional int64 event_read_id = 12;
   // Resolved query bounds, separate from the possibly partial last bucket.
   TimeRange range = 13;
+
+  // Server lane, oldest first: restarts seen in the collections (a new
+  // process of a server name), and the lame duck, shutdown and
+  // out-of-storage events; at most the newest 1000.
+  repeated LaneEvent servers = 14;
+
+  // Whether the range held more server lane items than the 1000 in
+  // servers.
+  bool servers_truncated = 15;
+
+  // Leader lane, oldest first: meta, stream and consumer leader elections;
+  // at most the newest 1000.
+  repeated LaneEvent leaders = 16;
+
+  // Whether the range held more leader elections than the 1000 in leaders.
+  bool leaders_truncated = 17;
+
+  // Client lane: client connection events counted per bucket, only the
+  // buckets with any; oldest first. Counts are complete for the range, not
+  // capped.
+  repeated ClientLaneBucket clients = 18;
+
+  // Whether any NATS system event (client, server and account events) is
+  // stored before the end of the range, up to the event boundary. False
+  // means system events were not captured, so the client lane and the
+  // server lane's lame duck and shutdown events cannot be shown.
+  bool system_events_captured = 19;
+
+  // Whether any JetStream advisory is stored before the end of the range,
+  // up to the event boundary. False means leader elections were not
+  // captured.
+  bool jetstream_events_captured = 20;
+}
+
+// Client connection events of one bucket on the timeline's client lane:
+// counts, not single events.
+message ClientLaneBucket {
+  // Bucket index, from the response's start.
+  int32 index = 1;
+
+  // Connects: client.connect events and the connects client.churn
+  // summaries folded.
+  int64 connects = 2;
+
+  // Disconnects the client closed, client.churn summaries included.
+  int64 closes = 3;
+
+  // Disconnects for any other reason than a client close or a server
+  // shutdown: slow consumer, stale connection, authorization and so on.
+  int64 drops = 4;
+
+  // Disconnects because the server shut down.
+  int64 shutdowns = 5;
+
+  // Failed client authentications (client.auth_error).
+  int64 auth_errors = 6;
 }

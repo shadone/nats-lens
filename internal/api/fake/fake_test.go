@@ -187,8 +187,8 @@ func TestStatusTimeline(t *testing.T) {
 	if got := tl.GetRows()[5].GetNow(); got != v1.Status_STATUS_OK {
 		t.Fatalf("sixth row now = %v, want ok (five fail now)", got)
 	}
-	if len(tl.GetKubernetes()) != 15 || len(tl.GetWindows()) != 1 || len(tl.GetNats()) != 48 {
-		t.Fatalf("lanes %d k8s, %d nats, %d windows", len(tl.GetKubernetes()), len(tl.GetNats()), len(tl.GetWindows()))
+	if len(tl.GetKubernetes()) != 15 || len(tl.GetWindows()) != 1 || len(tl.GetNats()) != 6 || len(tl.GetServers()) != 3 || len(tl.GetLeaders()) != 42 {
+		t.Fatalf("lanes %d k8s, %d nats, %d servers, %d leaders, %d windows", len(tl.GetKubernetes()), len(tl.GetNats()), len(tl.GetServers()), len(tl.GetLeaders()), len(tl.GetWindows()))
 	}
 	one := must(client(t).GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{
 		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-1"},

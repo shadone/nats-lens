@@ -2,6 +2,7 @@ package storeprov_test
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -113,8 +114,9 @@ func TestLaneKeepsNATSEventsInAFindingBurst(t *testing.T) {
 			nats++
 		}
 	}
-	if nats != 3 || found != 1000 || !tl.GetFindingTruncated() || tl.GetNatsTruncated() {
-		t.Fatalf("lane: %d NATS, %d finding items, truncated %v/%v", nats, found, tl.GetNatsTruncated(), tl.GetFindingTruncated())
+	// The fixture's server.shutdown is drawn on the server lane instead.
+	if moved := slices.ContainsFunc(tl.GetServers(), func(e *v1.LaneEvent) bool { return e.GetKind() == "server.shutdown" }); nats != 2 || !moved || found != 1000 || !tl.GetFindingTruncated() || tl.GetNatsTruncated() {
+		t.Fatalf("lane: %d NATS, shutdown on the server lane %v, %d finding items, truncated %v/%v", nats, moved, found, tl.GetNatsTruncated(), tl.GetFindingTruncated())
 	}
 }
 

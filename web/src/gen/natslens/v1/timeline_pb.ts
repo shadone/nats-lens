@@ -18,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/timeline.proto.
  */
 export const file_natslens_v1_timeline: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS90aW1lbGluZS5wcm90bxILbmF0c2xlbnMudjEi2QEKC1RpbWVsaW5lUm93EgsKA2tleRgHIAEoCRISCgpjaGVja19jb2RlGAEgASgJEhIKCmNoZWNrX25hbWUYAiABKAkSJwoIc2V2ZXJpdHkYAyABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRImCgZlbnRpdHkYBCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSIgoFY2VsbHMYBSADKA4yEy5uYXRzbGVucy52MS5TdGF0dXMSIAoDbm93GAYgASgOMhMubmF0c2xlbnMudjEuU3RhdHVzIq4CCglMYW5lRXZlbnQSCgoCaWQYCCABKAkSKAoEdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKAoGc291cmNlGAIgASgOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDAoEa2luZBgDIAEoCRITCgtzaG9ydF9sYWJlbBgEIAEoCRINCgVsYWJlbBgFIAEoCRInCghzZXZlcml0eRgGIAEoDjIVLm5hdHNsZW5zLnYxLlNldmVyaXR5EhAKCGV2ZW50X2lkGAcgASgJEiYKBmVudGl0eRgJIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhISCgpmaW5kaW5nX2lkGAogASgJEhgKEHRyYW5zaXRpb25fZXBvY2gYCyABKAMi5gEKGEdldFN0YXR1c1RpbWVsaW5lUmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIpCgZidWNrZXQYAiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SJgoGZW50aXR5GAMgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhIKCmluY2x1ZGVfb2sYBCABKAgSDgoGc3lzdGVtGAUgASgJEhoKDWV2ZW50X3JlYWRfaWQYBiABKANIAIgBAUIQCg5fZXZlbnRfcmVhZF9pZCLtAwoZR2V0U3RhdHVzVGltZWxpbmVSZXNwb25zZRIpCgVzdGFydBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKQoGYnVja2V0GAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhQKDGJ1Y2tldF9jb3VudBgDIAEoBRImCgRyb3dzGAQgAygLMhgubmF0c2xlbnMudjEuVGltZWxpbmVSb3cSKgoKa3ViZXJuZXRlcxgFIAMoCzIWLm5hdHNsZW5zLnYxLkxhbmVFdmVudBIkCgRuYXRzGAYgAygLMhYubmF0c2xlbnMudjEuTGFuZUV2ZW50EigKB3dpbmRvd3MYByADKAsyFy5uYXRzbGVucy52MS5UaW1lV2luZG93EhYKDm5hdHNfdHJ1bmNhdGVkGAggASgIEhkKEWZpbmRpbmdfdHJ1bmNhdGVkGAkgASgIEhwKFGt1YmVybmV0ZXNfdHJ1bmNhdGVkGAogASgIEhoKEmZpbmRpbmdfcmVhZF9lcG9jaBgLIAEoAxIaCg1ldmVudF9yZWFkX2lkGAwgASgDSACIAQESJQoFcmFuZ2UYDSABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2VCEAoOX2V2ZW50X3JlYWRfaWRCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_events, file_natslens_v1_overview]);
+  fileDesc("ChpuYXRzbGVucy92MS90aW1lbGluZS5wcm90bxILbmF0c2xlbnMudjEi2QEKC1RpbWVsaW5lUm93EgsKA2tleRgHIAEoCRISCgpjaGVja19jb2RlGAEgASgJEhIKCmNoZWNrX25hbWUYAiABKAkSJwoIc2V2ZXJpdHkYAyABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRImCgZlbnRpdHkYBCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSIgoFY2VsbHMYBSADKA4yEy5uYXRzbGVucy52MS5TdGF0dXMSIAoDbm93GAYgASgOMhMubmF0c2xlbnMudjEuU3RhdHVzIq4CCglMYW5lRXZlbnQSCgoCaWQYCCABKAkSKAoEdGltZRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKAoGc291cmNlGAIgASgOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDAoEa2luZBgDIAEoCRITCgtzaG9ydF9sYWJlbBgEIAEoCRINCgVsYWJlbBgFIAEoCRInCghzZXZlcml0eRgGIAEoDjIVLm5hdHNsZW5zLnYxLlNldmVyaXR5EhAKCGV2ZW50X2lkGAcgASgJEiYKBmVudGl0eRgJIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhISCgpmaW5kaW5nX2lkGAogASgJEhgKEHRyYW5zaXRpb25fZXBvY2gYCyABKAMi5gEKGEdldFN0YXR1c1RpbWVsaW5lUmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIpCgZidWNrZXQYAiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SJgoGZW50aXR5GAMgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhIKCmluY2x1ZGVfb2sYBCABKAgSDgoGc3lzdGVtGAUgASgJEhoKDWV2ZW50X3JlYWRfaWQYBiABKANIAIgBAUIQCg5fZXZlbnRfcmVhZF9pZCLoBQoZR2V0U3RhdHVzVGltZWxpbmVSZXNwb25zZRIpCgVzdGFydBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKQoGYnVja2V0GAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhQKDGJ1Y2tldF9jb3VudBgDIAEoBRImCgRyb3dzGAQgAygLMhgubmF0c2xlbnMudjEuVGltZWxpbmVSb3cSKgoKa3ViZXJuZXRlcxgFIAMoCzIWLm5hdHNsZW5zLnYxLkxhbmVFdmVudBIkCgRuYXRzGAYgAygLMhYubmF0c2xlbnMudjEuTGFuZUV2ZW50EigKB3dpbmRvd3MYByADKAsyFy5uYXRzbGVucy52MS5UaW1lV2luZG93EhYKDm5hdHNfdHJ1bmNhdGVkGAggASgIEhkKEWZpbmRpbmdfdHJ1bmNhdGVkGAkgASgIEhwKFGt1YmVybmV0ZXNfdHJ1bmNhdGVkGAogASgIEhoKEmZpbmRpbmdfcmVhZF9lcG9jaBgLIAEoAxIaCg1ldmVudF9yZWFkX2lkGAwgASgDSACIAQESJQoFcmFuZ2UYDSABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USJwoHc2VydmVycxgOIAMoCzIWLm5hdHNsZW5zLnYxLkxhbmVFdmVudBIZChFzZXJ2ZXJzX3RydW5jYXRlZBgPIAEoCBInCgdsZWFkZXJzGBAgAygLMhYubmF0c2xlbnMudjEuTGFuZUV2ZW50EhkKEWxlYWRlcnNfdHJ1bmNhdGVkGBEgASgIEi4KB2NsaWVudHMYEiADKAsyHS5uYXRzbGVucy52MS5DbGllbnRMYW5lQnVja2V0Eh4KFnN5c3RlbV9ldmVudHNfY2FwdHVyZWQYEyABKAgSIQoZamV0c3RyZWFtX2V2ZW50c19jYXB0dXJlZBgUIAEoCEIQCg5fZXZlbnRfcmVhZF9pZCJ6ChBDbGllbnRMYW5lQnVja2V0Eg0KBWluZGV4GAEgASgFEhAKCGNvbm5lY3RzGAIgASgDEg4KBmNsb3NlcxgDIAEoAxINCgVkcm9wcxgEIAEoAxIRCglzaHV0ZG93bnMYBSABKAMSEwoLYXV0aF9lcnJvcnMYBiABKANCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_events, file_natslens_v1_overview]);
 
 /**
  * One check's states over the range.
@@ -335,6 +335,66 @@ export type GetStatusTimelineResponse = Message<"natslens.v1.GetStatusTimelineRe
    * @generated from field: natslens.v1.TimeRange range = 13;
    */
   range?: TimeRange | undefined;
+
+  /**
+   * Server lane, oldest first: restarts seen in the collections (a new
+   * process of a server name), and the lame duck, shutdown and
+   * out-of-storage events; at most the newest 1000.
+   *
+   * @generated from field: repeated natslens.v1.LaneEvent servers = 14;
+   */
+  servers: LaneEvent[];
+
+  /**
+   * Whether the range held more server lane items than the 1000 in
+   * servers.
+   *
+   * @generated from field: bool servers_truncated = 15;
+   */
+  serversTruncated: boolean;
+
+  /**
+   * Leader lane, oldest first: meta, stream and consumer leader elections;
+   * at most the newest 1000.
+   *
+   * @generated from field: repeated natslens.v1.LaneEvent leaders = 16;
+   */
+  leaders: LaneEvent[];
+
+  /**
+   * Whether the range held more leader elections than the 1000 in leaders.
+   *
+   * @generated from field: bool leaders_truncated = 17;
+   */
+  leadersTruncated: boolean;
+
+  /**
+   * Client lane: client connection events counted per bucket, only the
+   * buckets with any; oldest first. Counts are complete for the range, not
+   * capped.
+   *
+   * @generated from field: repeated natslens.v1.ClientLaneBucket clients = 18;
+   */
+  clients: ClientLaneBucket[];
+
+  /**
+   * Whether any NATS system event (client, server and account events) is
+   * stored before the end of the range, up to the event boundary. False
+   * means system events were not captured, so the client lane and the
+   * server lane's lame duck and shutdown events cannot be shown.
+   *
+   * @generated from field: bool system_events_captured = 19;
+   */
+  systemEventsCaptured: boolean;
+
+  /**
+   * Whether any JetStream advisory is stored before the end of the range,
+   * up to the event boundary. False means leader elections were not
+   * captured.
+   *
+   * @generated from field: bool jetstream_events_captured = 20;
+   */
+  jetstreamEventsCaptured: boolean;
 };
 
 /**
@@ -343,4 +403,63 @@ export type GetStatusTimelineResponse = Message<"natslens.v1.GetStatusTimelineRe
  */
 export const GetStatusTimelineResponseSchema: GenMessage<GetStatusTimelineResponse> = /*@__PURE__*/
   messageDesc(file_natslens_v1_timeline, 3);
+
+/**
+ * Client connection events of one bucket on the timeline's client lane:
+ * counts, not single events.
+ *
+ * @generated from message natslens.v1.ClientLaneBucket
+ */
+export type ClientLaneBucket = Message<"natslens.v1.ClientLaneBucket"> & {
+  /**
+   * Bucket index, from the response's start.
+   *
+   * @generated from field: int32 index = 1;
+   */
+  index: number;
+
+  /**
+   * Connects: client.connect events and the connects client.churn
+   * summaries folded.
+   *
+   * @generated from field: int64 connects = 2;
+   */
+  connects: bigint;
+
+  /**
+   * Disconnects the client closed, client.churn summaries included.
+   *
+   * @generated from field: int64 closes = 3;
+   */
+  closes: bigint;
+
+  /**
+   * Disconnects for any other reason than a client close or a server
+   * shutdown: slow consumer, stale connection, authorization and so on.
+   *
+   * @generated from field: int64 drops = 4;
+   */
+  drops: bigint;
+
+  /**
+   * Disconnects because the server shut down.
+   *
+   * @generated from field: int64 shutdowns = 5;
+   */
+  shutdowns: bigint;
+
+  /**
+   * Failed client authentications (client.auth_error).
+   *
+   * @generated from field: int64 auth_errors = 6;
+   */
+  authErrors: bigint;
+};
+
+/**
+ * Describes the message natslens.v1.ClientLaneBucket.
+ * Use `create(ClientLaneBucketSchema)` to create a new message.
+ */
+export const ClientLaneBucketSchema: GenMessage<ClientLaneBucket> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_timeline, 4);
 

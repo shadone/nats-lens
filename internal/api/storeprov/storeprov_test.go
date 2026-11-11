@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -254,8 +255,10 @@ func TestEventsFromStore(t *testing.T) {
 		t.Fatalf("unknown event: %v", err)
 	}
 	tl := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{Range: hour()})))
-	if tl.GetBucketCount() != 4 || len(tl.GetRows()) != 0 || len(tl.GetNats()) != 3 {
-		t.Fatalf("timeline: %d buckets, %d rows, nats lane %v", tl.GetBucketCount(), len(tl.GetRows()), tl.GetNats())
+	// The server shutdown is drawn on the server lane, not the NATS lane.
+	if tl.GetBucketCount() != 4 || len(tl.GetRows()) != 0 || len(tl.GetNats()) != 2 ||
+		!slices.ContainsFunc(tl.GetServers(), func(e *v1.LaneEvent) bool { return e.GetKind() == "server.shutdown" }) {
+		t.Fatalf("timeline: %d buckets, %d rows, nats lane %v, server lane %v", tl.GetBucketCount(), len(tl.GetRows()), tl.GetNats(), tl.GetServers())
 	}
 }
 

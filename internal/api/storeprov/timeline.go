@@ -176,6 +176,9 @@ func (p *Provider) statusTimeline(ctx context.Context, req *v1.GetStatusTimeline
 	if res.Nats, res.NatsTruncated, res.FindingTruncated, err = p.lanes(ctx, req.GetRange(), req.GetEntity(), res.GetEventReadId()); err != nil {
 		return nil, err
 	}
+	if err = p.subjectLanes(ctx, req, res); err != nil {
+		return nil, err
+	}
 	if res.Kubernetes, res.KubernetesTruncated, err = p.k8sLane(ctx, req.GetRange(), req.GetEntity(), res.GetEventReadId()); err != nil {
 		return nil, err
 	}
