@@ -43,9 +43,9 @@ func equalRows(a, b []string) bool {
 	return true
 }
 
-// Each epoch's write stores its asset counts; a store whose counts are
-// gone gets the same ones again when it opens.
-func TestAssetCountsWrittenAndFilledOnOpen(t *testing.T) {
+// Each epoch's write stores its asset counts. Opening a store whose
+// counts are gone leaves them missing; the fill gives the same ones again.
+func TestAssetCountsWrittenAndFilledAfterReopen(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "db.duckdb")
 	s, err := OpenPath(ctx, path)
@@ -81,8 +81,14 @@ func TestAssetCountsWrittenAndFilledOnOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
+	if got := assetCountRows(t, s); len(got) != 1 {
+		t.Errorf("opening filled counts: %v", got)
+	}
+	if _, err := s.FillAssetCounts(ctx); err != nil {
+		t.Fatal(err)
+	}
 	if got := assetCountRows(t, s); !equalRows(got, written) {
-		t.Errorf("after reopening:\n%v\nwant\n%v", got, written)
+		t.Errorf("after the fill:\n%v\nwant\n%v", got, written)
 	}
 }
 
@@ -152,5 +158,35 @@ func TestAssetCountsSwept(t *testing.T) {
 	}
 	if got := count(t, s.DB(), `SELECT count(*) FROM epoch_asset_counts WHERE epoch NOT IN (SELECT epoch FROM epochs)`); got != 0 {
 		t.Errorf("%d counts of swept epochs left", got)
+	}
+}
+
+// The fill takes the write lock for one batch at a time, so an epoch
+// write waits for one batch, not for the whole fill.
+func TestAssetCountsFillReleasesTheLockBetweenBatches(t *testing.T) {
+	ctx := context.Background()
+	s := openMem(t)
+	if _, err := s.WriteSnapshot(ctx, fixtureSnapshot(t, t0)); err != nil {
+		t.Fatal(err)
+	}
+	n := 2*assetCountBatch + 2
+	if _, err := s.DB().Exec(`INSERT INTO epochs SELECT t.* REPLACE (i AS epoch, t.started_at + to_seconds(30 * (i - 1)) AS started_at)
+FROM epochs t, range(2, ? + 1) r(i) WHERE t.epoch = 1`, n); err != nil {
+		t.Fatal(err)
+	}
+	var batches, free int
+	afterAssetCountBatch = func() {
+		batches++
+		if s.mu.m.TryLock() {
+			free++
+			s.mu.m.Unlock()
+		}
+	}
+	t.Cleanup(func() { afterAssetCountBatch = nil })
+	if _, err := s.FillAssetCounts(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if batches != 3 || free != 3 {
+		t.Errorf("%d batches, the lock free after %d; want 3 and 3", batches, free)
 	}
 }

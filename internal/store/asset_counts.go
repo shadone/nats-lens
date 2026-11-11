@@ -68,6 +68,9 @@ FROM win w LEFT JOIN s USING (epoch) LEFT JOIN c USING (epoch)`
 // that of an hour of reports however large the store is.
 const assetCountBatch = 120
 
+// afterAssetCountBatch, when set, runs after each fill batch; for tests.
+var afterAssetCountBatch func()
+
 type execQuerier interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
@@ -80,19 +83,27 @@ func (w *writer) writeAssetCounts() {
 }
 
 // FillAssetCounts writes the asset counts of every stored epoch that has
-// none, in batches of assetCountBatch epochs, each its own statement, and
-// returns how many epochs it filled. Open calls it; the epochs a release
-// before migration 0041 wrote, or a writer outside WriteSnapshot, have
-// none.
+// none, in batches of assetCountBatch epochs, each its own statement
+// under the write lock, so that an epoch write waits for one batch at
+// most. It returns how many epochs it filled and logs them. The epochs a
+// release before migration 0041 wrote, or a writer outside WriteSnapshot,
+// have none; the collector calls it once the store's thread count and
+// memory limit are set.
 func (s *Store) FillAssetCounts(ctx context.Context) (int64, error) {
-	s.mu.Lock(opAssetCounts)
-	defer s.mu.Unlock()
-	return fillAssetCounts(ctx, s.db)
+	begin := time.Now()
+	n, err := fillAssetCounts(ctx, s.db, func() func() {
+		s.mu.Lock(opAssetCounts)
+		return s.mu.Unlock
+	})
+	if n > 0 {
+		s.logger().Info("asset counts filled", "epochs", n, "took", time.Since(begin).Round(time.Millisecond))
+	}
+	return n, err
 }
 
 // fillAssetCounts fills the missing asset counts through db, which may be
-// a transaction.
-func fillAssetCounts(ctx context.Context, db execQuerier) (int64, error) {
+// a transaction. lock, when not nil, is held around each batch.
+func fillAssetCounts(ctx context.Context, db execQuerier, lock func() func()) (int64, error) {
 	rows, err := db.QueryContext(ctx, `SELECT epoch FROM epochs
 WHERE epoch NOT IN (SELECT epoch FROM epoch_asset_counts) ORDER BY epoch`)
 	if err != nil {
@@ -114,26 +125,27 @@ WHERE epoch NOT IN (SELECT epoch FROM epoch_asset_counts) ORDER BY epoch`)
 	var n int64
 	for i := 0; i < len(missing); i += assetCountBatch {
 		batch := missing[i:min(i+assetCountBatch, len(missing))]
-		res, err := db.ExecContext(ctx, assetCountsSQL, batch[0], batch[len(batch)-1])
-		if err != nil {
-			return n, fmt.Errorf("asset counts of epochs %d to %d: %w", batch[0], batch[len(batch)-1], err)
-		}
-		added, _ := res.RowsAffected()
+		added, err := fillAssetCountBatch(ctx, db, lock, batch[0], batch[len(batch)-1])
 		n += added
+		if err != nil {
+			return n, err
+		}
+		if afterAssetCountBatch != nil {
+			afterAssetCountBatch()
+		}
 	}
 	return n, nil
 }
 
-// fillAssetCountsLogged fills the missing asset counts and logs how many
-// and how long when there were any.
-func (s *Store) fillAssetCountsLogged(ctx context.Context) error {
-	begin := time.Now()
-	n, err := s.FillAssetCounts(ctx)
+// fillAssetCountBatch fills the epochs from lo to hi that have no counts.
+func fillAssetCountBatch(ctx context.Context, db execQuerier, lock func() func(), lo, hi int64) (int64, error) {
+	if lock != nil {
+		defer lock()()
+	}
+	res, err := db.ExecContext(ctx, assetCountsSQL, lo, hi)
 	if err != nil {
-		return err
+		return 0, fmt.Errorf("asset counts of epochs %d to %d: %w", lo, hi, err)
 	}
-	if n > 0 {
-		s.logger().Info("asset counts filled", "epochs", n, "took", time.Since(begin).Round(time.Millisecond))
-	}
-	return nil
+	added, _ := res.RowsAffected()
+	return added, nil
 }

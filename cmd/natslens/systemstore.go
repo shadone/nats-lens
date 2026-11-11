@@ -160,11 +160,20 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 		logged = budget
 	}
 	rt.log.Info("duckdb threads", "threads", threads, "query_budget", logged)
+	// Epochs stored without asset counts get them now, within the
+	// store's thread count and memory limit.
+	if _, err := fillAssetCounts(st, ctx); err != nil {
+		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
+	}
 	if err := loadInventory(ctx, rt.cfg, st, rt.log); err != nil {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
 	}
 	return nil
 }
+
+// fillAssetCounts fills the asset counts a store lacks; a variable so that
+// tests can see when it runs.
+var fillAssetCounts = (*store.Store).FillAssetCounts
 
 // openRuntime opens one system; a variable so that tests can slow it.
 var openRuntime = (*systemRuntime).open
