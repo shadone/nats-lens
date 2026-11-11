@@ -3,8 +3,10 @@
 package apitest
 
 import (
+	"io"
 	"log/slog"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -30,9 +32,38 @@ func ServeHandler(t *testing.T, h *api.Handler, opts ...connect.ClientOption) (*
 		t.Fatal(err)
 	}
 	if h.Log == nil {
-		h.Log = slog.New(slog.NewTextHandler(t.Output(), nil))
+		h.Log = Log(t)
 	}
 	srv := httptest.NewServer(api.NewMux(h, webui.FS()))
 	t.Cleanup(srv.Close)
 	return srv, natslensv1connect.NewLensServiceClient(srv.Client(), srv.URL+api.PathPrefix, opts...)
+}
+
+// Log returns a logger that writes to the test output until the test ends
+// and drops what comes later. A read the handler runs in the background,
+// such as a slow badge, can log its timeout after the test has returned,
+// and the test output panics on a write after the test has completed.
+func Log(t *testing.T) *slog.Logger {
+	w := &untilDone{w: t.Output()}
+	t.Cleanup(func() {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		w.done = true
+	})
+	return slog.New(slog.NewTextHandler(w, nil))
+}
+
+type untilDone struct {
+	mu   sync.Mutex
+	w    io.Writer
+	done bool
+}
+
+func (u *untilDone) Write(p []byte) (int, error) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.done {
+		return len(p), nil
+	}
+	return u.w.Write(p)
 }

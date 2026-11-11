@@ -3,7 +3,6 @@ package api_test
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"testing"
 	"time"
 
@@ -129,7 +128,7 @@ func TestShellStatusClientDeadlineExceeded(t *testing.T) {
 func TestShellStatusPastDeadlineIsDeadlineExceeded(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a")}
 	b := reviewShell{renamed: newRenamed("b"), sumDelay: 3 * time.Second}
-	h := &api.Handler{Systems: reviewSystems(a, b), Log: slog.New(slog.NewTextHandler(t.Output(), nil))}
+	h := &api.Handler{Systems: reviewSystems(a, b), Log: apitest.Log(t)}
 	// The badges wait for the deadline, not their own limit, and system
 	// a's part has a second to answer before it.
 	api.SetBadgeClock(h, nil, time.Minute)
