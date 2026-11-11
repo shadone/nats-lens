@@ -37,5 +37,9 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     css: false,
     restoreMocks: true,
+    // A loaded runner multiplies a test's CPU time: the heaviest render
+    // tests take about 1 s alone and timed out at the default 5 s with 36
+    // workers on 12 busy cores.
+    testTimeout: 15_000,
   },
 });
