@@ -79,7 +79,7 @@ NATS servers answer monitoring requests about the present moment, and they publi
 nats-lens keeps the reports themselves, and adds what a metric does not carry:
 
 - **What every server reported, kept.** Each collection stores every server's own answer. A single-replica stream appears only on its host, and when servers disagree about a stream's configuration or peers, the disagreement is in the data.
-- **Findings with their own history.** 88 SQL checks and three built-in checks run after every collection. A finding records when it fired, changed severity and resolved, whether it flaps, and, where the check knows it, the event that caused it.
+- **Findings with their own history.** 89 SQL checks and three built-in checks run after every collection. A finding records when it fired, changed severity and resolved, whether it flaps, and, where the check knows it, the event that caused it.
 - **An event timeline.** Client connects and disconnects with their reason, authentication errors, stream and consumer changes with the client that made them, leader elections and quorum losses sit on one timeline with the findings.
 - **Kubernetes context.** An optional watcher records pod restarts, evictions, node drains and upgrades beside the NATS events, so a node upgrade and the quorum loss it caused appear together.
 - **One binary.** The collector, the embedded DuckDB database, the API and the web UI run in one process. No Prometheus, Grafana or database server is needed.
