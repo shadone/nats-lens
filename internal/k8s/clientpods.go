@@ -110,6 +110,9 @@ type ClientPodWatcher struct {
 	// healthy holds, by namespace ("" for all), whether its watch listed
 	// and is not failing; its loop sets it.
 	healthy map[string]*atomic.Bool
+	// lastTouch is when each namespace's live pods were last refreshed;
+	// the main goroutine owns it.
+	lastTouch map[string]time.Time
 	// warned holds the sources whose permission failure was explained.
 	warned sync.Map
 }
@@ -131,7 +134,7 @@ func NewClientPodWatcher(o ClientPodOptions) *ClientPodWatcher {
 	if o.TouchEvery <= 0 {
 		o.TouchEvery = DefaultClientPodTouchEvery
 	}
-	return &ClientPodWatcher{o: o, sleep: sleepCtx, live: map[string]*ClientPod{}, dirty: map[string]bool{},
+	return &ClientPodWatcher{o: o, sleep: sleepCtx, live: map[string]*ClientPod{}, dirty: map[string]bool{}, lastTouch: map[string]time.Time{},
 		pending: ClientPodBatch{Ended: map[string]time.Time{}}}
 }
 
@@ -150,7 +153,6 @@ func (w *ClientPodWatcher) Run(ctx context.Context) error {
 	}
 	flush := time.NewTicker(w.o.FlushEvery)
 	defer flush.Stop()
-	lastTouch := w.o.Now()
 	for {
 		select {
 		case <-ctx.Done():
@@ -163,10 +165,7 @@ func (w *ClientPodWatcher) Run(ctx context.Context) error {
 		case u := <-updates:
 			w.apply(u)
 		case <-flush.C:
-			touch := w.o.Now().Sub(lastTouch) >= w.o.TouchEvery
-			if w.flush(ctx, touch) && touch {
-				lastTouch = w.o.Now()
-			}
+			w.flush(ctx, true)
 		}
 	}
 }
@@ -178,6 +177,7 @@ func (w *ClientPodWatcher) loopFor(ns string, out chan<- update) *loop {
 	if w.healthy != nil {
 		w.healthy[ns] = h
 	}
+	w.lastTouch[ns] = w.o.Now()
 	return &loop{src: w.source(ns), out: out, record: w.o.Record, gapAfter: w.o.GapAfter, now: w.o.Now,
 		log: w.o.Log, sleep: w.sleep, warnEvery: clientPodWarnEvery, maxPages: maxClientPods / listPage, healthy: h}
 }
@@ -264,13 +264,16 @@ func (w *ClientPodWatcher) changed(p *corev1.Pod) {
 }
 
 // flush writes the pending batch; it reports whether the write
-// succeeded. A failed write is kept and merged into the next one.
+// succeeded. A failed write is kept and merged into the next one. With
+// touch, it refreshes each namespace that is healthy now and was last
+// refreshed TouchEvery ago or more, so a namespace that was unhealthy at
+// one refresh is refreshed at its next healthy flush.
 func (w *ClientPodWatcher) flush(ctx context.Context, touch bool) bool {
 	b := w.pending
 	b.At = w.o.Now()
 	if touch {
 		for ns, h := range w.healthy {
-			if h.Load() {
+			if h.Load() && b.At.Sub(w.lastTouch[ns]) >= w.o.TouchEvery {
 				b.Touch = append(b.Touch, ns)
 			}
 		}
@@ -291,6 +294,9 @@ func (w *ClientPodWatcher) flush(ctx context.Context, touch bool) bool {
 	}
 	w.pending = ClientPodBatch{Ended: map[string]time.Time{}}
 	w.dirty = map[string]bool{}
+	for _, ns := range b.Touch {
+		w.lastTouch[ns] = b.At
+	}
 	return true
 }
 

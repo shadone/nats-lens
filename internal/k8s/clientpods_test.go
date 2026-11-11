@@ -326,3 +326,27 @@ func clientPodOfEqual(a, b ClientPod) bool {
 	return a.UID == b.UID && a.Name == b.Name && a.Namespace == b.Namespace && a.Node == b.Node && a.WorkloadKind == b.WorkloadKind &&
 		a.Workload == b.Workload && a.AppName == b.AppName && slices.Equal(a.IPs, b.IPs) && a.StartedAt.Equal(b.StartedAt) && a.HostNetwork == b.HostNetwork
 }
+
+// Each namespace is refreshed on its own: one unhealthy at a refresh is
+// refreshed at its next healthy flush, not a whole TouchEvery later.
+func TestClientPodTouchPerNamespace(t *testing.T) {
+	c := &clock{t: t0}
+	w := NewClientPodWatcher(ClientPodOptions{Client: fake.NewClientset(), Log: quietLog(), Now: c.now, Record: (&sink{}).Record})
+	w.healthy = map[string]*atomic.Bool{}
+	w.loopFor("shop", nil)
+	w.loopFor("payments", nil)
+	w.healthy["shop"].Store(true)
+	c.add(DefaultClientPodTouchEvery - time.Second)
+	if x := flushed(t, w, true); len(x.Touch) != 0 {
+		t.Fatalf("touched before TouchEvery: %v", x.Touch)
+	}
+	c.add(time.Second)
+	if x := flushed(t, w, true); !slices.Equal(x.Touch, []string{"shop"}) {
+		t.Fatalf("at TouchEvery with payments failing: %v", x.Touch)
+	}
+	w.healthy["payments"].Store(true)
+	c.add(DefaultClientPodFlushEvery)
+	if x := flushed(t, w, true); !slices.Equal(x.Touch, []string{"payments"}) {
+		t.Fatalf("next flush once payments is healthy: %v", x.Touch)
+	}
+}
