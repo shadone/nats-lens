@@ -39,11 +39,13 @@ func TestCompatEveryTableArchivedOrListed(t *testing.T) {
 }
 
 // laterNotNull applies ms to a new database one by one and returns the
-// columns of archived tables that a migration after the table's own adds
-// as NOT NULL. A rebuild reads the hours of a table with
-// union_by_name, so in rows from files written before such a column
-// existed the column is NULL whenever another file has it: a default does
-// not apply, and the load fails the constraint.
+// columns of archived tables that a migration after the table's own makes
+// NOT NULL: a column it adds as NOT NULL, or one it changes from nullable.
+// A rebuild reads the hours of a table with union_by_name, so in rows from
+// files written before such a column existed the column is NULL whenever
+// another file has it: a default does not apply, and the load fails the
+// constraint. Files written while the column was nullable can hold NULL
+// in it too.
 func laterNotNull(t *testing.T, ms []migration) []string {
 	t.Helper()
 	ctx := context.Background()
@@ -58,29 +60,47 @@ func laterNotNull(t *testing.T, ms []migration) []string {
 		t.Fatal(err)
 	}
 	archived := ArchiveTableNames()
-	tableSeen := map[string]bool{}
+	nullable := func() map[string]bool {
+		out := map[string]bool{}
+		rows, err := db.Query(`SELECT table_name || '.' || column_name, is_nullable FROM duckdb_columns()
+WHERE database_name = 'memory' AND schema_name = 'main'`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var col string
+			var null bool
+			if err := rows.Scan(&col, &null); err != nil {
+				t.Fatal(err)
+			}
+			out[col] = null
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
 	var found []string
 	for _, m := range ms {
-		before := map[string]bool{}
-		for _, col := range compatStrings(t, db, `SELECT table_name || '.' || column_name FROM duckdb_columns()
-WHERE database_name = 'memory' AND schema_name = 'main'`) {
-			before[col] = true
-		}
+		tablesBefore := compatTables(t, db)
+		before := nullable()
 		if err := applyMigration(ctx, db, m); err != nil {
 			t.Fatal(err)
 		}
-		rows := compatStrings(t, db, `SELECT table_name || '.' || column_name FROM duckdb_columns()
-WHERE database_name = 'memory' AND schema_name = 'main' AND NOT is_nullable ORDER BY 1`)
-		for _, table := range compatTables(t, db) {
-			existed := tableSeen[table]
-			tableSeen[table] = true
-			if !existed || !slices.Contains(archived, table) {
+		after := nullable()
+		cols := make([]string, 0, len(after))
+		for col := range after {
+			cols = append(cols, col)
+		}
+		slices.Sort(cols)
+		for _, col := range cols {
+			table, _, _ := strings.Cut(col, ".")
+			if after[col] || !slices.Contains(tablesBefore, table) || !slices.Contains(archived, table) {
 				continue
 			}
-			for _, col := range rows {
-				if strings.HasPrefix(col, table+".") && !before[col] {
-					found = append(found, col+" (migration "+m.name+")")
-				}
+			if was, existed := before[col]; !existed || was {
+				found = append(found, col+" (migration "+m.name+")")
 			}
 		}
 	}
@@ -88,7 +108,8 @@ WHERE database_name = 'memory' AND schema_name = 'main' AND NOT is_nullable ORDE
 }
 
 // A column added to an archived table after the table was created is
-// nullable. This is stricter than a default: see laterNotNull.
+// nullable, and stays so; a column that was nullable is never made NOT
+// NULL. This is stricter than a default: see laterNotNull.
 func TestCompatArchivedColumnsAddedLaterAreNullable(t *testing.T) {
 	all, err := loadMigrations()
 	if err != nil {
@@ -103,5 +124,11 @@ func TestCompatArchivedColumnsAddedLaterAreNullable(t *testing.T) {
 		sql: `ALTER TABLE mutes ADD COLUMN shop_flag INTEGER NOT NULL DEFAULT 0;`}
 	if found := laterNotNull(t, append(append([]migration{}, all...), bad)); len(found) != 1 || !strings.HasPrefix(found[0], "mutes.shop_flag") {
 		t.Errorf("a NOT NULL column with a default added to mutes: found %v, want mutes.shop_flag", found)
+	}
+	// And a nullable column made NOT NULL.
+	bad = migration{version: all[len(all)-1].version + 1, name: "set_not_null_on_mutes",
+		sql: `ALTER TABLE mutes ALTER COLUMN entity_type SET NOT NULL;`}
+	if found := laterNotNull(t, append(append([]migration{}, all...), bad)); len(found) != 1 || !strings.HasPrefix(found[0], "mutes.entity_type") {
+		t.Errorf("mutes.entity_type made NOT NULL: found %v, want mutes.entity_type", found)
 	}
 }

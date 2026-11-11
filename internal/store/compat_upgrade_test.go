@@ -18,9 +18,10 @@ import (
 const compatMatrixEnv = "NATSLENS_COMPAT_MATRIX"
 
 // compatSeeds are the starting versions the normal test tier runs, with
-// the newest version: the first schema, whose upgrade runs every
-// migration over rows, and the last before the notification backfills of
-// 0036 and 0038. compatVersions adds the newest.
+// the newest version: the first schema, whose upgrade applies every later
+// migration (over rows only in the three tables 0001 creates), and the
+// last before the notification backfills of 0036 and 0038, which run over
+// rows in the tables they read. compatVersions adds the newest.
 var compatSeeds = []int{1, 35, 37}
 
 // compatVersions lists the schema versions a matrix test starts from:
