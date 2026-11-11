@@ -82,14 +82,20 @@ func SeverityReason(code string, sev v1.Severity, resolved bool, usual, rule str
 		}
 		return lead + " Its severity rule says when it is another: " + rule
 	}
+	if rule == "" {
+		// Only a finding stored under an older header gets here: the
+		// header gives no reason, so nothing claims a rule moved it.
+		lead := upperFirst(at)
+		if resolved {
+			lead = fmt.Sprintf("It was %s when it resolved", asNoun(at))
+		}
+		return fmt.Sprintf("%s; the usual severity of %s is now %s, and the check states no rule for another severity.", lead, code, usual)
+	}
 	moved := "Raised"
 	if severityRank(at) < severityRank(usual) {
 		moved = "Lowered"
 	}
 	how := "by its severity rule: " + rule
-	if rule == "" {
-		how = "though the check states no rule for it."
-	}
 	if resolved {
 		return fmt.Sprintf("It was %s when it resolved: %s from %s, the usual severity of %s, %s", asNoun(at), strings.ToLower(moved), usual, code, how)
 	}
