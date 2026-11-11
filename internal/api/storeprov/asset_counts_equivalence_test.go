@@ -347,10 +347,11 @@ func TestAssetCountsMatchReportCounts(t *testing.T) {
 	// The observation summaries and the Overview read the same metrics.
 	type result struct {
 		obs   map[string]*v1.ObservationSummary
+		tx    map[string]*v1.Series
 		tiles []*v1.Tile
 	}
 	read := func() result {
-		out := result{obs: map[string]*v1.ObservationSummary{}}
+		out := result{obs: map[string]*v1.ObservationSummary{}, tx: map[string]*v1.Series{}}
 		for _, r := range assetRanges() {
 			for metric := range referenceAssetQueries {
 				o, err := p.observationSummary(ctx, metric, sys, r)
@@ -358,6 +359,13 @@ func TestAssetCountsMatchReportCounts(t *testing.T) {
 					t.Fatal(err)
 				}
 				out.obs[metric+" "+r.String()] = o
+				// With observations the series is read in a read transaction.
+				res, err := p.GetTimeSeries(ctx, &v1.GetTimeSeriesRequest{Metric: metric, Entity: sys, Range: r, MaxPoints: 7,
+					IncludeObservations: true})
+				if err != nil {
+					t.Fatal(err)
+				}
+				out.tx[metric+" "+r.String()] = res.GetSeries()
 			}
 			for _, mp := range assetMaxPoints {
 				res, err := p.GetOverview(ctx, &v1.GetOverviewRequest{Range: r, MaxPoints: mp})
@@ -382,6 +390,11 @@ func TestAssetCountsMatchReportCounts(t *testing.T) {
 	for k, o := range want.obs {
 		if !proto.Equal(got.obs[k], o) {
 			t.Errorf("observations %s:\ncounts  %v\nreports %v", k, got.obs[k], o)
+		}
+	}
+	for k, s := range want.tx {
+		if !proto.Equal(got.tx[k], s) {
+			t.Errorf("series with observations %s:\ncounts  %v\nreports %v", k, got.tx[k], s)
 		}
 	}
 	if len(got.tiles) != len(want.tiles) {
