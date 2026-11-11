@@ -445,3 +445,38 @@ describe("which row Enter picks", () => {
     expect(box()).not.toHaveAttribute("aria-activedescendant");
   });
 });
+
+describe("moving through rows", () => {
+  const settle = () => new Promise((r) => setTimeout(r, 400));
+  const selected = () => screen.getAllByRole("option").filter((o) => o.getAttribute("aria-selected") === "true");
+
+  it("passes two servers that share a name with ArrowDown", async () => {
+    m.listServers.mockResolvedValue({ servers: [{ name: "nats-1", cluster: "east" }, { name: "nats-1", cluster: "west" }], expected: [], missing: [] } as never);
+    m.listStreams.mockResolvedValue({ streams: [] } as never);
+    setup("/?system=sys-a");
+    await enter("nats-1");
+    await screen.findAllByRole("option", { name: /^Server/ });
+    await settle();
+    expect(screen.getAllByRole("option")).toHaveLength(3);
+    await userEvent.keyboard("{ArrowDown}");
+    expect(selected()).toHaveLength(1);
+    expect(selected()[0]).toBe(screen.getAllByRole("option")[1]);
+    await userEvent.keyboard("{ArrowDown}");
+    expect(selected()[0]).toBe(askRow());
+  });
+
+  it("names an existing, selected row in aria-activedescendant at every step", async () => {
+    setup("/?system=sys-a");
+    await enter("nats");
+    await screen.findAllByRole("option", { name: /^Server/ });
+    await settle();
+    for (const k of ["{ArrowDown}", "{ArrowDown}", "{ArrowDown}", "{ArrowUp}", "{ArrowUp}", "{ArrowUp}", "{ArrowUp}"]) {
+      await userEvent.keyboard(k);
+      const id = box().getAttribute("aria-activedescendant");
+      expect(id).toBeTruthy();
+      expect(document.getElementById(id!)).not.toBeNull();
+      expect(selected()).toHaveLength(1);
+      expect(selected()[0].id).toBe(id);
+    }
+  });
+});

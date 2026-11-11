@@ -55,6 +55,22 @@ export function wantsRemote(q: CommandQuery, kind: "finding" | "event"): boolean
   return q.text.length >= MIN_REMOTE_TEXT;
 }
 
+/**
+ * A stable key per row of a group. Two rows can share a key, such as two
+ * servers of the same name; a repeat takes its position in the group.
+ */
+function rowKeys(g: ResultGroup): string[] {
+  const seen = new Set<string>();
+  return g.rows.map((r, n) => {
+    const key = `row:${r.kind}:${r.key}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      return key;
+    }
+    return `${key}#${n}`;
+  });
+}
+
 type Option =
   | { id: string; key: string; row: ResultRow; group?: undefined; question?: undefined }
   | { id: string; key: string; row?: undefined; group: ResultGroup; question?: undefined }
@@ -139,7 +155,8 @@ export function SearchJump() {
   const options: Option[] = [];
   for (const g of groups) {
     if (g.stale) continue;
-    for (const row of g.rows) options.push({ id: `${listId}-${options.length}`, key: `row:${row.kind}:${row.key}`, row });
+    const keys = rowKeys(g);
+    g.rows.forEach((row, n) => options.push({ id: `${listId}-${options.length}`, key: keys[n], row }));
     if (g.more) options.push({ id: `${listId}-${options.length}`, key: `more:${g.kind}`, group: g });
   }
   const askOption = offerAsk && question.question !== undefined ? ({ id: `${listId}-${options.length}`, key: "ask", question: question.question } satisfies Option) : undefined;
@@ -321,9 +338,9 @@ export function SearchJump() {
                   {g.state === "error" && <span className="search-state">Could not search {g.label.toLowerCase()}</span>}
                 </div>
                 <ul role="group" aria-labelledby={`${listId}-g-${g.kind}`} aria-busy={g.stale ? true : undefined} className={g.stale ? "search-stale" : undefined}>
-                  {g.rows.map((r) => (
+                  {g.rows.map((r, n) => (
                     <li
-                      key={r.key}
+                      key={rowKeys(g)[n]}
                       {...(g.stale
                         ? { role: "option", "aria-disabled": true, "aria-selected": false, className: r.kind === "finding" ? "search-finding" : undefined, onMouseDown: (e: MouseEvent) => e.preventDefault() }
                         : optionProps(rowOption(r), r.kind === "finding" ? "search-finding" : ""))}
