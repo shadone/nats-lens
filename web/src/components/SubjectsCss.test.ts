@@ -59,4 +59,10 @@ describe("subjects.css names", () => {
     const wide = css.slice(0, css.indexOf("@media (max-width:760px)"));
     expect(wide).toMatch(/\.sj-name\{display:inline-block;max-width:100%;overflow-wrap:anywhere\}/);
   });
+
+  it("keeps a connection's name, its server and ID, and its rate each whole in the per-connection list", () => {
+    expect(css).toMatch(/\.sj-rates li > a\{white-space:nowrap\}/);
+    expect(css).toMatch(/\.sj-rates \.sj-rates-where\{[^}]*white-space:nowrap/);
+    expect(css).toMatch(/\.sj-rates \.sj-rates-v\{[^}]*white-space:nowrap/);
+  });
 });

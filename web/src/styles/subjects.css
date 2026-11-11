@@ -52,8 +52,9 @@
 .sj-rates > summary{cursor:pointer;color:var(--text-2)}
 .sj-rates ul{margin:var(--sp-1) 0 0;padding:0 0 0 var(--sp-4)}
 .sj-rates li{margin:0 0 var(--sp-1)}
-.sj-rates .sj-rates-where{color:var(--text-muted)}
-.sj-rates .sj-rates-v{font-family:var(--mono)}
+.sj-rates li > a{white-space:nowrap}
+.sj-rates .sj-rates-where{color:var(--text-muted);white-space:nowrap}
+.sj-rates .sj-rates-v{font-family:var(--mono);white-space:nowrap}
 .sj-rates .sj-quiet{color:var(--text-muted)}
 .sj-chips > .sj-rates{flex-basis:100%;margin-top:0}
 .sj-foot{margin:0;padding:var(--sp-3) var(--sp-5) var(--sp-4);font-size:var(--fs-sm);color:var(--text-muted)}
