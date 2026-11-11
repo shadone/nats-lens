@@ -33,9 +33,7 @@ it('refreshes captured-system operator evidence and global tallies without refet
 });
 it('does not wait for an unrelated blocked series refresh',async()=>{
  const h=setup(true,'series');await waitFor(()=>expect(h.calls.get('series:shop:fixed-history')).toHaveBeenCalledTimes(1));
- // The held refresh ends only at release, so a mute that waited for it never
- // succeeds: the wait can be long without letting that pass.
- try{act(()=>{h.ready().mute.mutate(input)});await waitFor(()=>expect(h.ready().mute.isSuccess).toBe(true),{timeout:5000})}finally{await act(async()=>h.release())}
+ try{act(()=>{h.ready().mute.mutate(input)});await waitFor(()=>expect(h.ready().mute.isSuccess).toBe(true))}finally{await act(async()=>h.release())}
 });
 it('preserves the explicit nonwaiting acceptance option while relevant evidence refreshes',async()=>{
  const h=setup(false,'overview');await waitFor(()=>expect(h.calls.get('overview:shop:fixed-history')).toHaveBeenCalledTimes(1));
