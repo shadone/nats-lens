@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// Review: a relist that lists nothing ends every live pod of its namespace.
-func TestReview2EmptyRelistEndsAll(t *testing.T) {
+// A relist that lists nothing ends every live pod of its namespace.
+func TestClientPodsEmptyRelistEndsNamespace(t *testing.T) {
 	ctx := context.Background()
 	s := openMem(t)
 	t0 := time.Date(2026, 11, 10, 23, 30, 0, 0, time.UTC)
@@ -27,9 +27,9 @@ func TestReview2EmptyRelistEndsAll(t *testing.T) {
 	}
 }
 
-// Review: a pod deleted (watch event) and then left out of a relist in
+// A pod deleted (watch event) and then left out of a relist in
 // the same batch ends at its deletion, not at its last touch.
-func TestReview2EndedAndRelistSameBatch(t *testing.T) {
+func TestClientPodEndedAndRelistSameBatch(t *testing.T) {
 	ctx := context.Background()
 	s := openMem(t)
 	t0 := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
@@ -47,9 +47,9 @@ func TestReview2EndedAndRelistSameBatch(t *testing.T) {
 	}
 }
 
-// Review: a pod present across a restart keeps one row, its first
+// A pod present across a restart keeps one row, its first
 // sighting, and is matched for a time inside the restart window.
-func TestReview2RestartReopens(t *testing.T) {
+func TestClientPodRestartReopens(t *testing.T) {
 	ctx := context.Background()
 	s := openMem(t)
 	t0 := time.Date(2026, 11, 10, 23, 30, 0, 0, time.UTC)
@@ -79,9 +79,9 @@ func TestReview2RestartReopens(t *testing.T) {
 	}
 }
 
-// Review: concurrent writers (the temp table is per connection; the lock
+// Concurrent writers (the temp table is per connection; the lock
 // serialises) do not collide.
-func TestReview2ConcurrentWrites(t *testing.T) {
+func TestClientPodsConcurrentWrites(t *testing.T) {
 	ctx := context.Background()
 	s := openMem(t)
 	t0 := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)

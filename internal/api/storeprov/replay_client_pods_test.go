@@ -3,14 +3,13 @@ package storeprov_test
 import (
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 )
 
-// Review case: a client pod watch's collector.k8s_gap makes no Kubernetes
+// A client pod watch's collector.k8s_gap makes no Kubernetes
 // gap in Replay; a NATS pod watch's gap in the same window still does.
-func TestReview2ReplayLeavesOutClientPodWatchGaps(t *testing.T) {
+func TestReplayLeavesOutClientPodWatchGaps(t *testing.T) {
 	p, r := replayStore(t)
 	r.add("events", map[string]any{"id": 950, "time": rEpoch(5), "received_at": rEpoch(8), "source": "collector", "kind": "collector.k8s_gap",
 		"summary": "gap", "raw": `{"source":"client pods in shop","error":"Kubernetes API returned HTTP 403"}`})
@@ -40,7 +39,3 @@ func TestReview2ReplayLeavesOutClientPodWatchGaps(t *testing.T) {
 		t.Errorf("kubernetes gaps %d, want the NATS pod watch's: %+v", n, f.Gaps)
 	}
 }
-
-// Review case: the Kubernetes lane of the status timeline still shows a
-// client pod watch's gap.
-var _ = time.Second
