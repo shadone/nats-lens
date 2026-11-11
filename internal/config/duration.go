@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -11,12 +12,13 @@ import (
 // with a "d" suffix ("14d"), as retention periods are usually given in days.
 type Duration time.Duration
 
-// ParseDuration parses Go duration syntax ("30s", "336h") or whole days ("14d").
+// ParseDuration parses Go duration syntax ("30s", "336h") or whole days
+// ("14d"), up to the largest time.Duration (106751 days).
 func ParseDuration(s string) (Duration, error) {
 	s = strings.TrimSpace(s)
 	if days, ok := strings.CutSuffix(s, "d"); ok {
 		n, err := strconv.Atoi(days)
-		if err != nil || n < 0 {
+		if err != nil || n < 0 || n > math.MaxInt64/int(24*time.Hour) {
 			return 0, fmt.Errorf("invalid duration %q", s)
 		}
 		return Duration(time.Duration(n) * 24 * time.Hour), nil

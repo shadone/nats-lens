@@ -20,7 +20,7 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **Version.** `natslens version` prints the version the binary was built with, the Go release and the platform, for example `natslens v0.1.0 (go1.27.3 linux/amd64)`, without reading a configuration. Release binaries and images carry their release tag; a binary built from a checkout prints `dev`. The same version appears in the start log line.
 - **Test notifications.** `natslens notify test` reads the configured channels and sends test messages without opening a database or connecting to NATS ([notifications.md](notifications.md)). Only `run` schedules finding delivery; `once`, `checks run` and `demo` send no finding notifications.
 - **Receiver access.** Notification delivery needs DNS and outbound HTTPS to configured receivers. A NetworkPolicy that restricts egress must allow those destinations, including when copying the GKE component.
-- **Where settings come from.** Defaults first, then the file named by `-config`, then flags. The project's `natslens.example.yaml` lists every key. nats-lens checks the whole configuration at start and stops with every error it found, for example "timeout must be less than a third of interval: an epoch can take three collect windows".
+- **Where settings come from.** Defaults first, then the file named by `-config`, then flags. The project's `natslens.example.yaml` lists every key. nats-lens checks the whole configuration at start and stops with every error it found, for example "timeout must be less than a third of interval: an epoch can take three collect windows". A duration such as `retention` takes Go syntax (`30s`, `336h`) or whole days (`14d`), up to 106751 days; a larger number of days is an error, not a shorter period.
 - **Credentials stay out of the process list.** The system account password has no flag. nats-lens reads it from the file, or from `NATSLENS_NATS_PASSWORD` when `nats.user` is set and the file has none. An account with a `user` and no password in the file reads it from `NATSLENS_ACCOUNT_<NAME>_PASSWORD`, with the account name upper-cased and every character other than A-Z and 0-9 replaced by `_`. A credentials file (`nats.creds`) or TLS client certificates work instead. nats-lens never logs credentials. A password written into `-nats-url` does show in the process list.
 - **Logs.** nats-lens writes JSON logs to standard error, at `log_level` (`info` by default). The start line lists the settings, among them `connz_limit`, `subscriptions_interval` and `subsz_limit`.
 - **How much is collected.** `connz_limit` (4096) caps the connections stored per server per collection. `subscriptions_interval` (5 minutes) is the shortest time between two collections that read the servers' subscription lists, and `0` turns them off; `subsz_limit` (10,000, at most 100,000) caps the subscriptions stored per server per list. Every server's list arrives on the collector's one connection within one window, and the server it is connected to closes that connection as a slow consumer once the replies waiting for it pass its `max_pending` (64 MB by default); keep `subsz_limit` × servers × about 250 bytes well under it, or raise `max_pending` on the servers. See [monitoring-snapshots.md](monitoring-snapshots.md); the [Subjects](subjects.md) page shows the lists, and says when one was cut or not collected.
@@ -61,6 +61,13 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **Given** a configuration with `listen: 0.0.0.0:8080` and no `iap_audience`
 - **When** nats-lens starts
 - **Then** it stops with an error saying that the listen address is not loopback and `iap_audience` is empty
+
+### Refuse a duration too long to hold
+
+- **Surfaces:** `cli`
+- **Given** a configuration with `retention: 213504d`
+- **When** nats-lens starts
+- **Then** it stops with the error `invalid duration "213504d"` rather than keeping 25 minutes of history
 
 ### Probe a pod
 
