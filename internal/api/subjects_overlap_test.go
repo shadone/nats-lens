@@ -126,7 +126,9 @@ func TestSubjectsOverlapManyStreams(t *testing.T) {
 	res := api.FinishSubjects(f, "", v1.SubjectFilter_SUBJECT_FILTER_UNSPECIFIED)
 	took := time.Since(start)
 	t.Logf("10,001 streams: %v", took)
-	if took > 200*time.Millisecond {
+	// About 20 ms on its own; the race detector took 358 ms on a loaded
+	// machine. A quadratic overlap check would take seconds.
+	if took > 200*time.Millisecond && !raceDetector {
 		t.Fatalf("FinishSubjects took %v for 10,001 streams, want under 200ms", took)
 	}
 	if got := res.GetOverlappingCount(); got != 5001 {
