@@ -128,6 +128,8 @@ Before upgrading a deployed nats-lens across a release with a new migration:
 3. Keep the archive directory: a rebuild from it is the other way back.
 4. Start the new release and check startup, a collection and an export.
 
+The first start of a release with migration 0041 or later, on a database written before it, fills the asset counts of every stored epoch (`epoch_asset_counts`) before the API listens: about 1 ms per epoch at 2,000 streams and 10,000 consumers, so about a minute for 14 days. The log says `asset counts filled` with the number of epochs and the time. A fill that fails is logged as a warning, and the Overview's counts are then read from the reports, slower but the same, until a later start fills them. Proposed, not yet confirmed.
+
 To roll back, stop the new release and restore the copied directory whole; never combine a restored file with a newer write-ahead log. Writes the new release made since the upgrade are lost, except what its exports wrote to the archive. Starting the old release on the upgraded database is refused and changes neither the file nor its write-ahead log, so a mistaken start needs no repair. The exception is a log the old engine cannot replay: the old release moves the file and log aside and rebuilds from the archive (see [Downgrade behaviour](#downgrade-behaviour)).
 
 ## Results

@@ -80,7 +80,9 @@ spec:
               memory: 512Mi
               ephemeral-storage: 1Gi
           # A missing database is rebuilt from the archive before the API
-          # listens, which can take minutes.
+          # listens, which can take minutes. The first start after the
+          # upgrade to migration 0041 also fills the asset counts of the
+          # stored epochs first: about a minute for 14 days of 2,000 streams.
           startupProbe:
             httpGet:
               path: /healthz
