@@ -260,10 +260,6 @@ func rotate(cs []*Check, epoch int64) []*Check {
 	return append(append([]*Check{}, cs[k:]...), cs[:k]...)
 }
 
-// EscalateAfter is the number of consecutive epochs one check must fail
-// in, this one included, for system-001 to be critical.
-const EscalateAfter = 10
-
 // failingStreak returns the checks that failed in this epoch and in each of
 // the EscalateAfter-1 stored epochs before it.
 func failingStreak(ctx context.Context, conn *sql.Conn, epoch int64, runs []store.CheckRun) ([]string, error) {

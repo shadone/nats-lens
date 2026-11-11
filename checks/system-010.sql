@@ -4,6 +4,7 @@ name: Notifications not delivered
 entity: system
 category: engine
 severity: warning
+severity_rule: critical when a channel refused or gave up a notification in the last hour
 kind: operational
 thresholds:
   - name: pending_for

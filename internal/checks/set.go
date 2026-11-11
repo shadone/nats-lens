@@ -15,11 +15,16 @@ import (
 // run in the epoch.
 const CheckFailedCode = "system-001"
 
+// EscalateAfter is the number of consecutive epochs one check must fail
+// in, this one included, for system-001 to be critical.
+const EscalateAfter = 10
+
 // checkFailed is the header of the engine's own check; it has no query.
 func checkFailed() *Check {
 	return &Check{
 		Code: CheckFailedCode, Name: "Check failed to run", Entity: "system", Category: "engine",
 		Severity: "warning", Kind: "operational",
+		SeverityRule: fmt.Sprintf("critical when one check has failed in each of the last %d collections", EscalateAfter),
 		Description: "One or more checks returned an error or ran out of time in the collection. " +
 			"Their findings keep the state of the last run that worked, so a problem they look for can go unreported.",
 		Remediation: "Read the error in the detail and in the natslens log (`check failed`). A timeout means the query " +
