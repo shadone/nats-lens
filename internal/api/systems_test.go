@@ -357,14 +357,16 @@ func TestMetricsOneScrapePerSystem(t *testing.T) {
 	systems, a, _ := twoSystems()
 	a.metrics, a.release = "ignore", make(chan struct{})
 	systems[0].Provider = a
-	srv, _ := apitest.ServeHandler(t, &api.Handler{Systems: systems, MetricsTimeout: 50 * time.Millisecond})
+	// The first scrape waits the whole timeout; a later one that waited too
+	// would take 2 s, far from the 1 s "at once".
+	srv, _ := apitest.ServeHandler(t, &api.Handler{Systems: systems, MetricsTimeout: 2 * time.Second})
 	for i := range 5 {
 		start := time.Now()
 		code, body := scrapeMetrics(t, srv.URL)
 		if code != http.StatusOK || !strings.Contains(body, `nats_lens_system_scrape_success{system="a"} 0`+"\n") {
 			t.Fatalf("scrape %d: %d\n%s", i, code, body)
 		}
-		if i > 0 && time.Since(start) > 40*time.Millisecond {
+		if i > 0 && time.Since(start) > time.Second {
 			t.Errorf("scrape %d waited %v for a system already running", i, time.Since(start))
 		}
 	}
@@ -446,7 +448,8 @@ func TestListSystemsTimeoutStaysOnItsCard(t *testing.T) {
 			systems[0].Provider = summaryOf{a, mode}
 			systems = append(systems, api.System{Ref: &v1.SystemRef{Id: "c"}, Provider: summaryOf{third, mode}})
 			_ = b
-			m, took := listSystems(t, &api.Handler{Systems: systems, SummaryTimeout: 200 * time.Millisecond}, &v1.ListSystemsRequest{})
+			// One timeout is 1 s; two in turn would be 2 s.
+			m, took := listSystems(t, &api.Handler{Systems: systems, SummaryTimeout: time.Second}, &v1.ListSystemsRequest{})
 			if len(m.GetSystems()) != 3 {
 				t.Fatalf("systems = %v", m.GetSystems())
 			}
@@ -459,7 +462,7 @@ func TestListSystemsTimeoutStaysOnItsCard(t *testing.T) {
 			if s := m.GetSystems()[1]; s.GetTally() == nil || s.GetServers() != 3 {
 				t.Errorf("the healthy system lost its summary: %v", s)
 			}
-			if took > 380*time.Millisecond {
+			if took > 1800*time.Millisecond {
 				t.Errorf("ListSystems took %v; two blocked systems should time out together", took)
 			}
 		})
@@ -755,8 +758,10 @@ func TestListSystemsCapsRunsPerSystem(t *testing.T) {
 	p := ignoresCtx{renamed: a, calls: &atomic.Int32{}}
 	systems[0].Provider = p
 	h := &api.Handler{Systems: systems, SummaryTimeout: 5 * time.Second}
-	ask := func(req *v1.ListSystemsRequest) (*v1.SystemSummary, time.Duration) {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	// The first two callers give up after 30 ms. The later ones would wait
+	// the 5 s SummaryTimeout for a third run, far from the 2 s "at once".
+	ask := func(req *v1.ListSystemsRequest, wait time.Duration) (*v1.SystemSummary, time.Duration) {
+		ctx, cancel := context.WithTimeout(context.Background(), wait)
 		defer cancel()
 		start := time.Now()
 		res, err := h.ListSystems(ctx, connect.NewRequest(req))
@@ -768,8 +773,12 @@ func TestListSystemsCapsRunsPerSystem(t *testing.T) {
 	// The same range again after a cancel, then other ranges.
 	reqs := []*v1.ListSystemsRequest{{}, {}, {StripBuckets: 24}, {StripBuckets: 12}, {StripBuckets: 6}}
 	for i, req := range reqs {
-		s, took := ask(req)
-		if i >= 2 && (!strings.Contains(s.GetError(), "longer than") || took > 20*time.Millisecond) {
+		wait := 30 * time.Millisecond
+		if i >= 2 {
+			wait = time.Minute
+		}
+		s, took := ask(req, wait)
+		if i >= 2 && (!strings.Contains(s.GetError(), "longer than") || took > 2*time.Second) {
 			t.Errorf("call %d: %q after %v; want the timeout card at once", i, s.GetError(), took)
 		}
 	}
