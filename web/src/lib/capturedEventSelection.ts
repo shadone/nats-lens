@@ -1,13 +1,13 @@
 import {eventReadId,frozenEventRange} from '../api/eventIdentity';
 import type {TimelineCaptureLimit} from '../components/TimelineCaptureNotice';
 export interface CapturedSelection {version:1;system:string;from:string;to:string;ids:string[];eventReadId?:string;limits:TimelineCaptureLimit[]}
-const limits=['NATS and collector events','finding transitions','Kubernetes events'];
+const limits=['NATS and collector events','finding transitions','Kubernetes events','server lane items','leader elections'];
 const bad=()=>new Error('This captured selection link is invalid or its system/range has changed. Reopen the original captured selection.');
 export function validateSelection(s:CapturedSelection){
  if(!s||s.version!==1||typeof s.system!=='string'||!s.system||new TextEncoder().encode(s.system).length>256||/[\x00-\x1f\x7f]/.test(s.system)||typeof s.from!=='string'||typeof s.to!=='string'||Object.keys(s).some(k=>!['version','system','from','to','ids','eventReadId','limits'].includes(k)))throw bad();
  const fixed=frozenEventRange({start:s.from,end:s.to});if(!s.from.endsWith('Z')||!s.to.endsWith('Z')||(fixed.end.seconds-fixed.start.seconds)*1000000000n+BigInt(fixed.end.nanos-fixed.start.nanos)>2592000000000000n)throw bad();eventReadId(s.eventReadId);
  if(!Array.isArray(s.ids)||s.ids.length<1||s.ids.length>2000||new Set(s.ids).size!==s.ids.length||s.ids.some(id=>typeof id!=='string'||eventReadId(id)===0n))throw bad();
- if(!Array.isArray(s.limits)||s.limits.length>3||new Set(s.limits).size!==s.limits.length||s.limits.some(x=>!limits.includes(x)))throw bad();
+ if(!Array.isArray(s.limits)||s.limits.length>limits.length||new Set(s.limits).size!==s.limits.length||s.limits.some(x=>!limits.includes(x)))throw bad();
 }
 function page(s:CapturedSelection,offset:number,size:number){if(!Number.isInteger(offset)||offset<0||offset>=s.ids.length||!Number.isInteger(size)||size<1||size>50)throw bad()}
 export function selectionPath(s:CapturedSelection,offset=0,pageSize=50):string{

@@ -57,3 +57,17 @@ func TestCapturedLinkValidation(t *testing.T) {
 		t.Fatalf("valid link: %+v %v", p, err)
 	}
 }
+
+// Every lane's limit label a Timeline selection can carry is accepted.
+func TestCapturedLinkLaneLimits(t *testing.T) {
+	u := linkFixture(t)
+	raw, _ := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(u.Fragment, "selection="))
+	var fields map[string]any
+	_ = json.Unmarshal(raw, &fields)
+	fields["limits"] = []string{"NATS and collector events", "finding transitions", "Kubernetes events", "server lane items", "leader elections"}
+	data, _ := json.Marshal(fields)
+	u.Fragment = "selection=" + base64.RawURLEncoding.EncodeToString(data)
+	if _, _, err := FromURL(u); err != nil {
+		t.Fatal(err)
+	}
+}

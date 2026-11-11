@@ -18,3 +18,7 @@ it('copies the current selection page from the global handoff without adding a n
  const c=buildInvestigationContext({origin:u.origin,pathname:u.pathname,search:u.search,hash:u.hash,system:s.system,spec:{kind:'fixed',from:Date.parse(s.from),to:Date.parse(s.to)}});
  expect(c.query).toEqual({method:'ListEventSelection',request:{ids:s.ids,eventReadId:s.eventReadId,offset:1,pageSize:1,system:s.system}});expect(c.range).toEqual({start:s.from,end:s.to});expect(c.annotation).toContain('NATS and collector events');
 });
+
+it('accepts every lane limit a Timeline selection can carry',()=>{
+ expect(()=>selectionPath({...s,limits:['NATS and collector events','finding transitions','Kubernetes events','server lane items','leader elections']})).not.toThrow();
+});

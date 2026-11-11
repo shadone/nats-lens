@@ -83,7 +83,7 @@ func FromURL(u *url.URL) (Link, Page, error) {
 			return bad()
 		}
 		switch v {
-		case "NATS and collector events", "finding transitions", "Kubernetes events":
+		case "NATS and collector events", "finding transitions", "Kubernetes events", "server lane items", "leader elections":
 		default:
 			return bad()
 		}
