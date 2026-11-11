@@ -41,8 +41,9 @@ type LoadOptions struct {
 	// Duration of each concurrent scenario.
 	Duration time.Duration
 	Log      *slog.Logger
-	// QueryBudget is the store's query budget: negative derives it from
-	// the threads as natslens does, zero leaves the API unbounded.
+	// QueryBudget is the store's query budget, as query_budget takes it:
+	// -1 leaves the API unbounded, 0 derives it from the threads as
+	// natslens does, a positive number is the budget.
 	QueryBudget int
 	// Threads and MemoryLimit set DuckDB's threads and memory_limit;
 	// zero keeps DuckDB's default.
@@ -164,16 +165,11 @@ func applySettings(ctx context.Context, st *store.Store, o LoadOptions) error {
 			return err
 		}
 	}
-	budget := o.QueryBudget
-	if budget < 0 {
-		// natslens's default: derived from the threads.
-		var threads int
-		if err := st.DB().QueryRowContext(ctx, `SELECT current_setting('threads')::INTEGER`).Scan(&threads); err != nil {
-			return fmt.Errorf("read threads: %w", err)
-		}
-		budget = config.Config{}.QueryBudgetFor(threads)
+	var threads int
+	if err := st.DB().QueryRowContext(ctx, `SELECT current_setting('threads')::INTEGER`).Scan(&threads); err != nil {
+		return fmt.Errorf("read threads: %w", err)
 	}
-	if budget > 0 {
+	if budget := (config.Config{QueryBudget: o.QueryBudget}).QueryBudgetFor(threads); budget > 0 {
 		st.SetQueryBudget(budget)
 	}
 	return nil

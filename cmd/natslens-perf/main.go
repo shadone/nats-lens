@@ -46,7 +46,7 @@ func run(args []string) error {
 	duration := fs.Duration("duration", 60*time.Second, "load: how long each concurrent scenario runs")
 	jsonOut := fs.String("json", "", "load: also write the results as JSON to this file")
 	cpuProfile := fs.String("cpuprofile", "", "load: write a Go CPU profile of the run to this file; it does not show DuckDB's native work")
-	budget := fs.Int("query-budget", -1, "load: the store's query budget; -1 derives it from the threads as natslens does, 0 leaves the API unbounded")
+	budget := fs.Int("query-budget", 0, "load: the store's query budget, as query_budget takes it: -1 off, 0 derived from the threads as natslens does, or a number of queries")
 	threads := fs.Int("threads", 0, "load: DuckDB threads; 0 keeps DuckDB's default")
 	var memLimit config.ByteSize
 	fs.Func("memory-limit", "load: DuckDB memory_limit, such as 4GiB; unset keeps DuckDB's default", func(v string) error {

@@ -16,7 +16,7 @@ The steps on their own:
 go build -o natslens-perf ./cmd/natslens-perf
 ./natslens-perf generate -profile entities -out /path/entities.duckdb
 ./natslens-perf explain  -profile entities -db /path/entities.duckdb -out /path/explain
-./natslens-perf load     -profile entities -db /path/entities.duckdb -duration 60s -json /path/load.json [-cpuprofile /path/cpu.out]
+./natslens-perf load     -profile entities -db /path/entities.duckdb -duration 60s -json /path/load.json [-cpuprofile /path/cpu.out] [-query-budget N] [-threads N] [-memory-limit 4GiB]
 ```
 
 `load` changes the store: the scenarios that write add epochs, findings and archive records. Generate a new store to repeat a run exactly. Nothing here runs in the test tiers except `TestSmokeProfileRuns`, which checks that the smoke profile generates, explains and loads without an error, and skips in `-short` mode.
@@ -202,7 +202,7 @@ The follow-up task "Bound aggregate API work and verify cancellation under load"
 
 ## After the query budget
 
-Measured on 2026-11-11 on the same machine with the branch `perf/query-budget`: `natslens-perf load -profile entities -scenarios mixed -duration 60s` on APFS clones of one generated `entities` store, each clone deleted after its run. The writer runs every 10 s with a 10 s limit, as in the baseline (production's default is 30 s), so the target is a write hold p95 within 2.5 s and no lost epoch. "Before" is the same binary with `-query-budget 0`, which leaves the API unbounded and the pool at two idle connections, as on `develop`. Another agent ran its own `natslens-perf` load on the machine during the first runs; the runs below waited until no other `natslens-perf` process ran and checked again halfway and at the end. The load average before each run is in the table; the machine was never below 8.6, and each setting ran one to three times, so treat differences under a factor of two as noise. With about six epochs a run, the p95 of a run is its slowest write.
+Measured on 2026-11-11 on the same machine with the branch `perf/query-budget`: `natslens-perf load -profile entities -scenarios mixed -duration 60s` on APFS clones of one generated `entities` store, each clone deleted after its run. The writer runs every 10 s with a 10 s limit, as in the baseline (production's default is 30 s), so the target is a write hold p95 within 2.5 s and no lost epoch. "Before" is the same binary with the budget off (these runs passed `-query-budget 0`, which then meant off; the flag now follows `query_budget`, so off is `-query-budget -1`), which leaves the API unbounded and the pool at two idle connections, as on `develop`. `load` takes `-query-budget` as `query_budget` does: `-1` off, `0` (the default) derived from the threads as natslens derives it, or a number of queries; and `-threads` and `-memory-limit` to match a deployment. Another agent ran its own `natslens-perf` load on the machine during the first runs; the runs below waited until no other `natslens-perf` process ran and checked again halfway and at the end. The load average before each run is in the table; the machine was never below 8.6, and each setting ran one to three times, so treat differences under a factor of two as noise. With about six epochs a run, the p95 of a run is its slowest write.
 
 | Setting | Runs | Load before | Epochs lost | Write p50 | Write p95 | API queries run | Most connections open | Overload answers |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
