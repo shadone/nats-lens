@@ -22,7 +22,7 @@ import {TimelineWindowEvidence} from "./TimelineEventEvidence";
 import {findingHistoryPath} from "../lib/findingHistory";
 import {evidenceRange,evidenceQuery} from "../lib/timelineEvidence";
 import { ZoomStrip } from "./ZoomStrip";
-import {TimelineClientLane,clientCountsText} from "./TimelineClientLane";
+import {TimelineClientLane,clientCountsText,clientNoteText} from "./TimelineClientLane";
 import {CLIENT_LANE_KINDS,cellTotal} from "../lib/clientLane";
 import {TimelineCaptureGap} from "./TimelineCaptureGap";
 
@@ -167,7 +167,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
     ...(subjectLanes ? [{
       id: "clients",
       name: "Clients",
-      note: (!tl.systemEventsCaptured ? stoppedAll ? "capture stopped" : "not captured" : cellTotal(clientSum) ? clientCountsText(clientSum) : "none in range") + (gaps.length && !stoppedAll ? ", capture gaps" : ""),
+      note: (!tl.systemEventsCaptured ? stoppedAll ? "capture stopped" : "not captured" : cellTotal(clientSum) ? clientNoteText(clientSum) : "none in range") + (gaps.length && !stoppedAll ? ", capture gaps" : ""),
       label: `Client connections: ${!tl.systemEventsCaptured ? notCaptured("system events").toLowerCase() : clientCountsText(clientSum)}${gapNote}`,
       marks: <>
         {!tl.systemEventsCaptured && <span className="sl-none">{notCaptured("System events")}</span>}

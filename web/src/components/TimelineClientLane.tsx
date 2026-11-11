@@ -26,6 +26,13 @@ export function clientCountsText(c: Counts): string {
   return parts.length ? parts.join(', ') : 'no client events';
 }
 
+/** The lane note, short enough for a phone: connects and drops, or the
+ * number of client events when neither happened. */
+export function clientNoteText(c: Counts): string {
+  if (!c.connects && !c.drops) return plural(cellTotal(c), 'client event');
+  return [plural(c.connects, 'connect'), c.drops && plural(c.drops, 'drop')].filter(Boolean).join(', ');
+}
+
 function CellPreview({c}: {c: ClientCell}) {
   return <>
     <strong>Client connection counts</strong>

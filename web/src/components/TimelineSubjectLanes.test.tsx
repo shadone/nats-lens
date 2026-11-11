@@ -108,7 +108,7 @@ it('counts closes and shutdown disconnects: a lane with only those is not "none 
  draw({...tl,clients:[{index:2,connects:0,closes:40,drops:0,shutdowns:25,authErrors:0,unknownDisconnects:0}]});
  expect(screen.getAllByRole('button',{name:/^Client connections 09:10/})).toHaveLength(1);
  const note=screen.getByRole('link',{name:'Clients'}).parentElement!.querySelector('small')!.textContent;
- expect(note).toBe('40 client closes, 25 server-shutdown disconnects');
+ expect(note).toBe('65 client events');
  expect(screen.getByRole('group',{name:'Client connections: 40 client closes, 25 server-shutdown disconnects'})).toBeInTheDocument();
 });
 
