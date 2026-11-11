@@ -175,3 +175,26 @@ func TestSetAcceptanceBaseline(t *testing.T) {
 }
 
 func ptrF(v float64) *float64 { return &v }
+
+// A write whose context already ended never takes the lock, even when it
+// is free.
+func TestLockContextRefusesAnEndedContext(t *testing.T) {
+	s := openMem(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	for range 50 {
+		if err := s.mu.LockContext(ctx, "test"); !errors.Is(err, context.Canceled) {
+			t.Fatalf("an ended context took the free lock: %v", err)
+		}
+	}
+}
+
+func TestUnlockOfAFreeLockPanics(t *testing.T) {
+	s := openMem(t)
+	defer func() {
+		if recover() == nil {
+			t.Fatal("Unlock of a free lock returned")
+		}
+	}()
+	s.mu.Unlock()
+}

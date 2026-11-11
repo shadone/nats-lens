@@ -103,6 +103,9 @@ func (l *writeLock) Lock(op string) {
 // LockContext takes the lock for op, or gives up when ctx ends first and
 // returns its error; a write that gave up leaves nothing waiting behind.
 func (l *writeLock) LockContext(ctx context.Context, op string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	sys := l.label()
 	waiting := timing.LockWaiters.With(sys)
 	start := time.Now()
@@ -129,7 +132,11 @@ func (l *writeLock) Unlock() {
 		l.unyield()
 		l.unyield = nil
 	}
-	<-l.token()
+	select {
+	case <-l.token():
+	default:
+		panic("store: Unlock of a write lock that is not held")
+	}
 	timing.LockHeld.With(l.label(), op).Observe(time.Since(since).Seconds())
 }
 

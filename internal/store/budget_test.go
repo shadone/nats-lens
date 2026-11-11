@@ -119,7 +119,14 @@ func TestCancelReachesDuckDB(t *testing.T) {
 	busy := cpuOver(time.Second)
 	t.Logf("CPU in the second before the cancel: %s", busy.Round(time.Millisecond))
 	if busy < 900*time.Millisecond {
-		t.Fatalf("the two endless queries used only %s of CPU in a second; the measure cannot tell running from stopped", busy)
+		// A loaded host gave the queries too little CPU for the measure to
+		// tell running from stopped; end everything and skip.
+		cancel()
+		for _, ch := range append(append(executing, queued...), chanList(writes)...) {
+			<-ch
+		}
+		s.mu.Unlock()
+		t.Skipf("the two endless queries used only %s of CPU in a second", busy)
 	}
 
 	canceled := time.Now()

@@ -23,6 +23,8 @@ type budgeted struct {
 	*fake.Provider
 	gate *admit.Gate
 	want int
+	// wait is how long a call waits for want of them to meet.
+	wait time.Duration
 
 	mu      sync.Mutex
 	running int
@@ -43,7 +45,7 @@ func (b *budgeted) GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesReque
 	b.mu.Unlock()
 	select {
 	case <-b.met:
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(b.wait):
 	}
 	defer func() { b.mu.Lock(); b.running--; b.mu.Unlock() }()
 	return b.Provider.GetTimeSeries(ctx, req)
@@ -61,7 +63,9 @@ func batchOf(n int) []*v1.SeriesQuery {
 // one at a time while it is busy, so that it never adds three queries to
 // a store whose callers already wait.
 func TestBatchParallelismFollowsTheBudget(t *testing.T) {
-	idle := &budgeted{Provider: fake.New(false), gate: admit.New(8, nil), want: 4, met: make(chan struct{})}
+	// Four calls of an idle batch meet however slow the host; the wait
+	// only bounds a broken batch.
+	idle := &budgeted{Provider: fake.New(false), gate: admit.New(8, nil), want: 4, wait: 20 * time.Second, met: make(chan struct{})}
 	_, c := apitest.Serve(t, idle)
 	if _, err := c.GetTimeSeriesBatch(context.Background(), connect.NewRequest(&v1.GetTimeSeriesBatchRequest{Queries: batchOf(12)})); err != nil {
 		t.Fatal(err)
@@ -70,7 +74,9 @@ func TestBatchParallelismFollowsTheBudget(t *testing.T) {
 		t.Fatalf("on an idle store the batch read %d series at once, want 4", idle.most)
 	}
 
-	busy := &budgeted{Provider: fake.New(false), gate: admit.New(1, nil), want: 2, met: make(chan struct{})}
+	// Two calls of a busy batch never meet; each waits briefly so that a
+	// batch that wrongly read in parallel would overlap them.
+	busy := &budgeted{Provider: fake.New(false), gate: admit.New(1, nil), want: 2, wait: 200 * time.Millisecond, met: make(chan struct{})}
 	hold, err := busy.gate.Enter(context.Background(), admit.Request{Source: timing.SourceAPI})
 	if err != nil {
 		t.Fatal(err)
