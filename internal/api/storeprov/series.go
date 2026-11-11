@@ -10,6 +10,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/store"
 )
 
 // metricSQL is a query that returns one value per epoch: columns t (the
@@ -386,7 +387,7 @@ func (p *Provider) GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesReque
 	if !ok {
 		return nil, fmt.Errorf("%w: observation read transaction unavailable", api.ErrFailedPrecondition)
 	}
-	tx, err := beginner.BeginTx(ctx, nil)
+	tx, err := beginner.BeginTx(store.ReadTx(ctx), nil)
 	if err != nil {
 		return nil, err
 	}

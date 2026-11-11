@@ -144,8 +144,25 @@ type guardedConn struct {
 	g *engineGuard
 	// inTx is set while the connection runs a transaction, whose
 	// statements never wait for the query budget: a write holds the
-	// store's write lock around its transaction.
+	// store's write lock around its transaction, and a read transaction
+	// (ReadTx) took its slot when it began.
 	inTx atomic.Bool
+}
+
+type readTxKey struct{}
+
+// ReadTx marks ctx for a transaction that only reads, so that a read of
+// the API or /metrics takes a slot of the query budget when it begins and
+// holds it until it ends. A write's transaction must not carry it: it
+// holds the store's write lock and must not wait for the readers.
+// duckdb-go refuses sql.TxOptions{ReadOnly: true}, hence the context.
+func ReadTx(ctx context.Context) context.Context {
+	return context.WithValue(ctx, readTxKey{}, true)
+}
+
+func isReadTx(ctx context.Context) bool {
+	b, _ := ctx.Value(readTxKey{}).(bool)
+	return b
 }
 
 // enter takes a slot of the query budget for a query of the API or of
@@ -218,12 +235,20 @@ func (c *guardedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (drive
 	}
 	ctx, done := c.g.callContext(ctx)
 	defer done()
+	release := func() {}
+	if isReadTx(ctx) {
+		var err error
+		if release, err = c.g.enter(ctx, false); err != nil {
+			return nil, err
+		}
+	}
 	tx, err := c.Conn.(driver.ConnBeginTx).BeginTx(ctx, opts)
 	if err != nil {
+		release()
 		return nil, c.g.observe("begin", err)
 	}
 	c.inTx.Store(true)
-	return &guardedTx{Tx: tx, g: c.g, conn: c}, nil
+	return &guardedTx{Tx: tx, g: c.g, conn: c, release: release}, nil
 }
 func (c *guardedConn) Close() error { return c.g.observe("close connection", c.Conn.Close()) }
 
@@ -231,9 +256,12 @@ type guardedTx struct {
 	driver.Tx
 	g    *engineGuard
 	conn *guardedConn
+	// release gives back the read transaction's slot of the query budget.
+	release func()
 }
 
 func (t *guardedTx) Commit() error {
+	defer t.release()
 	defer t.conn.inTx.Store(false)
 	if err := t.g.err(); err != nil {
 		return err
@@ -241,6 +269,7 @@ func (t *guardedTx) Commit() error {
 	return t.g.observe("commit", t.Tx.Commit())
 }
 func (t *guardedTx) Rollback() error {
+	defer t.release()
 	defer t.conn.inTx.Store(false)
 	if err := t.g.err(); err != nil {
 		return err

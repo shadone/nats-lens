@@ -338,3 +338,36 @@ func TestEpochWriteYieldsTheBudget(t *testing.T) {
 	}
 	one()
 }
+
+// A read transaction of the API takes one slot when it begins and gives it
+// back when it ends, by commit or rollback; its statements take none.
+func TestReadTransactionHoldsOneSlot(t *testing.T) {
+	s := budgetStore(t, "test-budget-readtx", 1)
+	for _, end := range []string{"commit", "rollback"} {
+		tx, err := s.DB().BeginTx(ReadTx(apiCtx(context.Background())), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if a, _ := load(s); a != 1 {
+			t.Fatalf("%s: %d slots taken by an open read transaction", end, a)
+		}
+		var n int
+		if err := tx.QueryRowContext(context.Background(), `SELECT 1`).Scan(&n); err != nil {
+			t.Fatalf("%s: a statement in the read transaction: %v", end, err)
+		}
+		queued := runQuery(apiCtx(context.Background()), s, `SELECT 1`)
+		waitUntilTrue(t, "a query outside waits", func() bool { _, q := load(s); return q == 1 })
+		if end == "commit" {
+			err = tx.Commit()
+		} else {
+			err = tx.Rollback()
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := <-queued; err != nil {
+			t.Fatal(err)
+		}
+		waitUntilTrue(t, "budget empty", func() bool { a, q := load(s); return a == 0 && q == 0 })
+	}
+}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/store"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -78,7 +79,7 @@ func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRe
 		}
 		pinA, pinB = token.A, token.B
 	}
-	tx, err := p.St.DB().BeginTx(ctx, nil)
+	tx, err := p.St.DB().BeginTx(store.ReadTx(ctx), nil)
 	if err != nil {
 		return nil, err
 	}

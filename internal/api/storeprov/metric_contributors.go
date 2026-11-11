@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/store"
 	"google.golang.org/protobuf/proto"
 	"strings"
 )
@@ -22,7 +23,7 @@ func (p *Provider) ListMetricContributors(ctx context.Context, in *v1.ListMetric
 		if !ok {
 			return nil, fmt.Errorf("%w: metric capture transaction unavailable", api.ErrFailedPrecondition)
 		}
-		tx, err := beginner.BeginTx(ctx, nil)
+		tx, err := beginner.BeginTx(store.ReadTx(ctx), nil)
 		if err != nil {
 			return nil, err
 		}

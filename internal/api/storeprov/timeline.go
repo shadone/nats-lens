@@ -12,6 +12,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/store"
 )
 
 // timelineHits are the SQL common table expressions shared by the
@@ -132,7 +133,7 @@ func (p *Provider) GetStatusTimeline(ctx context.Context, req *v1.GetStatusTimel
 	if !ok {
 		return nil, fmt.Errorf("%w: Timeline read transaction unavailable", api.ErrFailedPrecondition)
 	}
-	tx, err := beginner.BeginTx(ctx, nil)
+	tx, err := beginner.BeginTx(store.ReadTx(ctx), nil)
 	if err != nil {
 		return nil, err
 	}
