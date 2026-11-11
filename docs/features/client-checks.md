@@ -104,13 +104,13 @@ The client checks judge the applications connected to NATS: whether their round 
 
 ### `client-009` Duplicate subscription
 
-- **Problem:** a connection holds the same subscription, one subject and one queue group, more than once. Without a queue group the client receives every message on the subject once per subscription. In a queue group the server counts each subscription as a member, so the connection takes a larger share of the group's messages than its peers. It is usually a handler registered twice, for example in a reconnect handler or a loop.
-- **Fires when:** in the newest subscription collection within the lookback, a connection of the application has a subscription row whose folded count (`subscriptions.subs`) is above 1. The detail names the collection's time, then each subject with its queue group, how often it is held and on how many connections (five, then how many more), and the servers, for example "2 connections hold a subscription more than once in the subscription lists of 14:25:00 UTC: search.query in queue group search-api 2 times on 2 connections (nats-0, nats-1)."
+- **Problem:** a connection holds a plain subscription, one without a queue group, on the same subject more than once, so the client receives every message on the subject once per subscription. It is usually a handler registered twice, for example in a reconnect handler or a loop.
+- **Fires when:** in each server's newest subscription list within the lookback, a connection of the application has a subscription row without a queue group whose folded count (`subscriptions.subs`) is above 1. A server that missed the newest collection is read from its list before, so its duplicates do not resolve and fire again. The detail names the newest of the lists read, then each subject, how often it is held and on how many connections (five, then how many more), and the servers, for example "2 connections hold a subscription more than once in the subscription lists of 14:25:00 UTC: catalog.cache.invalidate 2 times on 2 connections (nats-0, nats-1)."
 - **Severity:** warning. Proposed, not yet confirmed.
 - **Thresholds:** lookback 30m. The subscription lists come every `subscriptions_interval` (5 minutes by default), so the check reads the newest one within the lookback in each collection between them. Proposed, not yet confirmed.
-- **Resolves:** at the first subscription collection without such a subscription, or when no subscription collection lies within the lookback (`subscriptions_interval` longer than 30 minutes, or set to 0).
+- **Resolves:** once each server's newest list within the lookback has no such subscription, or no list lies within the lookback (`subscriptions_interval` longer than 30 minutes, or set to 0).
 - **Keyed by:** the application, the connection name before the first "@", as the Applications page groups it; a client without a name is `(unnamed)`.
-- **Left out:** subscriptions on `_INBOX.` subjects, as a request library may hold several reply subscriptions on one inbox pattern; the servers' own subscriptions, as on the Subjects page: a subscription counts only when its connection is in its server's connection list of the same collection; and tooling connections, unless `checks.include_tooling` is set.
+- **Left out:** subscriptions in a queue group, as several queue subscriptions on one connection are the usual way to handle a subject's messages concurrently in nats.go, the Java and the .NET clients (proposed, not yet confirmed); subscriptions on `_INBOX.` subjects, as a request library may hold several reply subscriptions on one inbox pattern; `$SRV.` subjects, as each micro service on a shared connection subscribes to `$SRV.PING`, `$SRV.INFO` and `$SRV.STATS`; the servers' own subscriptions, as on the Subjects page: a subscription counts only when its connection is in its server's connection list of the same collection; and tooling connections, unless `checks.include_tooling` is set.
 - **Cut lists.** A server lists at most `subsz_limit` subscriptions; a duplicate beyond the cut is not seen.
 
 ## Behavior and rules
@@ -213,10 +213,16 @@ The client checks judge the applications connected to NATS: whether their round 
 
 ### A service subscribes twice
 
-- **Given** `search-api`, whose pods subscribe to `search.query` in the queue group `search-api` twice each, after a release that registers the handler again on reconnect
+- **Given** `search-api`, whose pods subscribe to `catalog.cache.invalidate` twice each, after a release that registers the handler again on reconnect
 - **When** nats-lens collects the subscription lists
-- **Then** `client-009` fires at warning for `search-api`, naming `search.query in queue group search-api 2 times` with the number of connections and the servers
-- **And** the Subjects page's row `search.query` shows twice the delivered rate per connection that a single subscription would take
+- **Then** `client-009` fires at warning for `search-api`, naming `catalog.cache.invalidate 2 times` with the number of connections and the servers
+- **And** the Subjects page's row `catalog.cache.invalidate` shows twice the delivered rate per connection that a single subscription would take
+
+### A worker takes a subject's messages concurrently
+
+- **Given** `order-service`, whose connection subscribes to `orders.place` four times in its queue group `order-service`, one subscription per worker
+- **When** nats-lens collects the subscription lists
+- **Then** `client-009` does not fire
 
 ## Planned
 
