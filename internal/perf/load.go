@@ -166,6 +166,7 @@ func applySettings(ctx context.Context, st *store.Store, o LoadOptions) error {
 	}
 	budget := o.QueryBudget
 	if budget < 0 {
+		// natslens's default: derived from the threads.
 		var threads int
 		if err := st.DB().QueryRowContext(ctx, `SELECT current_setting('threads')::INTEGER`).Scan(&threads); err != nil {
 			return fmt.Errorf("read threads: %w", err)

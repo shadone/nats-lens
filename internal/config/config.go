@@ -76,7 +76,7 @@ type Config struct {
 	DuckDBMemory ByteSize `yaml:"duckdb_memory_limit"`
 	// QueryBudget is how many queries of the API and /metrics may run at
 	// once on each system's database; zero derives it from the database's
-	// threads (QueryBudgetFor).
+	// threads (QueryBudgetFor), -1 turns the budget off.
 	QueryBudget int `yaml:"query_budget"`
 	// Events configures event capture.
 	Events Events `yaml:"events"`
@@ -266,8 +266,8 @@ func (c Config) Validate() error {
 	if c.MetricsTimeout.D() <= 0 {
 		errs = append(errs, errors.New("metrics_timeout must be positive"))
 	}
-	if c.QueryBudget < 0 {
-		errs = append(errs, errors.New("query_budget must not be negative; 0 derives it from the threads"))
+	if c.QueryBudget < -1 {
+		errs = append(errs, errors.New("query_budget must be -1 (off), 0 (derived from the threads) or a number of queries"))
 	}
 	if c.ServerForgetAfter.D() <= 0 {
 		errs = append(errs, errors.New("server_forget_after must be positive"))

@@ -16,7 +16,11 @@ func TestQueryBudget(t *testing.T) {
 	if cfg, err = Parse("natslens", []string{"-config", writeFile(t, "query_budget: 6\n")}); err != nil || cfg.QueryBudgetFor(12) != 6 {
 		t.Fatalf("file: %d %v", cfg.QueryBudget, err)
 	}
-	if _, err := Parse("natslens", []string{"-config", writeFile(t, "query_budget: -1\n")}); err == nil {
-		t.Fatal("a negative query_budget must be rejected")
+	cfg, err = Parse("natslens", []string{"-config", writeFile(t, "query_budget: -1\n")})
+	if err != nil || cfg.QueryBudgetFor(12) != 0 {
+		t.Fatalf("query_budget -1 turns the budget off: %d %v", cfg.QueryBudgetFor(12), err)
+	}
+	if _, err := Parse("natslens", []string{"-config", writeFile(t, "query_budget: -2\n")}); err == nil {
+		t.Fatal("query_budget below -1 must be rejected")
 	}
 }

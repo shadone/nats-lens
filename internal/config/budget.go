@@ -8,11 +8,14 @@ package config
 const ThreadsPerQuery = 3
 
 // QueryBudgetFor returns the query budget of a database with threads
-// threads: query_budget when set, otherwise one query per ThreadsPerQuery
-// threads, at least one.
+// threads: query_budget when set, 0 when it is -1 (no budget), otherwise
+// one query per ThreadsPerQuery threads, at least one.
 func (c Config) QueryBudgetFor(threads int) int {
-	if c.QueryBudget > 0 {
+	switch {
+	case c.QueryBudget > 0:
 		return c.QueryBudget
+	case c.QueryBudget < 0:
+		return 0
 	}
 	return max(1, threads/ThreadsPerQuery)
 }
