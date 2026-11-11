@@ -4,7 +4,9 @@ import {timelineCaptureLimits} from "./TimelineCaptureNotice";
 // leader elections, the worst finding state of any check, client
 // connection counts, and the other NATS events. "Each check" opens the
 // full status timeline, one row per check, in the same card.
-import { useRef, useState, type CSSProperties } from "react";
+import { useId, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useChartIntervalInteraction } from "../charts/ChartIntervals";
+import { useSharedCursor } from "../charts/sharedCursor";
 import type { CaptureGap, LaneEvent, Range, Timeline } from "../api/model";
 import { hm } from "../lib/format";
 import { findingRuns } from "../lib/storyLanes";
@@ -86,6 +88,27 @@ function StoryLaneContents({ tl, end, live }: Props) {
   const axis = useRef<HTMLDivElement>(null);
   const axisW = useWidth(axis);
   const frac = (t: number) => (t - tl.start) / span;
+  const grid = useRef<HTMLDivElement>(null);
+  // The Overview's shared moment: one line over every lane, by a CSS
+  // variable on the grid, also at the moment the pointer marks here.
+  const laneId = useId();
+  const shared = useSharedCursor(laneId, tl.start, tl.start + span, (f) => {
+    const el = grid.current;
+    if (!el) return;
+    if (f === undefined) el.removeAttribute("data-cursor");
+    else {
+      el.style.setProperty("--cursor-x", `${(f * 100).toFixed(3)}%`);
+      el.setAttribute("data-cursor", "");
+    }
+  }, { own: true });
+  // Dragging across the lanes selects an interval, as on the charts.
+  const interval = useChartIntervalInteraction({ label: "Timeline", start: tl.start, end: tl.start + span, enabled: true });
+  const point = (e: PointerEvent<HTMLDivElement>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    if (!shared || box.width <= 0) return;
+    shared(e.pointerType === "touch" || interval?.active ? undefined : tl.start + Math.max(0, Math.min(1, (e.clientX - box.left) / box.width)) * span);
+  };
+  const selected = interval?.highlight;
  const fixed=tl.evidenceRange??evidenceRange(tl.start,tl.start+span);
   const lanePath=(path:string)=>{const [base,query]=path.split('?'),p=evidenceQuery(system,fixed);new URLSearchParams(query).forEach((v,k)=>p.set(k,v));if(base==='/events'&&tl.eventReadId!==undefined)p.set('eventReadId',tl.eventReadId);return `${base}?${p}`};
   const runs = findingRuns(tl.rows, tl.start, tl.bucketMs, tl.bucketCount);
@@ -202,7 +225,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
   const style = { "--buckets": tl.bucketCount } as CSSProperties;
   return (
     <div className="story" style={style}>
-      <div className="sl-grid">
+      <div className="sl-grid" ref={grid}>
         {lanes.map((l) => (
           <div className="sl-row" key={l.id}>
             <div className="sl-lab">
@@ -211,9 +234,12 @@ function StoryLaneContents({ tl, end, live }: Props) {
               </Link>
               <small>{l.note}</small>
             </div>
-            <div className="sl-track" role="group" aria-label={l.label}>
+            <div className="sl-track" role="group" aria-label={l.label}
+              onPointerMove={(e) => { interval?.move(e); point(e); }} onPointerDown={(e) => { interval?.down(e); point(e); }} onPointerLeave={() => shared?.(undefined)}
+              onPointerUp={(e) => interval?.up(e)} onPointerCancel={() => interval?.cancel()} onLostPointerCapture={() => interval?.cancel()} onClickCapture={(e) => interval?.click(e)} onDragStart={(e) => { if (interval) e.preventDefault(); }}>
               <span className="sl-base" />
               {l.marks}
+              {selected && <span aria-hidden="true" className="chart-selected-interval" style={{ left: pct(frac(selected.start)), width: pct(frac(selected.end) - frac(selected.start)) }} />}
             </div>
           </div>
         ))}
@@ -237,6 +263,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
               {asTable ? "Show chart" : "Show as table"}
             </button>
           )}
+          {interval && <button type="button" className="chip" onClick={interval.picker}>Select interval</button>}
           <button type="button" className="chip" aria-expanded={checks} onClick={() => setChecks((c) => !c)}>
             {checks ? "Hide each check" : "Each check"}
           </button>

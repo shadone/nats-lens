@@ -82,7 +82,10 @@
 .sl-lab{padding:var(--sp-2) var(--sp-3) var(--sp-2) 0;border-top:1px solid var(--border-soft);display:flex;flex-direction:column}
 .sl-name{font-weight:500;font-size:var(--fs-md);align-self:flex-start}
 .sl-lab small{color:var(--text-muted);font-size:var(--fs-sm)}
-.sl-track{position:relative;height:42px;border-top:1px solid var(--border-soft)}
+.sl-track{position:relative;height:42px;border-top:1px solid var(--border-soft);touch-action:pan-y}
+/* The Overview's shared moment, one line down every lane; it never takes the pointer. */
+.sl-grid[data-cursor] .sl-track::after{content:"";position:absolute;top:0;bottom:0;left:var(--cursor-x);width:1px;background:var(--text-muted);opacity:.7;pointer-events:none}
+.sl-track .chart-selected-interval{z-index:1}
 .sl-base{position:absolute;left:0;right:0;top:20px;height:2px;background:var(--track)}
 .sl-tick{position:absolute;top:12px;width:2px;height:18px;margin-left:-1px;border-radius:1px;background:var(--sev-info)}
 .sl-tick.k8s{background:var(--k8s)}

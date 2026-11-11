@@ -7,7 +7,8 @@ import { InvestigationButton, useInvestigationCopy } from "../components/Investi
 import type { InvestigationSelection } from "../lib/investigationContext";
 // One cursor pattern for compact and expanded charts. Values belong to
 // recorded buckets; the cursor never interpolates or carries a value across a gap.
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { placeLine, useSharedCursor } from "./sharedCursor";
 import { dayMonHm, hms } from "../lib/format";
 import { usePageHistory } from "../components/HistoryNote";
 import { isHatched } from "../api/history";
@@ -38,11 +39,16 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
   const [cursor, setCursor] = useState<number>();
   const id = useId();
   const presence=useReadoutHover(anchor,id,()=>setCursor(undefined));
+  const sharedLine = useRef<HTMLSpanElement>(null);
+  // Another chart, a lane or Escape taking the moment closes this readout.
+  const shared = useSharedCursor(id, start, end, f => placeLine(sharedLine, f), { onTaken: presence.dismiss });
   const history = usePageHistory();
   const step = inspectionStep(series, stepMs);
   const selected = cursor === undefined ? undefined : Math.min(end, Math.max(start, cursor));
   if (selected !== undefined) lastSelection.current = selected;
   const copy = useInvestigationCopy(selection());
+  const owned = interval?.active ? undefined : selected;
+  useEffect(() => { shared?.(owned); }, [shared, owned]);
   const origin = stepMs ? 0 : (series.flatMap(s => s.points.map(p => p.time)).sort((a,b) => a-b)[0] ?? start);
   const bucket = selected === undefined ? undefined : Math.floor((selected - origin) / step) * step + origin;
   const gaps = history?.gaps?.filter(g => isHatched(g) && selected !== undefined && selected >= (g.start ?? start) && selected < (g.end ?? history.end)) ?? [];
@@ -72,6 +78,7 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
       if (next !== undefined) { e.preventDefault(); setCursor(Math.min(end, Math.max(start, next))); }
     }}>
     {children}
+    {shared && <span ref={sharedLine} className="chart-cursor chart-shared-cursor" aria-hidden="true" />}
     {interval?.highlight&&<span role="img" aria-label={`Selected chart interval ${new Date(interval.highlight.start).toISOString()} to ${new Date(interval.highlight.end).toISOString()}`} className="chart-selected-interval" style={{left:`${Math.max(0,Math.min(100,(interval.highlight.start-start)/(end-start)*100))}%`,width:`${Math.max(0,Math.min(end,interval.highlight.end)-Math.max(start,interval.highlight.start))/(end-start)*100}%`}}/>}
     {selected !== undefined && !interval?.active && <>
       <span className="chart-cursor" aria-hidden="true" style={{ left: `${(selected - start) / (end - start || 1) * 100}%` }} />

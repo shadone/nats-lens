@@ -15,6 +15,7 @@ import { WindowReplayEntries } from "../components/ReplayEntry";
 import { StoryLanes } from "../components/StoryLanes";
 import { StreamPlacementCard } from "../components/StreamPlacementCard";
 import { OverviewTiles } from "../components/OverviewTiles";
+import { SharedCursorProvider } from "../charts/sharedCursor";
 import { Trends } from "../components/Trends";
 import { acceptTarget } from "../lib/acceptRelated";
 import { evidenceEntities } from "../lib/causeEvidence";
@@ -136,6 +137,7 @@ export function Overview() {
   return (
     <>
       <StaleBanner q={q} />
+      <SharedCursorProvider start={start} end={end}>
       <div className="ov-phone-order">
       <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={serverNow()} />
       <section className="sec ov-health" aria-label="Health">
@@ -157,6 +159,7 @@ export function Overview() {
       <Lower start={start} end={end} />
       </div>
       </div>
+      </SharedCursorProvider>
       <MuteDialog finding={muting} onClose={() => setMuting(undefined)} />
     </>
   );

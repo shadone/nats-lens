@@ -76,3 +76,7 @@
 .chart-inspection-wrap:hover>.chart-interval-trigger,.chart-inspection-wrap:focus-within>.chart-interval-trigger,.chart-interval-trigger:focus-visible{opacity:1;pointer-events:auto}
 .chart-interval-actions{flex-wrap:wrap}
 @media(hover:none){.chart-interval-trigger{opacity:1;pointer-events:auto}}
+
+/* The moment another Overview chart or the timeline inspects: a line without a value. */
+.chart-shared-cursor{display:none;opacity:.7}
+.chart-shared-cursor[data-on]{display:block}
