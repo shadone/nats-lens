@@ -100,6 +100,8 @@
 .sl-density{position:absolute;bottom:var(--sp-1);height:calc((100% - var(--sp-2)) * var(--h,1));min-width:2px;border-radius:var(--r-xs) var(--r-xs) 0 0;background:var(--track-fill)}
 .sl-density-drop{position:absolute;left:0;right:0;bottom:0;background:var(--cell-warning)}
 .sl-gap{position:absolute;top:0;bottom:0;min-width:var(--sp-1);background:repeating-linear-gradient(135deg,transparent 0 4px,var(--text-faint) 4px 5px);opacity:.6;border-inline:1px dashed var(--text-muted)}
+/* A hatched span is a mark button, whose reset (button.timeline-mark{border:0}) would drop its dashed edges. Border-box keeps the edges inside the 4px minimum and the right-edge clamp. */
+button.timeline-mark.sl-gap{box-sizing:border-box;border-inline:1px dashed var(--text-muted)}
 .sl-none{position:absolute;inset:0;display:flex;align-items:center;padding-left:var(--sp-2);font-size:var(--fs-xs);color:var(--text-muted);background:repeating-linear-gradient(135deg,transparent 0 6px,var(--surface-sunk) 6px 12px)}
 .sl-win{position:absolute;top:4px;bottom:4px;background:var(--upgrade-fill);border-left:1px dashed var(--upgrade-line);border-right:1px dashed var(--upgrade-line)}
 .sl-run{position:absolute;top:11px;height:20px;min-width:2px;border-radius:var(--r-xs)}
