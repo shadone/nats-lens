@@ -77,6 +77,8 @@ The demo site, https://shadone.github.io/nats-lens/, is the web UI with the API 
 | make test             | Runs all Go tests, including local NATS clusters and scale cases.                      |
 | make verify-fast      | Runs shared static checks, curated pure Go tests and complete web tests; [scope and prerequisites](operations/verification.md). |
 | make verify-full      | Runs static checks, full Go/web tests and selected non-UTC races sequentially. |
+| make verify-release   | Runs `verify-full`, then the [upgrade and recovery compatibility matrix](operations/upgrade-compatibility.md); run before tagging. |
+| make verify-compat    | Runs the compatibility matrix alone.                                                |
 | make test-fast        | Runs the curated pure Go policy/decoding tier, uncached.                           |
 | make test-short       | Runs mixed Go integration tests without local NATS or scale cases.                                            |
 | make lint             | Runs `go vet` and checks `gofmt`.                                                   |

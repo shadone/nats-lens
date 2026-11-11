@@ -10,7 +10,7 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 
 ## Behavior and rules
 
-- **Repository verification.** Contributors can select fast or full verification and receive the first failing check with saved logs. Checks preserve local generated-source edits. The fast profile excludes heavy Go integration; the full profile includes it. See the [verification workflow and limits](../operations/verification.md).
+- **Repository verification.** Contributors can select fast or full verification and receive the first failing check with saved logs. Checks preserve local generated-source edits. The fast profile excludes heavy Go integration; the full profile includes it. The release profile adds the [upgrade and recovery compatibility matrix](../operations/upgrade-compatibility.md), which upgrades and rebuilds every earlier schema version. See the [verification workflow and limits](../operations/verification.md).
 
 - **Build artifacts.** `make build` verifies frontend inputs and output bytes, rebuilding assets only when necessary, then embeds them while holding the asset lock. `make build-full` forces generation. `make build-go` skips freshness checks and embeds existing assets, or the placeholder when assets are absent. Dependency/configuration/generated changes and missing outputs invalidate reuse. See [build guarantees and container-validation limits](../operations/build-reuse.md).
 

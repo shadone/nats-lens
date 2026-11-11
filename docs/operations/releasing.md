@@ -4,8 +4,10 @@ Pushing a tag `vMAJOR.MINOR.PATCH` (or `vMAJOR.MINOR.PATCH-PRERELEASE`) runs `.g
 
 ## Before you tag
 
-1. On `develop`, run `make verify-full` and `make vuln`.
+1. On `develop`, run `make verify-release` and `make vuln`. `verify-release` is the full profile followed by the [upgrade and recovery compatibility matrix](upgrade-compatibility.md): every earlier schema version upgraded and rebuilt from its archive by the binary you are about to tag. When the release adds a migration or changes the DuckDB driver, update the versions and the results table in that page.
 2. Check that the Release workflow run for the commit you tag, `develop`'s HEAD, passed. Every push to `develop` runs every build step and publishes nothing, as does a pull request that changes the workflow, `Dockerfile`, `.dockerignore`, `Makefile`, `go.mod`, `go.sum` or `scripts/release-archive.sh`. Without such a run, start one with **Actions > Release > Run workflow** on `develop`.
+
+The compatibility matrix is a manual step here, not a job in the release workflow. That workflow builds and publishes from the tag and runs no tests; the Go tests run in CI on every push to `develop`, which already includes the matrix's seed versions. The whole matrix needs a quiet machine for its DuckDB fixtures, and a failure has to stop the tag before it is pushed, not after the image job. This choice is proposed, not yet confirmed.
 
 ## Tag
 

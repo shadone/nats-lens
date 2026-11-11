@@ -165,7 +165,7 @@ Unique indexes cover `epoch_endpoints`, `server_stats`, `health`, `account_detai
 
 Migrations 0029 and 0030 correct the comments of some of these columns instead of editing 0027 and 0028. Migration 0028 adds nullable columns to two archived tables: `server_stats` the listener certificates' expiry (`tls_cert_not_after`, `cluster_tls_cert_not_after`, `gateway_tls_cert_not_after`, `leafnode_tls_cert_not_after`, `websocket_tls_cert_not_after`, `mqtt_tls_cert_not_after`), and `connections` `user_jwt` and `jwt_expires`. Rows written before it, and rows rebuilt from hours archived before it, have NULL there. Neither table, nor `account_details`, holds a JWT.
 
-Migrations are numbered SQL files, applied once each. Never edit an applied migration; add a new one. The `migrations` table stores each file's SHA-256 and start fails on a mismatch.
+Migrations are numbered SQL files, applied once each. Never edit an applied migration; add a new one. The `migrations` table stores each file's SHA-256 and start fails on a mismatch. A database that records a migration newer than the binary's newest, written by a later release, is refused at start, and so is one with an edited migration; both checks only read, so the refusal leaves the file as it was. There is no automatic downgrade: going back to an older release needs the backup taken before the upgrade ([upgrade and recovery compatibility](operations/upgrade-compatibility.md)). This downgrade rule is proposed, not yet confirmed.
 
 Retention is 14 days in DuckDB by default (`retention`), for epochs and events.
 
