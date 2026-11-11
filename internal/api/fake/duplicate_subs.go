@@ -26,11 +26,17 @@ func (s scen) newestLists() ([]api.SubscriptionFact, map[string]api.ServerConnec
 	var out []api.SubscriptionFact
 	conns := map[string]api.ServerConnections{}
 	seen := map[string]time.Time{}
+	// A collection's subscriptions are built only when a server not yet
+	// read answered it.
 	for at := c; !at.Before(s.lastEpoch().Add(-dupLookback)) && !at.Before(s.dataStart()); at = at.Add(-subsInterval) {
-		subs, cs := s.subscriptionsAt(at)
+		var subs []api.SubscriptionFact
+		var cs map[string]api.ServerConnections
 		for _, l := range s.subszServers(at) {
 			if _, ok := seen[l.Name]; !l.Answered || ok {
 				continue
+			}
+			if cs == nil {
+				subs, cs = s.subscriptionsAt(at)
 			}
 			seen[l.Name] = at
 			conns[l.Name] = cs[l.Name]

@@ -317,13 +317,24 @@ func (s scen) serverLists(c time.Time) map[string]api.ServerList {
 // stored history counts.
 func (s scen) ratedSubscriptions(c time.Time) ([]api.SubscriptionFact, map[string]api.ServerConnections) {
 	subs, conns := s.subscriptionsAt(c)
+	current := s.serverLists(c)
 	var before []api.SubscriptionFact
 	lists := map[string]api.ServerList{}
+	// An earlier collection's subscriptions are built only when a server
+	// answering at c and not yet read answered it.
 	for at := c.Add(-subsInterval); !at.Before(c.Add(-api.RateGap(subsInterval))) && !at.Before(s.dataStart()); at = at.Add(-subsInterval) {
-		all, _ := s.subscriptionsAt(at)
+		var all []api.SubscriptionFact
+		built := false
 		for name, l := range s.serverLists(at) {
 			if _, ok := lists[name]; ok {
 				continue
+			}
+			if _, ok := current[name]; !ok {
+				continue
+			}
+			if !built {
+				all, _ = s.subscriptionsAt(at)
+				built = true
 			}
 			lists[name] = l
 			for _, x := range all {
@@ -333,7 +344,7 @@ func (s scen) ratedSubscriptions(c time.Time) ([]api.SubscriptionFact, map[strin
 			}
 		}
 	}
-	return api.DeliveredRates(subs, before, s.serverLists(c), lists, api.RateGap(subsInterval)), conns
+	return api.DeliveredRates(subs, before, current, lists, api.RateGap(subsInterval)), conns
 }
 
 // systemAccount is the scenario's system account; empty when it lists
