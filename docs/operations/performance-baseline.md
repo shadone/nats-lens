@@ -231,6 +231,8 @@ Measured on 2026-11-11 on the same machine with the branch `perf/query-budget`: 
 
 **Settings, proposed, not yet confirmed.** The default stays one slot per three threads (4 on 12) with the yield to one slot during the epoch write: the smaller budgets lost as many epochs and ran fewer API queries. The pool keeps the budget plus 8 connections idle and has no `SetMaxOpenConns`, because the epoch write shares the pool and would queue behind API reads for a connection. `threads` stays at the per-system share: fewer threads did not keep epochs.
 
+**Measure again.** The yield's limit of one slot during the epoch write (`admit.YieldLimit`) is the first setting to measure again, once the per-epoch asset counts replace the Overview's heaviest reads and the duplicate-key error in the servers upsert is fixed. With those two causes gone, the runs above cannot say whether one slot, more, or none keeps the write within its quarter of the interval.
+
 ## Instrumentation
 
 The `/metrics` families these numbers come from are listed in [Metrics](../metrics.md). Recording costs about 40 ns and one allocation per observation, and about 111 ns and one allocation per query on the query path (`go test -bench . ./internal/timing`), against queries of a millisecond and more. `natslens` serves no profiling endpoint; `natslens-perf explain` sets a query hook, off by default, that the `natslens` command never sets.
