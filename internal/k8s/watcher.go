@@ -182,7 +182,7 @@ func (w *Watcher) apply(u update) {
 					nodes = append(nodes, n)
 				}
 			}
-			t.nodesListed(nodes, u.initial)
+			t.nodesListed(nodes, u.initial, u.truncated)
 		case "events":
 			for _, o := range u.listed {
 				if e, ok := o.(*eventsv1.Event); ok {

@@ -13,7 +13,7 @@ import (
 func TestReviewCordonAfterTermination(t *testing.T) {
 	tr, s, c := newTestTracker()
 	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true, false)
-	tr.nodesListed([]*corev1.Node{node("n0", "pool-1", "v1")}, true)
+	tr.nodesListed([]*corev1.Node{node("n0", "pool-1", "v1")}, true, false)
 	del := natsPod("nats-0", "n0", true)
 	ts := metav1.NewTime(c.now().Add(time.Minute))
 	del.DeletionTimestamp = &ts
@@ -30,7 +30,7 @@ func TestReviewCordonAfterTermination(t *testing.T) {
 func TestReviewAutoscalerRemovalIsDrained(t *testing.T) {
 	tr, s, c := newTestTracker()
 	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true, false)
-	tr.nodesListed([]*corev1.Node{node("n0", "pool-1", "v1")}, true)
+	tr.nodesListed([]*corev1.Node{node("n0", "pool-1", "v1")}, true, false)
 	n := node("n0", "pool-1", "v1")
 	n.Spec.Taints = []corev1.Taint{{Key: autoscalerTaint}}
 	tr.nodeChanged(n)

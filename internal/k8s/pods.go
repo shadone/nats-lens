@@ -64,7 +64,7 @@ func (t *tracker) podsListed(ns string, pods []*corev1.Pod, initial, truncated b
 		}
 	}
 	if initial {
-		t.podsAtStart(ns, pods)
+		t.podsAtStart(ns, pods, truncated)
 	}
 }
 

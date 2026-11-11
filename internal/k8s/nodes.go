@@ -104,8 +104,9 @@ func (t *tracker) relevant(n *nodeState) bool {
 }
 
 // nodesListed takes a (re)list of the nodes; like podsListed, the first
-// list only sets the state.
-func (t *tracker) nodesListed(nodes []*corev1.Node, initial bool) {
+// list only sets the state, and a truncated list deletes no node it left
+// out.
+func (t *tracker) nodesListed(nodes []*corev1.Node, initial, truncated bool) {
 	present := map[string]bool{}
 	for _, n := range nodes {
 		present[n.Name] = true
@@ -116,12 +117,12 @@ func (t *tracker) nodesListed(nodes []*corev1.Node, initial bool) {
 		t.nodeChanged(n)
 	}
 	for name, s := range t.nodes {
-		if s.known && !present[name] {
+		if !truncated && s.known && !present[name] {
 			t.nodeGone(s)
 		}
 	}
 	if initial {
-		t.nodesAtStart(nodes)
+		t.nodesAtStart(nodes, truncated)
 	}
 }
 

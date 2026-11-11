@@ -76,6 +76,15 @@ type ClientPodOptions struct {
 	FlushEvery, TouchEvery time.Duration
 }
 
+// How often the client pod watch writes its changes, and refreshes the
+// last sighting of the live pods of its healthy namespaces. A reader
+// trusts a live row only that long after its last sighting
+// (api.ClientPodFresh).
+const (
+	DefaultClientPodFlushEvery = 15 * time.Second
+	DefaultClientPodTouchEvery = 5 * time.Minute
+)
+
 // maxClientPods bounds the pods kept in memory and listed per watch;
 // pods beyond it are not matched, which is logged and recorded once as
 // KindClientPodsCapped.
@@ -117,10 +126,10 @@ func NewClientPodWatcher(o ClientPodOptions) *ClientPodWatcher {
 		o.GapAfter = 30 * time.Second
 	}
 	if o.FlushEvery <= 0 {
-		o.FlushEvery = 15 * time.Second
+		o.FlushEvery = DefaultClientPodFlushEvery
 	}
 	if o.TouchEvery <= 0 {
-		o.TouchEvery = 5 * time.Minute
+		o.TouchEvery = DefaultClientPodTouchEvery
 	}
 	return &ClientPodWatcher{o: o, sleep: sleepCtx, live: map[string]*ClientPod{}, dirty: map[string]bool{},
 		pending: ClientPodBatch{Ended: map[string]time.Time{}}}
@@ -136,9 +145,7 @@ func (w *ClientPodWatcher) Run(ctx context.Context) error {
 	}
 	w.healthy = map[string]*atomic.Bool{}
 	for _, ns := range namespaces {
-		w.healthy[ns] = &atomic.Bool{}
-		l := &loop{src: w.source(ns), out: updates, record: w.o.Record, gapAfter: w.o.GapAfter, now: w.o.Now,
-			log: w.o.Log, sleep: w.sleep, warnEvery: clientPodWarnEvery, maxPages: maxClientPods / listPage, healthy: w.healthy[ns]}
+		l := w.loopFor(ns, updates)
 		wg.Go(func() { l.run(ctx) })
 	}
 	flush := time.NewTicker(w.o.FlushEvery)
@@ -162,6 +169,17 @@ func (w *ClientPodWatcher) Run(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+// loopFor is the list and watch loop of namespace ns ("" for all): it
+// lists up to maxClientPods and keeps the namespace's health.
+func (w *ClientPodWatcher) loopFor(ns string, out chan<- update) *loop {
+	h := &atomic.Bool{}
+	if w.healthy != nil {
+		w.healthy[ns] = h
+	}
+	return &loop{src: w.source(ns), out: out, record: w.o.Record, gapAfter: w.o.GapAfter, now: w.o.Now,
+		log: w.o.Log, sleep: w.sleep, warnEvery: clientPodWarnEvery, maxPages: maxClientPods / listPage, healthy: h}
 }
 
 // apply takes one list or watch event.

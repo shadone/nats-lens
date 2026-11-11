@@ -29,7 +29,7 @@ func TestFirstListsComparedWithTheStore(t *testing.T) {
 	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", false), natsPod("nats-1", "n1", true)}, true, false)
 	cord := node("n0", "pool-1", "v1")
 	cord.Spec.Unschedulable = true
-	tr.nodesListed([]*corev1.Node{cord, node("n1", "pool-1", "v1")}, true)
+	tr.nodesListed([]*corev1.Node{cord, node("n1", "pool-1", "v1")}, true, false)
 	want := []string{KindPodNotReady, KindPodDeleted, KindNodeCordoned, KindNodeDeleted}
 	if got := s.kinds(); !slices.Equal(got, want) {
 		t.Fatalf("kinds %v, want %v", got, want)

@@ -49,8 +49,9 @@ func observedAtStart(raw map[string]any) map[string]any {
 }
 
 // podsAtStart records how the NATS pods of namespace ns changed while
-// natslens was down: readiness, and pods that are gone.
-func (t *tracker) podsAtStart(ns string, pods []*corev1.Pod) {
+// natslens was down: readiness, and pods that are gone, unless the list
+// was truncated and may have left them out.
+func (t *tracker) podsAtStart(ns string, pods []*corev1.Pod, truncated bool) {
 	present := map[string]bool{}
 	for _, p := range pods {
 		k := podKey(p.Namespace, p.Name)
@@ -68,7 +69,7 @@ func (t *tracker) podsAtStart(ns string, pods []*corev1.Pod) {
 			observedAtStart(podRaw(p)))
 	}
 	for k, was := range t.prior.Pods {
-		if !strings.HasPrefix(k, ns+"/") || was.Deleted || present[k] {
+		if truncated || !strings.HasPrefix(k, ns+"/") || was.Deleted || present[k] {
 			continue
 		}
 		name := strings.TrimPrefix(k, ns+"/")
@@ -80,8 +81,9 @@ func (t *tracker) podsAtStart(ns string, pods []*corev1.Pod) {
 }
 
 // nodesAtStart records the cordons, uncordons and deletions of the nodes
-// the store knew while natslens was down.
-func (t *tracker) nodesAtStart(nodes []*corev1.Node) {
+// the store knew while natslens was down; a truncated list records no
+// deletion.
+func (t *tracker) nodesAtStart(nodes []*corev1.Node, truncated bool) {
 	present := map[string]bool{}
 	for _, n := range nodes {
 		present[n.Name] = true
@@ -99,7 +101,7 @@ func (t *tracker) nodesAtStart(nodes []*corev1.Node) {
 		}
 	}
 	for name, was := range t.prior.Nodes {
-		if was.Deleted || present[name] {
+		if truncated || was.Deleted || present[name] {
 			continue
 		}
 		t.record(time.Time{}, KindNodeDeleted, "Deleted", "", "", fmt.Sprintf("node %s deleted (observed at start)", name),
