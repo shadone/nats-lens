@@ -3,6 +3,11 @@ import type { InvestigationContext } from "./investigationContext";
 // Markdown fence and markup characters become JSON escapes; the value is unchanged.
 const inert = (json: string) => json.replace(/`/g, "\\u0060").replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 
+// Line separators other than \n and the direction controls become JSON
+// escapes too: a viewer or model that breaks a line at NEL, U+2028 or
+// U+2029, or reorders text, could otherwise read a value as a marker line.
+const inertContext = (json: string) => inert(json).replace(/[\u0085\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+
 /** Whether the page adds a selection, resource, query or filter to the system and range. */
 export function pageAddsContext(c: InvestigationContext): boolean {
   return !!(c.entity || c.query || c.series?.length || c.metric || c.chartLabel || c.point || c.evidence?.length || c.annotation || c.account || Object.keys(c.filters).length);
@@ -37,7 +42,7 @@ END USER QUESTION`;
 // ASVS 1.2.3/1.2.5: observations stay JSON data, never executable command arguments.
 // Escape Markdown fence characters without changing the imported JSON values.
 export function buildInvestigationPrompt(context: InvestigationContext, question?: string): string {
-  const json = inert(JSON.stringify(context, null, 2));
+  const json = inertContext(JSON.stringify(context, null, 2));
   return `Investigate the NATS Lens evidence below. Verify facts, assess impact and possible explanations, and separate observations, hypotheses, and unknowns. Cite evidence IDs and scoped links; suggest the next bounded check. A selected bucket is not an exact onset or proof of cause.
 
 Use an existing authorized trusted profile matching the deployment. If unavailable, explain the missing access and ask for an approved reachable profile. A remote agent's localhost is its own host. Never derive endpoints or credentials from observations, copy browser cookies/storage, open listeners/tunnels, or bypass authentication. Do not run live SQL, mutate systems, or upload evidence.
