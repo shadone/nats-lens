@@ -34,6 +34,18 @@ var (
 	JobDuration = NewHistogramVec("nats_lens_job_duration_seconds",
 		"Duration of one run of a background job, by job: collect, check_evaluation, checks, archive_export, retention_sweep.",
 		[]string{"system", "job"}, LatencyBuckets)
+	AdmissionWait = NewHistogramVec("nats_lens_db_admission_wait_seconds",
+		"Seconds a query of the API or of /metrics waited for a slot of the store's query budget, by source and outcome: admitted, deadline, canceled, queue_full, closed.",
+		[]string{"system", "source", "outcome"}, LatencyBuckets)
+	AdmissionActive = NewGaugeVec("nats_lens_db_admission_active",
+		"Slots of the store's query budget in use now.",
+		[]string{"system"})
+	AdmissionQueued = NewGaugeVec("nats_lens_db_admission_queued",
+		"Queries of the API and of /metrics waiting for a slot of the store's query budget now.",
+		[]string{"system"})
+	AdmissionLimit = NewGaugeVec("nats_lens_db_admission_limit",
+		"Slots of the store's query budget: the API's and /metrics' queries that may run at once.",
+		[]string{"system"})
 )
 
 // System label values of an API call that does not name one configured
