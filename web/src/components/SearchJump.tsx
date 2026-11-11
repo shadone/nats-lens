@@ -202,6 +202,8 @@ export function SearchJump() {
   // The dimmed Ask row's reason is read with the box, as the row itself cannot be reached.
   const askProblem = showList && offerAsk && question.problem !== undefined;
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    // Keys that pick a character in an input method editor are not commands.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "ArrowDown" && options.length) {
       e.preventDefault();
       setOpen(true);

@@ -419,6 +419,20 @@ describe("which row Enter picks", () => {
     expect(box()).toHaveValue("zzzqq");
   });
 
+  it("ignores keys while an input method composes", async () => {
+    setup("/?system=sys-a");
+    await enter("ask: why");
+    await screen.findByRole("option", { name: /Copy prompt with question/ });
+    fireEvent.keyDown(box(), { key: "Enter", isComposing: true });
+    fireEvent.keyDown(box(), { key: "Enter", keyCode: 229 });
+    fireEvent.keyDown(box(), { key: "Escape", isComposing: true });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(write).not.toHaveBeenCalled();
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    fireEvent.keyDown(box(), { key: "Enter" });
+    await waitFor(() => expect(write).toHaveBeenCalledOnce());
+  });
+
   it("ties a unique reason to the box only while the list shows", async () => {
     setup("/?system=sys-a");
     await enter(`ab ${"x".repeat(2001)}`);
