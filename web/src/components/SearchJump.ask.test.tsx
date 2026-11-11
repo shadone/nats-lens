@@ -77,7 +77,8 @@ describe("Ask your agent", () => {
     await waitFor(() => expect(write).toHaveBeenCalledOnce());
     const prompt = write.mock.calls[0][0] as string;
     expect(questionOf(prompt)).toBe("why is nats-1 slow since:2h stream: order?");
-    expect(prompt.indexOf("END USER QUESTION")).toBeLessThan(prompt.indexOf("Investigate the NATS Lens evidence below"));
+    expect(prompt.indexOf("Table-local filters are unavailable.")).toBeLessThan(prompt.indexOf("BEGIN USER QUESTION"));
+    expect(prompt.indexOf("END USER QUESTION")).toBeLessThan(prompt.indexOf("BEGIN NATS LENS CONTEXT JSON"));
     expect(prompt).toContain("asked on the NATS Lens page in sourcePath");
     expect(contextOf(prompt)).toMatchObject({ system: "sys-a", sourcePath: "/servers/nats-1", entity: { type: "ENTITY_TYPE_SERVER", key: "nats-1" } });
     await screen.findByText("Prompt copied");
