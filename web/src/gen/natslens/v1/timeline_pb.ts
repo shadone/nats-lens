@@ -414,8 +414,10 @@ export type GetStatusTimelineResponse = Message<"natslens.v1.GetStatusTimelineRe
 
   /**
    * Spans of the range in which JetStream advisories were not captured,
-   * oldest first, clipped to the range: nats-lens was not running, or one
-   * account connection was lost. Not merged across connections.
+   * oldest first, clipped to the range: nats-lens was not running, the
+   * system account connection ("sys", which carries the meta leader
+   * elections) was lost, or one account connection was lost. Not merged
+   * across connections.
    *
    * @generated from field: repeated natslens.v1.CaptureGap advisory_capture_gaps = 22;
    */
@@ -510,8 +512,9 @@ export type CaptureGap = Message<"natslens.v1.CaptureGap"> & {
   range?: TimeRange | undefined;
 
   /**
-   * The connection that was lost, as nats-lens labels it (an account
-   * connection's label); empty when nats-lens was not running.
+   * The connection that was lost, as nats-lens labels it: "sys" for the
+   * system account connection, else an account connection's label; empty
+   * when nats-lens was not running.
    *
    * @generated from field: string connection = 2;
    */

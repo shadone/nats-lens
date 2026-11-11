@@ -337,14 +337,18 @@ export interface Timeline {
   leadersTruncated?: boolean;
   /** Client lane: counts of client events per bucket, only buckets with any. */
   clients?: ClientLaneBucket[];
-  /** Whether NATS system events were captured before the range's end. */
+  /** Whether a NATS system event was captured since the range's start, or
+   * 7 days before its end when earlier, and capture did not stop for the
+   * whole range. */
   systemEventsCaptured?: boolean;
-  /** Whether JetStream advisories were captured before the range's end. */
+  /** Whether a JetStream advisory was captured since the range's start, or
+   * 7 days before its end when earlier, and nats-lens ran for some of it. */
   jetstreamEventsCaptured?: boolean;
   /** Spans of the range without system events, clipped to it. */
   systemCaptureGaps?: Range[];
   /** Spans of the range without JetStream advisories: connection is the
-   * lost account connection, empty when nats-lens was not running. */
+   * lost connection ("sys" for the system account's, which carries the meta
+   * leader elections), empty when nats-lens was not running. */
   advisoryCaptureGaps?: CaptureGap[];
 }
 
@@ -535,6 +539,7 @@ export interface LensInfo {
 
 /** A span of a timeline in which events were not captured. */
 export interface CaptureGap extends Range {
-  /** The lost account connection; empty when nats-lens was not running. */
+  /** The lost connection: "sys" for the system account's, else an account
+   * connection's label; empty when nats-lens was not running. */
   connection: string;
 }

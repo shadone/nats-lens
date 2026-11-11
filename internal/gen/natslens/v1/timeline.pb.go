@@ -428,8 +428,10 @@ type GetStatusTimelineResponse struct {
 	// reconnected).
 	SystemCaptureGaps []*TimeRange `protobuf:"bytes,21,rep,name=system_capture_gaps,json=systemCaptureGaps,proto3" json:"system_capture_gaps,omitempty"`
 	// Spans of the range in which JetStream advisories were not captured,
-	// oldest first, clipped to the range: nats-lens was not running, or one
-	// account connection was lost. Not merged across connections.
+	// oldest first, clipped to the range: nats-lens was not running, the
+	// system account connection ("sys", which carries the meta leader
+	// elections) was lost, or one account connection was lost. Not merged
+	// across connections.
 	AdvisoryCaptureGaps []*CaptureGap `protobuf:"bytes,22,rep,name=advisory_capture_gaps,json=advisoryCaptureGaps,proto3" json:"advisory_capture_gaps,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
@@ -728,8 +730,9 @@ type CaptureGap struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The span, clipped to the timeline's range.
 	Range *TimeRange `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
-	// The connection that was lost, as nats-lens labels it (an account
-	// connection's label); empty when nats-lens was not running.
+	// The connection that was lost, as nats-lens labels it: "sys" for the
+	// system account connection, else an account connection's label; empty
+	// when nats-lens was not running.
 	Connection    string `protobuf:"bytes,2,opt,name=connection,proto3" json:"connection,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

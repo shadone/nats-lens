@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/shadone/nats-lens/internal/api"
@@ -77,5 +78,17 @@ func TestTimelineCaptureGapsAndEntity(t *testing.T) {
 		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-1"}})))
 	if len(one.GetServers())+len(one.GetLeaders())+len(one.GetClients()) != 0 || one.GetSystemEventsCaptured() {
 		t.Errorf("nats-1 timeline has subject lanes")
+	}
+}
+
+// A range longer than the lookback whose events lie in its first day reads
+// as captured: the demo looks for a stored event from the range's start.
+func TestTimelineCaptureSinceLongRange(t *testing.T) {
+	tl := must(client(t).GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{
+		Range:  &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-24 * time.Hour)), End: timestamppb.New(fake.FixedNow.Add(8 * 24 * time.Hour))},
+		Bucket: durationpb.New(2 * time.Hour)})))
+	if len(tl.GetClients()) == 0 || !tl.GetSystemEventsCaptured() || len(tl.GetLeaders()) == 0 || !tl.GetJetstreamEventsCaptured() {
+		t.Errorf("%d client buckets, system captured %v; %d elections, advisories captured %v", len(tl.GetClients()), tl.GetSystemEventsCaptured(),
+			len(tl.GetLeaders()), tl.GetJetstreamEventsCaptured())
 	}
 }

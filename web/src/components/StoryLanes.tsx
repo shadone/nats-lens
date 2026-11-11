@@ -24,7 +24,7 @@ import {evidenceRange,evidenceQuery} from "../lib/timelineEvidence";
 import { ZoomStrip } from "./ZoomStrip";
 import {TimelineClientLane,clientCountsText,clientNoteText} from "./TimelineClientLane";
 import {CLIENT_LANE_KINDS,cellTotal} from "../lib/clientLane";
-import {TimelineCaptureGap,gapSpanText} from "./TimelineCaptureGap";
+import {TimelineCaptureGap,gapConnectionText,gapSpanText} from "./TimelineCaptureGap";
 
 interface Props {
   tl: Timeline;
@@ -102,6 +102,8 @@ function StoryLaneContents({ tl, end, live }: Props) {
     shutdowns: a.shutdowns + b.shutdowns, authErrors: a.authErrors + b.authErrors, unknownDisconnects: a.unknownDisconnects + b.unknownDisconnects}),
     {connects: 0, closes: 0, drops: 0, shutdowns: 0, authErrors: 0, unknownDisconnects: 0});
   // Spans without event capture: an empty stretch there is not a quiet one.
+  // The API's api.CaptureSince: the range's start, or api.CaptureLookback
+  // (7 days) before its end when that is earlier.
   const since = Math.min(tl.start, tl.start + span - 7 * 24 * 3600_000);
   const capture = (gaps: (Range | CaptureGap)[], stopped: boolean, lane: 'system' | 'advisory', what: string) => {
     const shown = gaps.filter((g) => g.end > g.start);
@@ -110,7 +112,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
       stopped,
       overlay: stopped ? "Event capture stopped for the whole range" : `No ${what} captured since ${timelineTime(since)}`,
       label: stopped ? "event capture stopped for the whole range" : `no ${what} captured since ${timelineTime(since)}`,
-      gapNote: partial ? `; capture stopped ${shown.map((g) => gapSpanText(g) + ("connection" in g && g.connection ? ` (account ${g.connection})` : "")).join(", ")}` : "",
+      gapNote: partial ? `; capture stopped ${shown.map((g) => gapSpanText(g) + gapConnectionText(g)).join(", ")}` : "",
       noteSuffix: partial ? ", capture gaps" : "",
       marks: shown.map((g) => <TimelineCaptureGap key={`${lane}${g.start}${"connection" in g ? g.connection : ""}`} gap={g} frac={frac} lane={lane}/>),
     };
@@ -154,7 +156,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
       id: "leaders",
       name: "Leaders",
       note: (!tl.jetstreamEventsCaptured ? adv.stopped ? "capture stopped" : "no advisories" : leaders.length ? plural(leaders.length, "election") : "none in range") + adv.noteSuffix,
-      label: `Leader elections: ${!tl.jetstreamEventsCaptured ? (adv.stopped ? adv.label : `No JetStream advisory captured since ${timelineTime(since)}`) : leaders.length ? `${leaders.length}${metaElections ? `, ${metaElections} meta` : ""}` : "none in range"}${adv.gapNote}`,
+      label: `Leader elections: ${!tl.jetstreamEventsCaptured ? adv.label : leaders.length ? `${leaders.length}${metaElections ? `, ${metaElections} meta` : ""}` : "none in range"}${adv.gapNote}`,
       marks: <>
         {!tl.jetstreamEventsCaptured && <span className="sl-none">{adv.overlay}</span>}
         {adv.marks}

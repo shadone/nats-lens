@@ -116,7 +116,8 @@ const SystemConnection = "sys"
 // others are ignored), conns the connection events oldest first, as
 // EventsConnectionGaps takes them. system are the spans without system
 // events: collector gaps and the system connection's. advisory are the
-// collector gaps (no connection) and each account connection's gaps.
+// collector gaps (no connection), the system connection's (meta leader
+// elections) and each account connection's gaps.
 // collectorCovers says nats-lens was not running for the whole range.
 func TimelineCaptureGaps(collector []ReplayGap, conns []*v1.Event, start, end time.Time) (system []*v1.TimeRange, advisory []*v1.CaptureGap, collectorCovers bool) {
 	groups := map[string][]*v1.Event{}
@@ -147,10 +148,9 @@ func TimelineCaptureGaps(collector []ReplayGap, conns []*v1.Event, start, end ti
 		advisory = append(advisory, &v1.CaptureGap{Range: r})
 	}
 	slices.Sort(labels)
+	// The system connection carries the system account's advisories, the
+	// meta leader elections, so its gaps are advisory gaps too.
 	for _, l := range labels {
-		if l == SystemConnection {
-			continue
-		}
 		for _, r := range CaptureGapSpans(EventsConnectionGaps(groups[l]), start, end) {
 			advisory = append(advisory, &v1.CaptureGap{Range: r, Connection: l})
 		}

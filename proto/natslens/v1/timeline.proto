@@ -186,8 +186,10 @@ message GetStatusTimelineResponse {
   repeated TimeRange system_capture_gaps = 21;
 
   // Spans of the range in which JetStream advisories were not captured,
-  // oldest first, clipped to the range: nats-lens was not running, or one
-  // account connection was lost. Not merged across connections.
+  // oldest first, clipped to the range: nats-lens was not running, the
+  // system account connection ("sys", which carries the meta leader
+  // elections) was lost, or one account connection was lost. Not merged
+  // across connections.
   repeated CaptureGap advisory_capture_gaps = 22;
 }
 
@@ -224,7 +226,8 @@ message CaptureGap {
   // The span, clipped to the timeline's range.
   TimeRange range = 1;
 
-  // The connection that was lost, as nats-lens labels it (an account
-  // connection's label); empty when nats-lens was not running.
+  // The connection that was lost, as nats-lens labels it: "sys" for the
+  // system account connection, else an account connection's label; empty
+  // when nats-lens was not running.
   string connection = 2;
 }

@@ -95,8 +95,9 @@ func TestCaptureGapSpansEdges(t *testing.T) {
 	}
 }
 
-// The system connection's gaps go to system events, an account
-// connection's to that account's advisories; a collector gap to both.
+// The system connection's gaps go to system events and, for the meta
+// leader elections, to advisories; an account connection's to that
+// account's advisories; a collector gap to both.
 func TestTimelineCaptureGaps(t *testing.T) {
 	at := func(m int) time.Time { return time.Date(2026, 10, 17, 9, m, 0, 0, time.UTC) }
 	ev := func(m int, kind, conn string) *v1.Event {
@@ -109,11 +110,80 @@ func TestTimelineCaptureGaps(t *testing.T) {
 	if stopped || len(system) != 2 || !system[0].GetStart().AsTime().Equal(at(10)) || !system[1].GetStart().AsTime().Equal(at(50)) {
 		t.Errorf("system = %v, stopped %v", system, stopped)
 	}
-	if len(advisory) != 2 || advisory[0].GetConnection() != "APP" || !advisory[0].GetRange().GetEnd().AsTime().Equal(at(60)) ||
-		advisory[1].GetConnection() != "" {
+	if len(advisory) != 3 || advisory[0].GetConnection() != "sys" || advisory[1].GetConnection() != "APP" ||
+		!advisory[1].GetRange().GetEnd().AsTime().Equal(at(60)) || advisory[2].GetConnection() != "" {
 		t.Errorf("advisory = %v", advisory)
 	}
 	if _, _, stopped := TimelineCaptureGaps([]ReplayGap{{Kind: GapCollector, Start: at(0), End: at(60)}}, nil, at(10), at(20)); !stopped {
 		t.Error("a collector gap over the range stops capture")
+	}
+}
+
+func r3at(m int) time.Time { return time.Date(2026, 10, 17, 9, m, 0, 0, time.UTC) }
+
+func r3ev(m int, kind, conn string) *v1.Event {
+	raw := `{"connection":"` + conn + `"}`
+	if conn == "-" {
+		raw = `{}`
+	}
+	return &v1.Event{Time: ts(r3at(m)), Kind: kind, Raw: raw}
+}
+
+// An account connection lost while sys is fine hatches only advisories.
+func TestTimelineCaptureGapsAccountOnly(t *testing.T) {
+	sys, adv, stopped := TimelineCaptureGaps(nil, []*v1.Event{r3ev(10, "collector.disconnected", "APP"), r3ev(20, "collector.reconnected", "APP")}, r3at(0), r3at(60))
+	if stopped || len(sys) != 0 || len(adv) != 1 || adv[0].GetConnection() != "APP" ||
+		!adv[0].GetRange().GetStart().AsTime().Equal(r3at(10)) || !adv[0].GetRange().GetEnd().AsTime().Equal(r3at(20)) {
+		t.Errorf("sys %v adv %v stopped %v", sys, adv, stopped)
+	}
+}
+
+// Overlapping accounts stay apart; a collector.started closes every open
+// one; a started before an account's first event closes nothing; an
+// unlabelled event is ignored.
+func TestTimelineCaptureGapsOverlap(t *testing.T) {
+	sys, adv, _ := TimelineCaptureGaps(nil, []*v1.Event{
+		r3ev(1, "collector.started", ""),
+		r3ev(10, "collector.disconnected", "APP"),
+		r3ev(15, "collector.disconnected", "-"),
+		r3ev(20, "collector.not_connected", "OPS"),
+		r3ev(30, "collector.reconnected", "APP"),
+		r3ev(35, "collector.started", ""),
+		r3ev(40, "collector.disconnected", "BIZ"),
+	}, r3at(0), r3at(60))
+	want := []struct {
+		c    string
+		s, e int
+	}{{"APP", 10, 30}, {"OPS", 20, 35}, {"BIZ", 40, 60}}
+	if len(sys) != 0 || len(adv) != len(want) {
+		t.Fatalf("sys %v adv %v", sys, adv)
+	}
+	for i, w := range want {
+		g := adv[i]
+		if g.GetConnection() != w.c || !g.GetRange().GetStart().AsTime().Equal(r3at(w.s)) || !g.GetRange().GetEnd().AsTime().Equal(r3at(w.e)) {
+			t.Errorf("adv[%d] = %v, want %v", i, g, w)
+		}
+	}
+}
+
+// sys carries the system account's advisories, the meta leader
+// elections: losing it hatches the Leaders lane too, labelled sys.
+func TestTimelineCaptureGapsSysLossHatchesLeaders(t *testing.T) {
+	sys, adv, _ := TimelineCaptureGaps(nil, []*v1.Event{r3ev(10, "collector.disconnected", "sys"), r3ev(20, "collector.reconnected", "sys")}, r3at(0), r3at(60))
+	if len(sys) != 1 || len(adv) != 1 || adv[0].GetConnection() != "sys" || !adv[0].GetRange().GetStart().AsTime().Equal(r3at(10)) ||
+		!adv[0].GetRange().GetEnd().AsTime().Equal(r3at(20)) {
+		t.Errorf("sys %v adv %v", sys, adv)
+	}
+}
+
+// A short range looks back CaptureLookback from its end; a longer one
+// from its start.
+func TestCaptureSince(t *testing.T) {
+	end := r3at(0)
+	if got := CaptureSince(end.Add(-time.Hour), end); !got.Equal(end.Add(-CaptureLookback)) {
+		t.Errorf("short range: %v", got)
+	}
+	if got := CaptureSince(end.Add(-30*24*time.Hour), end); !got.Equal(end.Add(-30 * 24 * time.Hour)) {
+		t.Errorf("long range: %v", got)
 	}
 }

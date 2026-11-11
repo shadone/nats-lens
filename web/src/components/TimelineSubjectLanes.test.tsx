@@ -79,7 +79,7 @@ it('says when no event of a source was captured instead of drawing a quiet lane'
  expect(screen.getByText('No JetStream advisory captured since 2026-10-10 10:00:00 UTC')).toBeInTheDocument();
  expect(screen.getAllByText('No system event captured since 2026-10-10 10:00:00 UTC')).toHaveLength(2);
  expect(screen.getByRole('group',{name:'Client connections: no system event captured since 2026-10-10 10:00:00 UTC'})).toBeInTheDocument();
- expect(screen.getByRole('group',{name:'Leader elections: No JetStream advisory captured since 2026-10-10 10:00:00 UTC'})).toBeInTheDocument();
+ expect(screen.getByRole('group',{name:'Leader elections: no JetStream advisory captured since 2026-10-10 10:00:00 UTC'})).toBeInTheDocument();
  // Restarts come from the collections and stay.
  expect(screen.getByRole('button',{name:/Server restart/})).toBeInTheDocument();
 });
@@ -165,4 +165,17 @@ it('gives client cells a bound events query and restarts a server selection for 
  fireEvent.click(screen.getByRole('button',{name:/^Server restart/}));
  const sel=JSON.parse(within(screen.getByRole('dialog')).getByTestId('prompt-selection').textContent!);
  expect(sel.entity).toMatchObject({kind:'server',key:'nats-0'});expect(sel.annotation).toContain('derived from the collections');
+});
+
+it('hatches a lost system account connection on the Leaders lane, for the meta elections',()=>{
+ draw({...tl,systemCaptureGaps:[{start:start+10*60_000,end:start+20*60_000}],advisoryCaptureGaps:[{start:start+10*60_000,end:start+20*60_000,connection:'sys'}]});
+ const mark=screen.getByRole('button',{name:'Event capture stopped 09:10–09:20 (system account)'});
+ fireEvent.focus(mark);expect(screen.getByRole('tooltip')).toHaveTextContent('meta leader elections were not captured');
+ expect(screen.getByRole('group',{name:'Leader elections: 3, 1 meta; capture stopped 09:10–09:20 (system account)'})).toBeInTheDocument();
+});
+
+it('keeps a short gap at the right edge inside the track',()=>{
+ draw({...tl,systemCaptureGaps:[{start:end-1000,end}]});
+ const mark=screen.getAllByRole('button',{name:/^Event capture stopped/})[0] as HTMLElement;
+ expect(mark.style.left).toBe('min(99.972%, calc(100% - var(--sp-1)))');
 });
