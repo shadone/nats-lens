@@ -1,5 +1,5 @@
 import {MetricBox} from "./MetricBox";
-import {fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {MemoryRouter} from "react-router";
 import {describe,it,expect,vi} from "vitest";
 import {InvestigationButton,InvestigationProvider} from "./InvestigationContext";
@@ -26,7 +26,9 @@ describe("investigation handoff",()=>{
  it("copies the keyboard-selected point and leaves a complete selectable prompt with retry on failure",async()=>{
   const write=vi.fn().mockRejectedValue(new Error("denied"));Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:write}});setup();
   const slider=screen.getByRole("slider",{name:"Inspect CPU"});fireEvent.focus(slider);fireEvent.keyDown(slider,{key:"ArrowRight"});fireEvent.keyDown(slider,{key:"c"});
-  const text=await screen.findByLabelText("Agent prompt") as HTMLTextAreaElement;
+  // The textarea is in the DOM before the dialog opens: its effect calls
+  // showModal after the commit, so wait for the open dialog, not the field.
+  const dialog=await screen.findByRole("dialog",{name:"Copy as prompt"});const text=within(dialog).getByLabelText("Agent prompt") as HTMLTextAreaElement;
   const c=contextFrom(text.value);expect(c.metric).toBe("server.cpu_percent");expect(c.point).toBe("2026-10-17T13:31:00.000Z");
   fireEvent.focus(text);expect(text.selectionEnd-text.selectionStart).toBe(text.value.length);
   write.mockResolvedValue(undefined);fireEvent.click(screen.getByRole("button",{name:"Retry copy"}));await waitFor(()=>expect(write).toHaveBeenCalledTimes(2));
