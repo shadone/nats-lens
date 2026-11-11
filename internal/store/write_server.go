@@ -19,19 +19,26 @@ func startTime(v *collect.ServerView) time.Time {
 	return time.Time{}
 }
 
+// writeServerIdent upserts the server's identity row. The upsert leaves
+// tags alone: DuckDB cannot update a list column in place, so setting it
+// turns the update into a delete and an insert of the row, which changes
+// the primary key index. A separate UPDATE sets the tags only when they
+// changed.
 func (w *writer) writeServerIdent(v *collect.ServerView) {
 	i := v.Info
 	at := w.snap.StartedAt.UTC()
+	tags := strs(i.Tags)
 	w.exec(`INSERT INTO servers (server_id, server_name, host, cluster, domain, version, jetstream, tags,
     start_time, first_epoch, last_epoch, first_seen_at, last_seen_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (server_id) DO UPDATE SET
     server_name = excluded.server_name, host = excluded.host, cluster = excluded.cluster,
     domain = excluded.domain, version = excluded.version, jetstream = excluded.jetstream,
-    tags = excluded.tags, start_time = coalesce(excluded.start_time, servers.start_time),
+    start_time = coalesce(excluded.start_time, servers.start_time),
     last_epoch = excluded.last_epoch, last_seen_at = excluded.last_seen_at`,
-		i.ID, i.Name, i.Host, i.Cluster, i.Domain, i.Version, i.JetStream, strs(i.Tags),
+		i.ID, i.Name, i.Host, i.Cluster, i.Domain, i.Version, i.JetStream, tags,
 		ts(startTime(v)), w.epoch, w.epoch, at, at)
+	w.exec(`UPDATE servers SET tags = ? WHERE server_id = ? AND tags IS DISTINCT FROM ?`, tags, i.ID, tags)
 }
 
 var serverStatsCols = []string{
