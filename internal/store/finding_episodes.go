@@ -55,7 +55,7 @@ func (s *Store) FindingEpisodes(ctx context.Context, q FindingEpisodeQuery) (Fin
 	if q.From.IsZero() || !q.To.After(q.From) || q.Limit < 1 || q.Limit > 100 || q.Offset < 0 || q.Offset > 1<<20 || q.StartEpoch < 0 || q.FirstRetainedEpoch < 0 || q.ReadEpoch < 0 || ((q.StartEpoch > 0 || q.FirstRetainedEpoch > 0) && q.FindingID == "") || len(q.FindingID) > 4096 || len(q.CheckCode) > 128 || len(q.EntityType) > 64 || len(q.EntityKey) > 4096 {
 		return FindingEpisodePage{}, ErrInvalidFindingEpisodeQuery
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.db.BeginTx(ReadTx(ctx), nil)
 	if err != nil {
 		return FindingEpisodePage{}, err
 	}
