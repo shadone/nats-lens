@@ -315,6 +315,7 @@ func TestStoreConformance(t *testing.T) {
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: api.Systems{
 		{Ref: &v1.SystemRef{Id: "main", Name: "main"}, Provider: main},
 		{Ref: &v1.SystemRef{Id: "closed", Name: "closed"}, Provider: closed},
+		{Ref: &v1.SystemRef{Id: "severity", Name: "severity"}, Provider: &storeprov.Provider{St: severityStore(t, clock, set), Interval: confStep, Live: true, Checks: set, Clock: at}},
 		// A reduced retention before its first sweep: availability stays
 		// limited by retention even while older samples remain stored.
 		{Ref: &v1.SystemRef{Id: "short-retention", Name: "short-retention"}, Provider: &storeprov.Provider{St: st,
@@ -370,7 +371,7 @@ func TestStoreConformance(t *testing.T) {
 		CreatedAt: clock.Add(-32 * time.Minute), QuietUntil: clock.Add(-2 * time.Minute)}); err != nil {
 		t.Fatal(err)
 	}
-	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "short-retention", "replay", "topology", "topology-followups", "topology-single", "accounts", "accounts-config", "capacity", "capacity-limits", "capacity-missing-memory", "subjects", "micro", "apps", "history"}, Now: clock})
+	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "severity", "short-retention", "replay", "topology", "topology-followups", "topology-single", "accounts", "accounts-config", "capacity", "capacity-limits", "capacity-missing-memory", "subjects", "micro", "apps", "history"}, Now: clock})
 }
 
 // accountsHeadlineStore is accountsStore with the findings its data
@@ -401,6 +402,29 @@ func accountsHeadlineStore(t *testing.T, last time.Time, set *checks.Set) *store
 		if _, err := st.ApplyCheckRuns(ctx, epoch, runs); err != nil {
 			t.Fatal(err)
 		}
+	}
+	return st
+}
+
+// severityStore is a system whose one finding its check's severity rule
+// lowered: server-001 for nats-0 at info, as when the server announced
+// its shutdown, below the check's usual warning.
+func severityStore(t *testing.T, clock time.Time, set *checks.Set) *store.Store {
+	t.Helper()
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	r.epoch(1, clock.Add(-time.Hour), "S0")
+	var runs []store.CheckRun
+	for _, c := range set.Checks() {
+		run := store.CheckRun{Code: c.Code, EntityType: c.Entity, Status: store.RunOK}
+		if c.Code == "server-001" {
+			run.Rows = []store.FindingRow{{EntityKey: "nats-0", Severity: "info", Detail: "nats-0 announced its shutdown and answered no monitoring request."}}
+		}
+		runs = append(runs, run)
+	}
+	if _, err := st.ApplyCheckRuns(ctx, 1, runs); err != nil {
+		t.Fatal(err)
 	}
 	return st
 }

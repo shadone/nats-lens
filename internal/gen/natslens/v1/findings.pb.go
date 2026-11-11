@@ -390,9 +390,15 @@ type Finding struct {
 	Acceptable bool `protobuf:"varint,21,opt,name=acceptable,proto3" json:"acceptable,omitempty"`
 	// Whether an acceptance of the check ends early when the entity's
 	// week's growth changes; false means it ends only at its review date.
-	GrowthReview  bool `protobuf:"varint,22,opt,name=growth_review,json=growthReview,proto3" json:"growth_review,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	GrowthReview bool `protobuf:"varint,22,opt,name=growth_review,json=growthReview,proto3" json:"growth_review,omitempty"`
+	// Why the finding has its severity, in one or two sentences: the check's
+	// usual severity and, when the check has a severity rule, the rule in
+	// the check's own words and whether it raised or lowered this finding;
+	// for a resolved finding, the severity it had when it resolved. Empty
+	// for a check nats-lens does not know.
+	SeverityReason string `protobuf:"bytes,23,opt,name=severity_reason,json=severityReason,proto3" json:"severity_reason,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Finding) Reset() {
@@ -577,6 +583,13 @@ func (x *Finding) GetGrowthReview() bool {
 		return x.GrowthReview
 	}
 	return false
+}
+
+func (x *Finding) GetSeverityReason() string {
+	if x != nil {
+		return x.SeverityReason
+	}
+	return ""
 }
 
 // One change of a finding's state.
@@ -1859,7 +1872,7 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\n" +
 	"end_reason\x18\f \x01(\tR\tendReason\x12#\n" +
 	"\rgrowth_review\x18\r \x01(\bR\fgrowthReviewB\x11\n" +
-	"\x0f_growth_per_day\"\xf1\a\n" +
+	"\x0f_growth_per_day\"\x9a\b\n" +
 	"\aFinding\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1888,7 +1901,8 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\n" +
 	"acceptable\x18\x15 \x01(\bR\n" +
 	"acceptable\x12#\n" +
-	"\rgrowth_review\x18\x16 \x01(\bR\fgrowthReview\"\xf4\x01\n" +
+	"\rgrowth_review\x18\x16 \x01(\bR\fgrowthReview\x12'\n" +
+	"\x0fseverity_reason\x18\x17 \x01(\tR\x0eseverityReason\"\xf4\x01\n" +
 	"\x11FindingTransition\x12\x1d\n" +
 	"\n" +
 	"finding_id\x18\x01 \x01(\tR\tfindingId\x12.\n" +

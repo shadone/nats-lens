@@ -86,6 +86,7 @@ func (p *Provider) findingProto(f store.Finding, causes map[int64]*v1.EventRef) 
 		out.Mute = muteProto(*f.Mute)
 	}
 	api.MarkAcceptance(out)
+	api.MarkSeverityReason(out, checks.UsualSeverity)
 	if f.Ack != nil {
 		// Quiet as at the time it was chosen for: a past range's end
 		// shows the quiet then.

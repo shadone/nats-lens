@@ -147,6 +147,7 @@ func (p *Provider) findings(s scen) []*v1.Finding {
 	for _, f := range all {
 		f.Expiry = checks.IsExpiry(f.GetCheckCode())
 		api.MarkAcceptance(f)
+		api.MarkSeverityReason(f, checks.UsualSeverity)
 	}
 	slices.SortStableFunc(all, api.CompareWorst)
 	return all
