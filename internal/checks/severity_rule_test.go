@@ -2,21 +2,27 @@ package checks
 
 import (
 	"regexp"
+	"slices"
 	"testing"
 	"testing/fstest"
 
 	"github.com/shadone/nats-lens/internal/config"
+	"github.com/shadone/nats-lens/internal/store"
 )
 
-// severityColumn matches a query that returns a severity column. A query
-// without one gives every row the header's severity.
-var severityColumn = regexp.MustCompile(`(?i)\bseverity\b`)
+// severityColumn matches a column named severity in a query whose
+// comments are gone: an alias, with AS, of a select list. A query without
+// one gives every row the header's severity.
+var severityColumn = regexp.MustCompile(`(?i)\bAS\s+"?severity"?(\W|$)`)
+
+// sqlComment matches a -- comment to the end of its line and a /* */ one.
+var sqlComment = regexp.MustCompile(`(?s)--[^\n]*|/\*.*?\*/`)
 
 // severityRuleProblem says how the check's header and query disagree on
 // the severity: the query sets one without a severity_rule saying when,
 // or the header has a rule the query never applies; "" when they agree.
 func severityRuleProblem(c *Check) string {
-	emits := severityColumn.MatchString(c.SQL)
+	emits := severityColumn.MatchString(sqlComment.ReplaceAllString(c.SQL, " "))
 	switch {
 	case emits && c.SeverityRule == "":
 		return "its query returns a severity column, and its header has no severity_rule"
@@ -47,16 +53,22 @@ func TestSeverityRuleMatchesTheQuery(t *testing.T) {
 // severityRuleProblem finds a query that sets a severity without a rule,
 // and a rule without a query that sets one.
 func TestSeverityRuleProblem(t *testing.T) {
-	file := func(rule, column string) *Check {
+	file := func(rule, query string) *Check {
 		fsys := fstest.MapFS{"system-999.sql": {Data: []byte("/*\ncode: system-999\nname: X\nentity: system\ncategory: health\nseverity: warning\n" +
-			rule + "kind: operational\ndescription: X.\nremediation: X.\n*/\nSELECT '' AS entity_key, " + column + "'x' AS detail")}}
+			rule + "kind: operational\ndescription: X.\nremediation: X.\n*/\n" + query)}}
 		files, err := load(fsys)
 		if err != nil || len(files) != 1 {
 			t.Fatalf("fixture: %v", err)
 		}
 		return files[0]
 	}
-	sets := "CASE WHEN 1 > 0 THEN 'critical' ELSE 'warning' END AS severity, "
+	sets := "SELECT '' AS entity_key, CASE WHEN 1 > 0 THEN 'critical' ELSE 'warning' END AS severity, 'x' AS detail"
+	plain := "SELECT '' AS entity_key, 'x' AS detail"
+	// A comment that names the severity, and a filter on another table's
+	// severity column, are no result column.
+	commented := "-- every row has the header's severity\n/* no severity column */\n" + plain
+	filtered := "SELECT '' AS entity_key, 'x' AS detail FROM findings f WHERE f.severity = 'critical'"
+	quoted := "SELECT '' AS entity_key, 'critical' AS \"severity\", 'x' AS detail"
 	rule := "severity_rule: critical when one is above zero\n"
 	for _, c := range []struct {
 		name    string
@@ -64,9 +76,12 @@ func TestSeverityRuleProblem(t *testing.T) {
 		problem bool
 	}{
 		{"sets a severity without a rule", file("", sets), true},
-		{"a rule without a severity column", file(rule, ""), true},
+		{"a rule without a severity column", file(rule, plain), true},
+		{"a comment that names the severity", file("", commented), false},
+		{"a rule, and a filter on a severity", file(rule, filtered), true},
+		{"sets a quoted severity without a rule", file("", quoted), true},
 		{"sets a severity with a rule", file(rule, sets), false},
-		{"neither", file("", ""), false},
+		{"neither", file("", plain), false},
 	} {
 		if got := severityRuleProblem(c.check) != ""; got != c.problem {
 			t.Errorf("%s: problem %v, want %v", c.name, got, c.problem)
@@ -74,14 +89,41 @@ func TestSeverityRuleProblem(t *testing.T) {
 	}
 }
 
-// The built-in checks evaluated in Go state their rule as the SQL ones do.
+// Every built-in check evaluated in Go declares the severities its rows
+// get, its usual one among them, and has a severity rule when it declares
+// more than one, as the SQL checks do.
 func TestBuiltinSeverityRules(t *testing.T) {
-	if c := checkFailed(); c.SeverityRule == "" {
-		t.Errorf("%s turns critical after %d failed collections and states no severity_rule", c.Code, EscalateAfter)
+	set, err := Load(config.Checks{})
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, c := range []*Check{slowRouteCheck(), leafHealthCheck()} {
-		if c.SeverityRule != "" {
+	n := 0
+	for _, c := range set.Checks() {
+		if !c.builtin {
+			continue
+		}
+		n++
+		switch {
+		case !slices.Contains(c.severities, c.Severity):
+			t.Errorf("%s declares %v, without its usual %s", c.Code, c.severities, c.Severity)
+		case len(c.severities) > 1 && c.SeverityRule == "":
+			t.Errorf("%s declares %v and states no severity_rule", c.Code, c.severities)
+		case len(c.severities) == 1 && c.SeverityRule != "":
 			t.Errorf("%s: every row is %s, and it states a severity_rule", c.Code, c.Severity)
 		}
+	}
+	if n == 0 {
+		t.Error("no built-in check")
+	}
+}
+
+// A built-in check's row of a severity it does not declare fails its run.
+func TestDeclaredSeverities(t *testing.T) {
+	c := slowRouteCheck()
+	if _, err := declared(c)([]store.FindingRow{{EntityKey: "nats-0", Severity: "warning"}}, nil); err != nil {
+		t.Errorf("warning: %v", err)
+	}
+	if _, err := declared(c)([]store.FindingRow{{EntityKey: "nats-0", Severity: "critical"}}, nil); err == nil {
+		t.Error("critical passed for a check that declares only warning")
 	}
 }

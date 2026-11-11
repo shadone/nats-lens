@@ -31,7 +31,8 @@ func checkFailed() *Check {
 			"took longer than `checks.timeout` (default 5s): look for a table that grew unusually (connections, events) or raise the timeout. " +
 			"An SQL error after an upgrade means a check file and the schema disagree; run `natslens checks run -data-dir DIR` " +
 			"against a copy of the database to see the error.",
-		builtin: true,
+		severities: []string{"warning", "critical"},
+		builtin:    true,
 	}
 }
 

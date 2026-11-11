@@ -73,6 +73,9 @@ type Check struct {
 	lookback time.Duration
 	// builtin marks a check computed by the engine, with no query.
 	builtin bool
+	// severities are the severities a built-in check's Go code gives a
+	// row; more than one needs a SeverityRule saying when.
+	severities []string
 }
 
 // Threshold is one tunable number of a check.
