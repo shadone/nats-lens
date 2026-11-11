@@ -392,8 +392,9 @@ type GetStatusTimelineResponse struct {
 	// Resolved query bounds, separate from the possibly partial last bucket.
 	Range *TimeRange `protobuf:"bytes,13,opt,name=range,proto3" json:"range,omitempty"`
 	// Server lane, oldest first: restarts seen in the collections (a new
-	// process of a server name), and the lame duck, shutdown and
-	// out-of-storage events; at most the newest 1000.
+	// process of a server name, first collected by the end of the range),
+	// and the lame duck, shutdown, out-of-storage and server-removed events;
+	// at most the newest 1000.
 	Servers []*LaneEvent `protobuf:"bytes,14,rep,name=servers,proto3" json:"servers,omitempty"`
 	// Whether the range held more server lane items than the 1000 in
 	// servers.
@@ -408,16 +409,22 @@ type GetStatusTimelineResponse struct {
 	// capped.
 	Clients []*ClientLaneBucket `protobuf:"bytes,18,rep,name=clients,proto3" json:"clients,omitempty"`
 	// Whether any NATS system event (client, server and account events) is
-	// stored before the end of the range, up to the event boundary. False
-	// means system events were not captured, so the client lane and the
-	// server lane's lame duck and shutdown events cannot be shown.
+	// stored in the 7 days before the end of the range, up to the event
+	// boundary, and capture did not stop for the whole range (see
+	// event_capture_gaps). False means system events were not captured, so
+	// the client lane and the server lane's events cannot be shown.
 	SystemEventsCaptured bool `protobuf:"varint,19,opt,name=system_events_captured,json=systemEventsCaptured,proto3" json:"system_events_captured,omitempty"`
-	// Whether any JetStream advisory is stored before the end of the range,
-	// up to the event boundary. False means leader elections were not
-	// captured.
+	// Whether any JetStream advisory is stored in the 7 days before the end
+	// of the range, up to the event boundary, and capture did not stop for
+	// the whole range. False means leader elections were not captured.
 	JetstreamEventsCaptured bool `protobuf:"varint,20,opt,name=jetstream_events_captured,json=jetstreamEventsCaptured,proto3" json:"jetstream_events_captured,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	// Spans of the range in which events were not captured, oldest first,
+	// clipped to the range: nats-lens was not running (collector.gap) or a
+	// connection that captures events was lost (from its loss to its
+	// reconnect, or to the end of the range when it had not reconnected).
+	EventCaptureGaps []*TimeRange `protobuf:"bytes,21,rep,name=event_capture_gaps,json=eventCaptureGaps,proto3" json:"event_capture_gaps,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetStatusTimelineResponse) Reset() {
@@ -590,6 +597,13 @@ func (x *GetStatusTimelineResponse) GetJetstreamEventsCaptured() bool {
 	return false
 }
 
+func (x *GetStatusTimelineResponse) GetEventCaptureGaps() []*TimeRange {
+	if x != nil {
+		return x.EventCaptureGaps
+	}
+	return nil
+}
+
 // Client connection events of one bucket on the timeline's client lane:
 // counts, not single events.
 type ClientLaneBucket struct {
@@ -601,15 +615,18 @@ type ClientLaneBucket struct {
 	Connects int64 `protobuf:"varint,2,opt,name=connects,proto3" json:"connects,omitempty"`
 	// Disconnects the client closed, client.churn summaries included.
 	Closes int64 `protobuf:"varint,3,opt,name=closes,proto3" json:"closes,omitempty"`
-	// Disconnects for any other reason than a client close or a server
-	// shutdown: slow consumer, stale connection, authorization and so on.
+	// Disconnects for any other recorded reason than a client close or a
+	// server shutdown: slow consumer, stale connection, authorization and
+	// so on.
 	Drops int64 `protobuf:"varint,4,opt,name=drops,proto3" json:"drops,omitempty"`
 	// Disconnects because the server shut down.
 	Shutdowns int64 `protobuf:"varint,5,opt,name=shutdowns,proto3" json:"shutdowns,omitempty"`
 	// Failed client authentications (client.auth_error).
-	AuthErrors    int64 `protobuf:"varint,6,opt,name=auth_errors,json=authErrors,proto3" json:"auth_errors,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	AuthErrors int64 `protobuf:"varint,6,opt,name=auth_errors,json=authErrors,proto3" json:"auth_errors,omitempty"`
+	// Disconnects without a recorded reason.
+	UnknownDisconnects int64 `protobuf:"varint,7,opt,name=unknown_disconnects,json=unknownDisconnects,proto3" json:"unknown_disconnects,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *ClientLaneBucket) Reset() {
@@ -684,6 +701,13 @@ func (x *ClientLaneBucket) GetAuthErrors() int64 {
 	return 0
 }
 
+func (x *ClientLaneBucket) GetUnknownDisconnects() int64 {
+	if x != nil {
+		return x.UnknownDisconnects
+	}
+	return 0
+}
+
 var File_natslens_v1_timeline_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_timeline_proto_rawDesc = "" +
@@ -722,7 +746,7 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"include_ok\x18\x04 \x01(\bR\tincludeOk\x12\x16\n" +
 	"\x06system\x18\x05 \x01(\tR\x06system\x12'\n" +
 	"\revent_read_id\x18\x06 \x01(\x03H\x00R\veventReadId\x88\x01\x01B\x10\n" +
-	"\x0e_event_read_id\"\xef\a\n" +
+	"\x0e_event_read_id\"\xb5\b\n" +
 	"\x19GetStatusTimelineResponse\x120\n" +
 	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x121\n" +
 	"\x06bucket\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x06bucket\x12!\n" +
@@ -746,8 +770,9 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"\x11leaders_truncated\x18\x11 \x01(\bR\x10leadersTruncated\x127\n" +
 	"\aclients\x18\x12 \x03(\v2\x1d.natslens.v1.ClientLaneBucketR\aclients\x124\n" +
 	"\x16system_events_captured\x18\x13 \x01(\bR\x14systemEventsCaptured\x12:\n" +
-	"\x19jetstream_events_captured\x18\x14 \x01(\bR\x17jetstreamEventsCapturedB\x10\n" +
-	"\x0e_event_read_id\"\xb1\x01\n" +
+	"\x19jetstream_events_captured\x18\x14 \x01(\bR\x17jetstreamEventsCaptured\x12D\n" +
+	"\x12event_capture_gaps\x18\x15 \x03(\v2\x16.natslens.v1.TimeRangeR\x10eventCaptureGapsB\x10\n" +
+	"\x0e_event_read_id\"\xe2\x01\n" +
 	"\x10ClientLaneBucket\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x05R\x05index\x12\x1a\n" +
 	"\bconnects\x18\x02 \x01(\x03R\bconnects\x12\x16\n" +
@@ -755,7 +780,8 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"\x05drops\x18\x04 \x01(\x03R\x05drops\x12\x1c\n" +
 	"\tshutdowns\x18\x05 \x01(\x03R\tshutdowns\x12\x1f\n" +
 	"\vauth_errors\x18\x06 \x01(\x03R\n" +
-	"authErrorsBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"authErrors\x12/\n" +
+	"\x13unknown_disconnects\x18\a \x01(\x03R\x12unknownDisconnectsBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_timeline_proto_rawDescOnce sync.Once
@@ -807,11 +833,12 @@ var file_natslens_v1_timeline_proto_depIdxs = []int32{
 	1,  // 18: natslens.v1.GetStatusTimelineResponse.servers:type_name -> natslens.v1.LaneEvent
 	1,  // 19: natslens.v1.GetStatusTimelineResponse.leaders:type_name -> natslens.v1.LaneEvent
 	4,  // 20: natslens.v1.GetStatusTimelineResponse.clients:type_name -> natslens.v1.ClientLaneBucket
-	21, // [21:21] is the sub-list for method output_type
-	21, // [21:21] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	10, // 21: natslens.v1.GetStatusTimelineResponse.event_capture_gaps:type_name -> natslens.v1.TimeRange
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_timeline_proto_init() }

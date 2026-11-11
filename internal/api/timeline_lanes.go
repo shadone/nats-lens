@@ -44,17 +44,63 @@ type ServerRestart struct {
 	Server, OldID, NewID   string
 	Started                time.Time
 	OldVersion, NewVersion string
+	// FirstCollected says Started is when the process was first collected,
+	// as it reported no start time.
+	FirstCollected bool
 }
 
-// RestartMatches reports whether a restart of server belongs to a
-// timeline for entity: every restart for the system, the server's own for
-// a server, none for other entities, as the event lanes filter.
-func RestartMatches(entity *v1.EntityRef, server string) bool {
-	switch entity.GetType() {
-	case v1.EntityType_ENTITY_TYPE_UNSPECIFIED, v1.EntityType_ENTITY_TYPE_SYSTEM:
-		return true
-	case v1.EntityType_ENTITY_TYPE_SERVER:
-		return entity.GetKey() == server
+// SubjectLanesFor reports whether a timeline for entity has the server,
+// leader and client lanes: only the whole system's has.
+func SubjectLanesFor(entity *v1.EntityRef) bool {
+	t := entity.GetType()
+	return t == v1.EntityType_ENTITY_TYPE_UNSPECIFIED || t == v1.EntityType_ENTITY_TYPE_SYSTEM
+}
+
+// CaptureLookback is how far before a timeline's end a stored event of a
+// source counts as that source being captured.
+const CaptureLookback = 7 * 24 * time.Hour
+
+// CaptureGapSpans are the event capture gaps (GapCollector and GapEvents)
+// clipped to [start, end) and merged, oldest first; an open gap runs to
+// end.
+func CaptureGapSpans(gaps []ReplayGap, start, end time.Time) []*v1.TimeRange {
+	type span struct{ from, to time.Time }
+	var spans []span
+	for _, g := range gaps {
+		if g.Kind != GapCollector && g.Kind != GapEvents {
+			continue
+		}
+		from, to := g.Start, g.End
+		if to.IsZero() || to.After(end) {
+			to = end
+		}
+		if from.Before(start) {
+			from = start
+		}
+		if to.After(from) {
+			spans = append(spans, span{from, to})
+		}
+	}
+	slices.SortFunc(spans, func(a, b span) int { return a.from.Compare(b.from) })
+	var out []*v1.TimeRange
+	for _, x := range spans {
+		if n := len(out); n > 0 && !x.from.After(out[n-1].GetEnd().AsTime()) {
+			if x.to.After(out[n-1].GetEnd().AsTime()) {
+				out[n-1].End = ts(x.to)
+			}
+			continue
+		}
+		out = append(out, &v1.TimeRange{Start: ts(x.from), End: ts(x.to)})
+	}
+	return out
+}
+
+// GapsCover reports whether merged spans cover all of [start, end).
+func GapsCover(spans []*v1.TimeRange, start, end time.Time) bool {
+	for _, x := range spans {
+		if !x.GetStart().AsTime().After(start) && !x.GetEnd().AsTime().Before(end) {
+			return true
+		}
 	}
 	return false
 }
@@ -65,6 +111,9 @@ func RestartLaneEvent(r ServerRestart) *v1.LaneEvent {
 	label := r.Server + " restarted, version " + cmp.Or(r.NewVersion, "unknown") + " unchanged"
 	if r.OldVersion != r.NewVersion {
 		label = r.Server + " restarted, version " + cmp.Or(r.OldVersion, "unknown") + " to " + cmp.Or(r.NewVersion, "unknown")
+	}
+	if r.FirstCollected {
+		label += "; no start time reported, first collected then"
 	}
 	return &v1.LaneEvent{Id: "restart:" + r.NewID, Time: ts(r.Started.UTC()), Source: v1.EventSource_EVENT_SOURCE_NATS, Kind: RestartKind,
 		ShortLabel: r.Server + " restart", Label: label, Entity: EntityRefOf(v1.EntityType_ENTITY_TYPE_SERVER, r.Server)}
@@ -129,6 +178,8 @@ func ClientLane(counts []ClientEventCount) []*v1.ClientLaneBucket {
 				b.Closes += c.N
 			case "Server Shutdown":
 				b.Shutdowns += c.N
+			case "":
+				b.UnknownDisconnects += c.N
 			default:
 				b.Drops += c.N
 			}

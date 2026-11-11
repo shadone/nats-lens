@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/api/apitest"
 	"github.com/shadone/nats-lens/internal/api/fake"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
@@ -54,5 +55,27 @@ func TestTimelineSubjectLanes(t *testing.T) {
 	none := must(client(t).GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{Range: old})))
 	if none.GetSystemEventsCaptured() || none.GetJetstreamEventsCaptured() || len(none.GetClients())+len(none.GetLeaders())+len(none.GetServers()) != 0 {
 		t.Errorf("before the history: %v", none)
+	}
+}
+
+// example-staging stopped collecting three hours ago: its timeline says
+// capture stopped up to its end; an entity's timeline has no subject
+// lanes.
+func TestTimelineCaptureGapsAndEntity(t *testing.T) {
+	_, c := apitest.ServeHandler(t, &api.Handler{Systems: fake.Demo(false)})
+	tl := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{System: fake.StagingSystem})))
+	gaps := tl.GetEventCaptureGaps()
+	if len(gaps) == 0 || !gaps[len(gaps)-1].GetStart().AsTime().Equal(fake.FixedNow.Add(-3*time.Hour)) || !gaps[len(gaps)-1].GetEnd().AsTime().Equal(fake.FixedNow) {
+		t.Errorf("staging gaps = %v", gaps)
+	}
+	last := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{System: fake.StagingSystem,
+		Range: &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-2 * time.Hour)), End: timestamppb.New(fake.FixedNow)}})))
+	if last.GetSystemEventsCaptured() || last.GetJetstreamEventsCaptured() {
+		t.Errorf("last two hours of staging read as captured")
+	}
+	one := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{System: fake.Cluster,
+		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-1"}})))
+	if len(one.GetServers())+len(one.GetLeaders())+len(one.GetClients()) != 0 || one.GetSystemEventsCaptured() {
+		t.Errorf("nats-1 timeline has subject lanes")
 	}
 }

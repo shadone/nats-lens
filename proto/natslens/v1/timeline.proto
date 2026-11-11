@@ -137,9 +137,14 @@ message GetStatusTimelineResponse {
   // Resolved query bounds, separate from the possibly partial last bucket.
   TimeRange range = 13;
 
+  // The server, leader and client lanes (fields 14 to 21) are filled only
+  // for the whole system: with an entity other than the system they are
+  // empty and both captured flags false.
+
   // Server lane, oldest first: restarts seen in the collections (a new
-  // process of a server name), and the lame duck, shutdown and
-  // out-of-storage events; at most the newest 1000.
+  // process of a server name, first collected by the end of the range),
+  // and the lame duck, shutdown, out-of-storage and server-removed events;
+  // at most the newest 1000.
   repeated LaneEvent servers = 14;
 
   // Whether the range held more server lane items than the 1000 in
@@ -159,15 +164,22 @@ message GetStatusTimelineResponse {
   repeated ClientLaneBucket clients = 18;
 
   // Whether any NATS system event (client, server and account events) is
-  // stored before the end of the range, up to the event boundary. False
-  // means system events were not captured, so the client lane and the
-  // server lane's lame duck and shutdown events cannot be shown.
+  // stored in the 7 days before the end of the range, up to the event
+  // boundary, and capture did not stop for the whole range (see
+  // event_capture_gaps). False means system events were not captured, so
+  // the client lane and the server lane's events cannot be shown.
   bool system_events_captured = 19;
 
-  // Whether any JetStream advisory is stored before the end of the range,
-  // up to the event boundary. False means leader elections were not
-  // captured.
+  // Whether any JetStream advisory is stored in the 7 days before the end
+  // of the range, up to the event boundary, and capture did not stop for
+  // the whole range. False means leader elections were not captured.
   bool jetstream_events_captured = 20;
+
+  // Spans of the range in which events were not captured, oldest first,
+  // clipped to the range: nats-lens was not running (collector.gap) or a
+  // connection that captures events was lost (from its loss to its
+  // reconnect, or to the end of the range when it had not reconnected).
+  repeated TimeRange event_capture_gaps = 21;
 }
 
 // Client connection events of one bucket on the timeline's client lane:
@@ -183,8 +195,9 @@ message ClientLaneBucket {
   // Disconnects the client closed, client.churn summaries included.
   int64 closes = 3;
 
-  // Disconnects for any other reason than a client close or a server
-  // shutdown: slow consumer, stale connection, authorization and so on.
+  // Disconnects for any other recorded reason than a client close or a
+  // server shutdown: slow consumer, stale connection, authorization and
+  // so on.
   int64 drops = 4;
 
   // Disconnects because the server shut down.
@@ -192,4 +205,7 @@ message ClientLaneBucket {
 
   // Failed client authentications (client.auth_error).
   int64 auth_errors = 6;
+
+  // Disconnects without a recorded reason.
+  int64 unknown_disconnects = 7;
 }

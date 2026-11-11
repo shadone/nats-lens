@@ -8,17 +8,32 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// subjectLanes fills the server, leader and client lanes of res from the
-// captured events and the scenario's restarts, by the store's rules.
+// subjectLanes fills the server, leader and client lanes of res, the
+// captured flags and the capture gaps from the captured events and the
+// scenario's restarts, by the store's rules; for the whole system only.
 func (p *Provider) subjectLanes(s scen, events []*v1.Event, req *v1.GetStatusTimelineRequest, res *v1.GetStatusTimelineResponse) {
+	if !api.SubjectLanesFor(req.GetEntity()) {
+		return
+	}
 	r := req.GetRange()
 	start, end := r.GetStart().AsTime(), r.GetEnd().AsTime()
+	var gaps []api.ReplayGap
+	var conns []*v1.Event
 	bucket := req.GetBucket().AsDuration()
 	var servers, leaders []*v1.LaneEvent
 	var counts []api.ClientEventCount
-	for _, e := range events {
+	// The events are newest first; the connection gaps need them oldest
+	// first.
+	for i := len(events) - 1; i >= 0; i-- {
+		e := events[i]
 		at := e.GetTime().AsTime()
-		if e.GetSource() == srcNATS && at.Before(end) {
+		if e.GetKind() == "collector.gap" && !at.After(end) && !e.GetReceivedAt().AsTime().Before(start) {
+			gaps = append(gaps, api.ReplayGap{Kind: api.GapCollector, Start: at, End: e.GetReceivedAt().AsTime(), Event: e})
+		}
+		if e.GetSource() == v1.EventSource_EVENT_SOURCE_COLLECTOR && !at.After(end) {
+			conns = append(conns, e)
+		}
+		if e.GetSource() == srcNATS && at.Before(end) && !at.Before(end.Add(-api.CaptureLookback)) {
 			if api.SystemEventKind(e.GetKind()) {
 				res.SystemEventsCaptured = true
 			} else {
@@ -42,21 +57,26 @@ func (p *Provider) subjectLanes(s scen, events []*v1.Event, req *v1.GetStatusTim
 		}
 	}
 	for _, x := range s.restarts(start, end) {
-		if api.RestartMatches(req.GetEntity(), x.Server) {
-			servers = append(servers, api.RestartLaneEvent(x))
-		}
+		servers = append(servers, api.RestartLaneEvent(x))
 	}
 	res.Servers, res.ServersTruncated = api.NewestLane(api.TimelineLaneLimit, false, servers)
 	res.Leaders, res.LeadersTruncated = api.NewestLane(api.TimelineLaneLimit, false, leaders)
 	res.Clients = api.ClientLane(counts)
+	res.EventCaptureGaps = api.CaptureGapSpans(append(gaps, api.EventsConnectionGaps(conns)...), start, end)
+	if api.GapsCover(res.EventCaptureGaps, start, end) {
+		res.SystemEventsCaptured, res.JetstreamEventsCaptured = false, false
+	}
 }
 
 // restarts are the scenario's servers whose process, with an earlier one,
-// started in [start, end).
+// started in [start, end) and was first collected by end.
 func (s scen) restarts(start, end time.Time) []api.ServerRestart {
 	var out []api.ServerRestart
 	for _, sp := range s.sc.servers {
 		if at := s.started(sp); sp.oldID != "" && !at.Before(start) && at.Before(end) {
+			if first, _, ok := s.epochNear(sp, at, sampleEvery, time.Hour); !ok || first.After(end) {
+				continue
+			}
 			out = append(out, api.ServerRestart{Server: sp.name, OldID: sp.oldID, NewID: sp.id, Started: at, OldVersion: sp.version, NewVersion: sp.version})
 		}
 	}

@@ -17,9 +17,10 @@ func TestClientLane(t *testing.T) {
 		{Bucket: 3, Kind: "client.disconnect", Reason: "Client Closed", N: 1},
 		{Bucket: 3, Kind: "client.disconnect", Reason: "Server Shutdown", N: 4},
 		{Bucket: 3, Kind: "client.auth_error", N: 1},
+		{Bucket: 3, Kind: "client.disconnect", Reason: "", N: 3},
 		{Bucket: 7, Kind: "client.churn", N: 0},
 	})
-	want := []*v1.ClientLaneBucket{{Index: 0, Connects: 6, Closes: 5}, {Index: 3, Closes: 1, Drops: 2, Shutdowns: 4, AuthErrors: 1}}
+	want := []*v1.ClientLaneBucket{{Index: 0, Connects: 6, Closes: 5}, {Index: 3, Closes: 1, Drops: 2, Shutdowns: 4, AuthErrors: 1, UnknownDisconnects: 3}}
 	if len(got) != len(want) {
 		t.Fatalf("got %v", got)
 	}
@@ -50,7 +51,25 @@ func TestRestartLaneEvent(t *testing.T) {
 	if e.GetLabel() != "nats-1 restarted, version 2.11.8 to 2.12.2" || e.GetEventId() != "" || e.GetKind() != RestartKind {
 		t.Errorf("restart = %v", e)
 	}
-	if RestartMatches(&v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "A/s"}, "nats-1") || !RestartMatches(nil, "nats-1") {
-		t.Error("restarts belong to the system and their server only")
+	if SubjectLanesFor(&v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-1"}) || !SubjectLanesFor(nil) {
+		t.Error("only the system's timeline has the subject lanes")
+	}
+}
+
+// Gaps are clipped to the range and merged; an open one runs to its end.
+func TestCaptureGapSpans(t *testing.T) {
+	at := func(m int) time.Time { return time.Date(2026, 10, 17, 9, m, 0, 0, time.UTC) }
+	got := CaptureGapSpans([]ReplayGap{
+		{Kind: GapCollector, Start: at(0), End: at(15)},
+		{Kind: GapEvents, Start: at(12), End: at(20)},
+		{Kind: GapKubernetes, Start: at(30), End: at(40)},
+		{Kind: GapEvents, Start: at(50)},
+	}, at(10), at(55))
+	if len(got) != 2 || !got[0].GetStart().AsTime().Equal(at(10)) || !got[0].GetEnd().AsTime().Equal(at(20)) ||
+		!got[1].GetStart().AsTime().Equal(at(50)) || !got[1].GetEnd().AsTime().Equal(at(55)) {
+		t.Fatalf("spans = %v", got)
+	}
+	if GapsCover(got, at(10), at(55)) || !GapsCover(got, at(11), at(19)) {
+		t.Error("cover")
 	}
 }
