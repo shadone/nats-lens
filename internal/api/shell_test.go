@@ -251,24 +251,27 @@ func TestShellStatusServesAnExpiredBadgeWhileItIsRead(t *testing.T) {
 	var clock atomic.Int64
 	clock.Store(time.Now().UnixNano())
 	h := &api.Handler{Systems: systems}
-	api.SetBadgeClock(h, func() time.Time { return time.Unix(0, clock.Load()) }, 0)
+	// A call that waited for the read would wait the 3 s badge wait, as the
+	// read takes 4 s: far from the 1.5 s bound either way.
+	api.SetBadgeClock(h, func() time.Time { return time.Unix(0, clock.Load()) }, 3*time.Second)
 	_, c := apitest.ServeHandler(t, h)
 	shellStatus(t, c, &v1.GetShellStatusRequest{System: "b"})
 	clock.Add(int64(31 * time.Second))
-	a.delay.Store(int64(time.Second))
+	a.delay.Store(int64(4 * time.Second))
 	for range 3 {
 		start := time.Now()
 		m := shellStatus(t, c, &v1.GetShellStatusRequest{System: "b"})
-		if took := time.Since(start); took > 400*time.Millisecond {
+		if took := time.Since(start); took > 1500*time.Millisecond {
 			t.Errorf("the call waited %v for an expired badge", took)
 		}
 		if s := m.GetSystems()[0]; s.GetPending() || s.GetStatus() == v1.Status_STATUS_UNSPECIFIED {
 			t.Errorf("the expired badge was not served: %v", s)
 		}
 	}
-	// Once the background read has ended, its badge is fresh. Waiting for
-	// the read rather than a fixed time: a loaded machine can start it late.
-	eventually(t, "the background read ends", func() bool { return a.summarized.Load() == 2 })
+	// Once the background read has ended and its badge is kept, the badge is
+	// fresh. Waiting for that rather than a fixed time: a loaded machine can
+	// start the read late.
+	eventually(t, "the background read ends", func() bool { return a.summarized.Load() >= 2 && !api.BadgeReading(h, "a") })
 	if n := a.summaries.Load(); n != 2 {
 		t.Errorf("system a's summary was read %d times, want once more in the background", n)
 	}

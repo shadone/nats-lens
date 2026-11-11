@@ -23,3 +23,12 @@ func SetBatchTimeouts(batch, query time.Duration) (restore func()) {
 func SetBadgeClock(h *Handler, now func() time.Time, wait time.Duration) {
 	h.badgeCache.now, h.badgeWait = now, wait
 }
+
+// BadgeReading reports whether a read of the system's badge is in flight.
+func BadgeReading(h *Handler, id string) bool {
+	c := &h.badgeCache
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	e := c.m[id]
+	return e != nil && e.reading != nil
+}
