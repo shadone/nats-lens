@@ -311,17 +311,29 @@ func (s scen) serverLists(c time.Time) map[string]api.ServerList {
 }
 
 // ratedSubscriptions are the subscriptions of the collection at c with
-// their delivered rates from the collection before it, by
-// api.DeliveredRates; none has a rate when that collection lies before
-// the stored history.
+// their delivered rates, by api.DeliveredRates, from each server's newest
+// list before it within api.RateGap, as the store reads them: a
+// collection the server did not answer is skipped. None before the
+// stored history counts.
 func (s scen) ratedSubscriptions(c time.Time) ([]api.SubscriptionFact, map[string]api.ServerConnections) {
 	subs, conns := s.subscriptionsAt(c)
-	prev := c.Add(-subsInterval)
-	if prev.Before(s.dataStart()) {
-		return subs, conns
+	var before []api.SubscriptionFact
+	lists := map[string]api.ServerList{}
+	for at := c.Add(-subsInterval); !at.Before(c.Add(-api.RateGap(subsInterval))) && !at.Before(s.dataStart()); at = at.Add(-subsInterval) {
+		all, _ := s.subscriptionsAt(at)
+		for name, l := range s.serverLists(at) {
+			if _, ok := lists[name]; ok {
+				continue
+			}
+			lists[name] = l
+			for _, x := range all {
+				if x.Server == name {
+					before = append(before, x)
+				}
+			}
+		}
 	}
-	before, _ := s.subscriptionsAt(prev)
-	return api.DeliveredRates(subs, before, s.serverLists(c), s.serverLists(prev), api.RateGap(subsInterval)), conns
+	return api.DeliveredRates(subs, before, s.serverLists(c), lists, api.RateGap(subsInterval)), conns
 }
 
 // systemAccount is the scenario's system account; empty when it lists

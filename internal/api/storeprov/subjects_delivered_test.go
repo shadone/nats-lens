@@ -229,3 +229,75 @@ func TestSubjectsDeliveredRatesWithoutServerRow(t *testing.T) {
 		t.Errorf("tester = %v", subs)
 	}
 }
+
+// A server that did not answer the collection before gives its rate from
+// its newest earlier list within reach: delivered counts only grow while
+// a subscription lives, so the longer span gives the same average.
+func TestSubjectsDeliveredRateSkipsUnansweredCollection(t *testing.T) {
+	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
+	// The lists at 10, none at 11: 1,200 and 900 messages in 10 minutes.
+	_, c := apitest.Serve(t, deliveredProvider(t, last, subjCollection-2))
+	q := subjRow(must(c.GetSubjects(ctx, connect.NewRequest(&v1.GetSubjectsRequest{}))), "APP", "orders.place")
+	if q == nil || !near(q.GetDeliveredPerSecond(), 3.5) || q.GetMeasuredConnections() != 2 {
+		t.Errorf("orders.place = %v", q)
+	}
+}
+
+// The bound of three intervals holds whatever the host's time zone, on a
+// day when daylight saving time changes in Europe.
+func TestSubjectsDeliveredRateWindowAnyZone(t *testing.T) {
+	last := time.Date(2026, 3, 29, 1, 30, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		prev int64
+		ok   bool
+	}{{subjCollection - 3, true}, {subjCollection - 4, false}, {subjCollection - 1, true}} {
+		_, c := apitest.Serve(t, deliveredProvider(t, last, tc.prev))
+		q := subjRow(must(c.GetSubjects(ctx, connect.NewRequest(&v1.GetSubjectsRequest{}))), "APP", "orders.place")
+		if (q.DeliveredPerSecond != nil) != tc.ok {
+			t.Errorf("prev %d: rate %v, want present=%v", tc.prev, q.DeliveredPerSecond, tc.ok)
+		}
+	}
+}
+
+// 100,000 subscriptions in each of two collections get their rates in
+// well under the call's time.
+func TestSubjectsDeliveredRatesScale(t *testing.T) {
+	if testing.Short() {
+		t.Skip("scale test")
+	}
+	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
+	p := subjectsProvider(t, last)
+	db := p.St.DB()
+	for _, q := range []string{`DELETE FROM subscriptions`, `DELETE FROM subscription_lists`} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, e := range []int64{subjCollection - 1, subjCollection} {
+		if _, err := db.Exec(`INSERT INTO connections (epoch, server_id, cid, name, account)
+SELECT ?, 'S' || (i % 4), 1000 + i, 'client-' || (i % 50), 'APP' FROM range(20000) t(i)`, e); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`INSERT INTO subscriptions (epoch, server_id, account, subject, queue, cid, subs, msgs)
+SELECT ?, 'S' || (i % 4), 'APP', CASE WHEN i % 3 = 0 THEN '_INBOX.' || i || '.*' ELSE 'svc.' || (i % 400) END,
+  CASE WHEN i % 3 = 1 THEN 'q' || (i % 400) END, 1000 + (i % 20000), 1, ? * 300 FROM range(100000) t(i)`, e, e); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`INSERT INTO subscription_lists (epoch, server_id, total, listed) SELECT ?, 'S' || i, 25000, 25000 FROM range(4) t(i)`, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, c := apitest.Serve(t, p)
+	start := time.Now()
+	res := must(c.GetSubjects(ctx, connect.NewRequest(&v1.GetSubjectsRequest{})))
+	page := time.Since(start)
+	start = time.Now()
+	m := must(c.MatchSubject(ctx, connect.NewRequest(&v1.MatchSubjectRequest{Account: "APP", Subject: "svc.7"})))
+	tester := time.Since(start)
+	t.Logf("GetSubjects %s, MatchSubject %s", page, tester)
+	in := subjRow(res, "APP", api.InboxPattern)
+	if page > 10*time.Second || tester > 10*time.Second || in == nil || in.GetMeasuredConnections() == 0 || len(api.MatchedSubscribers(m)) == 0 ||
+		api.MatchedSubscribers(m)[0].DeliveredPerSecond == nil {
+		t.Errorf("page %s, tester %s, inbox %v", page, tester, in)
+	}
+}
