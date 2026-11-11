@@ -6,7 +6,7 @@
 
 ## What it does
 
-Select time on a storage chart, then choose whether to change the page range or investigate storage contributors. Selecting alone does not navigate or change the range.
+Select time on a storage chart, or across the Overview's timeline lanes, then choose whether to change the page range or, on a storage chart, investigate storage contributors. Selecting alone does not navigate or change the range.
 
 ## Behavior and rules
 
