@@ -1,7 +1,7 @@
 // The Overview's shared moment: hovering, touching or focusing one chart,
 // or hovering the lanes, draws a bare line in every other chart over the
 // page's range and down the lanes; leaving, blur and Escape clear it.
-import { Profiler, type ReactNode } from "react";
+import { Profiler, StrictMode, useLayoutEffect, useState, type ReactNode } from "react";
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -12,7 +12,7 @@ import { useCapturedEvent, useSelectedTimelineEvents } from "../api/timelineEvid
 import { renderApp } from "../test/render";
 import { ChartIntervalProvider } from "./ChartIntervals";
 import { MiniLine } from "./MiniLine";
-import { SharedCursorProvider } from "./sharedCursor";
+import { SharedCursorProvider, followerFraction, sharesRange, useSharedCursorStore } from "./sharedCursor";
 import { Sparkline } from "./Sparkline";
 
 vi.mock("../lib/useWidth", () => ({ useWidth: () => 800 }));
@@ -223,4 +223,124 @@ it("re-renders no follower while another chart is hovered", () => {
   // The profiler does count the follower once it is the chart under the pointer.
   fireEvent.pointerMove(plot("Bytes"), { clientX: 30 });
   expect(commits.length).toBeGreaterThan(0);
+});
+
+// Subscriptions, unmounts, live range moves and the focused chart after a
+// hover elsewhere.
+let listeners = 0;
+function Probe() {
+  const store = useSharedCursorStore()!;
+  useLayoutEffect(() => {
+    const original = store.subscribe;
+    store.subscribe = (l) => {
+      listeners++;
+      const off = original(l);
+      return () => { listeners--; return off(); };
+    };
+    return () => { store.subscribe = original; };
+  }, [store]);
+  return null;
+}
+
+beforeEach(() => {
+  listeners = 0;
+});
+
+function Three({ s = start, e = end, extra = true }: { s?: number; e?: number; extra?: boolean }) {
+  return (
+    <ChartIntervalProvider>
+      <SharedCursorProvider start={s} end={e}>
+        <Probe />
+        <Sparkline points={[]} start={s} end={e} stepMs={step} status="ok" windows={[]} label="CPU" />
+        {extra && <TrendChart title="Messages" start={s} end={e} stepMs={step} layers={[]} />}
+        <TrendChart title="Bytes" start={s} end={e} stepMs={step} layers={[]} />
+      </SharedCursorProvider>
+    </ChartIntervalProvider>
+  );
+}
+
+function Controlled() {
+  const [mode, setMode] = useState(0);
+  return <>
+    <button onClick={() => setMode((m) => m + 1)}>next</button>
+    {mode < 2 && <Three extra={mode === 0} s={mode ? start + 180_000 : start} e={mode ? end + 180_000 : end} />}
+  </>;
+}
+
+it("holds one subscription per chart under StrictMode and drops them all on unmount", () => {
+  renderApp(<StrictMode><Controlled /></StrictMode>);
+  expect(listeners).toBe(3);
+  fireEvent.click(screen.getByText("next"));
+  expect(listeners).toBe(2);
+  fireEvent.click(screen.getByText("next"));
+  expect(listeners).toBe(0);
+});
+
+it("clears the followers' lines when the owning chart unmounts mid-hover", () => {
+  function Toggle() {
+    const [on, setOn] = useState(true);
+    return <>
+      <button onClick={() => setOn(false)}>drop</button>
+      <ChartIntervalProvider><SharedCursorProvider start={start} end={end}>
+        {on && <TrendChart title="Messages" start={start} end={end} stepMs={step} layers={[]} />}
+        <TrendChart title="Bytes" start={start} end={end} stepMs={step} layers={[]} />
+      </SharedCursorProvider></ChartIntervalProvider>
+    </>;
+  }
+  renderApp(<StrictMode><Toggle /></StrictMode>);
+  fireEvent.pointerMove(plot("Messages"), { clientX: 300 });
+  expect(line("Bytes")).toHaveAttribute("data-on");
+  fireEvent.click(screen.getByText("drop"));
+  expect(line("Bytes")).not.toHaveAttribute("data-on");
+});
+
+it("moves a follower's line to the same moment when a live refresh slides the range", () => {
+  renderApp(<Controlled />);
+  fireEvent.pointerMove(plot("CPU"), { clientX: 300 });
+  expect(parseFloat(line("Bytes").style.left)).toBeCloseTo(50, 2);
+  // The page slides 3 minutes on; CPU's cursor stays at 09:30, so Bytes' line moves left.
+  fireEvent.click(screen.getByText("next"));
+  const t = start + 180_000 + (parseFloat(line("Bytes").style.left) / 100) * 3600_000;
+  expect(Math.abs(t - at(30))).toBeLessThan(1000);
+});
+
+it("a chart whose range is offset within the slack still marks the exact moment", () => {
+  const page = { start: 0, end: 1000 };
+  expect(sharesRange(50, 1050, page)).toBe(true);
+  const f = followerFraction({ time: 500, owner: "x" }, "y", 50, 1050, page)!;
+  expect(50 + f * 1000).toBe(500);
+  expect(sharesRange(51, 1051, page)).toBe(false);
+});
+
+it("keeps the focused chart's position when the mouse briefly hovers another chart", () => {
+  vi.useFakeTimers();
+  try {
+    renderApp(<Three />);
+    fireEvent.focus(plot("Messages"));
+    for (let i = 0; i < 6; i++) fireEvent.keyDown(plot("Messages"), { key: "ArrowRight" });
+    expect(Number(plot("Messages").getAttribute("aria-valuenow"))).toBe(at(30));
+    // The mouse passes over Bytes and leaves it.
+    fireEvent.pointerMove(plot("Bytes"), { clientX: 100 });
+    fireEvent.pointerLeave(plot("Bytes"));
+    act(() => void vi.advanceTimersByTime(200));
+    // Focus never left Messages; the next arrow should continue from 09:30.
+    fireEvent.keyDown(plot("Messages"), { key: "ArrowRight" });
+    expect(Number(plot("Messages").getAttribute("aria-valuenow"))).toBe(at(35));
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("starts the keys again from the range's start after Escape or blur", () => {
+  renderApp(<Three />);
+  const p = plot("Messages");
+  fireEvent.focus(p);
+  for (let i = 0; i < 6; i++) fireEvent.keyDown(p, { key: "ArrowRight" });
+  fireEvent.keyDown(p, { key: "Escape" });
+  fireEvent.keyDown(p, { key: "ArrowRight" });
+  expect(Number(p.getAttribute("aria-valuenow"))).toBe(at(5));
+  for (let i = 0; i < 5; i++) fireEvent.keyDown(p, { key: "ArrowRight" });
+  fireEvent.blur(p);
+  fireEvent.focus(p);
+  expect(Number(p.getAttribute("aria-valuenow"))).toBe(start);
 });

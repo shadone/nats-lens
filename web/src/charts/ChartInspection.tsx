@@ -30,6 +30,9 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
 }) {
   const anchor = useRef<HTMLDivElement>(null);
   const lastSelection = useRef<number | undefined>(undefined);
+  // Where the keys resume after another chart took the readout away; Escape
+  // and blur forget it.
+  const resume = useRef<number | undefined>(undefined);
   const interval=useChartIntervalInteraction({label,start,end,source:investigation,enabled:intervalActions});
   const selection = () => {
     if(interval?.highlight)return {...investigation,...interval.highlight,point:undefined,label};
@@ -45,7 +48,7 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
   const history = usePageHistory();
   const step = inspectionStep(series, stepMs);
   const selected = cursor === undefined ? undefined : Math.min(end, Math.max(start, cursor));
-  if (selected !== undefined) lastSelection.current = selected;
+  if (selected !== undefined) { lastSelection.current = selected; resume.current = selected; }
   const copy = useInvestigationCopy(selection());
   const owned = interval?.active ? undefined : selected;
   useEffect(() => { shared?.(owned); }, [shared, owned]);
@@ -68,13 +71,13 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
   return <div className="chart-inspection-wrap"><div ref={anchor} className="chart-inspection" role="slider" tabIndex={0} aria-label={`Inspect ${label}`} aria-valuemin={start} aria-valuemax={end} aria-valuenow={selected ?? start} aria-valuetext={interval?.highlight?`Selected interval ${new Date(interval.highlight.start).toISOString()} to ${new Date(interval.highlight.end).toISOString()}; Enter opens actions`:selected === undefined ? "Focus, then use arrow keys to inspect time and values" : text} aria-description={[copy?"Use arrow keys to select time, then C to copy as prompt":"",interval?"Shift and arrow keys select an interval; Enter opens actions":""].filter(Boolean).join(". ")||undefined} aria-describedby={selected === undefined ? undefined : id}
     onPointerMove={e => {presence.keep();interval?.move(e);move(e.clientX,e.currentTarget)}} onPointerDown={e => {interval?.down(e);move(e.clientX,e.currentTarget)}} onPointerUp={e=>interval?.up(e)} onPointerCancel={()=>interval?.cancel()} onLostPointerCapture={()=>interval?.cancel()} onClickCapture={e=>interval?.click(e)} onDragStart={e=>{if(interval)e.preventDefault()}}
     onPointerLeave={e => { if (e.pointerType !== "touch") presence.leave(); }}
-    onFocus={() => setCursor(current => current ?? start)} onBlur={e=>presence.blur(e.relatedTarget)}
+    onFocus={() => setCursor(current => current ?? start)} onBlur={e=>{const to=e.relatedTarget;if(!(to instanceof Node&&(anchor.current?.contains(to)||document.getElementById(id)?.contains(to))))resume.current=undefined;presence.blur(to)}}
     onKeyDown={e => {
-      if(interval?.key(e,selected??start,step))return;
+      if(interval?.key(e,selected??resume.current??start,step))return;
       if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.metaKey && copy) { e.preventDefault(); copy(); return; }
-      const current = selected ?? start;
+      const current = selected ?? resume.current ?? start;
       const next = e.key === "Home" ? start : e.key === "End" ? end : e.key === "ArrowRight" || e.key === "ArrowUp" ? current + step : e.key === "ArrowLeft" || e.key === "ArrowDown" ? current - step : undefined;
-      if (e.key === "Escape") { e.preventDefault(); setCursor(undefined); }
+      if (e.key === "Escape") { e.preventDefault(); resume.current = undefined; setCursor(undefined); }
       if (next !== undefined) { e.preventDefault(); setCursor(Math.min(end, Math.max(start, next))); }
     }}>
     {children}
