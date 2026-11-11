@@ -22,6 +22,7 @@ import (
 	"github.com/shadone/nats-lens/internal/api/apitest"
 	"github.com/shadone/nats-lens/internal/api/fake"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/timing"
 	"github.com/shadone/nats-lens/internal/webui"
 )
 
@@ -211,7 +212,7 @@ func TestMetricsBySystem(t *testing.T) {
 	}
 	defer res.Body.Close()
 	b, _ := io.ReadAll(res.Body)
-	body := string(b)
+	body := withoutTimings(string(b))
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("/metrics: %d\n%s", res.StatusCode, body)
 	}
@@ -231,6 +232,28 @@ nats_lens_test_by_code{system="b",code="cluster-b-001"} 2
 	if body != want {
 		t.Errorf("/metrics =\n%s\nwant\n%s", body, want)
 	}
+}
+
+// withoutTimings removes the process's timing families (package timing)
+// from an exposition, whose samples depend on the other tests of the
+// process.
+func withoutTimings(body string) string {
+	skip := map[string]bool{}
+	for _, f := range timing.Families() {
+		skip[f.Name] = true
+	}
+	var out strings.Builder
+	drop := false
+	for l := range strings.Lines(body) {
+		if name, ok := strings.CutPrefix(l, "# HELP "); ok {
+			name, _, _ = strings.Cut(name, " ")
+			drop = skip[name]
+		}
+		if !drop {
+			out.WriteString(l)
+		}
+	}
+	return out.String()
 }
 
 func scrapeMetrics(t *testing.T, url string) (int, string) {

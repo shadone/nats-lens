@@ -14,6 +14,7 @@ import (
 	"github.com/shadone/nats-lens/internal/checks"
 	"github.com/shadone/nats-lens/internal/collect"
 	"github.com/shadone/nats-lens/internal/store"
+	"github.com/shadone/nats-lens/internal/timing"
 )
 
 // SweepEvery is how often the retention sweep runs.
@@ -125,7 +126,10 @@ func (r *Runner) Once(ctx context.Context) (int64, error) {
 	if err := r.Store.Failure(); err != nil {
 		return 0, err
 	}
+	sys := r.Store.System()
+	start := time.Now()
 	snap := r.Collector.Collect(ctx)
+	timing.Since(timing.JobDuration.With(sys, timing.JobCollect), start)
 	if ctx.Err() != nil {
 		return 0, ctx.Err()
 	}
@@ -135,7 +139,7 @@ func (r *Runner) Once(ctx context.Context) (int64, error) {
 	if grace <= 0 {
 		grace = DefaultShutdownGrace
 	}
-	wctx, cancel := writeContext(ctx, grace)
+	wctx, cancel := writeContext(timing.WithSource(ctx, timing.SourceEpoch), grace)
 	defer cancel()
 	epoch, err := r.Store.WriteSnapshotWithin(wctx, snap, r.Interval)
 	if err != nil {
@@ -173,7 +177,10 @@ func (r *Runner) check(ctx context.Context, epoch int64) {
 		r.logger().Info("checks skipped: shutting down", "epoch", epoch)
 		return
 	}
+	ctx = timing.WithSource(ctx, timing.SourceChecks)
+	start := time.Now()
 	res, err := r.Checks.Run(ctx, r.Store, epoch)
+	timing.Since(timing.JobDuration.With(r.Store.System(), timing.JobChecks), start)
 	if err != nil {
 		if ctx.Err() != nil {
 			r.logger().Info("checks abandoned: shutting down", "epoch", epoch)
@@ -189,7 +196,7 @@ func (r *Runner) check(ctx context.Context, epoch int64) {
 	if r.Notify == nil || ctx.Err() != nil {
 		return
 	}
-	if err := r.Notify(ctx, epoch); err != nil && ctx.Err() == nil {
+	if err := r.Notify(timing.WithSource(ctx, timing.SourceNotify), epoch); err != nil && ctx.Err() == nil {
 		r.logger().Error("notifications not queued", "epoch", epoch, "err", err)
 	}
 }
@@ -215,7 +222,10 @@ func (r *Runner) review(ctx context.Context, epoch int64) {
 }
 
 func (r *Runner) sweep(ctx context.Context) error {
+	ctx = timing.WithSource(ctx, timing.SourceRetention)
+	start := time.Now()
 	res, err := r.Store.Sweep(ctx, time.Now(), r.Retention)
+	timing.Since(timing.JobDuration.With(r.Store.System(), timing.JobRetentionSweep), start)
 	if err != nil {
 		err = store.SafeError("retention sweep", err)
 		r.logger().Error("retention sweep failed", "err", err)

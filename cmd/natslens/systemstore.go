@@ -149,6 +149,7 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
 	}
 	rt.st, rt.arch = st, arch
+	st.SetSystem(rt.sys.ID)
 	if err := st.SetThreads(ctx, threads); err != nil {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
 	}

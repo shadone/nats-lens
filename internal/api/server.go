@@ -21,6 +21,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/gen/natslens/v1/natslensv1connect"
 	"github.com/shadone/nats-lens/internal/investigation"
+	"github.com/shadone/nats-lens/internal/timing"
 )
 
 // PathPrefix is where the API is mounted: a client's base URL is
@@ -86,6 +87,7 @@ func newLensService(h *Handler) (string, http.Handler) {
 	return natslensv1connect.NewLensServiceHandler(h,
 		connect.WithReadMaxBytes(MaxMessageBytes),
 		connect.WithSendMaxBytes(MaxMessageBytes),
+		connect.WithInterceptors(timingInterceptor(h.Systems)),
 		connect.WithRecover(func(_ context.Context, spec connect.Spec, _ http.Header, r any) error {
 			if h.Log != nil {
 				h.Log.Error("api call panicked", "procedure", spec.Procedure, "panic", r, "stack", string(debug.Stack()))
@@ -146,7 +148,7 @@ func metricsHandler(h *Handler) http.HandlerFunc {
 		for i, s := range writers {
 			wg.Go(func() {
 				id := s.Ref.GetId()
-				ctx, cancel := context.WithTimeout(r.Context(), timeout)
+				ctx, cancel := context.WithTimeout(timing.WithSource(r.Context(), timing.SourceMetrics), timeout)
 				defer cancel()
 				exp, err := NewExposition(id)
 				if err == nil {
@@ -182,6 +184,7 @@ func metricsHandler(h *Handler) http.HandlerFunc {
 		for _, m := range merged {
 			out.merge(m)
 		}
+		out.addTimings()
 		var buf bytes.Buffer
 		if _, err := out.writeTo(&buf); err != nil {
 			if h.Log != nil {

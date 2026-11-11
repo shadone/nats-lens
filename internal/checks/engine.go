@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/store"
+	"github.com/shadone/nats-lens/internal/timing"
 )
 
 // Engine runs a Set of checks for one epoch.
@@ -71,7 +72,9 @@ func (e *Engine) logger() *slog.Logger {
 // a store failure or ctx ending is returned as an error, and then nothing
 // is stored.
 func (e *Engine) Run(ctx context.Context, st *store.Store, epoch int64) (store.ApplyResult, error) {
+	start := time.Now()
 	runs, loopback, err := e.evaluate(ctx, st.DB(), epoch)
+	timing.Since(timing.JobDuration.With(st.System(), timing.JobCheckEvaluation), start)
 	if err != nil {
 		return store.ApplyResult{}, err
 	}

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/store"
+	"github.com/shadone/nats-lens/internal/timing"
 )
 
 // DefaultMinCleanupAge is how old an unlisted file must be before an
@@ -139,6 +140,8 @@ func (a *Archiver) Export(ctx context.Context, now time.Time) (int, error) {
 // Until the manifest is replaced, the previous manifest and its files stay
 // as they were, so a crash never mixes two exports.
 func (a *Archiver) ExportHour(ctx context.Context, hour time.Time, final bool, now time.Time) error {
+	ctx = timing.WithSource(ctx, timing.SourceArchive)
+	defer timing.Since(timing.JobDuration.With(a.Store.System(), timing.JobArchiveExport), time.Now())
 	stage := a.Dest.StageDir()
 	if err := os.MkdirAll(stage, 0o750); err != nil {
 		return fmt.Errorf("stage dir: %w", err)
