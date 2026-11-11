@@ -23,9 +23,11 @@ type Report struct {
 
 // Env records what the numbers depend on.
 type Env struct {
-	Profile      string
-	StoreBytes   int64
-	OpenTook     time.Duration
+	Profile    string
+	StoreBytes int64
+	OpenTook   time.Duration
+	// FillTook is the asset count fill after the open, apart from OpenTook.
+	FillTook     time.Duration
 	GoVersion    string
 	DuckDB       string
 	Threads      string
@@ -127,8 +129,8 @@ func loadAverage() string {
 	return strings.Trim(strings.TrimSpace(string(out)), "{} ")
 }
 
-func environment(ctx context.Context, st *store.Store, o LoadOptions, openTook time.Duration) Env {
-	e := Env{Profile: o.Profile.String(), OpenTook: openTook, GoVersion: runtime.Version(), CPUs: runtime.NumCPU(),
+func environment(ctx context.Context, st *store.Store, o LoadOptions, openTook, fillTook time.Duration) Env {
+	e := Env{Profile: o.Profile.String(), OpenTook: openTook, FillTook: fillTook, GoVersion: runtime.Version(), CPUs: runtime.NumCPU(),
 		LoadAtStart: loadAverage(), GeneratedAt: time.Now().UTC()}
 	if fi, err := os.Stat(o.Path); err == nil {
 		e.StoreBytes = fi.Size()
@@ -300,8 +302,8 @@ func (r *Report) Markdown() string {
 	var b strings.Builder
 	e := r.Env
 	fmt.Fprintf(&b, "## Run %s\n\n", e.GeneratedAt.Format(time.RFC3339))
-	fmt.Fprintf(&b, "- Profile: %s\n- Store: %.2f GB, %d epochs, opened in %s\n- %s, %s, %d CPUs; DuckDB %s, threads %s, memory_limit %s\n- Query budget: %d (0: none)\n- Load average at start: %s\n\n",
-		e.Profile, float64(e.StoreBytes)/1e9, e.EpochsStored, e.OpenTook.Round(time.Millisecond), e.GoVersion, e.Host, e.CPUs, e.DuckDB, e.Threads, e.MemoryLimit, e.QueryBudget, e.LoadAtStart)
+	fmt.Fprintf(&b, "- Profile: %s\n- Store: %.2f GB, %d epochs, opened in %s, asset counts filled in %s\n- %s, %s, %d CPUs; DuckDB %s, threads %s, memory_limit %s\n- Query budget: %d (0: none)\n- Load average at start: %s\n\n",
+		e.Profile, float64(e.StoreBytes)/1e9, e.EpochsStored, e.OpenTook.Round(time.Millisecond), e.FillTook.Round(time.Millisecond), e.GoVersion, e.Host, e.CPUs, e.DuckDB, e.Threads, e.MemoryLimit, e.QueryBudget, e.LoadAtStart)
 	for _, res := range r.Results {
 		fmt.Fprintf(&b, "### %s\n\n%s Ran %s; load %s before, %s after; peak Go heap %d MB, peak RSS %d MB. Query budget: at most %d slots held and %d queries waiting; connections: at most %d open and %d in use, %d waits for one.\n\n",
 			res.Name, res.Description, res.Elapsed.Round(time.Millisecond), res.LoadBefore, res.LoadAfter, res.MaxHeapBytes>>20, res.MaxRSSBytes>>20,
