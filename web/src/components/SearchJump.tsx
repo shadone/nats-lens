@@ -145,6 +145,7 @@ export function SearchJump() {
   const askOption = offerAsk && question.question !== undefined ? ({ id: `${listId}-${options.length}`, question: question.question } satisfies Option) : undefined;
   if (askOption) options.push(askOption);
   const current = Math.min(active, Math.max(0, options.length - 1));
+  const askProblemId = `${listId}-ask-problem`;
 
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
@@ -199,6 +200,8 @@ export function SearchJump() {
 
   const showList = open && text.trim() !== "";
   const showHint = open && text.trim() === "";
+  // The dimmed Ask row's reason is read with the box, as the row itself cannot be reached.
+  const askProblem = showList && offerAsk && question.problem !== undefined;
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown" && options.length) {
       e.preventDefault();
@@ -261,6 +264,7 @@ export function SearchJump() {
         aria-expanded={showList && (offerAsk || groups.some((g) => g.rows.length > 0 || g.more))}
         aria-controls={showList ? listId : undefined}
         aria-activedescendant={showList && options[current] ? options[current].id : undefined}
+        aria-describedby={askProblem ? askProblemId : undefined}
         placeholder="Search this system"
         value={text}
         onChange={(e) => {
@@ -352,7 +356,11 @@ export function SearchJump() {
                       <span>Copy prompt with question</span>
                       {askOption && <span className="sd">{askOption.question}</span>}
                     </span>
-                    {question.problem && <span className="ss">{questionProblem(question.problem, question.length)}</span>}
+                    {question.problem && (
+                      <span className="ss" id={askProblemId}>
+                        {questionProblem(question.problem, question.length)}
+                      </span>
+                    )}
                   </li>
                 </ul>
               </li>

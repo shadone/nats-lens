@@ -312,6 +312,16 @@ describe("the dimmed Ask row", () => {
     await waitFor(() => expect(askRow()).not.toHaveAttribute("aria-disabled"));
   });
 
+  it("gives its reason to the box, for a screen reader", async () => {
+    setup("/?system=sys-a");
+    await enter("ask:");
+    await screen.findByRole("option", { name: /Copy prompt with question/ });
+    expect(box()).toHaveAccessibleDescription("Type a question after ask:");
+    fireEvent.change(box(), { target: { value: `ask: ${"x".repeat(2001)}` } });
+    await waitFor(() => expect(box()).toHaveAccessibleDescription("2,001 characters; a question takes at most 2,000"));
+    fireEvent.change(box(), { target: { value: "ask: why" } });
+    await waitFor(() => expect(box()).not.toHaveAttribute("aria-describedby"));
+  });
 });
 
 describe("scrolling the list", () => {
