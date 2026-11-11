@@ -2,7 +2,7 @@ import {InvestigationHandoff} from "../components/InvestigationContext";
 import {buildInvestigationContext,type InvestigationSelection} from "../lib/investigationContext";
 import { create } from "@bufbuild/protobuf";
 import { timestampFromMs, timestampMs } from "@bufbuild/protobuf/wkt";
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
@@ -132,7 +132,7 @@ describe("FindingDetail", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     m.getFinding.mockResolvedValue({ finding: { ...base, checkCode: "consumer-009", entity: consumerEntity }, transitions: [] });
     show();
-    expect(await screen.findByRole("table", { name: "Server copies" }).catch(() => screen.findByText(/No server reports/))).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("table", { name: "Server copies" }) ?? screen.queryByText(/No server reports/)).toBeInTheDocument());
     await vi.waitFor(() => expect(listEvents).toHaveBeenCalled());
     await act(async () => {
       await vi.advanceTimersByTimeAsync(65_000);
