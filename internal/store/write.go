@@ -63,6 +63,7 @@ func (s *Store) writeSnapshot(ctx context.Context, snap *collect.Snapshot) (int6
 		w.ids.account(acc, snap.AccountNames[acc], false)
 	}
 	w.writeIdents()
+	w.writeAssetCounts()
 	if len(w.notes) > 0 {
 		notes := make([]string, len(w.notes))
 		for i, n := range w.notes {

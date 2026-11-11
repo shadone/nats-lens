@@ -23,9 +23,12 @@ type GenerateResult struct {
 	// TemplateWrites are the durations of the epochs written through
 	// Store.WriteSnapshot, the collector's own path.
 	TemplateWrites []time.Duration
-	Elapsed        time.Duration
-	Bytes          int64
-	Rows           map[string]int64
+	// AssetCountsFill is how long filling the copied epochs' asset counts
+	// took, as Open fills an upgraded store's.
+	AssetCountsFill time.Duration
+	Elapsed         time.Duration
+	Bytes           int64
+	Rows            map[string]int64
 }
 
 // linear lists the columns of a table whose synthetic values grow in
@@ -76,6 +79,14 @@ func Generate(ctx context.Context, p Profile, path string, log *slog.Logger) (Ge
 	if err := copyHistory(ctx, db, p, log); err != nil {
 		return res, err
 	}
+	// The copied epochs get their asset counts as an upgraded store's
+	// epochs do when it opens.
+	t := time.Now()
+	if _, err := st.FillAssetCounts(ctx); err != nil {
+		return res, fmt.Errorf("asset counts: %w", err)
+	}
+	res.AssetCountsFill = time.Since(t)
+	log.Info("asset counts filled", "took", res.AssetCountsFill)
 	if err := writeEvents(ctx, db, p); err != nil {
 		return res, err
 	}
@@ -84,7 +95,7 @@ func Generate(ctx context.Context, p Profile, path string, log *slog.Logger) (Ge
 		return res, err
 	}
 	eng := &checks.Engine{Set: set, Log: log, Interval: p.Interval, Budget: 10 * time.Minute}
-	t := time.Now()
+	t = time.Now()
 	if _, err := eng.Run(ctx, st, int64(p.Epochs())); err != nil {
 		return res, fmt.Errorf("checks: %w", err)
 	}
@@ -160,13 +171,14 @@ FROM epochs t, range(?, ? + 1) r(i) WHERE t.epoch = 2 ORDER BY i`, firstMicros, 
 }
 
 // epochTables are the base tables with an epoch column whose rows belong
-// to one epoch's snapshot; epochs itself and the checks' and
-// notifications' tables are left out.
+// to one epoch's snapshot; epochs itself, the asset counts Generate
+// fills afterwards and the checks' and notifications' tables are left
+// out.
 func epochTables(ctx context.Context, db *sql.DB) ([]string, error) {
 	rows, err := db.QueryContext(ctx, `SELECT c.table_name FROM information_schema.columns c
 JOIN information_schema.tables t USING (table_name)
 WHERE c.column_name = 'epoch' AND t.table_type = 'BASE TABLE'
-  AND c.table_name NOT IN ('epochs', 'check_runs', 'finding_transitions', 'notify_outbox', 'notify_state')
+  AND c.table_name NOT IN ('epochs', 'epoch_asset_counts', 'check_runs', 'finding_transitions', 'notify_outbox', 'notify_state')
 ORDER BY 1`)
 	if err != nil {
 		return nil, err

@@ -35,7 +35,7 @@ TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -timeout 40m ./int
 | Driver bindings | `github.com/duckdb/duckdb-go-bindings v0.20000.0`, `go.duckdb.org/libduckdb/<os>-<arch> v0.20000.0` | `go.mod` |
 | DuckDB engine | `v2.0.0`, source `d54cbbe3df` | `SELECT library_version, source_id FROM pragma_version()` |
 | Storage format | the engine's default for new files (2.0) | [design.md](../design.md) |
-| Schema | migrations `0001` to `0040` | `internal/store/migrations/` |
+| Schema | migrations `0001` to `0041` | `internal/store/migrations/` |
 
 Record these again when `go.mod` changes; the matrix result applies to these versions only.
 
@@ -53,10 +53,10 @@ Proposed, not yet confirmed:
 
 | Combination | Test | Normal tier | Release matrix |
 | --- | --- | --- | --- |
-| Database at schema v, opened by the current binary | `TestCompatUpgradeFromOlderSchemas` | v = 1, 35, 37, 40 | v = 1 to 40 |
-| Upgrade from v interrupted after about half the pending migrations, then restarted | `TestCompatUpgradeInterruptedThenRestarted` | v = 1 | v = 1 to 39 |
-| Archive hour written at schema v, rebuilt alone | `TestCompatRebuildFromOlderArchives/from_v/alone` | v = 1, 35, 37, 40 | v = 1 to 40 |
-| Archive hour at schema v and one at the newest, rebuilt together | `TestCompatRebuildFromOlderArchives/from_v/mixed` | v = 1, 35, 37, 40 | v = 1 to 40 |
+| Database at schema v, opened by the current binary | `TestCompatUpgradeFromOlderSchemas` | v = 1, 35, 37, 41 | v = 1 to 41 |
+| Upgrade from v interrupted after about half the pending migrations, then restarted | `TestCompatUpgradeInterruptedThenRestarted` | v = 1 | v = 1 to 40 |
+| Archive hour written at schema v, rebuilt alone | `TestCompatRebuildFromOlderArchives/from_v/alone` | v = 1, 35, 37, 41 | v = 1 to 41 |
+| Archive hour at schema v and one at the newest, rebuilt together | `TestCompatRebuildFromOlderArchives/from_v/mixed` | v = 1, 35, 37, 41 | v = 1 to 41 |
 | Database written by a later binary (unknown migration) | `TestNewerDatabaseIsRefusedBeforeAnyWrite` (with and without a write-ahead log), `TestNewerMigrationOnlyInTheLogIsRefused`, `TestCheckSchemaNamesANewerDatabase` | yes | yes |
 | Database with an edited migration | `TestEditedMigrationRefusedBeforeBackfill`, `TestEditedMigrationFailsStart`, `TestEditedMigrationStopsPendingOnes` | yes | yes |
 | Migration files changed, removed or added without a pinned checksum | `TestMigrationsMatchGolden` | yes | yes |

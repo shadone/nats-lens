@@ -12,9 +12,10 @@ import (
 // compatUnarchived lists the tables the hourly export leaves out, each on
 // purpose: the schema record, the archive's own bookkeeping, the inventory
 // file's copy, and the notification channels' local state, which a
-// rebuild starts afresh.
+// rebuild starts afresh, and the asset counts per epoch, which a rebuild
+// computes again from the archived reports.
 var compatUnarchived = []string{
-	"migrations", "archive_hours", "inventory",
+	"migrations", "archive_hours", "inventory", "epoch_asset_counts",
 	"notify_channels", "notify_state", "notify_outbox", "notify_identity", "notify_delivery_rate",
 }
 

@@ -152,7 +152,7 @@ func TestSweepCoversEveryEpochTable(t *testing.T) {
 	s := openMem(t)
 	// The notify tables are swept by SweepNotifications.
 	swept := map[string]bool{"epochs": true}
-	for _, x := range slices.Concat(epochTables, accountEpochTables, rangeTables, checkTables, notifyTables) {
+	for _, x := range slices.Concat(epochTables, accountEpochTables, rangeTables, checkTables, derivedEpochTables, notifyTables) {
 		swept[x] = true
 	}
 	rows, err := s.DB().Query(`SELECT DISTINCT c.table_name FROM duckdb_columns() c
@@ -206,6 +206,7 @@ var archiveExempt = map[string]string{
 	"archive_hours":        "records what was exported; a rebuild writes it from the loaded files",
 	"migrations":           "migration bookkeeping; a new database applies the migrations itself",
 	"inventory":            "loaded from inventory_file on every start",
+	"epoch_asset_counts":   "derived from the archived reports and configurations; a rebuild computes it again",
 	"notify_channels":      "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
 	"notify_state":         "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
 	"notify_outbox":        "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",

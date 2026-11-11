@@ -22,6 +22,11 @@ var accountEpochTables = []string{"micro_requests", "micro_instances", "micro_st
 // archived by epoch like epochTables, but describe no server.
 var checkTables = []string{"check_runs", "finding_transitions"}
 
+// derivedEpochTables hold one row per epoch computed from the other tables
+// as the epoch is written: they are swept by epoch but not archived, as a
+// rebuild computes them again.
+var derivedEpochTables = []string{"epoch_asset_counts"}
+
 // hourTables hold sums per hour, filled as each epoch is written; they are
 // swept with the hours wholly before the retention window and archived by
 // hour.
@@ -73,7 +78,7 @@ SELECT coalesce(
 		return SweepResult{}, fmt.Errorf("sweep epochs: %w", err)
 	}
 	n, _ := res.RowsAffected()
-	for _, t := range append(append(append([]string{}, epochTables...), accountEpochTables...), "check_runs") {
+	for _, t := range append(append(append(append([]string{}, epochTables...), accountEpochTables...), derivedEpochTables...), "check_runs") {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+t+" WHERE epoch < ?", cutoff); err != nil {
 			return SweepResult{}, fmt.Errorf("sweep %s: %w", t, err)
 		}

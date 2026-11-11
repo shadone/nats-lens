@@ -102,6 +102,10 @@ func OpenPath(ctx context.Context, path string, opts ...Option) (*Store, error) 
 	s := &Store{db: db, guard: guard}
 	s.mu.system = &guard.system
 	s.mu.gate = &guard.gate
+	if err := s.fillAssetCountsLogged(ctx); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 	return s, nil
 }
 
