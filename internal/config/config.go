@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"net/url"
 	"os"
@@ -196,9 +197,27 @@ func LoadFile(path string, base Config) (Config, error) {
 	if err != nil {
 		return base, fmt.Errorf("open config: %w", err)
 	}
+	return decodeFile(path, data, base)
+}
+
+// decodeFile reads the YAML data of the file at path over base; on an
+// error it returns base.
+func decodeFile(path string, data []byte, base Config) (Config, error) {
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
+	// The decoder writes into the maps and pointers it finds, so give it
+	// copies of the base's.
 	cfg := base
+	if base.Checks.Thresholds != nil {
+		cfg.Checks.Thresholds = make(map[string]map[string]string, len(base.Checks.Thresholds))
+		for code, values := range base.Checks.Thresholds {
+			cfg.Checks.Thresholds[code] = maps.Clone(values)
+		}
+	}
+	if p := base.Checks.LoopbackIsTooling; p != nil {
+		loopback := *p
+		cfg.Checks.LoopbackIsTooling = &loopback
+	}
 	if err := dec.Decode(&cfg); err != nil {
 		return base, fmt.Errorf("parse config %s: %w", path, err)
 	}
