@@ -64,7 +64,7 @@ func canonicalIP(s string) string {
 // longer watched, or whose watch never lists, stays ended instead of
 // matching a reused address.
 func (s *Store) EndLiveClientPods(ctx context.Context) error {
-	s.mu.Lock()
+	s.mu.Lock(opClientPods)
 	defer s.mu.Unlock()
 	if _, err := s.db.ExecContext(ctx, `UPDATE client_pods SET ended_at = last_seen WHERE ended_at IS NULL`); err != nil {
 		return fmt.Errorf("end live client pods: %w", err)
@@ -80,7 +80,7 @@ func (s *Store) WriteClientPods(ctx context.Context, b ClientPodBatch) error {
 	if len(b.Seen) == 0 && len(b.Ended) == 0 && len(b.Relists) == 0 && len(b.Touch) == 0 {
 		return nil
 	}
-	s.mu.Lock()
+	s.mu.Lock(opClientPods)
 	defer s.mu.Unlock()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

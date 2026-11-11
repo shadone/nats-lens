@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"slices"
 	"time"
+
+	"github.com/shadone/nats-lens/internal/timing"
 )
 
 // notifyTables hold the notifier's state and outbox. They are not
@@ -270,7 +272,8 @@ func microText(t time.Time) string { return t.UTC().Format("2006-01-02 15:04:05.
 // change, writing nothing, when a channel in it was already reconciled for
 // an epoch at or after the one it records.
 func (s *Store) ApplyNotify(ctx context.Context, ch NotifyChange) error {
-	if err := s.lock(ctx); err != nil {
+	ctx = timing.WithSource(ctx, timing.SourceNotify)
+	if err := s.lock(ctx, opNotify); err != nil {
 		return err
 	}
 	defer s.mu.Unlock()
@@ -426,7 +429,8 @@ type NotifySweep struct {
 // channel is left to send them to).
 func (s *Store) SweepNotifications(ctx context.Context, now time.Time, retention time.Duration, keep []string) (NotifySweep, error) {
 	var res NotifySweep
-	if err := s.lock(ctx); err != nil {
+	ctx = timing.WithSource(ctx, timing.SourceNotify)
+	if err := s.lock(ctx, opNotify); err != nil {
 		return res, err
 	}
 	defer s.mu.Unlock()

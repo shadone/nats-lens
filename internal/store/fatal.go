@@ -36,6 +36,8 @@ type engineGuard struct {
 	failure atomic.Pointer[engineFailure]
 	ctx     context.Context
 	cancel  context.CancelFunc
+	// system labels the engine's query timings; see Store.SetSystem.
+	system atomic.Pointer[string]
 }
 
 func newEngineGuard() *engineGuard {
@@ -143,6 +145,7 @@ func (c *guardedConn) ExecContext(ctx context.Context, q string, args []driver.N
 	if err := c.g.err(); err != nil {
 		return nil, err
 	}
+	defer c.g.timed(ctx, time.Now())
 	ctx, done := c.g.callContext(ctx)
 	defer done()
 	r, err := c.Conn.(driver.ExecerContext).ExecContext(ctx, q, args)
@@ -152,7 +155,9 @@ func (c *guardedConn) QueryContext(ctx context.Context, q string, args []driver.
 	if err := c.g.err(); err != nil {
 		return nil, err
 	}
-	ctx, done := c.g.callContext(ctx)
+	done := c.g.timedQuery(ctx)
+	ctx, stop := c.g.callContext(ctx)
+	done = joined(stop, done)
 	r, err := c.Conn.(driver.QueryerContext).QueryContext(ctx, q, args)
 	if err != nil {
 		done()
@@ -236,6 +241,7 @@ func (s *guardedStmt) ExecContext(ctx context.Context, args []driver.NamedValue)
 	if err := s.g.err(); err != nil {
 		return nil, err
 	}
+	defer s.g.timed(ctx, time.Now())
 	ctx, done := s.g.callContext(ctx)
 	defer done()
 	r, err := s.Stmt.(driver.StmtExecContext).ExecContext(ctx, args)
@@ -245,7 +251,9 @@ func (s *guardedStmt) QueryContext(ctx context.Context, args []driver.NamedValue
 	if err := s.g.err(); err != nil {
 		return nil, err
 	}
-	ctx, done := s.g.callContext(ctx)
+	done := s.g.timedQuery(ctx)
+	ctx, stop := s.g.callContext(ctx)
+	done = joined(stop, done)
 	r, err := s.Stmt.(driver.StmtQueryContext).QueryContext(ctx, args)
 	if err != nil {
 		done()

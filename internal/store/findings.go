@@ -98,7 +98,7 @@ type openFinding struct {
 // with a transition in the hour before the epoch.
 func (s *Store) ApplyCheckRuns(ctx context.Context, epoch int64, runs []CheckRun) (ApplyResult, error) {
 	var res ApplyResult
-	if err := s.lock(ctx); err != nil {
+	if err := s.lock(ctx, opFindings); err != nil {
 		return res, err
 	}
 	defer s.mu.Unlock()

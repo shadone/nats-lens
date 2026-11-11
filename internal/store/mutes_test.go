@@ -50,7 +50,7 @@ func TestMuteLifecycle(t *testing.T) {
 
 func TestMuteLockGivesUpWithTheContext(t *testing.T) {
 	s := openMem(t)
-	s.mu.Lock()
+	s.mu.Lock("test")
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 	_, err := s.CreateMute(ctx, Mute{CheckCode: "x-001", Reason: "r", MutedBy: "op", CreatedAt: t0, ExpiresAt: t0.Add(time.Hour)})

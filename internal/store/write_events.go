@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/events"
+
+	"github.com/shadone/nats-lens/internal/timing"
 )
 
 var eventCols = []string{
@@ -21,7 +23,8 @@ func (s *Store) WriteEvents(ctx context.Context, evs []events.Event) error {
 	if len(evs) == 0 {
 		return nil
 	}
-	s.mu.Lock()
+	ctx = timing.WithSource(ctx, timing.SourceEvents)
+	s.mu.Lock(opEvents)
 	defer s.mu.Unlock()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -111,7 +114,8 @@ func (s *Store) LearnAccountNames(ctx context.Context, names map[string]string) 
 	if len(names) == 0 {
 		return nil
 	}
-	s.mu.Lock()
+	ctx = timing.WithSource(ctx, timing.SourceEvents)
+	s.mu.Lock(opAccountNames)
 	defer s.mu.Unlock()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

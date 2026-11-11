@@ -136,7 +136,7 @@ WHERE accepted AND entity_type IN ('stream', 'server')
 // it; a row a person lifted meanwhile, one that has a growth, or a plain
 // mute is left as it is.
 func (s *Store) SetAcceptanceBaseline(ctx context.Context, id int64, t time.Time, growth float64) (bool, error) {
-	if err := s.lock(ctx); err != nil {
+	if err := s.lock(ctx, opAcceptances); err != nil {
 		return false, err
 	}
 	defer s.mu.Unlock()
@@ -153,7 +153,7 @@ WHERE id = ? AND accepted AND growth_per_day IS NULL AND unmuted_at IS NULL AND 
 // unmuted_by by, end_reason reason. It reports whether it ended one; a
 // row a person lifted meanwhile, or a plain mute, is left as it is.
 func (s *Store) EndAcceptance(ctx context.Context, id int64, t time.Time, by, reason string) (bool, error) {
-	if err := s.lock(ctx); err != nil {
+	if err := s.lock(ctx, opAcceptances); err != nil {
 		return false, err
 	}
 	defer s.mu.Unlock()

@@ -50,7 +50,7 @@ type SweepResult struct {
 // episode ended, before then, events received before then, and client pod
 // addresses last seen before then, in one transaction.
 func (s *Store) Sweep(ctx context.Context, now time.Time, retention time.Duration) (SweepResult, error) {
-	s.mu.Lock()
+	s.mu.Lock(opSweep)
 	defer s.mu.Unlock()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

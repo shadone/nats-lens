@@ -33,7 +33,7 @@ func (s *Store) CreateAcceptances(ctx context.Context, ms []Mute, now time.Time)
 			return nil, errors.New("create acceptances: an acceptance needs accepted and an entity")
 		}
 	}
-	if err := s.lock(ctx); err != nil {
+	if err := s.lock(ctx, opAcceptances); err != nil {
 		return nil, err
 	}
 	defer s.mu.Unlock()

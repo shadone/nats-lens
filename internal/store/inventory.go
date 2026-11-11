@@ -50,7 +50,7 @@ func durVal(p *time.Duration) any {
 // ReplaceInventory replaces the inventory table with rows, read from
 // source at at, in one transaction. No rows empties it.
 func (s *Store) ReplaceInventory(ctx context.Context, rows []InventoryRow, source string, at time.Time) error {
-	if err := s.lock(ctx); err != nil {
+	if err := s.lock(ctx, opInventory); err != nil {
 		return err
 	}
 	defer s.mu.Unlock()

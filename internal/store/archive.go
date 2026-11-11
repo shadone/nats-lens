@@ -299,7 +299,7 @@ func (s *Store) MarkExported(ctx context.Context, hour time.Time, e HourExport, 
 	if err != nil {
 		return err
 	}
-	s.mu.Lock()
+	s.mu.Lock(opArchiveRecord)
 	defer s.mu.Unlock()
 	_, err = s.db.ExecContext(ctx, `INSERT INTO archive_hours (hour, rows, files, exported_at, epochs, events, final, table_rows, mute_changes,
     ack_changes)
@@ -356,7 +356,7 @@ type RebuildHour struct {
 // Rows are matched to columns by name: a column added by a later migration
 // is null in rows loaded from files written before it existed.
 func (s *Store) Rebuild(ctx context.Context, hours map[time.Time]RebuildHour, min MaxIDs, at time.Time) error {
-	s.mu.Lock()
+	s.mu.Lock(opRebuild)
 	defer s.mu.Unlock()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

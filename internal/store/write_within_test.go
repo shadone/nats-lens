@@ -32,9 +32,9 @@ type lockDeadlineContext struct {
 
 func (c *lockDeadlineContext) Deadline() (time.Time, bool) {
 	c.reads++
-	if c.store.mu.TryLock() {
+	if c.store.mu.m.TryLock() {
 		c.unlocked = true
-		c.store.mu.Unlock()
+		c.store.mu.m.Unlock()
 	}
 	return time.Time{}, false
 }

@@ -48,10 +48,10 @@ var (
 // lock takes the write lock, or gives up when ctx ends first; a mute call
 // then fails instead of waiting behind a long epoch write or archive
 // export. A lock acquired after ctx ended is released at once.
-func (s *Store) lock(ctx context.Context) error {
+func (s *Store) lock(ctx context.Context, op string) error {
 	got := make(chan struct{})
 	go func() {
-		s.mu.Lock()
+		s.mu.Lock(op)
 		close(got)
 	}()
 	select {
@@ -97,7 +97,7 @@ func scanMute(row interface{ Scan(...any) error }) (Mute, error) {
 // wrapped with the check, the entity and the review date; the check runs
 // in the transaction that inserts, under the write lock.
 func (s *Store) CreateMute(ctx context.Context, m Mute) (Mute, error) {
-	if err := s.lock(ctx); err != nil {
+	if err := s.lock(ctx, opMutes); err != nil {
 		return Mute{}, err
 	}
 	defer s.mu.Unlock()
@@ -149,7 +149,7 @@ VALUES (nextval('mute_seq'), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING `+muteCols,
 // UnmuteMute lifts a mute that applies at now. It returns ErrMuteNotFound
 // for an unknown ID and ErrMuteInactive for one already lifted or expired.
 func (s *Store) UnmuteMute(ctx context.Context, id int64, by string, now time.Time) (Mute, error) {
-	if err := s.lock(ctx); err != nil {
+	if err := s.lock(ctx, opMutes); err != nil {
 		return Mute{}, err
 	}
 	defer s.mu.Unlock()

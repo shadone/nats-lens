@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	duckdb "github.com/duckdb/duckdb-go/v2"
@@ -29,7 +28,7 @@ type Store struct {
 	db       *sql.DB
 	borrowed bool
 	guard    *engineGuard
-	mu       sync.Mutex
+	mu       writeLock
 	log      *slog.Logger
 	// warned holds the asset warnings already logged; written under mu by
 	// WriteSnapshot.
@@ -95,7 +94,9 @@ func OpenPath(ctx context.Context, path string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("checkpoint %s: %w", path, err)
 	}
-	return &Store{db: db, guard: guard}, nil
+	s := &Store{db: db, guard: guard}
+	s.mu.system = &guard.system
+	return s, nil
 }
 
 // refuseBeforeOpen returns the error migrate would refuse an existing

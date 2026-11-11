@@ -14,7 +14,7 @@ import (
 // WriteSnapshot stores one epoch in a single transaction and returns its
 // epoch number. Either every row of the epoch is stored or none is.
 func (s *Store) WriteSnapshot(ctx context.Context, snap *collect.Snapshot) (int64, error) {
-	s.mu.Lock()
+	s.mu.Lock(opEpoch)
 	defer s.mu.Unlock()
 	return s.writeSnapshot(ctx, snap)
 }
@@ -23,7 +23,7 @@ func (s *Store) WriteSnapshot(ctx context.Context, snap *collect.Snapshot) (int6
 // the store lock is held, so that time spent waiting for a sweep, an export
 // or an event write does not count against the epoch's write.
 func (s *Store) WriteSnapshotWithin(ctx context.Context, snap *collect.Snapshot, limit time.Duration) (int64, error) {
-	s.mu.Lock()
+	s.mu.Lock(opEpoch)
 	defer s.mu.Unlock()
 	wctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()

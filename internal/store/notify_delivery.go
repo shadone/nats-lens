@@ -5,13 +5,16 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/shadone/nats-lens/internal/timing"
 )
 
 // DeliveryBatch pins the oldest pending batch before any HTTP request. Only
 // the system's single delivery worker for this channel may call it.
 // ASVS 15.4.3: the write lock belongs to the store and never covers network I/O.
 func (s *Store) DeliveryBatch(ctx context.Context, channel string, now time.Time, limit int) ([]OutboxRow, time.Time, error) {
-	if err := s.lock(ctx); err != nil {
+	ctx = timing.WithSource(ctx, timing.SourceNotify)
+	if err := s.lock(ctx, opNotify); err != nil {
 		return nil, time.Time{}, err
 	}
 	defer s.mu.Unlock()
@@ -52,7 +55,8 @@ func (s *Store) DeliveryBatch(ctx context.Context, channel string, now time.Time
 // FinishDelivery records one attempt atomically. Text is deliberately a fixed
 // status description supplied by delivery, never a receiver body or URL.
 func (s *Store) FinishDelivery(ctx context.Context, channel string, first, last int64, state string, status int, at, next time.Time) error {
-	if err := s.lock(ctx); err != nil {
+	ctx = timing.WithSource(ctx, timing.SourceNotify)
+	if err := s.lock(ctx, opNotify); err != nil {
 		return err
 	}
 	defer s.mu.Unlock()

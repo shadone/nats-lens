@@ -108,7 +108,7 @@ func nullTime(t time.Time) any {
 // It returns ErrFindingNotFound for an unknown finding and
 // ErrFindingNotFiring for a resolved one.
 func (s *Store) Acknowledge(ctx context.Context, a Ack) (Ack, error) {
-	if err := s.lock(ctx); err != nil {
+	if err := s.lock(ctx, opAcks); err != nil {
 		return Ack{}, err
 	}
 	defer s.mu.Unlock()
@@ -209,7 +209,7 @@ VALUES (nextval('event_seq'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::JSON)`,
 // returns ErrAckNotFound for an unknown ID and ErrAckEnded for one already
 // ended or whose episode is over.
 func (s *Store) EndAck(ctx context.Context, id int64, by string, now time.Time) (Ack, error) {
-	if err := s.lock(ctx); err != nil {
+	if err := s.lock(ctx, opAcks); err != nil {
 		return Ack{}, err
 	}
 	defer s.mu.Unlock()
