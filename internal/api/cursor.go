@@ -42,10 +42,18 @@ func DecodeCursor(token string) (Cursor, error) {
 	if err != nil {
 		return c, invalid("page_token is not valid")
 	}
-	if err := json.Unmarshal(b, &c); err != nil || c.Offset < 0 || c.Offset > MaxOffset || c.ID < 0 || c.Epoch < 0 || c.Upto < 0 {
+	if err := json.Unmarshal(b, &c); err != nil || c.Offset < 0 || c.Offset > MaxOffset || c.ID < 0 || c.Epoch < 0 || c.Upto < 0 || !encodable(c.Time) {
 		return Cursor{}, invalid("page_token is not valid")
 	}
 	return c, nil
+}
+
+// encodable reports whether t can be written into a page token: JSON
+// parsing accepts zone offsets of 24 hours and more, which encoding/json
+// refuses to write.
+func encodable(t time.Time) bool {
+	_, err := t.MarshalJSON()
+	return err == nil
 }
 
 // Page returns one page of items by offset, with the token of the next

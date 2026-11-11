@@ -78,7 +78,7 @@ func decodeEpisodeCursor(token string) (EpisodeCursor, error) {
 		return EpisodeCursor{}, invalid("invalid occurrence page_token")
 	}
 	var extra any
-	if d.Decode(&extra) != io.EOF || c.Offset < 0 || c.Offset > MaxOffset || c.ReadEpoch < 1 || c.Total < 1 || c.Offset > int(c.Total) || !c.From.Before(c.To) || len(c.Scope) != 64 || !validEpisodeMembership(c.Membership) {
+	if d.Decode(&extra) != io.EOF || c.Offset < 0 || c.Offset > MaxOffset || c.ReadEpoch < 1 || c.Total < 1 || c.Offset > int(c.Total) || !c.From.Before(c.To) || !encodable(c.From) || !encodable(c.To) || len(c.Scope) != 64 || !validEpisodeMembership(c.Membership) {
 		return EpisodeCursor{}, invalid("invalid occurrence page_token")
 	}
 	now := time.Now().Unix()
