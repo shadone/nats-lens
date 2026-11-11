@@ -47,11 +47,11 @@ func (s *Store) logger() *slog.Logger {
 }
 
 // Open opens or creates the database file in dataDir and applies migrations.
-func Open(ctx context.Context, dataDir string) (*Store, error) {
+func Open(ctx context.Context, dataDir string, opts ...Option) (*Store, error) {
 	if err := os.MkdirAll(dataDir, 0o750); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
-	return OpenPath(ctx, filepath.Join(dataDir, FileName))
+	return OpenPath(ctx, filepath.Join(dataDir, FileName), opts...)
 }
 
 // ErrWALReplay marks a database whose write-ahead log DuckDB cannot replay.
@@ -68,8 +68,12 @@ func openError(path string, err error) error {
 }
 
 // OpenPath opens the database at path; an empty path is an in-memory database.
-func OpenPath(ctx context.Context, path string) (*Store, error) {
-	if err := refuseBeforeOpen(ctx, path); err != nil {
+func OpenPath(ctx context.Context, path string, opts ...Option) (*Store, error) {
+	var o options
+	for _, f := range opts {
+		f(&o)
+	}
+	if err := refuseBeforeOpen(ctx, path, o.system); err != nil {
 		return nil, err
 	}
 	connector, err := duckdb.NewConnector(path, nil)
@@ -77,6 +81,7 @@ func OpenPath(ctx context.Context, path string) (*Store, error) {
 		return nil, openError(path, err)
 	}
 	guard := newEngineGuard()
+	guard.system.Store(&o.system)
 	db := sql.OpenDB(&guardedConnector{Connector: connector, g: guard})
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
@@ -105,7 +110,7 @@ func OpenPath(ctx context.Context, path string) (*Store, error) {
 // change: closing that handle checkpoints, which merges a write-ahead log
 // a later release left into the file and removes it. A missing file and
 // the in-memory database have nothing to refuse.
-func refuseBeforeOpen(ctx context.Context, path string) error {
+func refuseBeforeOpen(ctx context.Context, path, system string) error {
 	if path == "" {
 		return nil
 	}
@@ -116,7 +121,9 @@ func refuseBeforeOpen(ctx context.Context, path string) error {
 	if err != nil {
 		return openError(path, err)
 	}
-	db := sql.OpenDB(&guardedConnector{Connector: connector, g: newEngineGuard()})
+	g := newEngineGuard()
+	g.system.Store(&system)
+	db := sql.OpenDB(&guardedConnector{Connector: connector, g: g})
 	defer db.Close()
 	if err := db.PingContext(ctx); err != nil {
 		return openError(path, err)

@@ -102,7 +102,7 @@ func Load(ctx context.Context, o LoadOptions) (*Report, error) {
 // returned func stops the server and closes the store.
 func openHarness(ctx context.Context, o LoadOptions) (*harness, func(), error) {
 	opened := time.Now()
-	st, err := store.OpenPath(ctx, o.Path)
+	st, err := store.OpenPath(ctx, o.Path, store.WithSystem(SystemID))
 	if err != nil {
 		return nil, nil, err
 	}

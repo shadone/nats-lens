@@ -58,7 +58,7 @@ func Generate(ctx context.Context, p Profile, path string, log *slog.Logger) (Ge
 		return res, errors.New("history must hold at least three epochs")
 	}
 	begin := time.Now()
-	st, err := store.OpenPath(ctx, path)
+	st, err := store.OpenPath(ctx, path, store.WithSystem(SystemID))
 	if err != nil {
 		return res, err
 	}

@@ -39,3 +39,32 @@ func TestQueryHookSeesQueries(t *testing.T) {
 	}
 	t.Fatalf("the hook did not see the query; it saw %d", len(got))
 }
+
+// The queries of the open itself, the migrations and the checkpoint,
+// carry the system named with WithSystem.
+func TestOpenLabelsItsQueries(t *testing.T) {
+	path := t.TempDir() + "/open.duckdb"
+	unlabelled := timing.QueryDuration.Count("", timing.SourceOther)
+	s, err := OpenPath(context.Background(), path, WithSystem("open-test"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if got := timing.QueryDuration.Count("open-test", timing.SourceOther); got == 0 {
+		t.Error("the open ran no query labelled open-test")
+	}
+	// Reopening an existing file also runs the read-only refusal check.
+	s, err = OpenPath(context.Background(), path, WithSystem("open-test"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if got := timing.QueryDuration.Count("", timing.SourceOther) - unlabelled; got != 0 {
+		t.Errorf("the opens recorded %d queries without a system", got)
+	}
+	if s.System() != "open-test" {
+		t.Errorf("System() = %q", s.System())
+	}
+}

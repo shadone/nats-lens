@@ -10,6 +10,15 @@ import (
 	"github.com/shadone/nats-lens/internal/timing"
 )
 
+// Option is a setting of Open and OpenPath.
+type Option func(*options)
+
+type options struct{ system string }
+
+// WithSystem names the system whose data the store holds from the start,
+// so that the migrations and checkpoint of the open carry its label too.
+func WithSystem(id string) Option { return func(o *options) { o.system = id } }
+
 // SetSystem names the system whose data the store holds, for the system
 // label of its timings in /metrics; unset, the label is empty.
 func (s *Store) SetSystem(id string) {

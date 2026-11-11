@@ -28,7 +28,7 @@ const rebuildSuffix = ".rebuild"
 func openStore(ctx context.Context, cfg config.Config, log *slog.Logger) (*store.Store, *archive.Archiver, error) {
 	dest := archive.LocalDir{Dir: cfg.ResolvedArchiveDir()}
 	dbPath := filepath.Join(cfg.DataDir, store.FileName)
-	empty, err := isEmpty(ctx, dbPath)
+	empty, err := isEmpty(ctx, dbPath, cfg.SystemID)
 	var recovery *events.Event
 	if errors.Is(err, store.ErrWALReplay) {
 		// The file will never open again. Keep it for inspection and start
@@ -57,7 +57,7 @@ func openStore(ctx context.Context, cfg config.Config, log *slog.Logger) (*store
 			return nil, nil, fmt.Errorf("rebuild from archive %s: %w", cfg.ResolvedArchiveDir(), err)
 		}
 	}
-	st, err := store.Open(ctx, cfg.DataDir)
+	st, err := store.Open(ctx, cfg.DataDir, store.WithSystem(cfg.SystemID))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -112,13 +112,13 @@ func archiveGrace(cfg config.Config) time.Duration {
 
 // isEmpty reports whether the database file is missing or holds no epoch
 // and no event.
-func isEmpty(ctx context.Context, path string) (bool, error) {
+func isEmpty(ctx context.Context, path, system string) (bool, error) {
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		return true, nil
 	} else if err != nil {
 		return false, err
 	}
-	st, err := store.OpenPath(ctx, path)
+	st, err := store.OpenPath(ctx, path, store.WithSystem(system))
 	if err != nil {
 		return false, err
 	}
@@ -139,7 +139,7 @@ func rebuild(ctx context.Context, cfg config.Config, dest archive.Destination, p
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return err
 	}
-	st, err := store.OpenPath(ctx, tmp)
+	st, err := store.OpenPath(ctx, tmp, store.WithSystem(cfg.SystemID))
 	if err != nil {
 		return err
 	}
