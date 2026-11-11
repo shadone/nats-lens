@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"math"
 	"strings"
 	"time"
 
@@ -26,12 +27,42 @@ const serverSubscriptions = 1840
 // clientSub is a subscription each connection of a client holds: a subject
 // in a queue group (empty for none), or with inbox the connection's own
 // _INBOX.<id>.* subject. first, when set, limits it to the client's first
-// connections in the connection list.
+// connections in the connection list. rate is the messages a second each
+// connection takes on it (a queue group's members take 1, 0.9 and 1.1
+// times it in turn); 0 gives a small rate of the subject's own. times is
+// how often each connection holds it, folded into one row (0 is once),
+// from timesFrom (in the fixed frame; zero: always) on.
 type clientSub struct {
 	subject, queue string
 	first          int
 	inbox          bool
+	rate           float64
+	times          int64
+	timesFrom      time.Time
 }
+
+// rateOrigin is how many subscription intervals before the newest epoch
+// the demo's delivered counts start, so a collection's counts are whole
+// multiples of a rate and the rates read exactly.
+const rateOrigin = 100_000
+
+// delivered is the count of messages delivered at the collection at c to
+// a subscription taking perSecond.
+func (s scen) delivered(c time.Time, perSecond float64) int64 {
+	intervals := c.Sub(s.lastEpoch().Add(-rateOrigin*subsInterval)).Seconds() / subsInterval.Seconds()
+	return int64(math.Round(perSecond * subsInterval.Seconds() * intervals))
+}
+
+// smallRate is a stable rate between 0.05 and 2.5 messages a second for a
+// subject without one of its own.
+func smallRate(subject string) float64 {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(subject))
+	return float64(h.Sum32()%50+1) / 20
+}
+
+// memberShare is a queue group member's share of the rate, by its index.
+var memberShare = []float64{1, 0.9, 1.1}
 
 // extraConn is a connection beside those the scenario's clients hold in
 // account Account: one of nats-lens's own, or a monitoring tool, with the
@@ -175,19 +206,26 @@ func (s scen) subscriptionsOf(c time.Time, list []*v1.Connection) ([]api.Subscri
 		byName[x.GetName()] = append(byName[x.GetName()], x)
 	}
 	var out []api.SubscriptionFact
-	add := func(x *v1.Connection, subject, queue string) {
+	add := func(x *v1.Connection, subject, queue string, times int64, rate float64) {
+		times = max(times, 1)
 		out = append(out, api.SubscriptionFact{Server: x.GetServer(), Account: x.GetAccount(), Subject: subject, Queue: queue,
-			CID: uint64(x.GetCid()), Subs: 1})
+			CID: uint64(x.GetCid()), Subs: times, Msgs: times * s.delivered(c, rate)})
 	}
 	for _, name := range names {
 		for _, sub := range s.sc.subs[name] {
 			for i, x := range byName[name] {
+				rate := cmp.Or(sub.rate, smallRate(name+" "+sub.subject))
+				if sub.queue != "" {
+					rate *= memberShare[i%len(memberShare)]
+				}
 				switch {
 				case sub.first > 0 && i >= sub.first:
 				case sub.inbox:
-					add(x, api.InboxPrefix+token(x.GetKey())+".*", "")
+					add(x, api.InboxPrefix+token(x.GetKey())+".*", "", 1, rate)
+				case !sub.timesFrom.IsZero() && c.Before(sub.timesFrom.Add(s.shift)):
+					add(x, sub.subject, sub.queue, 1, rate)
 				default:
-					add(x, sub.subject, sub.queue)
+					add(x, sub.subject, sub.queue, sub.times, rate)
 				}
 			}
 		}
@@ -195,7 +233,7 @@ func (s scen) subscriptionsOf(c time.Time, list []*v1.Connection) ([]api.Subscri
 	for _, e := range s.sc.extraConns {
 		for _, x := range byName[e.name] {
 			for _, subj := range e.subjects {
-				add(x, subj, "")
+				add(x, subj, "", 1, smallRate(e.name+" "+subj))
 			}
 		}
 	}
@@ -210,7 +248,7 @@ func (s scen) subscriptionsOf(c time.Time, list []*v1.Connection) ([]api.Subscri
 			if len(list) == 0 {
 				continue
 			}
-			add(list[(i/len(watchers))%len(list)], deliverSubject(sp.name, fmt.Sprintf("oc_%04d", i+1)), "")
+			add(list[(i/len(watchers))%len(list)], deliverSubject(sp.name, fmt.Sprintf("oc_%04d", i+1)), "", 1, 0)
 		}
 	}
 	var up []string
@@ -260,6 +298,32 @@ func (s scen) subszServers(c time.Time) []api.SubszServerFact {
 	return out
 }
 
+// serverLists are the servers' subscription lists at the collection at
+// c, by name: those that answered, complete unless cut at subszLimit.
+func (s scen) serverLists(c time.Time) map[string]api.ServerList {
+	out := map[string]api.ServerList{}
+	for _, x := range s.subszServers(c) {
+		if x.Answered {
+			out[x.Name] = api.ServerList{At: c, Complete: *x.Listed >= *x.Total}
+		}
+	}
+	return out
+}
+
+// ratedSubscriptions are the subscriptions of the collection at c with
+// their delivered rates from the collection before it, by
+// api.DeliveredRates; none has a rate when that collection lies before
+// the stored history.
+func (s scen) ratedSubscriptions(c time.Time) ([]api.SubscriptionFact, map[string]api.ServerConnections) {
+	subs, conns := s.subscriptionsAt(c)
+	prev := c.Add(-subsInterval)
+	if prev.Before(s.dataStart()) {
+		return subs, conns
+	}
+	before, _ := s.subscriptionsAt(prev)
+	return api.DeliveredRates(subs, before, s.serverLists(c), s.serverLists(prev), api.RateGap(subsInterval)), conns
+}
+
 // systemAccount is the scenario's system account; empty when it lists
 // none.
 func (sc *scenario) systemAccount() string {
@@ -291,7 +355,7 @@ func (p *Provider) Subjects(_ context.Context, req *v1.GetSubjectsRequest) (*api
 	}
 	f.APIs = append(f.APIs, js)
 	if c, ok := s.subsCollection(at); ok {
-		subs, conns := s.subscriptionsAt(c)
+		subs, conns := s.ratedSubscriptions(c)
 		deliver := map[[2]string]bool{}
 		for _, st := range f.Streams {
 			for _, x := range st.Consumers {
@@ -319,7 +383,7 @@ func (p *Provider) MatchSubject(_ context.Context, req *v1.MatchSubjectRequest) 
 	f := &api.MatchFacts{Epoch: n, EpochAt: at, SystemAccount: p.sc.systemAccount(), Streams: s.subjectStreams(at, r),
 		JetStreamAccounts: []string{Account}}
 	if c, ok := s.subsCollection(at); ok {
-		subs, conns := s.subscriptionsAt(c)
+		subs, conns := s.ratedSubscriptions(c)
 		f.SubscriptionsAt, f.Core = &c, api.CoreGroups(subs, conns)
 	}
 	return f, nil

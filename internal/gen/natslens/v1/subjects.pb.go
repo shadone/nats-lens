@@ -301,9 +301,22 @@ type SubjectRow struct {
 	// A stream's subjects beyond the 20 in patterns. It bounds the count,
 	// not the bytes: 1,000 rows of 20 subjects stay within a response's
 	// size limit only while subjects average under about 48 bytes.
-	MorePatterns  int32 `protobuf:"varint,24,opt,name=more_patterns,json=morePatterns,proto3" json:"more_patterns,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	MorePatterns int32 `protobuf:"varint,24,opt,name=more_patterns,json=morePatterns,proto3" json:"more_patterns,omitempty"`
+	// Messages delivered per second to the row's connections, a
+	// subscription or inbox row's: the sum of the measured connections'
+	// rates (see ConnectionRate). Unset when none is measured and on the
+	// other kinds.
+	DeliveredPerSecond *float64 `protobuf:"fixed64,25,opt,name=delivered_per_second,json=deliveredPerSecond,proto3,oneof" json:"delivered_per_second,omitempty"`
+	// Connections of the row with a delivered rate; below connections when
+	// some have none.
+	MeasuredConnections int32 `protobuf:"varint,26,opt,name=measured_connections,json=measuredConnections,proto3" json:"measured_connections,omitempty"`
+	// The row's connections with their delivered rates, most first, those
+	// without a rate last, then by name, server and client ID; at most 20.
+	ConnectionRates []*ConnectionRate `protobuf:"bytes,27,rep,name=connection_rates,json=connectionRates,proto3" json:"connection_rates,omitempty"`
+	// Connections beyond connection_rates.
+	MoreConnectionRates int32 `protobuf:"varint,28,opt,name=more_connection_rates,json=moreConnectionRates,proto3" json:"more_connection_rates,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *SubjectRow) Reset() {
@@ -504,6 +517,115 @@ func (x *SubjectRow) GetMorePatterns() int32 {
 	return 0
 }
 
+func (x *SubjectRow) GetDeliveredPerSecond() float64 {
+	if x != nil && x.DeliveredPerSecond != nil {
+		return *x.DeliveredPerSecond
+	}
+	return 0
+}
+
+func (x *SubjectRow) GetMeasuredConnections() int32 {
+	if x != nil {
+		return x.MeasuredConnections
+	}
+	return 0
+}
+
+func (x *SubjectRow) GetConnectionRates() []*ConnectionRate {
+	if x != nil {
+		return x.ConnectionRates
+	}
+	return nil
+}
+
+func (x *SubjectRow) GetMoreConnectionRates() int32 {
+	if x != nil {
+		return x.MoreConnectionRates
+	}
+	return 0
+}
+
+// One connection's delivered rate on a row's subject (or, for a row or
+// match of several subscriptions of the connection, on all of them).
+type ConnectionRate struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Connection name; empty for an unnamed connection.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Server the connection is on, by name.
+	ServerName string `protobuf:"bytes,2,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
+	// Connection ID on that server.
+	Cid int64 `protobuf:"varint,3,opt,name=cid,proto3" json:"cid,omitempty"`
+	// Messages delivered per second to the connection's subscriptions of
+	// the row, from the collection read and the server's subscription list
+	// before it: the increase of each subscription's delivered count over
+	// the time between the two. Unset when any of them has no rate: it is
+	// not in both lists of the same server process with the same folded
+	// count, its count went down, either list was cut at the subsz limit
+	// or did not come, or the lists lie more than three subscription
+	// intervals apart.
+	PerSecond     *float64 `protobuf:"fixed64,4,opt,name=per_second,json=perSecond,proto3,oneof" json:"per_second,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConnectionRate) Reset() {
+	*x = ConnectionRate{}
+	mi := &file_natslens_v1_subjects_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConnectionRate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConnectionRate) ProtoMessage() {}
+
+func (x *ConnectionRate) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_subjects_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConnectionRate.ProtoReflect.Descriptor instead.
+func (*ConnectionRate) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ConnectionRate) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ConnectionRate) GetServerName() string {
+	if x != nil {
+		return x.ServerName
+	}
+	return ""
+}
+
+func (x *ConnectionRate) GetCid() int64 {
+	if x != nil {
+		return x.Cid
+	}
+	return 0
+}
+
+func (x *ConnectionRate) GetPerSecond() float64 {
+	if x != nil && x.PerSecond != nil {
+		return *x.PerSecond
+	}
+	return 0
+}
+
 // One server's subscription list in the subscription collection.
 type SubszServer struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -525,7 +647,7 @@ type SubszServer struct {
 
 func (x *SubszServer) Reset() {
 	*x = SubszServer{}
-	mi := &file_natslens_v1_subjects_proto_msgTypes[2]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -537,7 +659,7 @@ func (x *SubszServer) String() string {
 func (*SubszServer) ProtoMessage() {}
 
 func (x *SubszServer) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_subjects_proto_msgTypes[2]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -550,7 +672,7 @@ func (x *SubszServer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubszServer.ProtoReflect.Descriptor instead.
 func (*SubszServer) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{2}
+	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SubszServer) GetServerName() string {
@@ -630,7 +752,7 @@ type GetSubjectsResponse struct {
 
 func (x *GetSubjectsResponse) Reset() {
 	*x = GetSubjectsResponse{}
-	mi := &file_natslens_v1_subjects_proto_msgTypes[3]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -642,7 +764,7 @@ func (x *GetSubjectsResponse) String() string {
 func (*GetSubjectsResponse) ProtoMessage() {}
 
 func (x *GetSubjectsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_subjects_proto_msgTypes[3]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -655,7 +777,7 @@ func (x *GetSubjectsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSubjectsResponse.ProtoReflect.Descriptor instead.
 func (*GetSubjectsResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{3}
+	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetSubjectsResponse) GetEpoch() int64 {
@@ -773,7 +895,7 @@ type MatchSubjectRequest struct {
 
 func (x *MatchSubjectRequest) Reset() {
 	*x = MatchSubjectRequest{}
-	mi := &file_natslens_v1_subjects_proto_msgTypes[4]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -785,7 +907,7 @@ func (x *MatchSubjectRequest) String() string {
 func (*MatchSubjectRequest) ProtoMessage() {}
 
 func (x *MatchSubjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_subjects_proto_msgTypes[4]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -798,7 +920,7 @@ func (x *MatchSubjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MatchSubjectRequest.ProtoReflect.Descriptor instead.
 func (*MatchSubjectRequest) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{4}
+	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *MatchSubjectRequest) GetSystem() string {
@@ -856,7 +978,7 @@ type SubjectMatch struct {
 
 func (x *SubjectMatch) Reset() {
 	*x = SubjectMatch{}
-	mi := &file_natslens_v1_subjects_proto_msgTypes[5]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -868,7 +990,7 @@ func (x *SubjectMatch) String() string {
 func (*SubjectMatch) ProtoMessage() {}
 
 func (x *SubjectMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_subjects_proto_msgTypes[5]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -881,7 +1003,7 @@ func (x *SubjectMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubjectMatch.ProtoReflect.Descriptor instead.
 func (*SubjectMatch) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{5}
+	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SubjectMatch) GetStream() string {
@@ -947,14 +1069,25 @@ type CoreMatch struct {
 	// Their names: distinct, in name order, at most 3.
 	ClientNames []string `protobuf:"bytes,4,rep,name=client_names,json=clientNames,proto3" json:"client_names,omitempty"`
 	// Distinct names beyond client_names.
-	MoreNames     int32 `protobuf:"varint,5,opt,name=more_names,json=moreNames,proto3" json:"more_names,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	MoreNames int32 `protobuf:"varint,5,opt,name=more_names,json=moreNames,proto3" json:"more_names,omitempty"`
+	// Messages delivered per second to these subscriptions: the sum of the
+	// measured connections' rates. Unset when none is measured.
+	DeliveredPerSecond *float64 `protobuf:"fixed64,6,opt,name=delivered_per_second,json=deliveredPerSecond,proto3,oneof" json:"delivered_per_second,omitempty"`
+	// Connections with a delivered rate; below connections when some have
+	// none.
+	MeasuredConnections int32 `protobuf:"varint,7,opt,name=measured_connections,json=measuredConnections,proto3" json:"measured_connections,omitempty"`
+	// The connections with their delivered rates, as
+	// SubjectRow.connection_rates lists them; at most 20.
+	ConnectionRates []*ConnectionRate `protobuf:"bytes,8,rep,name=connection_rates,json=connectionRates,proto3" json:"connection_rates,omitempty"`
+	// Connections beyond connection_rates.
+	MoreConnectionRates int32 `protobuf:"varint,9,opt,name=more_connection_rates,json=moreConnectionRates,proto3" json:"more_connection_rates,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *CoreMatch) Reset() {
 	*x = CoreMatch{}
-	mi := &file_natslens_v1_subjects_proto_msgTypes[6]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -966,7 +1099,7 @@ func (x *CoreMatch) String() string {
 func (*CoreMatch) ProtoMessage() {}
 
 func (x *CoreMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_subjects_proto_msgTypes[6]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -979,7 +1112,7 @@ func (x *CoreMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoreMatch.ProtoReflect.Descriptor instead.
 func (*CoreMatch) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{6}
+	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CoreMatch) GetSubject() string {
@@ -1017,6 +1150,34 @@ func (x *CoreMatch) GetMoreNames() int32 {
 	return 0
 }
 
+func (x *CoreMatch) GetDeliveredPerSecond() float64 {
+	if x != nil && x.DeliveredPerSecond != nil {
+		return *x.DeliveredPerSecond
+	}
+	return 0
+}
+
+func (x *CoreMatch) GetMeasuredConnections() int32 {
+	if x != nil {
+		return x.MeasuredConnections
+	}
+	return 0
+}
+
+func (x *CoreMatch) GetConnectionRates() []*ConnectionRate {
+	if x != nil {
+		return x.ConnectionRates
+	}
+	return nil
+}
+
+func (x *CoreMatch) GetMoreConnectionRates() int32 {
+	if x != nil {
+		return x.MoreConnectionRates
+	}
+	return 0
+}
+
 // What a message on the subject published in one account would reach.
 type MatchAccount struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1040,7 +1201,7 @@ type MatchAccount struct {
 
 func (x *MatchAccount) Reset() {
 	*x = MatchAccount{}
-	mi := &file_natslens_v1_subjects_proto_msgTypes[7]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1052,7 +1213,7 @@ func (x *MatchAccount) String() string {
 func (*MatchAccount) ProtoMessage() {}
 
 func (x *MatchAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_subjects_proto_msgTypes[7]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1065,7 +1226,7 @@ func (x *MatchAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MatchAccount.ProtoReflect.Descriptor instead.
 func (*MatchAccount) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{7}
+	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *MatchAccount) GetAccount() string {
@@ -1132,7 +1293,7 @@ type MatchSubjectResponse struct {
 
 func (x *MatchSubjectResponse) Reset() {
 	*x = MatchSubjectResponse{}
-	mi := &file_natslens_v1_subjects_proto_msgTypes[8]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1144,7 +1305,7 @@ func (x *MatchSubjectResponse) String() string {
 func (*MatchSubjectResponse) ProtoMessage() {}
 
 func (x *MatchSubjectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_subjects_proto_msgTypes[8]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1157,7 +1318,7 @@ func (x *MatchSubjectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MatchSubjectResponse.ProtoReflect.Descriptor instead.
 func (*MatchSubjectResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{8}
+	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *MatchSubjectResponse) GetEpoch() int64 {
@@ -1197,7 +1358,7 @@ const file_natslens_v1_subjects_proto_rawDesc = "" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
 	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x18\n" +
 	"\aaccount\x18\x03 \x01(\tR\aaccount\x122\n" +
-	"\x06filter\x18\x04 \x01(\x0e2\x1a.natslens.v1.SubjectFilterR\x06filter\"\x96\a\n" +
+	"\x06filter\x18\x04 \x01(\x0e2\x1a.natslens.v1.SubjectFilterR\x06filter\"\x95\t\n" +
 	"\n" +
 	"SubjectRow\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
@@ -1227,11 +1388,24 @@ const file_natslens_v1_subjects_proto_rawDesc = "" +
 	"\vmirrored_by\x18\x16 \x03(\tR\n" +
 	"mirroredBy\x12%\n" +
 	"\x0esystem_account\x18\x17 \x01(\bR\rsystemAccount\x12#\n" +
-	"\rmore_patterns\x18\x18 \x01(\x05R\fmorePatternsB\v\n" +
+	"\rmore_patterns\x18\x18 \x01(\x05R\fmorePatterns\x125\n" +
+	"\x14delivered_per_second\x18\x19 \x01(\x01H\x04R\x12deliveredPerSecond\x88\x01\x01\x121\n" +
+	"\x14measured_connections\x18\x1a \x01(\x05R\x13measuredConnections\x12F\n" +
+	"\x10connection_rates\x18\x1b \x03(\v2\x1b.natslens.v1.ConnectionRateR\x0fconnectionRates\x122\n" +
+	"\x15more_connection_rates\x18\x1c \x01(\x05R\x13moreConnectionRatesB\v\n" +
 	"\t_messagesB\x14\n" +
 	"\x12_stored_per_secondB\x11\n" +
 	"\x0f_api_per_secondB\x12\n" +
-	"\x10_api_error_share\"\x97\x01\n" +
+	"\x10_api_error_shareB\x17\n" +
+	"\x15_delivered_per_second\"\x8a\x01\n" +
+	"\x0eConnectionRate\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1f\n" +
+	"\vserver_name\x18\x02 \x01(\tR\n" +
+	"serverName\x12\x10\n" +
+	"\x03cid\x18\x03 \x01(\x03R\x03cid\x12\"\n" +
+	"\n" +
+	"per_second\x18\x04 \x01(\x01H\x00R\tperSecond\x88\x01\x01B\r\n" +
+	"\v_per_second\"\x97\x01\n" +
 	"\vSubszServer\x12\x1f\n" +
 	"\vserver_name\x18\x01 \x01(\tR\n" +
 	"serverName\x12\x1a\n" +
@@ -1270,14 +1444,19 @@ const file_natslens_v1_subjects_proto_rawDesc = "" +
 	"\x13ephemeral_consumers\x18\x05 \x01(\x05R\x12ephemeralConsumers\x12\x18\n" +
 	"\amirrors\x18\x06 \x03(\tR\amirrors\x12\x1d\n" +
 	"\n" +
-	"sourced_by\x18\a \x03(\tR\tsourcedBy\"\x9f\x01\n" +
+	"sourced_by\x18\a \x03(\tR\tsourcedBy\"\x9e\x03\n" +
 	"\tCoreMatch\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12\x14\n" +
 	"\x05queue\x18\x02 \x01(\tR\x05queue\x12 \n" +
 	"\vconnections\x18\x03 \x01(\x05R\vconnections\x12!\n" +
 	"\fclient_names\x18\x04 \x03(\tR\vclientNames\x12\x1d\n" +
 	"\n" +
-	"more_names\x18\x05 \x01(\x05R\tmoreNames\"\x86\x02\n" +
+	"more_names\x18\x05 \x01(\x05R\tmoreNames\x125\n" +
+	"\x14delivered_per_second\x18\x06 \x01(\x01H\x00R\x12deliveredPerSecond\x88\x01\x01\x121\n" +
+	"\x14measured_connections\x18\a \x01(\x05R\x13measuredConnections\x12F\n" +
+	"\x10connection_rates\x18\b \x03(\v2\x1b.natslens.v1.ConnectionRateR\x0fconnectionRates\x122\n" +
+	"\x15more_connection_rates\x18\t \x01(\x05R\x13moreConnectionRatesB\x17\n" +
+	"\x15_delivered_per_second\"\x86\x02\n" +
 	"\fMatchAccount\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
 	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12%\n" +
@@ -1318,42 +1497,45 @@ func file_natslens_v1_subjects_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_subjects_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_natslens_v1_subjects_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_natslens_v1_subjects_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_natslens_v1_subjects_proto_goTypes = []any{
 	(SubjectFilter)(0),            // 0: natslens.v1.SubjectFilter
 	(SubjectRowKind)(0),           // 1: natslens.v1.SubjectRowKind
 	(*GetSubjectsRequest)(nil),    // 2: natslens.v1.GetSubjectsRequest
 	(*SubjectRow)(nil),            // 3: natslens.v1.SubjectRow
-	(*SubszServer)(nil),           // 4: natslens.v1.SubszServer
-	(*GetSubjectsResponse)(nil),   // 5: natslens.v1.GetSubjectsResponse
-	(*MatchSubjectRequest)(nil),   // 6: natslens.v1.MatchSubjectRequest
-	(*SubjectMatch)(nil),          // 7: natslens.v1.SubjectMatch
-	(*CoreMatch)(nil),             // 8: natslens.v1.CoreMatch
-	(*MatchAccount)(nil),          // 9: natslens.v1.MatchAccount
-	(*MatchSubjectResponse)(nil),  // 10: natslens.v1.MatchSubjectResponse
-	(*TimeRange)(nil),             // 11: natslens.v1.TimeRange
-	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
+	(*ConnectionRate)(nil),        // 4: natslens.v1.ConnectionRate
+	(*SubszServer)(nil),           // 5: natslens.v1.SubszServer
+	(*GetSubjectsResponse)(nil),   // 6: natslens.v1.GetSubjectsResponse
+	(*MatchSubjectRequest)(nil),   // 7: natslens.v1.MatchSubjectRequest
+	(*SubjectMatch)(nil),          // 8: natslens.v1.SubjectMatch
+	(*CoreMatch)(nil),             // 9: natslens.v1.CoreMatch
+	(*MatchAccount)(nil),          // 10: natslens.v1.MatchAccount
+	(*MatchSubjectResponse)(nil),  // 11: natslens.v1.MatchSubjectResponse
+	(*TimeRange)(nil),             // 12: natslens.v1.TimeRange
+	(*timestamppb.Timestamp)(nil), // 13: google.protobuf.Timestamp
 }
 var file_natslens_v1_subjects_proto_depIdxs = []int32{
-	11, // 0: natslens.v1.GetSubjectsRequest.range:type_name -> natslens.v1.TimeRange
+	12, // 0: natslens.v1.GetSubjectsRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 1: natslens.v1.GetSubjectsRequest.filter:type_name -> natslens.v1.SubjectFilter
 	1,  // 2: natslens.v1.SubjectRow.kind:type_name -> natslens.v1.SubjectRowKind
-	12, // 3: natslens.v1.GetSubjectsResponse.epoch_at:type_name -> google.protobuf.Timestamp
-	12, // 4: natslens.v1.GetSubjectsResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
-	3,  // 5: natslens.v1.GetSubjectsResponse.rows:type_name -> natslens.v1.SubjectRow
-	4,  // 6: natslens.v1.GetSubjectsResponse.subsz_servers:type_name -> natslens.v1.SubszServer
-	11, // 7: natslens.v1.MatchSubjectRequest.range:type_name -> natslens.v1.TimeRange
-	1,  // 8: natslens.v1.SubjectMatch.kind:type_name -> natslens.v1.SubjectRowKind
-	7,  // 9: natslens.v1.MatchAccount.matches:type_name -> natslens.v1.SubjectMatch
-	8,  // 10: natslens.v1.MatchAccount.subscribers:type_name -> natslens.v1.CoreMatch
-	12, // 11: natslens.v1.MatchSubjectResponse.epoch_at:type_name -> google.protobuf.Timestamp
-	9,  // 12: natslens.v1.MatchSubjectResponse.accounts:type_name -> natslens.v1.MatchAccount
-	12, // 13: natslens.v1.MatchSubjectResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	4,  // 3: natslens.v1.SubjectRow.connection_rates:type_name -> natslens.v1.ConnectionRate
+	13, // 4: natslens.v1.GetSubjectsResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	13, // 5: natslens.v1.GetSubjectsResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
+	3,  // 6: natslens.v1.GetSubjectsResponse.rows:type_name -> natslens.v1.SubjectRow
+	5,  // 7: natslens.v1.GetSubjectsResponse.subsz_servers:type_name -> natslens.v1.SubszServer
+	12, // 8: natslens.v1.MatchSubjectRequest.range:type_name -> natslens.v1.TimeRange
+	1,  // 9: natslens.v1.SubjectMatch.kind:type_name -> natslens.v1.SubjectRowKind
+	4,  // 10: natslens.v1.CoreMatch.connection_rates:type_name -> natslens.v1.ConnectionRate
+	8,  // 11: natslens.v1.MatchAccount.matches:type_name -> natslens.v1.SubjectMatch
+	9,  // 12: natslens.v1.MatchAccount.subscribers:type_name -> natslens.v1.CoreMatch
+	13, // 13: natslens.v1.MatchSubjectResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	10, // 14: natslens.v1.MatchSubjectResponse.accounts:type_name -> natslens.v1.MatchAccount
+	13, // 15: natslens.v1.MatchSubjectResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_subjects_proto_init() }
@@ -1364,13 +1546,15 @@ func file_natslens_v1_subjects_proto_init() {
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_subjects_proto_msgTypes[1].OneofWrappers = []any{}
 	file_natslens_v1_subjects_proto_msgTypes[2].OneofWrappers = []any{}
+	file_natslens_v1_subjects_proto_msgTypes[3].OneofWrappers = []any{}
+	file_natslens_v1_subjects_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_subjects_proto_rawDesc), len(file_natslens_v1_subjects_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   9,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

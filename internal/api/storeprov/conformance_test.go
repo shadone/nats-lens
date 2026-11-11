@@ -335,7 +335,7 @@ func TestStoreConformance(t *testing.T) {
 			St: missingMemoryStore(t, clock.Add(-30*time.Second)), Interval: capStep, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
 		{Ref: &v1.SystemRef{Id: "capacity-limits", Name: "capacity-limits"}, Provider: &storeprov.Provider{St: limitsStore(t, clock.Add(-30*time.Second)),
 			Interval: capStep, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
-		{Ref: &v1.SystemRef{Id: "subjects", Name: "subjects"}, Provider: subjectsProvider(t, clock.Add(-30*time.Second))},
+		{Ref: &v1.SystemRef{Id: "subjects", Name: "subjects"}, Provider: deliveredProvider(t, clock.Add(-30*time.Second), subjCollection-1)},
 		{Ref: &v1.SystemRef{Id: "micro", Name: "micro"}, Provider: microConf},
 		{Ref: &v1.SystemRef{Id: "apps", Name: "apps"}, Provider: appsProvider(t, clock.Add(-30*time.Second))},
 		{Ref: &v1.SystemRef{Id: "history", Name: "history"}, Provider: &storeprov.Provider{St: historyStore(t, clock), Interval: 30 * time.Second,

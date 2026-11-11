@@ -30,6 +30,10 @@ type Provider struct {
 	// Interval is the collector's time between epochs: the shortest series
 	// step and the freshness interval.
 	Interval time.Duration
+	// SubscriptionsInterval is the collector's subscriptions_interval; 0
+	// when not known, and then api.DefaultSubscriptionsInterval bounds
+	// the delivered rates.
+	SubscriptionsInterval time.Duration
 	// Live is whether a collector writes to the store in this process.
 	Live bool
 	// CapturedOnly excludes runtime state in offline investigations.

@@ -133,7 +133,10 @@ func TestGroupSubscriptions(t *testing.T) {
 		t.Errorf("groups = %v", g.Groups)
 	}
 	for k, w := range want {
-		if fmt.Sprint(got[k]) != fmt.Sprint(w) {
+		// The rates are TestGroupDeliveredRates'.
+		g := got[k]
+		g.Rates = nil
+		if fmt.Sprint(g) != fmt.Sprint(w) {
 			t.Errorf("group %q = %+v, want %+v", k, got[k], w)
 		}
 	}

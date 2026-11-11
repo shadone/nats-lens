@@ -41,7 +41,7 @@ func (p *Provider) Subjects(ctx context.Context, req *v1.GetSubjectsRequest) (*a
 	if sf.Servers, err = p.subszServers(ctx, c.epoch); err != nil {
 		return nil, err
 	}
-	if err := p.subscriptionGroups(ctx, sf, c.epoch, e.epoch, acc); err != nil {
+	if err := p.subscriptionGroups(ctx, sf, c, e.epoch, acc); err != nil {
 		return nil, err
 	}
 	f.Subscriptions = sf
@@ -74,27 +74,47 @@ func (p *Provider) MatchSubject(ctx context.Context, req *v1.MatchSubjectRequest
 	}
 	f.SubscriptionsAt = &c.startedAt
 	rows, err := p.db().QueryContext(ctx, `
-WITH s AS (
-  SELECT s.server_id, s.account, s.subject, coalesce(s.queue, '') AS queue, s.cid, c.name
+WITH `+rateCTEs("$1", "$4")+`, s AS (
+  SELECT s.server_id, s.account, s.subject, coalesce(s.queue, '') AS queue, s.cid, c.name, r.r
   FROM subscriptions s JOIN connections c ON c.epoch = s.epoch AND c.server_id = s.server_id AND c.cid = s.cid
+  LEFT JOIN rate r ON r.server_id = s.server_id AND r.account = s.account AND r.subject = s.subject
+    AND r.queue IS NOT DISTINCT FROM s.queue AND r.cid = s.cid
   WHERE s.epoch = $1 AND ($2 = '' OR s.account = $2)
     AND (s.subject = $3 OR ((split_part(s.subject, '.', 1) IN ('*', '>') OR split_part(s.subject, '.', 1) = split_part($3, '.', 1))
-      AND (s.subject LIKE '%*%' OR s.subject LIKE '%>'))))
+      AND (s.subject LIKE '%*%' OR s.subject LIKE '%>')))
+), pc AS (
+  SELECT account, subject, queue, server_id, cid, any_value(name) AS name, CASE WHEN count(*) = count(r) THEN sum(r) END AS r
+  FROM s GROUP BY account, subject, queue, server_id, cid
+), pg AS (
+  SELECT account, subject, queue, sum(r) AS rate, count(r) AS measured, `+rateList()+` AS rates
+  FROM pc JOIN servers USING (server_id) GROUP BY account, subject, queue
+)
 SELECT account, subject, queue, count(DISTINCT (server_id, cid))::INTEGER,
-  coalesce(list(DISTINCT name ORDER BY name) FILTER (WHERE coalesce(name, '') <> ''), [])
-FROM s GROUP BY account, subject, queue ORDER BY account, subject, queue`, c.epoch, req.GetAccount(), req.GetSubject())
+  coalesce(list(DISTINCT name ORDER BY name) FILTER (WHERE coalesce(name, '') <> ''), []), any_value(pg.rate), any_value(pg.measured),
+  any_value(pg.rates)
+FROM s JOIN pg USING (account, subject, queue) GROUP BY account, subject, queue ORDER BY account, subject, queue`,
+		c.epoch, req.GetAccount(), req.GetSubject(), c.startedAt.Add(-p.rateGap()))
 	if err != nil {
 		return nil, fmt.Errorf("subject subscribers: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var g api.SubscriptionGroup
-		var names []any
-		if err := rows.Scan(&g.Account, &g.Subject, &g.Queue, &g.Connections, &names); err != nil {
+		var names, rates []any
+		var rate sql.NullFloat64
+		var measured int64
+		if err := rows.Scan(&g.Account, &g.Subject, &g.Queue, &g.Connections, &names, &rate, &measured, &rates); err != nil {
 			return nil, err
 		}
 		g.Names = strs(names)
 		g.NameCount = int32(len(g.Names))
+		if rate.Valid {
+			g.PerSecond = ptr(rate.Float64)
+		}
+		g.Measured = int32(measured)
+		if g.Rates, err = connectionRates(rates); err != nil {
+			return nil, err
+		}
 		f.Core = append(f.Core, g)
 	}
 	return f, rows.Err()
@@ -406,8 +426,12 @@ ORDER BY 1`, epoch)
 // below connz_total), else unlisted. Of the clients' subscriptions, those
 // on a push consumer's deliver subject in the page's epoch go to Deliver
 // with every name; the others, each _INBOX. subject folded, to Groups,
-// with at most api.MaxClientNames names and the count of all.
-func (p *Provider) subscriptionGroups(ctx context.Context, sf *api.SubscriptionFacts, collection, epoch int64, account string) error {
+// with at most api.MaxClientNames names and the count of all, and their
+// connections' delivered rates (rateCTEs): a connection's is the sum of
+// its subscriptions' in the group, none when one of them has none; the
+// group's the sum of its measured connections', with at most
+// api.MaxConnectionRates connections listed.
+func (p *Provider) subscriptionGroups(ctx context.Context, sf *api.SubscriptionFacts, collection epochInfo, epoch int64, account string) error {
 	rows, err := p.db().QueryContext(ctx, `
 WITH s AS (
   SELECT * FROM subscriptions WHERE epoch = $1 AND ($3 = '' OR account = $3)
@@ -418,30 +442,41 @@ WITH s AS (
 ), deliver AS (
   SELECT DISTINCT account, deliver_subject AS subject FROM consumer_config
   WHERE $2 BETWEEN first_epoch AND last_epoch AND coalesce(deliver_subject, '') <> ''
-), j AS (
+), `+rateCTEs("$1", "$4")+`, j AS (
   SELECT s.server_id, s.account, s.subject, coalesce(s.queue, '') AS queue, s.cid, s.subs, c.name,
-    c.cid IS NOT NULL AS client, coalesce(z.complete, false) AS complete, d.subject IS NOT NULL AS is_deliver
+    c.cid IS NOT NULL AS client, coalesce(z.complete, false) AS complete, d.subject IS NOT NULL AS is_deliver, r.r
   FROM s LEFT JOIN connections c ON c.epoch = s.epoch AND c.server_id = s.server_id AND c.cid = s.cid
   LEFT JOIN connz z ON z.server_id = s.server_id
   LEFT JOIN deliver d ON d.account = s.account AND d.subject = s.subject
+  LEFT JOIN rate r ON r.server_id = s.server_id AND r.account = s.account AND r.subject = s.subject
+    AND r.queue IS NOT DISTINCT FROM s.queue AND r.cid = s.cid
 ), g AS (
   SELECT CASE WHEN is_deliver THEN 'deliver' ELSE 'group' END AS part, account,
     CASE WHEN NOT is_deliver AND starts_with(subject, '`+api.InboxPrefix+`') THEN '`+api.InboxPattern+`' ELSE subject END AS subject,
-    queue, server_id, cid, name
+    queue, server_id, cid, name, r
   FROM j WHERE client
+), pc AS (
+  SELECT part, account, subject, server_id, cid, any_value(name) AS name, CASE WHEN count(*) = count(r) THEN sum(r) END AS r
+  FROM g GROUP BY part, account, subject, server_id, cid
+), pg AS (
+  SELECT part, account, subject, sum(r) AS rate, count(r) AS measured, `+rateList()+` AS rates
+  FROM pc JOIN servers USING (server_id) GROUP BY part, account, subject
+), gg AS (
+  SELECT part, account, subject, CASE WHEN count(DISTINCT queue) = 1 THEN min(queue) ELSE '' END AS queue,
+    count(DISTINCT (server_id, cid))::BIGINT AS a, 0::BIGINT AS b,
+    CASE WHEN part = 'deliver' THEN coalesce(list(DISTINCT name ORDER BY name) FILTER (WHERE coalesce(name, '') <> ''), [])
+      ELSE coalesce(list(DISTINCT name ORDER BY name) FILTER (WHERE coalesce(name, '') <> ''), [])[1:`+fmt.Sprint(api.MaxClientNames)+`] END AS names,
+    count(DISTINCT name) FILTER (WHERE coalesce(name, '') <> '') AS n
+  FROM g GROUP BY part, account, subject
 )
 SELECT 'left', account, '', '',
   coalesce(sum(subs) FILTER (WHERE complete), 0)::BIGINT, coalesce(sum(subs) FILTER (WHERE NOT complete), 0)::BIGINT,
-  []::VARCHAR[], 0::BIGINT
+  []::VARCHAR[], 0::BIGINT, NULL::DOUBLE, 0::BIGINT, NULL
 FROM j WHERE NOT client GROUP BY account
 UNION ALL
-SELECT part, account, subject, CASE WHEN count(DISTINCT queue) = 1 THEN min(queue) ELSE '' END,
-  count(DISTINCT (server_id, cid))::BIGINT, 0::BIGINT,
-  CASE WHEN part = 'deliver' THEN coalesce(list(DISTINCT name ORDER BY name) FILTER (WHERE coalesce(name, '') <> ''), [])
-    ELSE coalesce(list(DISTINCT name ORDER BY name) FILTER (WHERE coalesce(name, '') <> ''), [])[1:`+fmt.Sprint(api.MaxClientNames)+`] END,
-  count(DISTINCT name) FILTER (WHERE coalesce(name, '') <> '')
-FROM g GROUP BY part, account, subject
-ORDER BY 1, 2, 3, 4`, collection, epoch, account)
+SELECT gg.part, gg.account, gg.subject, gg.queue, gg.a, gg.b, gg.names, gg.n, pg.rate, pg.measured, pg.rates
+FROM gg JOIN pg USING (part, account, subject)
+ORDER BY 1, 2, 3, 4`, collection.epoch, epoch, account, collection.startedAt.Add(-p.rateGap()))
 	if err != nil {
 		return fmt.Errorf("subscription groups: %w", err)
 	}
@@ -449,9 +484,11 @@ ORDER BY 1, 2, 3, 4`, collection, epoch, account)
 	for rows.Next() {
 		var part string
 		var g api.SubscriptionGroup
-		var a, b, n int64
+		var a, b, n, measured int64
 		var names []any
-		if err := rows.Scan(&part, &g.Account, &g.Subject, &g.Queue, &a, &b, &names, &n); err != nil {
+		var rates any
+		var rate sql.NullFloat64
+		if err := rows.Scan(&part, &g.Account, &g.Subject, &g.Queue, &a, &b, &names, &n, &rate, &measured, &rates); err != nil {
 			return err
 		}
 		switch part {
@@ -462,11 +499,21 @@ ORDER BY 1, 2, 3, 4`, collection, epoch, account)
 			if b > 0 {
 				sf.Unlisted[g.Account] += b
 			}
-		case "deliver":
-			g.Connections, g.Names, g.NameCount = int32(a), strs(names), int32(n)
+			continue
+		}
+		g.Connections, g.Names, g.NameCount = int32(a), strs(names), int32(n)
+		if rate.Valid {
+			g.PerSecond = ptr(rate.Float64)
+		}
+		g.Measured = int32(measured)
+		list, _ := rates.([]any)
+		var err error
+		if g.Rates, err = connectionRates(list); err != nil {
+			return err
+		}
+		if part == "deliver" {
 			sf.Deliver = append(sf.Deliver, g)
-		default:
-			g.Connections, g.Names, g.NameCount = int32(a), strs(names), int32(n)
+		} else {
 			sf.Groups = append(sf.Groups, g)
 		}
 	}

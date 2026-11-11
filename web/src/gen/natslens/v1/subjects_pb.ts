@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/subjects.proto.
  */
 export const file_natslens_v1_subjects: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS9zdWJqZWN0cy5wcm90bxILbmF0c2xlbnMudjEiiAEKEkdldFN1YmplY3RzUmVxdWVzdBIOCgZzeXN0ZW0YASABKAkSJQoFcmFuZ2UYAiABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USDwoHYWNjb3VudBgDIAEoCRIqCgZmaWx0ZXIYBCABKA4yGi5uYXRzbGVucy52MS5TdWJqZWN0RmlsdGVyIvcECgpTdWJqZWN0Um93Eg8KB2FjY291bnQYASABKAkSFAoMYWNjb3VudF9uYW1lGAIgASgJEikKBGtpbmQYAyABKA4yGy5uYXRzbGVucy52MS5TdWJqZWN0Um93S2luZBIQCghwYXR0ZXJucxgEIAMoCRIOCgZzdHJlYW0YBSABKAkSEQoJbWlycm9yX29mGAYgASgJEhQKDHNvdXJjZWRfaW50bxgHIAMoCRIRCglyZXRlbnRpb24YCCABKAkSFQoIbWVzc2FnZXMYCSABKANIAIgBARIZChFkdXJhYmxlX2NvbnN1bWVycxgKIAEoBRIbChNlcGhlbWVyYWxfY29uc3VtZXJzGAsgASgFEhMKC2Nvbm5lY3Rpb25zGAwgASgFEg0KBXF1ZXVlGA0gASgJEhQKDGNsaWVudF9uYW1lcxgOIAMoCRISCgptb3JlX25hbWVzGA8gASgFEh4KEXN0b3JlZF9wZXJfc2Vjb25kGBAgASgBSAGIAQESGwoOYXBpX3Blcl9zZWNvbmQYESABKAFIAogBARIcCg9hcGlfZXJyb3Jfc2hhcmUYEiABKAFIA4gBARIQCghvdmVybGFwcxgTIAMoCRITCgtub19jb25zdW1lchgUIAEoCBIMCgR3aWRlGBUgASgIEhMKC21pcnJvcmVkX2J5GBYgAygJEhYKDnN5c3RlbV9hY2NvdW50GBcgASgIEhUKDW1vcmVfcGF0dGVybnMYGCABKAVCCwoJX21lc3NhZ2VzQhQKEl9zdG9yZWRfcGVyX3NlY29uZEIRCg9fYXBpX3Blcl9zZWNvbmRCEgoQX2FwaV9lcnJvcl9zaGFyZSJyCgtTdWJzelNlcnZlchITCgtzZXJ2ZXJfbmFtZRgBIAEoCRIQCghhbnN3ZXJlZBgCIAEoCBISCgV0b3RhbBgDIAEoA0gAiAEBEhMKBmxpc3RlZBgEIAEoA0gBiAEBQggKBl90b3RhbEIJCgdfbGlzdGVkIrADChNHZXRTdWJqZWN0c1Jlc3BvbnNlEg0KBWVwb2NoGAEgASgDEiwKCGVwb2NoX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBI0ChBzdWJzY3JpcHRpb25zX2F0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIlCgRyb3dzGAQgAygLMhcubmF0c2xlbnMudjEuU3ViamVjdFJvdxISCgpyb3dzX3RvdGFsGAUgASgFEhEKCWFsbF9jb3VudBgGIAEoBRIUCgxzdG9yZWRfY291bnQYByABKAUSGQoRbm9fY29uc3VtZXJfY291bnQYCCABKAUSGQoRb3ZlcmxhcHBpbmdfY291bnQYCSABKAUSEgoKd2lkZV9jb3VudBgKIAEoBRIvCg1zdWJzel9zZXJ2ZXJzGAsgAygLMhgubmF0c2xlbnMudjEuU3Vic3pTZXJ2ZXISHAoUc2VydmVyX3N1YnNjcmlwdGlvbnMYDCABKAMSKQohdW5saXN0ZWRfY29ubmVjdGlvbl9zdWJzY3JpcHRpb25zGA0gASgDIm4KE01hdGNoU3ViamVjdFJlcXVlc3QSDgoGc3lzdGVtGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg8KB2FjY291bnQYAyABKAkSDwoHc3ViamVjdBgEIAEoCSKvAQoMU3ViamVjdE1hdGNoEg4KBnN0cmVhbRgBIAEoCRIpCgRraW5kGAIgASgOMhsubmF0c2xlbnMudjEuU3ViamVjdFJvd0tpbmQSDwoHcGF0dGVybhgDIAEoCRIRCgljb25zdW1lcnMYBCADKAkSGwoTZXBoZW1lcmFsX2NvbnN1bWVycxgFIAEoBRIPCgdtaXJyb3JzGAYgAygJEhIKCnNvdXJjZWRfYnkYByADKAkiagoJQ29yZU1hdGNoEg8KB3N1YmplY3QYASABKAkSDQoFcXVldWUYAiABKAkSEwoLY29ubmVjdGlvbnMYAyABKAUSFAoMY2xpZW50X25hbWVzGAQgAygJEhIKCm1vcmVfbmFtZXMYBSABKAUivQEKDE1hdGNoQWNjb3VudBIPCgdhY2NvdW50GAEgASgJEhQKDGFjY291bnRfbmFtZRgCIAEoCRIWCg5zeXN0ZW1fYWNjb3VudBgDIAEoCBIqCgdtYXRjaGVzGAQgAygLMhkubmF0c2xlbnMudjEuU3ViamVjdE1hdGNoEisKC3N1YnNjcmliZXJzGAUgAygLMhYubmF0c2xlbnMudjEuQ29yZU1hdGNoEhUKDWpldHN0cmVhbV9hcGkYBiABKAgitgEKFE1hdGNoU3ViamVjdFJlc3BvbnNlEg0KBWVwb2NoGAEgASgDEiwKCGVwb2NoX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIrCghhY2NvdW50cxgDIAMoCzIZLm5hdHNsZW5zLnYxLk1hdGNoQWNjb3VudBI0ChBzdWJzY3JpcHRpb25zX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCqjAQoNU3ViamVjdEZpbHRlchIeChpTVUJKRUNUX0ZJTFRFUl9VTlNQRUNJRklFRBAAEhkKFVNVQkpFQ1RfRklMVEVSX1NUT1JFRBABEh4KGlNVQkpFQ1RfRklMVEVSX05PX0NPTlNVTUVSEAISHgoaU1VCSkVDVF9GSUxURVJfT1ZFUkxBUFBJTkcQAxIXChNTVUJKRUNUX0ZJTFRFUl9XSURFEAQq9QEKDlN1YmplY3RSb3dLaW5kEiAKHFNVQkpFQ1RfUk9XX0tJTkRfVU5TUEVDSUZJRUQQABIbChdTVUJKRUNUX1JPV19LSU5EX1NUUkVBTRABEh4KGlNVQkpFQ1RfUk9XX0tJTkRfS0VZX1ZBTFVFEAISIQodU1VCSkVDVF9ST1dfS0lORF9PQkpFQ1RfU1RPUkUQAxIhCh1TVUJKRUNUX1JPV19LSU5EX1NVQlNDUklQVElPThAEEhoKFlNVQkpFQ1RfUk9XX0tJTkRfSU5CT1gQBRIiCh5TVUJKRUNUX1JPV19LSU5EX0pFVFNUUkVBTV9BUEkQBkJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChpuYXRzbGVucy92MS9zdWJqZWN0cy5wcm90bxILbmF0c2xlbnMudjEiiAEKEkdldFN1YmplY3RzUmVxdWVzdBIOCgZzeXN0ZW0YASABKAkSJQoFcmFuZ2UYAiABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USDwoHYWNjb3VudBgDIAEoCRIqCgZmaWx0ZXIYBCABKA4yGi5uYXRzbGVucy52MS5TdWJqZWN0RmlsdGVyIqcGCgpTdWJqZWN0Um93Eg8KB2FjY291bnQYASABKAkSFAoMYWNjb3VudF9uYW1lGAIgASgJEikKBGtpbmQYAyABKA4yGy5uYXRzbGVucy52MS5TdWJqZWN0Um93S2luZBIQCghwYXR0ZXJucxgEIAMoCRIOCgZzdHJlYW0YBSABKAkSEQoJbWlycm9yX29mGAYgASgJEhQKDHNvdXJjZWRfaW50bxgHIAMoCRIRCglyZXRlbnRpb24YCCABKAkSFQoIbWVzc2FnZXMYCSABKANIAIgBARIZChFkdXJhYmxlX2NvbnN1bWVycxgKIAEoBRIbChNlcGhlbWVyYWxfY29uc3VtZXJzGAsgASgFEhMKC2Nvbm5lY3Rpb25zGAwgASgFEg0KBXF1ZXVlGA0gASgJEhQKDGNsaWVudF9uYW1lcxgOIAMoCRISCgptb3JlX25hbWVzGA8gASgFEh4KEXN0b3JlZF9wZXJfc2Vjb25kGBAgASgBSAGIAQESGwoOYXBpX3Blcl9zZWNvbmQYESABKAFIAogBARIcCg9hcGlfZXJyb3Jfc2hhcmUYEiABKAFIA4gBARIQCghvdmVybGFwcxgTIAMoCRITCgtub19jb25zdW1lchgUIAEoCBIMCgR3aWRlGBUgASgIEhMKC21pcnJvcmVkX2J5GBYgAygJEhYKDnN5c3RlbV9hY2NvdW50GBcgASgIEhUKDW1vcmVfcGF0dGVybnMYGCABKAUSIQoUZGVsaXZlcmVkX3Blcl9zZWNvbmQYGSABKAFIBIgBARIcChRtZWFzdXJlZF9jb25uZWN0aW9ucxgaIAEoBRI1ChBjb25uZWN0aW9uX3JhdGVzGBsgAygLMhsubmF0c2xlbnMudjEuQ29ubmVjdGlvblJhdGUSHQoVbW9yZV9jb25uZWN0aW9uX3JhdGVzGBwgASgFQgsKCV9tZXNzYWdlc0IUChJfc3RvcmVkX3Blcl9zZWNvbmRCEQoPX2FwaV9wZXJfc2Vjb25kQhIKEF9hcGlfZXJyb3Jfc2hhcmVCFwoVX2RlbGl2ZXJlZF9wZXJfc2Vjb25kImgKDkNvbm5lY3Rpb25SYXRlEgwKBG5hbWUYASABKAkSEwoLc2VydmVyX25hbWUYAiABKAkSCwoDY2lkGAMgASgDEhcKCnBlcl9zZWNvbmQYBCABKAFIAIgBAUINCgtfcGVyX3NlY29uZCJyCgtTdWJzelNlcnZlchITCgtzZXJ2ZXJfbmFtZRgBIAEoCRIQCghhbnN3ZXJlZBgCIAEoCBISCgV0b3RhbBgDIAEoA0gAiAEBEhMKBmxpc3RlZBgEIAEoA0gBiAEBQggKBl90b3RhbEIJCgdfbGlzdGVkIrADChNHZXRTdWJqZWN0c1Jlc3BvbnNlEg0KBWVwb2NoGAEgASgDEiwKCGVwb2NoX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBI0ChBzdWJzY3JpcHRpb25zX2F0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIlCgRyb3dzGAQgAygLMhcubmF0c2xlbnMudjEuU3ViamVjdFJvdxISCgpyb3dzX3RvdGFsGAUgASgFEhEKCWFsbF9jb3VudBgGIAEoBRIUCgxzdG9yZWRfY291bnQYByABKAUSGQoRbm9fY29uc3VtZXJfY291bnQYCCABKAUSGQoRb3ZlcmxhcHBpbmdfY291bnQYCSABKAUSEgoKd2lkZV9jb3VudBgKIAEoBRIvCg1zdWJzel9zZXJ2ZXJzGAsgAygLMhgubmF0c2xlbnMudjEuU3Vic3pTZXJ2ZXISHAoUc2VydmVyX3N1YnNjcmlwdGlvbnMYDCABKAMSKQohdW5saXN0ZWRfY29ubmVjdGlvbl9zdWJzY3JpcHRpb25zGA0gASgDIm4KE01hdGNoU3ViamVjdFJlcXVlc3QSDgoGc3lzdGVtGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg8KB2FjY291bnQYAyABKAkSDwoHc3ViamVjdBgEIAEoCSKvAQoMU3ViamVjdE1hdGNoEg4KBnN0cmVhbRgBIAEoCRIpCgRraW5kGAIgASgOMhsubmF0c2xlbnMudjEuU3ViamVjdFJvd0tpbmQSDwoHcGF0dGVybhgDIAEoCRIRCgljb25zdW1lcnMYBCADKAkSGwoTZXBoZW1lcmFsX2NvbnN1bWVycxgFIAEoBRIPCgdtaXJyb3JzGAYgAygJEhIKCnNvdXJjZWRfYnkYByADKAkimgIKCUNvcmVNYXRjaBIPCgdzdWJqZWN0GAEgASgJEg0KBXF1ZXVlGAIgASgJEhMKC2Nvbm5lY3Rpb25zGAMgASgFEhQKDGNsaWVudF9uYW1lcxgEIAMoCRISCgptb3JlX25hbWVzGAUgASgFEiEKFGRlbGl2ZXJlZF9wZXJfc2Vjb25kGAYgASgBSACIAQESHAoUbWVhc3VyZWRfY29ubmVjdGlvbnMYByABKAUSNQoQY29ubmVjdGlvbl9yYXRlcxgIIAMoCzIbLm5hdHNsZW5zLnYxLkNvbm5lY3Rpb25SYXRlEh0KFW1vcmVfY29ubmVjdGlvbl9yYXRlcxgJIAEoBUIXChVfZGVsaXZlcmVkX3Blcl9zZWNvbmQivQEKDE1hdGNoQWNjb3VudBIPCgdhY2NvdW50GAEgASgJEhQKDGFjY291bnRfbmFtZRgCIAEoCRIWCg5zeXN0ZW1fYWNjb3VudBgDIAEoCBIqCgdtYXRjaGVzGAQgAygLMhkubmF0c2xlbnMudjEuU3ViamVjdE1hdGNoEisKC3N1YnNjcmliZXJzGAUgAygLMhYubmF0c2xlbnMudjEuQ29yZU1hdGNoEhUKDWpldHN0cmVhbV9hcGkYBiABKAgitgEKFE1hdGNoU3ViamVjdFJlc3BvbnNlEg0KBWVwb2NoGAEgASgDEiwKCGVwb2NoX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIrCghhY2NvdW50cxgDIAMoCzIZLm5hdHNsZW5zLnYxLk1hdGNoQWNjb3VudBI0ChBzdWJzY3JpcHRpb25zX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCqjAQoNU3ViamVjdEZpbHRlchIeChpTVUJKRUNUX0ZJTFRFUl9VTlNQRUNJRklFRBAAEhkKFVNVQkpFQ1RfRklMVEVSX1NUT1JFRBABEh4KGlNVQkpFQ1RfRklMVEVSX05PX0NPTlNVTUVSEAISHgoaU1VCSkVDVF9GSUxURVJfT1ZFUkxBUFBJTkcQAxIXChNTVUJKRUNUX0ZJTFRFUl9XSURFEAQq9QEKDlN1YmplY3RSb3dLaW5kEiAKHFNVQkpFQ1RfUk9XX0tJTkRfVU5TUEVDSUZJRUQQABIbChdTVUJKRUNUX1JPV19LSU5EX1NUUkVBTRABEh4KGlNVQkpFQ1RfUk9XX0tJTkRfS0VZX1ZBTFVFEAISIQodU1VCSkVDVF9ST1dfS0lORF9PQkpFQ1RfU1RPUkUQAxIhCh1TVUJKRUNUX1JPV19LSU5EX1NVQlNDUklQVElPThAEEhoKFlNVQkpFQ1RfUk9XX0tJTkRfSU5CT1gQBRIiCh5TVUJKRUNUX1JPV19LSU5EX0pFVFNUUkVBTV9BUEkQBkJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * Request for where messages can go in a system: the stream subjects and
@@ -256,6 +256,39 @@ export type SubjectRow = Message<"natslens.v1.SubjectRow"> & {
    * @generated from field: int32 more_patterns = 24;
    */
   morePatterns: number;
+
+  /**
+   * Messages delivered per second to the row's connections, a
+   * subscription or inbox row's: the sum of the measured connections'
+   * rates (see ConnectionRate). Unset when none is measured and on the
+   * other kinds.
+   *
+   * @generated from field: optional double delivered_per_second = 25;
+   */
+  deliveredPerSecond?: number | undefined;
+
+  /**
+   * Connections of the row with a delivered rate; below connections when
+   * some have none.
+   *
+   * @generated from field: int32 measured_connections = 26;
+   */
+  measuredConnections: number;
+
+  /**
+   * The row's connections with their delivered rates, most first, those
+   * without a rate last, then by name, server and client ID; at most 20.
+   *
+   * @generated from field: repeated natslens.v1.ConnectionRate connection_rates = 27;
+   */
+  connectionRates: ConnectionRate[];
+
+  /**
+   * Connections beyond connection_rates.
+   *
+   * @generated from field: int32 more_connection_rates = 28;
+   */
+  moreConnectionRates: number;
 };
 
 /**
@@ -264,6 +297,56 @@ export type SubjectRow = Message<"natslens.v1.SubjectRow"> & {
  */
 export const SubjectRowSchema: GenMessage<SubjectRow> = /*@__PURE__*/
   messageDesc(file_natslens_v1_subjects, 1);
+
+/**
+ * One connection's delivered rate on a row's subject (or, for a row or
+ * match of several subscriptions of the connection, on all of them).
+ *
+ * @generated from message natslens.v1.ConnectionRate
+ */
+export type ConnectionRate = Message<"natslens.v1.ConnectionRate"> & {
+  /**
+   * Connection name; empty for an unnamed connection.
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * Server the connection is on, by name.
+   *
+   * @generated from field: string server_name = 2;
+   */
+  serverName: string;
+
+  /**
+   * Connection ID on that server.
+   *
+   * @generated from field: int64 cid = 3;
+   */
+  cid: bigint;
+
+  /**
+   * Messages delivered per second to the connection's subscriptions of
+   * the row, from the collection read and the server's subscription list
+   * before it: the increase of each subscription's delivered count over
+   * the time between the two. Unset when any of them has no rate: it is
+   * not in both lists of the same server process with the same folded
+   * count, its count went down, either list was cut at the subsz limit
+   * or did not come, or the lists lie more than three subscription
+   * intervals apart.
+   *
+   * @generated from field: optional double per_second = 4;
+   */
+  perSecond?: number | undefined;
+};
+
+/**
+ * Describes the message natslens.v1.ConnectionRate.
+ * Use `create(ConnectionRateSchema)` to create a new message.
+ */
+export const ConnectionRateSchema: GenMessage<ConnectionRate> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_subjects, 2);
 
 /**
  * One server's subscription list in the subscription collection.
@@ -309,7 +392,7 @@ export type SubszServer = Message<"natslens.v1.SubszServer"> & {
  * Use `create(SubszServerSchema)` to create a new message.
  */
 export const SubszServerSchema: GenMessage<SubszServer> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_subjects, 2);
+  messageDesc(file_natslens_v1_subjects, 3);
 
 /**
  * Where messages can go in the range's newest epoch, and what the
@@ -424,7 +507,7 @@ export type GetSubjectsResponse = Message<"natslens.v1.GetSubjectsResponse"> & {
  * Use `create(GetSubjectsResponseSchema)` to create a new message.
  */
 export const GetSubjectsResponseSchema: GenMessage<GetSubjectsResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_subjects, 3);
+  messageDesc(file_natslens_v1_subjects, 4);
 
 /**
  * Request for what a message on one subject would reach.
@@ -473,7 +556,7 @@ export type MatchSubjectRequest = Message<"natslens.v1.MatchSubjectRequest"> & {
  * Use `create(MatchSubjectRequestSchema)` to create a new message.
  */
 export const MatchSubjectRequestSchema: GenMessage<MatchSubjectRequest> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_subjects, 4);
+  messageDesc(file_natslens_v1_subjects, 5);
 
 /**
  * A stream of the account that stores a message on the subject.
@@ -540,7 +623,7 @@ export type SubjectMatch = Message<"natslens.v1.SubjectMatch"> & {
  * Use `create(SubjectMatchSchema)` to create a new message.
  */
 export const SubjectMatchSchema: GenMessage<SubjectMatch> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_subjects, 5);
+  messageDesc(file_natslens_v1_subjects, 6);
 
 /**
  * Client subscriptions of the account on one subject and queue that a
@@ -584,6 +667,37 @@ export type CoreMatch = Message<"natslens.v1.CoreMatch"> & {
    * @generated from field: int32 more_names = 5;
    */
   moreNames: number;
+
+  /**
+   * Messages delivered per second to these subscriptions: the sum of the
+   * measured connections' rates. Unset when none is measured.
+   *
+   * @generated from field: optional double delivered_per_second = 6;
+   */
+  deliveredPerSecond?: number | undefined;
+
+  /**
+   * Connections with a delivered rate; below connections when some have
+   * none.
+   *
+   * @generated from field: int32 measured_connections = 7;
+   */
+  measuredConnections: number;
+
+  /**
+   * The connections with their delivered rates, as
+   * SubjectRow.connection_rates lists them; at most 20.
+   *
+   * @generated from field: repeated natslens.v1.ConnectionRate connection_rates = 8;
+   */
+  connectionRates: ConnectionRate[];
+
+  /**
+   * Connections beyond connection_rates.
+   *
+   * @generated from field: int32 more_connection_rates = 9;
+   */
+  moreConnectionRates: number;
 };
 
 /**
@@ -591,7 +705,7 @@ export type CoreMatch = Message<"natslens.v1.CoreMatch"> & {
  * Use `create(CoreMatchSchema)` to create a new message.
  */
 export const CoreMatchSchema: GenMessage<CoreMatch> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_subjects, 6);
+  messageDesc(file_natslens_v1_subjects, 7);
 
 /**
  * What a message on the subject published in one account would reach.
@@ -649,7 +763,7 @@ export type MatchAccount = Message<"natslens.v1.MatchAccount"> & {
  * Use `create(MatchAccountSchema)` to create a new message.
  */
 export const MatchAccountSchema: GenMessage<MatchAccount> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_subjects, 7);
+  messageDesc(file_natslens_v1_subjects, 8);
 
 /**
  * What a message on the subject would reach in the range's newest epoch.
@@ -696,7 +810,7 @@ export type MatchSubjectResponse = Message<"natslens.v1.MatchSubjectResponse"> &
  * Use `create(MatchSubjectResponseSchema)` to create a new message.
  */
 export const MatchSubjectResponseSchema: GenMessage<MatchSubjectResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_subjects, 8);
+  messageDesc(file_natslens_v1_subjects, 9);
 
 /**
  * Which rows a Subjects page lists.

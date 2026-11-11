@@ -2,6 +2,7 @@ package apitest
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -87,6 +88,46 @@ func subjectsRows() []State {
 			return r.GetKind() == v1.SubjectRowKind_SUBJECT_ROW_KIND_SUBSCRIPTION && r.GetQueue() != "" && r.GetConnections() > 1 &&
 				len(r.GetClientNames()) > 0
 		})},
+		{"a Subjects subscription row whose delivered rate is the sum of its connections', some not measured", subjectRow(func(r *v1.SubjectRow) bool {
+			if r.GetKind() != v1.SubjectRowKind_SUBJECT_ROW_KIND_SUBSCRIPTION || r.DeliveredPerSecond == nil || r.GetMoreConnectionRates() != 0 ||
+				r.GetMeasuredConnections() == 0 || r.GetMeasuredConnections() >= r.GetConnections() ||
+				int32(len(r.GetConnectionRates())) != r.GetConnections() {
+				return false
+			}
+			var sum float64
+			var measured int32
+			for i, c := range r.GetConnectionRates() {
+				if c.PerSecond == nil {
+					continue
+				}
+				// Measured connections come first, most first.
+				if i > 0 && (r.GetConnectionRates()[i-1].PerSecond == nil || r.GetConnectionRates()[i-1].GetPerSecond() < c.GetPerSecond()) {
+					return false
+				}
+				sum += c.GetPerSecond()
+				measured++
+			}
+			return measured == r.GetMeasuredConnections() && math.Abs(sum-r.GetDeliveredPerSecond()) < 1e-6
+		})},
+		{"the Subjects tester gives a core subscriber the delivered rates its row has", func(q Q) string {
+			for _, r := range q.subjects("", 0).GetRows() {
+				if r.GetKind() != v1.SubjectRowKind_SUBJECT_ROW_KIND_SUBSCRIPTION || r.DeliveredPerSecond == nil ||
+					literalOf(r.GetPatterns()[0]) != r.GetPatterns()[0] || r.GetQueue() == "" {
+					continue
+				}
+				for _, c := range api.MatchedSubscribers(q.match(r.GetAccount(), r.GetPatterns()[0])) {
+					if c.GetSubject() == r.GetPatterns()[0] && c.GetQueue() == r.GetQueue() {
+						if c.DeliveredPerSecond == nil || math.Abs(c.GetDeliveredPerSecond()-r.GetDeliveredPerSecond()) > 1e-6 ||
+							c.GetMeasuredConnections() != r.GetMeasuredConnections() || len(c.GetConnectionRates()) != len(r.GetConnectionRates()) {
+							q.t.Errorf("%s: tester %v, row %v", q.System, c, r)
+							return ""
+						}
+						return r.GetPatterns()[0]
+					}
+				}
+			}
+			return ""
+		}},
 		{"a Subjects wide subscription row", subjectRow(func(r *v1.SubjectRow) bool {
 			return r.GetKind() == v1.SubjectRowKind_SUBJECT_ROW_KIND_SUBSCRIPTION && r.GetWide() && strings.HasSuffix(r.GetPatterns()[0], ">")
 		})},

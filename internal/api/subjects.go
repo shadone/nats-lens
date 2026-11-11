@@ -135,6 +135,14 @@ type SubscriptionGroup struct {
 	// them at MaxClientNames when NameCount keeps the total.
 	Names     []string
 	NameCount int32
+	// PerSecond is the sum of the measured connections' delivered rates,
+	// nil when none is measured; Measured counts them. Rates are the
+	// connections with their rates, as SortConnectionRates orders them; a
+	// provider may cut them at MaxConnectionRates, as Connections keeps
+	// the total.
+	PerSecond *float64
+	Measured  int32
+	Rates     []ConnectionRate
 }
 
 // SubscriptionFact is one stored subscription row: the subscriptions of
@@ -144,6 +152,12 @@ type SubscriptionFact struct {
 	Account, Subject, Queue string
 	CID                     uint64
 	Subs                    int64
+	// Msgs is the messages delivered to these subscriptions since they
+	// were made, summed.
+	Msgs int64
+	// PerSecond is the delivered rate DeliveredRates sets; nil when not
+	// known.
+	PerSecond *float64
 }
 
 // ServerConnections is one server's CONNZ in the subscription
@@ -177,10 +191,17 @@ type groupAcc struct {
 	conns  map[connKey]bool
 	names  map[string]bool
 	queues map[string]bool
+	rates  map[connKey]*rateAcc
 }
 
-func (a *groupAcc) add(k connKey, name, queue string) {
+func newGroupAcc(account, subject string) *groupAcc {
+	return &groupAcc{g: SubscriptionGroup{Account: account, Subject: subject}, conns: map[connKey]bool{}, names: map[string]bool{},
+		queues: map[string]bool{}, rates: map[connKey]*rateAcc{}}
+}
+
+func (a *groupAcc) add(k connKey, name, queue string, rate *float64) {
 	a.conns[k] = true
+	addRate(a.rates, k, name, rate)
 	if name != "" {
 		a.names[name] = true
 	}
@@ -200,6 +221,7 @@ func (a *groupAcc) done() SubscriptionGroup {
 			g.Queue = q
 		}
 	}
+	finishRates(&g, a.rates)
 	return g
 }
 
@@ -234,11 +256,10 @@ func GroupSubscriptions(subs []SubscriptionFact, conns map[string]ServerConnecti
 		}
 		a := into[key]
 		if a == nil {
-			a = &groupAcc{g: SubscriptionGroup{Account: key[0], Subject: key[1]}, conns: map[connKey]bool{}, names: map[string]bool{},
-				queues: map[string]bool{}}
+			a = newGroupAcc(key[0], key[1])
 			into[key] = a
 		}
-		a.add(connKey{s.Server, s.CID}, name, s.Queue)
+		a.add(connKey{s.Server, s.CID}, name, s.Queue, s.PerSecond)
 	}
 	for _, a := range groups {
 		out.Groups = append(out.Groups, a.done())
@@ -264,11 +285,10 @@ func CoreGroups(subs []SubscriptionFact, conns map[string]ServerConnections) []S
 		key := [3]string{s.Account, s.Subject, s.Queue}
 		a := groups[key]
 		if a == nil {
-			a = &groupAcc{g: SubscriptionGroup{Account: s.Account, Subject: s.Subject}, conns: map[connKey]bool{}, names: map[string]bool{},
-				queues: map[string]bool{}}
+			a = newGroupAcc(s.Account, s.Subject)
 			groups[key] = a
 		}
-		a.add(connKey{s.Server, s.CID}, name, s.Queue)
+		a.add(connKey{s.Server, s.CID}, name, s.Queue, s.PerSecond)
 	}
 	var out []SubscriptionGroup
 	for _, a := range groups {
@@ -440,6 +460,7 @@ func FinishSubjects(f *SubjectsFacts, account string, filter v1.SubjectFilter) *
 				r.Wide = g.Subject == ">" || strings.HasSuffix(g.Subject, ".>")
 			}
 			r.ClientNames, r.MoreNames = cutNames(g.Names, g.NameCount)
+			r.DeliveredPerSecond, r.MeasuredConnections, r.ConnectionRates, r.MoreConnectionRates = rateFields(g)
 			rows = append(rows, r)
 		}
 	}
@@ -735,6 +756,7 @@ func FinishMatch(f *MatchFacts, account, subject string) *v1.MatchSubjectRespons
 			}
 			c := &v1.CoreMatch{Subject: cg.Subject, Queue: cg.Queue, Connections: cg.Connections}
 			c.ClientNames, c.MoreNames = cutNames(cg.Names, cg.NameCount)
+			c.DeliveredPerSecond, c.MeasuredConnections, c.ConnectionRates, c.MoreConnectionRates = rateFields(cg)
 			g := group(cg.Account)
 			g.Subscribers = append(g.Subscribers, c)
 		}

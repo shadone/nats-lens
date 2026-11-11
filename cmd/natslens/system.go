@@ -71,7 +71,8 @@ func archiveDirSet(cfg config.Config, id string) bool {
 
 // provider reads the system's store for the API.
 func (rt *systemRuntime) provider(set *checks.Set) *storeprov.Provider {
-	p := &storeprov.Provider{St: rt.st, Interval: rt.cfg.Interval.D(), Retention: rt.sys.Retention.D(), Live: true, Checks: set,
+	p := &storeprov.Provider{St: rt.st, Interval: rt.cfg.Interval.D(), SubscriptionsInterval: rt.cfg.SubscriptionsInterval.D(),
+		Retention: rt.sys.Retention.D(), Live: true, Checks: set,
 		ToolingNames: rt.sys.ToolingNames(), LoopbackNotTooling: !rt.cfg.Checks.LoopbackTooling(),
 		ClientPods: rt.sys.Kubernetes.ClientPodsPattern(), Kubernetes: rt.sys.Kubernetes.Enabled,
 		ClientPodWatch: rt.sys.Kubernetes.Enabled && rt.sys.Kubernetes.ClientPodWatch.On()}

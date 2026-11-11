@@ -153,6 +153,46 @@ message SubjectRow {
   // not the bytes: 1,000 rows of 20 subjects stay within a response's
   // size limit only while subjects average under about 48 bytes.
   int32 more_patterns = 24;
+
+  // Messages delivered per second to the row's connections, a
+  // subscription or inbox row's: the sum of the measured connections'
+  // rates (see ConnectionRate). Unset when none is measured and on the
+  // other kinds.
+  optional double delivered_per_second = 25;
+
+  // Connections of the row with a delivered rate; below connections when
+  // some have none.
+  int32 measured_connections = 26;
+
+  // The row's connections with their delivered rates, most first, those
+  // without a rate last, then by name, server and client ID; at most 20.
+  repeated ConnectionRate connection_rates = 27;
+
+  // Connections beyond connection_rates.
+  int32 more_connection_rates = 28;
+}
+
+// One connection's delivered rate on a row's subject (or, for a row or
+// match of several subscriptions of the connection, on all of them).
+message ConnectionRate {
+  // Connection name; empty for an unnamed connection.
+  string name = 1;
+
+  // Server the connection is on, by name.
+  string server_name = 2;
+
+  // Connection ID on that server.
+  int64 cid = 3;
+
+  // Messages delivered per second to the connection's subscriptions of
+  // the row, from the collection read and the server's subscription list
+  // before it: the increase of each subscription's delivered count over
+  // the time between the two. Unset when any of them has no rate: it is
+  // not in both lists of the same server process with the same folded
+  // count, its count went down, either list was cut at the subsz limit
+  // or did not come, or the lists lie more than three subscription
+  // intervals apart.
+  optional double per_second = 4;
 }
 
 // One server's subscription list in the subscription collection.
@@ -294,6 +334,21 @@ message CoreMatch {
 
   // Distinct names beyond client_names.
   int32 more_names = 5;
+
+  // Messages delivered per second to these subscriptions: the sum of the
+  // measured connections' rates. Unset when none is measured.
+  optional double delivered_per_second = 6;
+
+  // Connections with a delivered rate; below connections when some have
+  // none.
+  int32 measured_connections = 7;
+
+  // The connections with their delivered rates, as
+  // SubjectRow.connection_rates lists them; at most 20.
+  repeated ConnectionRate connection_rates = 8;
+
+  // Connections beyond connection_rates.
+  int32 more_connection_rates = 9;
 }
 
 // What a message on the subject published in one account would reach.

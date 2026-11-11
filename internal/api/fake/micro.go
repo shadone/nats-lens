@@ -115,17 +115,18 @@ func (s scen) microSubscriptions(c time.Time) []api.SubscriptionFact {
 			if !ok {
 				continue
 			}
-			add := func(subject, queue string) {
+			add := func(subject, queue string, rate float64) {
 				out = append(out, api.SubscriptionFact{Server: x.server, Account: Account, Subject: subject, Queue: queue, CID: uint64(x.cid),
-					Subs: 1})
+					Subs: 1, Msgs: s.delivered(c, rate)})
 			}
 			for _, verb := range []string{"PING", "INFO", "STATS"} {
-				add(api.SrvPrefix+verb, "")
-				add(api.SrvPrefix+verb+"."+m.name, "")
-				add(api.SrvPrefix+verb+"."+m.name+"."+in.id, "")
+				add(api.SrvPrefix+verb, "", 0)
+				add(api.SrvPrefix+verb+"."+m.name, "", 0)
+				add(api.SrvPrefix+verb+"."+m.name+"."+in.id, "", 0)
 			}
+			// The instances share an endpoint's requests evenly.
 			for _, e := range m.endpoints {
-				add(e.subject, microQueue)
+				add(e.subject, microQueue, e.rate/float64(len(m.instances)))
 			}
 		}
 	}
