@@ -2,6 +2,10 @@ import type {CaptureGap, Range} from '../api/model';
 import {hm} from '../lib/format';
 import {TimelineMark, timelineTime} from './TimelineMark';
 
+// The label of the connection that captures the NATS system events; Go's
+// api.SystemConnection.
+export const SYSTEM_CONNECTION = 'sys';
+
 const hms = (t: number) => new Date(t).toISOString().slice(11, 19);
 
 /** "07:30–07:31", or with seconds when both ends fall in one minute. */
@@ -11,12 +15,12 @@ export function gapSpanText(g: Range): string {
 
 /** " (account APP)" or " (system account)" for a lost connection's span. */
 export function gapConnectionText(g: Range & {connection?: string}): string {
-  return g.connection ? (g.connection === 'sys' ? ' (system account)' : ` (account ${g.connection})`) : '';
+  return g.connection ? (g.connection === SYSTEM_CONNECTION ? ' (system account)' : ` (account ${g.connection})`) : '';
 }
 
 /** Why a span has no events: the lane's own source, or one account's. */
 function why(g: Range & {connection?: string}, lane: 'system' | 'advisory'): string {
-  if (lane === 'advisory' && g.connection === 'sys') return "The system account connection was lost: meta leader elections were not captured. Other accounts' stream and consumer elections may have been.";
+  if (lane === 'advisory' && g.connection === SYSTEM_CONNECTION) return "The system account connection was lost: meta leader elections were not captured. Other accounts' stream and consumer elections may have been.";
   if (lane === 'advisory' && g.connection) return `The account connection ${g.connection} was lost: this account's advisories were not captured. Other accounts' advisories may have been.`;
   if (lane === 'advisory') return 'nats-lens was not running.';
   return 'nats-lens was not running, or its system account connection was lost.';
