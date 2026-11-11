@@ -200,6 +200,37 @@ The follow-up task "Bound aggregate API work and verify cancellation under load"
 - Verify cancellation under load: when a client goes away or a deadline passes, the query must stop in DuckDB, not only in Go. With the new metrics: after a burst of cancelled calls, `nats_lens_api_requests_in_flight` returns to 0 and `nats_lens_db_query_duration_seconds{source="api"}` stops counting within a second. In these runs a batch that timed out at 40 s had run 60 s of queries summed over its four workers, which is consistent with stopping at the deadline but does not prove it.
 - Keep collection progress: the acceptance check is `mixed` at `entities` size with every epoch stored and the write hold's p95 within a quarter of the interval, and the fatal-error path unchanged (a fatal DuckDB error still stops only that system).
 
+## After the query budget
+
+Measured on 2026-11-11 on the same machine with the branch `perf/query-budget`: `natslens-perf load -profile entities -scenarios mixed -duration 60s` on APFS clones of one generated `entities` store, each clone deleted after its run. The writer runs every 10 s with a 10 s limit, as in the baseline (production's default is 30 s), so the target is a write hold p95 within 2.5 s and no lost epoch. "Before" is the same binary with `-query-budget 0`, which leaves the API unbounded and the pool at two idle connections, as on `develop`. Another agent ran its own `natslens-perf` load on the machine during the first runs; the runs below waited until no other `natslens-perf` process ran and checked again halfway and at the end. The load average before each run is in the table; the machine was never below 8.6, and each setting ran one to three times, so treat differences under a factor of two as noise. With about six epochs a run, the p95 of a run is its slowest write.
+
+| Setting | Runs | Load before | Epochs lost | Write p50 | Write p95 | API queries run | Most connections open | Overload answers |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| No API load (`writes-only`) | 1 | 14.3 | 0 of 7 | 1.28 s | 1.42 s | 0 | 2 | 0 |
+| Before: no budget | 3 | 10.6, 8.6, 12.1 | 7 of 19 (3, 3, 1) | 10.2, 5.7, 5.1 s | 16.3, 17.0, 18.8 s | 871, 893, 1,019 | 28, 31, 33 | 0 |
+| Default: budget 4, one slot during the epoch write | 3 | 10.1, 15.9, 10.2 | 8 of 18 (3, 3, 2) | 4.0, 2.7, 10.2 s | 13.0, 24.2, 12.4 s | 681, 371, 624 | 24, 17, 20 | 6, 5, 9 |
+| Budget 2, one slot during the write | 1 | 17.1 | 3 of 6 | 2.0 s | 12.7 s | 470 | 19 | 7 |
+| Budget 1 | 1 | 11.0 | 3 of 5 | 10.5 s | 17.8 s | 399 | 19 | 10 |
+| DuckDB `threads` 8, budget 2 | 1 | 13.2 | 4 of 7 | 10.1 s | 19.2 s | 599 | 23 | 19 |
+| DuckDB `threads` 6, budget 2 | 1 | 9.9 | 4 of 8 | 1.9 s | 11.0 s | 785 | 21 | 12 |
+| DuckDB `threads` 6, budget 1 | 1 | 10.4 | 3 of 6 | 1.6 s | 10.3 s | 762 | 18 | 13 |
+| Default with `memory_limit` 4 GiB | 1 | 11.8 | 5 of 6 | 2.5 s | 10.3 s | 498 | 24 | 8 |
+
+"Overload answers" counts the queries whose call's deadline passed in the queue (`nats_lens_db_admission_wait_seconds_count{outcome="deadline"}`); no queue filled. With the budget, at most 4 queries ran and at most 16 waited; the pool never made a query wait for a connection.
+
+**The acceptance target is not met.** No setting stored every epoch: the default lost 8 of 18, against 7 of 19 without a budget, and its slowest write per run stayed between 12 and 24 s. The budget does help the median write: with the epoch write's yield to one slot the p50 fell from 5 to 10 s to 2 to 4 s in five of the seven runs where the yield narrowed a budget above one (10 s in the other two), but a single heavy API query still holds the engine through some writes. Budget 1, which serialises every read, and fewer DuckDB threads lost as many epochs, so neither the number of concurrent queries nor the thread count is what loses them. Two causes remain:
+
+- **The heaviest reads.** The Overview's asset counts and the per-asset rates over a day (the baseline's top costs) take 2 s alone on 12 threads and keep the engine busy for seconds whatever else runs. Recommendations 1 and 3 above remove them; they, not admission, are what can bring the write back to its 1.3 s.
+- **A constraint error under concurrent reads.** Five epochs in the budget runs (and one in an earlier run) failed at once, not at the deadline, with `Constraint Error: Duplicate key "server_id: ..." violates primary key constraint` in the epoch write's `INSERT INTO servers ... ON CONFLICT (server_id) DO UPDATE`. It appeared only with API reads running beside the write, and most often with a 4 GiB memory limit (three of six epochs). This matches DuckDB's handling of a primary key whose old row versions a concurrent read transaction still sees. It is a separate defect of the epoch write, not of admission, and needs its own task.
+
+**Memory.** The process peaked at 14.0 GB with no API load at all, and at 14.5 to 18.6 GB in the mixed runs, with or without a budget: DuckDB's buffer pool, not the API's concurrency, sets the peak. A `memory_limit` of 4 GiB held the peak to 6.8 GB. `natslens run` already sets `memory_limit` (`duckdb_memory_limit`, by default 60% of the container's limit, 1 GiB outside one); only `natslens-perf` ran with DuckDB's default of 25.5 GiB, and now takes `-memory-limit` to match a deployment.
+
+**API.** With the budget the API ran fewer queries in the same minute (371 to 681 against 871 to 1,019) and answered 5 to 9 calls `resource_exhausted` in a run instead of letting them run on into `deadline_exceeded`; failed calls per run stayed at 6 to 7 either way. Connections open fell from about 30 to about 20.
+
+**Cancellation.** `TestCancelReachesDuckDB` (in `internal/store`) cancels two queries running in DuckDB, twenty queued for the budget and twenty mutes waiting behind the write lock. All 42 ended within milliseconds of the cancel; no slot, waiter or goroutine was left; only the two interrupted queries were recorded; and the process's CPU fell from 3 s per second to none in the following second, so the engine stopped running them. Its control, `TestEndlessQueryRunsLong`, shows the same query still running after 6 s without a cancel.
+
+**Settings, proposed, not yet confirmed.** The default stays one slot per three threads (4 on 12) with the yield to one slot during the epoch write: the smaller budgets lost as many epochs and ran fewer API queries. The pool keeps the budget plus 8 connections idle and has no `SetMaxOpenConns`, because the epoch write shares the pool and would queue behind API reads for a connection. `threads` stays at the per-system share: fewer threads did not keep epochs.
+
 ## Instrumentation
 
 The `/metrics` families these numbers come from are listed in [Metrics](../metrics.md). Recording costs about 40 ns and one allocation per observation, and about 111 ns and one allocation per query on the query path (`go test -bench . ./internal/timing`), against queries of a millisecond and more. `natslens` serves no profiling endpoint; `natslens-perf explain` sets a query hook, off by default, that the `natslens` command never sets.
