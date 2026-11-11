@@ -82,7 +82,15 @@ func decodeTolerant(b []byte, target any) ([]UnknownValue, error) {
 		tv.SetZero()
 		return nil, err
 	}
-	sort.SliceStable(w.found, func(i, j int) bool { return lessSteps(w.found[i].steps, w.found[j].steps) })
+	// A field sent twice, under keys that differ in case, gives two values
+	// at one path in the decoder's map order; their text orders them.
+	sort.Slice(w.found, func(i, j int) bool {
+		a, b := w.found[i], w.found[j]
+		if lessSteps(a.steps, b.steps) || lessSteps(b.steps, a.steps) {
+			return lessSteps(a.steps, b.steps)
+		}
+		return a.value < b.value
+	})
 	out := make([]UnknownValue, 0, len(w.found))
 	for _, f := range w.found {
 		u := UnknownValue{Path: pathString(f.steps), Value: f.value}
