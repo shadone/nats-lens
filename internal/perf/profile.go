@@ -41,6 +41,11 @@ var Profiles = map[string]Profile{
 		Replicas: 3, History: 2 * time.Hour, Interval: 30 * time.Second, EventsPerHour: 200},
 	"entities": {Name: "entities", Servers: 5, Accounts: 20, Streams: 2000, Consumers: 10000, Connections: 50000, ConnzLimit: 4096,
 		Replicas: 3, History: 24 * time.Hour, Interval: 30 * time.Second, EventsPerHour: 2000},
+	// entities-6h is entities with a quarter of its history, for a disk
+	// without room for entities' 4.6 GB: the same epoch write, the same
+	// queries over a quarter of the rows.
+	"entities-6h": {Name: "entities-6h", Servers: 5, Accounts: 20, Streams: 2000, Consumers: 10000, Connections: 50000, ConnzLimit: 4096,
+		Replicas: 3, History: 6 * time.Hour, Interval: 30 * time.Second, EventsPerHour: 2000},
 	"history": {Name: "history", Servers: 5, Accounts: 10, Streams: 200, Consumers: 1000, Connections: 5000, ConnzLimit: 4096,
 		Replicas: 3, History: 7 * 24 * time.Hour, Interval: 30 * time.Second, EventsPerHour: 600},
 }

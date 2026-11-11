@@ -21,6 +21,7 @@ import (
 	"github.com/shadone/nats-lens/internal/api/storeprov"
 	"github.com/shadone/nats-lens/internal/archive"
 	"github.com/shadone/nats-lens/internal/checks"
+	"github.com/shadone/nats-lens/internal/config"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/gen/natslens/v1/natslensv1connect"
 	"github.com/shadone/nats-lens/internal/store"
@@ -40,6 +41,13 @@ type LoadOptions struct {
 	// Duration of each concurrent scenario.
 	Duration time.Duration
 	Log      *slog.Logger
+	// QueryBudget is the store's query budget: negative derives it from
+	// the threads as natslens does, zero leaves the API unbounded.
+	QueryBudget int
+	// Threads and MemoryLimit set DuckDB's threads and memory_limit;
+	// zero keeps DuckDB's default.
+	Threads     int
+	MemoryLimit int64
 }
 
 // harness is one opened store served over loopback HTTP.
@@ -108,6 +116,10 @@ func openHarness(ctx context.Context, o LoadOptions) (*harness, func(), error) {
 	}
 	st.SetSystem(SystemID)
 	openTook := time.Since(opened)
+	if err := applySettings(ctx, st, o); err != nil {
+		_ = st.Close()
+		return nil, nil, err
+	}
 	set, err := checks.Load(checksConfig())
 	if err != nil {
 		_ = st.Close()
@@ -137,6 +149,33 @@ func openHarness(ctx context.Context, o LoadOptions) (*harness, func(), error) {
 	hc := &http.Client{Transport: &http.Transport{MaxIdleConnsPerHost: 64}}
 	h.client = natslensv1connect.NewLensServiceClient(hc, base, connect.WithSendMaxBytes(api.MaxMessageBytes), connect.WithReadMaxBytes(api.MaxMessageBytes))
 	return h, func() { _ = srv.Close(); _ = st.Close() }, nil
+}
+
+// applySettings sets the store's threads, memory limit and query budget
+// as the options ask.
+func applySettings(ctx context.Context, st *store.Store, o LoadOptions) error {
+	if o.Threads > 0 {
+		if err := st.SetThreads(ctx, o.Threads); err != nil {
+			return err
+		}
+	}
+	if o.MemoryLimit > 0 {
+		if err := st.SetMemoryLimit(ctx, o.MemoryLimit); err != nil {
+			return err
+		}
+	}
+	budget := o.QueryBudget
+	if budget < 0 {
+		var threads int
+		if err := st.DB().QueryRowContext(ctx, `SELECT current_setting('threads')::INTEGER`).Scan(&threads); err != nil {
+			return fmt.Errorf("read threads: %w", err)
+		}
+		budget = config.Config{}.QueryBudgetFor(threads)
+	}
+	if budget > 0 {
+		st.SetQueryBudget(budget)
+	}
+	return nil
 }
 
 // loadStreams reads the streams an agent's series ask for.
@@ -204,25 +243,37 @@ func (h *harness) loadPage(ctx context.Context, rec *recorder, p page) {
 	}
 }
 
-// memSampler records the largest Go heap in use while it runs.
+// memSampler records the largest Go heap in use while it runs, and the
+// most queries holding or waiting for the store's query budget and the
+// most database connections open.
 type memSampler struct {
 	stop    chan struct{}
 	done    chan struct{}
 	maxHeap atomic.Uint64
+	// Written by the sampler, read after done.
+	maxActive, maxQueued, maxOpen, maxInUse int
 }
 
-func startMemSampler() *memSampler {
+func startMemSampler(st *store.Store) *memSampler {
 	m := &memSampler{stop: make(chan struct{}), done: make(chan struct{})}
 	go func() {
 		defer close(m.done)
-		t := time.NewTicker(250 * time.Millisecond)
+		t := time.NewTicker(50 * time.Millisecond)
 		defer t.Stop()
-		for {
-			var ms runtime.MemStats
-			runtime.ReadMemStats(&ms)
-			if ms.HeapInuse > m.maxHeap.Load() {
-				m.maxHeap.Store(ms.HeapInuse)
+		for i := 0; ; i++ {
+			if i%5 == 0 {
+				var ms runtime.MemStats
+				runtime.ReadMemStats(&ms)
+				if ms.HeapInuse > m.maxHeap.Load() {
+					m.maxHeap.Store(ms.HeapInuse)
+				}
 			}
+			if g := st.QueryBudget(); g != nil {
+				a, q := g.Load()
+				m.maxActive, m.maxQueued = max(m.maxActive, a), max(m.maxQueued, q)
+			}
+			s := st.DB().Stats()
+			m.maxOpen, m.maxInUse = max(m.maxOpen, s.OpenConnections), max(m.maxInUse, s.InUse)
 			select {
 			case <-m.stop:
 				return
@@ -261,6 +312,7 @@ type writer struct {
 	writes   []time.Duration
 	checks   []time.Duration
 	missed   int
+	lost     int
 	errs     []error
 }
 
@@ -278,6 +330,7 @@ func (w *writer) run(ctx context.Context) {
 		w.writes = append(w.writes, time.Since(t))
 		if err != nil {
 			w.errs = append(w.errs, err)
+			w.lost++
 		} else {
 			w.h.epoch.Store(epoch)
 			w.h.last.Store(at.UnixMicro())

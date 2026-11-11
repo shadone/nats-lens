@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/config"
 	"github.com/shadone/nats-lens/internal/perf"
 )
 
@@ -45,6 +46,12 @@ func run(args []string) error {
 	duration := fs.Duration("duration", 60*time.Second, "load: how long each concurrent scenario runs")
 	jsonOut := fs.String("json", "", "load: also write the results as JSON to this file")
 	cpuProfile := fs.String("cpuprofile", "", "load: write a Go CPU profile of the run to this file; it does not show DuckDB's native work")
+	budget := fs.Int("query-budget", -1, "load: the store's query budget; -1 derives it from the threads as natslens does, 0 leaves the API unbounded")
+	threads := fs.Int("threads", 0, "load: DuckDB threads; 0 keeps DuckDB's default")
+	var memLimit config.ByteSize
+	fs.Func("memory-limit", "load: DuckDB memory_limit, such as 4GiB; unset keeps DuckDB's default", func(v string) error {
+		return memLimit.UnmarshalText([]byte(v))
+	})
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -83,7 +90,8 @@ func run(args []string) error {
 		if *scenarios != "" {
 			names = strings.Split(*scenarios, ",")
 		}
-		rep, err := perf.Load(ctx, perf.LoadOptions{Profile: p, Path: *db, Scenarios: names, Duration: *duration, Log: log})
+		rep, err := perf.Load(ctx, perf.LoadOptions{Profile: p, Path: *db, Scenarios: names, Duration: *duration, Log: log,
+			QueryBudget: *budget, Threads: *threads, MemoryLimit: int64(memLimit)})
 		if err != nil {
 			return err
 		}

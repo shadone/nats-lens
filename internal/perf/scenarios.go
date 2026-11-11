@@ -145,8 +145,8 @@ func (h *harness) background(ctx context.Context, res *ScenarioResult, front fun
 	}
 	wg.Wait()
 	res.Background = &Background{
-		EpochInterval: w.interval, Epochs: len(w.writes), Missed: w.missed,
-		WriteP50: percentile(w.writes, 0.5), WriteMax: percentile(w.writes, 1),
+		EpochInterval: w.interval, Epochs: len(w.writes), Missed: w.missed, Lost: w.lost,
+		WriteP50: percentile(w.writes, 0.5), WriteP95: percentile(w.writes, 0.95), WriteMax: percentile(w.writes, 1),
 		ChecksP50: percentile(w.checks, 0.5), ChecksMax: percentile(w.checks, 1),
 		LagP50: percentile(w.lags, 0.5), LagMax: percentile(w.lags, 1),
 		ArchivedHours: archived, ArchiveTickP50: percentile(archiveTook, 0.5), ArchiveTickMax: percentile(archiveTook, 1),
@@ -165,12 +165,15 @@ func (h *harness) run(ctx context.Context, name string) (ScenarioResult, error) 
 	sc := scenarios[name]
 	res := ScenarioResult{Name: name, Description: sc.description, LoadBefore: loadAverage()}
 	before := snapshotTimings()
-	mem := startMemSampler()
+	mem := startMemSampler(h.st)
+	waitsBefore := h.st.DB().Stats().WaitCount
 	rec := &recorder{}
 	start := time.Now()
 	err := sc.run(ctx, h, rec, &res)
 	res.Elapsed = time.Since(start)
 	res.MaxHeapBytes = mem.end()
+	res.MaxBudgetActive, res.MaxBudgetQueued, res.MaxConnsOpen, res.MaxConnsInUse = mem.maxActive, mem.maxQueued, mem.maxOpen, mem.maxInUse
+	res.ConnWaits = h.st.DB().Stats().WaitCount - waitsBefore
 	res.MaxRSSBytes = maxRSS()
 	res.LoadAfter = loadAverage()
 	res.summarize(rec, diffTimings(before, snapshotTimings()))
