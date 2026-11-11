@@ -145,7 +145,7 @@ func (c *guardedConn) ExecContext(ctx context.Context, q string, args []driver.N
 	if err := c.g.err(); err != nil {
 		return nil, err
 	}
-	defer c.g.timed(ctx, time.Now())
+	defer c.g.timed(ctx, q, args, time.Now())
 	ctx, done := c.g.callContext(ctx)
 	defer done()
 	r, err := c.Conn.(driver.ExecerContext).ExecContext(ctx, q, args)
@@ -155,7 +155,7 @@ func (c *guardedConn) QueryContext(ctx context.Context, q string, args []driver.
 	if err := c.g.err(); err != nil {
 		return nil, err
 	}
-	done := c.g.timedQuery(ctx)
+	done := c.g.timedQuery(ctx, q, args)
 	ctx, stop := c.g.callContext(ctx)
 	done = joined(stop, done)
 	r, err := c.Conn.(driver.QueryerContext).QueryContext(ctx, q, args)
@@ -178,7 +178,7 @@ func (c *guardedConn) PrepareContext(ctx context.Context, q string) (driver.Stmt
 	if err != nil {
 		return nil, c.g.observe("prepare", err)
 	}
-	return &guardedStmt{Stmt: s, g: c.g}, nil
+	return &guardedStmt{Stmt: s, g: c.g, q: q}, nil
 }
 func (c *guardedConn) Begin() (driver.Tx, error) {
 	return c.BeginTx(context.Background(), driver.TxOptions{})
@@ -218,6 +218,7 @@ func (t *guardedTx) Rollback() error {
 type guardedStmt struct {
 	driver.Stmt
 	g *engineGuard
+	q string
 }
 
 func (s *guardedStmt) Exec(args []driver.Value) (driver.Result, error) {
@@ -241,7 +242,7 @@ func (s *guardedStmt) ExecContext(ctx context.Context, args []driver.NamedValue)
 	if err := s.g.err(); err != nil {
 		return nil, err
 	}
-	defer s.g.timed(ctx, time.Now())
+	defer s.g.timed(ctx, s.q, args, time.Now())
 	ctx, done := s.g.callContext(ctx)
 	defer done()
 	r, err := s.Stmt.(driver.StmtExecContext).ExecContext(ctx, args)
@@ -251,7 +252,7 @@ func (s *guardedStmt) QueryContext(ctx context.Context, args []driver.NamedValue
 	if err := s.g.err(); err != nil {
 		return nil, err
 	}
-	done := s.g.timedQuery(ctx)
+	done := s.g.timedQuery(ctx, s.q, args)
 	ctx, stop := s.g.callContext(ctx)
 	done = joined(stop, done)
 	r, err := s.Stmt.(driver.StmtQueryContext).QueryContext(ctx, args)

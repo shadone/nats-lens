@@ -24,8 +24,10 @@ func Source(ctx context.Context) string {
 
 // Call counts the queries of one API call and the seconds they ran.
 type Call struct {
-	queries atomic.Int64
-	nanos   atomic.Int64
+	// Procedure names the call for a query hook.
+	Procedure string
+	queries   atomic.Int64
+	nanos     atomic.Int64
 }
 
 // WithCall returns ctx carrying c, whose counts the store's queries add to.

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql/driver"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -24,16 +25,24 @@ func (g *engineGuard) systemLabel() string {
 	return ""
 }
 
-// timed records a statement that started at start and ends now.
-func (g *engineGuard) timed(ctx context.Context, start time.Time) {
-	timing.Query(ctx, g.systemLabel(), start)
+// timed records a statement q that started at start and ends now.
+func (g *engineGuard) timed(ctx context.Context, q string, args []driver.NamedValue, start time.Time) {
+	sys := g.systemLabel()
+	timing.Query(ctx, sys, start)
+	if timing.HookSet() {
+		vals := make([]any, len(args))
+		for i, a := range args {
+			vals[i] = a.Value
+		}
+		timing.Hook(ctx, sys, q, vals, time.Since(start))
+	}
 }
 
 // timedQuery starts timing a query; the returned func ends it, when its
 // rows are closed or it failed.
-func (g *engineGuard) timedQuery(ctx context.Context) func() {
+func (g *engineGuard) timedQuery(ctx context.Context, q string, args []driver.NamedValue) func() {
 	start := time.Now()
-	return func() { g.timed(ctx, start) }
+	return func() { g.timed(ctx, q, args, start) }
 }
 
 // joined returns a func that runs a, then b.

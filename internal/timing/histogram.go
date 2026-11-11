@@ -185,3 +185,26 @@ func (v *HistogramVec) Count(values ...string) uint64 {
 	}
 	return 0
 }
+
+// Series is one histogram's state: its label values, cumulative bucket
+// counts by Bounds (then +Inf), the sum and the count.
+type Series struct {
+	Labels  []string
+	Bounds  []float64
+	Buckets []uint64
+	Sum     float64
+	Count   uint64
+}
+
+// Series returns every histogram of the family, for a caller that reads
+// the values itself rather than through /metrics.
+func (v *HistogramVec) Series() []Series {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+	out := make([]Series, 0, len(v.series))
+	for _, k := range v.sortedKeys() {
+		cum, sum, count := v.series[k].snapshot()
+		out = append(out, Series{Labels: slices.Clone(v.keys[k]), Bounds: v.bounds, Buckets: cum, Sum: sum, Count: count})
+	}
+	return out
+}

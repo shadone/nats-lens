@@ -117,6 +117,7 @@ func (a *Archiver) Tick(ctx context.Context, now time.Time) error {
 // successful export it lists the manifests, at most once an hour, and
 // prunes hours past ArchiveRetention.
 func (a *Archiver) Export(ctx context.Context, now time.Time) (int, error) {
+	ctx = timing.WithSource(ctx, timing.SourceArchive)
 	closedBefore := now.Add(-a.Grace).UTC().Truncate(time.Hour)
 	from := now.Add(-a.Retention).UTC().Truncate(time.Hour).Add(time.Hour)
 	hours, err := a.Store.PendingHours(ctx, from, closedBefore, now, a.ProvisionalEvery)

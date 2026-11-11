@@ -22,7 +22,7 @@ func timingInterceptor(systems Systems) connect.UnaryInterceptorFunc {
 			inFlight := timing.APIInFlight.With(sys, proc)
 			inFlight.Add(1)
 			defer inFlight.Add(-1)
-			call := &timing.Call{}
+			call := &timing.Call{Procedure: proc}
 			ctx = timing.WithCall(timing.WithSource(ctx, timing.SourceAPI), call)
 			start := time.Now()
 			res, err := next(ctx, req)
