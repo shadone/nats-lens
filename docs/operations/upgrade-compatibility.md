@@ -96,7 +96,7 @@ The engine fixture `internal/testfatal/testdata/index-divergence-1.5.6.duckdb.gz
 ## Migration rules the check enforces
 
 - **Append-only and checksummed.** `TestMigrationsMatchGolden` fails when a migration file changes, is removed, or is added without its checksum pinned. At start, a recorded checksum that differs from its file stops the binary (`TestEditedMigrationFailsStart`).
-- **Columns added later to archived tables are nullable.** A rebuild reads a table's hours with `union_by_name`. When one file has a column and another does not, the rows of the older file get NULL there; a column default does not apply, so a NOT NULL column fails the load even with a default. `TestCompatArchivedColumnsAddedLaterAreNullable` therefore requires such columns to be nullable, and fails as well when a migration makes an existing nullable column of an archived table NOT NULL, since older files can hold NULL there, which is stricter than AGENTS.md's "a new NOT NULL column on an archived table needs a default"; the test also checks itself against a NOT NULL column with a default.
+- **Columns added later to archived tables are nullable.** A rebuild reads a table's hours with `union_by_name`. When one file has a column and another does not, the rows of the older file get NULL there; a column default does not apply, so a NOT NULL column fails the load even with a default. `TestCompatArchivedColumnsAddedLaterAreNullable` enforces AGENTS.md's rule that such a column is nullable, even with a default. It also fails when a migration makes an existing nullable column of an archived table NOT NULL, since older files can hold NULL there, and it checks itself against both cases. `TestCompatNotNullDefaultFailsMixedRebuild` pins the engine behaviour the rule rests on.
 - **Every table is accounted for.** A table must be in `archiveTables` or in `compatUnarchived`, so a new table is not left out of the archive unnoticed.
 - **Manifests.** A rebuild loads only hours with a manifest and stops when a file's row count differs from it (`TestRebuildNeedsManifest`, `TestRebuildChecksRowCounts`). A re-export that stops before its manifest leaves the previous export whole (`TestReexportCrashKeepsPreviousExport`).
 
@@ -134,8 +134,8 @@ To roll back, stop the new release and restore the copied directory whole; never
 
 | Date | Revision | Command | Result |
 | --- | --- | --- | --- |
-| 2026-11-11 | `95a171c8` (documentation uncommitted) | `python3 -B scripts/verify.py compat` | Pass: `compat-store` 589 s, `compat-cmd` 25 s, on a laptop under a load average of about 35 from other work |
-| 2026-11-11 | the tests of `b02c78cc` | `TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -run '^TestCompat' -v ./internal/store` | Pass in 481 s: upgrade from all 40 versions, interrupted upgrade from 39, archive rebuild alone and mixed from 40 (80 cases), both rules tests |
+| 2026-11-11 | `69867e4a` (before the fix round; documentation uncommitted) | `python3 -B scripts/verify.py compat` | Pass: `compat-store` 589 s, `compat-cmd` 25 s, on a laptop under a load average of about 35 from other work |
+| 2026-11-11 | `f57203fe` | `TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -run '^TestCompat' -v ./internal/store` | Pass in 506 s: upgrade from all 40 versions, interrupted upgrade from 39, archive rebuild alone and mixed from 40 (80 cases), the three rules tests |
 
 Times depend on host load; the matrix grows by about 12 s per new migration.
 
