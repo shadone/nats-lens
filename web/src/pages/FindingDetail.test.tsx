@@ -479,3 +479,45 @@ describe("FindingDetail extras for acceptance", () => {
     expect(link.getAttribute("href")).toContain("/placement?asset=APP%2Forder-jobs%2Fresize-worker&server=nats-0");
   });
 });
+
+describe("why this severity", () => {
+  const noRule = "Every stream-004 finding is a warning; its severity does not change.";
+  const usual = "A warning is the usual severity of stream-004. Its severity rule says when it is another: critical at or above crit_ratio of the limit.";
+  const raised = "Raised to critical from warning, the usual severity of stream-004, by its severity rule: critical at or above crit_ratio of the limit.";
+  const line = () => screen.getByText("Why this severity:").parentElement;
+
+  it.each([
+    ["a check without a severity rule", "warning", noRule],
+    ["the usual severity of a check with a rule", "warning", usual],
+    ["a severity the rule raised", "critical", raised],
+  ] as const)("gives the reason for %s under the headline", async (_, severity, reason) => {
+    m.getFinding.mockResolvedValue({ finding: { ...base, severity, severityReason: reason }, transitions: [] });
+    show();
+    await screen.findByText("Why this severity:");
+    expect(line()).toHaveTextContent(`Why this severity: ${reason}`);
+    expect(line()?.closest(".finding-h")).not.toBeNull();
+  });
+
+  it("keeps the reason on a muted finding", async () => {
+    const mute = { id: "m1", checkCode: "stream-004", entity: streamEntity, reason: "Planned", mutedBy: "ops", expiresAt: Date.parse("2027-04-07T06:57:00Z"), unmutedBy: "", accepted: false, endReason: "", growthReview: false };
+    m.getFinding.mockResolvedValue({ finding: { ...base, severity: "critical", severityReason: raised, mute }, transitions: [] });
+    show();
+    expect(await screen.findByText("Muted by ops:")).toBeInTheDocument();
+    expect(line()).toHaveTextContent(raised);
+  });
+
+  it("gives the severity a resolved finding had", async () => {
+    const reason = "It was critical when it resolved: raised from warning, the usual severity of stream-004, by its severity rule: critical at or above crit_ratio of the limit.";
+    m.getFinding.mockResolvedValue({ finding: { ...base, state: "resolved", resolvedAt: Date.now() - 60_000, severity: "critical", severityReason: reason }, transitions: [] });
+    show();
+    await screen.findByText("Why this severity:");
+    expect(line()).toHaveTextContent(reason);
+  });
+
+  it("leaves the line out when the API gives no reason", async () => {
+    m.getFinding.mockResolvedValue({ finding: base, transitions: [] });
+    show();
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByText("Why this severity:")).toBeNull();
+  });
+});

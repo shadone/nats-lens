@@ -32,6 +32,8 @@
 .worst p.fd-detail{margin:var(--sp-1) 0 0;color:var(--text-muted);font-size:var(--fs-md);font-weight:400;overflow-wrap:anywhere}
 .worst p.fd-when{margin:var(--sp-2) 0 0;color:var(--text-2);font-size:var(--fs-md)}
 .fd-when .mono{font-family:var(--mono);font-size:var(--fs-md)}
+.worst p.fd-why{margin:var(--sp-2) 0 0;color:var(--text-2);font-size:var(--fs-md);overflow-wrap:anywhere}
+.fd-why-l{font-weight:600;color:var(--text)}
 .fd-cols{display:flex;flex-wrap:wrap;gap:var(--sp-4);align-items:flex-start}
 .fd-main{flex:999 1 560px;min-width:0;display:grid;gap:var(--sp-4)}
 .fd-side{flex:1 1 280px;min-width:0;display:grid;gap:var(--sp-4)}

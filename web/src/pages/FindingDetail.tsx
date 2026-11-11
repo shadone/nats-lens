@@ -95,6 +95,11 @@ function Head({ f, spec, start, end, onMute, onUnmute, onAck, onAccept, copyActi
       {/* The check's own words, quoted as the API sends them. */}
       {f.detail && <p className="fd-detail">{f.detail}</p>}
       <When f={f} spec={spec} historyStart={historyStart} />
+      {f.severityReason && (
+        <p className="fd-why">
+          <span className="fd-why-l">Why this severity:</span> {f.severityReason}
+        </p>
+      )}
       <div className="meta">
         <div>
           <span className="lbl">{f.resolvedAt !== undefined ? "Fired for (since first seen)" : "Firing for (since first seen)"}</span>

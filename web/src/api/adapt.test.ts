@@ -71,3 +71,13 @@ describe("numbers a server did not report", () => {
     expect([c.pendingBytes, c.inMsgs, c.stalls, c.port]).toEqual([undefined, undefined, undefined, undefined]);
   });
 });
+
+describe("finding", () => {
+  it("carries the API's severity reason, and none when it is empty", async () => {
+    const { FindingSchema } = await import("../gen/natslens/v1/findings_pb");
+    const { finding } = await import("./adapt-findings");
+    const reason = "Every stream-001 finding is critical; its severity does not change.";
+    expect(finding(create(FindingSchema, { checkCode: "stream-001", severityReason: reason })).severityReason).toBe(reason);
+    expect("severityReason" in finding(create(FindingSchema, { checkCode: "stream-001" }))).toBe(false);
+  });
+});

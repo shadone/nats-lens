@@ -77,6 +77,7 @@ export function finding(f: PFinding): Finding {
     ...(f.expiry ? { expiry: true } : {}),
     ...(f.acceptable ? { acceptable: true } : {}),
     ...(f.growthReview ? { growthReview: true } : {}),
+    ...(f.severityReason ? { severityReason: f.severityReason } : {}),
   };
 }
 

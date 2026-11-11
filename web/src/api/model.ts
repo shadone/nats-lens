@@ -116,6 +116,8 @@ export interface Finding {
   acceptable?: boolean;
   /** An acceptance of the check ends early when the entity's growth changes. */
   growthReview?: boolean;
+  /** Why the finding has its severity: the check's usual severity and its severity rule, in the API's words. */
+  severityReason?: string;
 }
 
 export interface Transition {
