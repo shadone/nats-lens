@@ -7,7 +7,7 @@
 -- rows and is not archived itself.
 
 CREATE TABLE epoch_asset_counts (
-    epoch             BIGINT PRIMARY KEY,
+    epoch             BIGINT NOT NULL,
     streams           BIGINT NOT NULL,
     kv_buckets        BIGINT NOT NULL,
     object_stores     BIGINT NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE epoch_asset_counts (
     assets_single     BIGINT NOT NULL
 );
 COMMENT ON TABLE epoch_asset_counts IS 'One row per epoch: the streams, KV buckets, object stores and durable consumers any server reported in it, and the streams and durable consumers by configured replicas. Written in the epoch''s transaction from its stream_stats, consumer_stats, stream_config and consumer_config rows, and never changed afterwards. Counts every epoch, also those whose JSZ replies are incomplete: readers leave those out where a count would dip. Swept with its epoch; not archived, as a rebuild computes it again from the archived rows.';
-COMMENT ON COLUMN epoch_asset_counts.epoch IS 'The epoch (epochs.epoch).';
+COMMENT ON COLUMN epoch_asset_counts.epoch IS 'The epoch (epochs.epoch). One row per epoch: every write skips epochs that have a row, under the store''s write lock. No index, as on the per-entity stats tables.';
 COMMENT ON COLUMN epoch_asset_counts.streams IS 'Distinct (account, stream) in stream_stats whose name starts with neither KV_ nor OBJ_.';
 COMMENT ON COLUMN epoch_asset_counts.kv_buckets IS 'Distinct (account, stream) in stream_stats whose name starts with KV_.';
 COMMENT ON COLUMN epoch_asset_counts.object_stores IS 'Distinct (account, stream) in stream_stats whose name starts with OBJ_.';

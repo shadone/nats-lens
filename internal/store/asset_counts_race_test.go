@@ -9,7 +9,7 @@ import (
 
 // Epochs written while the fill runs, and a counts row that appears
 // for an epoch of a later batch after the missing list was read, do not
-// make a batch fail on the primary key.
+// make a batch fail or write an epoch's counts twice.
 func TestAssetCountsFillRacesEpochWrites(t *testing.T) {
 	ctx := context.Background()
 	s := openMem(t)
@@ -83,6 +83,9 @@ FROM epochs t, range(2, ? + 1) r(i) WHERE t.epoch = 1`,
 	}
 	if got := count(t, db, `SELECT count(*) FROM epochs WHERE epoch NOT IN (SELECT epoch FROM epoch_asset_counts)`); got != 0 {
 		t.Errorf("%d epochs without counts", got)
+	}
+	if got := count(t, db, `SELECT count(*) - count(DISTINCT epoch) FROM epoch_asset_counts`); got != 0 {
+		t.Errorf("%d epochs with counts twice", got)
 	}
 	t.Logf("%d batches, %d epochs written during the fill", batches, written)
 }
