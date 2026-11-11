@@ -86,6 +86,10 @@
 .search-chip button:hover{color:var(--text)}
 .search-note{margin:0;padding:var(--sp-2);color:var(--text-muted);font-size:var(--fs-sm)}
 .search-hint code{font:var(--fs-xs) var(--mono);color:var(--text-2)}
+/* The Ask row: the question or the reason it cannot be asked goes under the label, at every width. */
+.search-pop li.search-ask{grid-template-columns:minmax(0,1fr);gap:0}
+.search-pop li.search-ask .ss{max-width:none;white-space:normal}
+.search-ask-note{padding-top:var(--sp-1);font-size:var(--fs-xs)}
 /* On a phone a finding's severity and time go under its code and entity, which keep the width. */
 @media (max-width:600px){
   .search-pop li.search-finding{grid-template-columns:minmax(0,1fr);gap:0}

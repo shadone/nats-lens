@@ -7,7 +7,7 @@ import { buildInvestigationContext, type InvestigationSelection } from "../lib/i
 import { buildInvestigationPrompt } from "../lib/investigationPrompt";
 import { Dialog } from "./Dialog";
 
-type Handoff = (selection?: InvestigationSelection, valid?: () => boolean) => void;
+type Handoff = (selection?: InvestigationSelection, valid?: () => boolean, question?: string) => void;
 export const InvestigationHandoff = createContext<Handoff | undefined>(undefined);
 const InvestigationInvalidation = createContext<(() => void) | undefined>(undefined);
 
@@ -24,6 +24,16 @@ export function useInvestigationCopy(selection?: InvestigationSelection) {
   }, [invalidate]);
   useLayoutEffect(() => { scope.current = key; invalidate?.(); }, [key, invalidate]);
   return handoff ? () => handoff(selection, () => mounted.current && scope.current === key) : undefined;
+}
+
+/**
+ * Copies the current page's prompt with the user's question added, through the
+ * same copy, dialog and retry as Copy as prompt. Undefined until the system
+ * and the lens information have loaded. The question must already be checked.
+ */
+export function useAskAgent(): ((question: string) => void) | undefined {
+  const handoff = useContext(InvestigationHandoff);
+  return handoff ? (question) => handoff(undefined, undefined, question) : undefined;
 }
 
 type CopyAction = { id: number; scope: string; prompt: string; valid: () => boolean };
@@ -83,10 +93,10 @@ export function InvestigationProvider({ children }: { children: ReactNode }) {
       if (current(action)) setFeedback({ action, fallback: prompt });
     }
   };
-  const handoff: Handoff | undefined = info.data && system.known && system.id ? (selection, valid = () => true) => {
+  const handoff: Handoff | undefined = info.data && system.known && system.id ? (selection, valid = () => true, question) => {
     if (scope.current !== scopeKey || !valid()) return;
     const context = buildInvestigationContext({ origin: window.location.origin, pathname: loc.pathname, search: loc.search, hash: loc.hash, system: system.id, spec, selection });
-    void copy(buildInvestigationPrompt(context), valid);
+    void copy(buildInvestigationPrompt(context, question), valid);
   } : undefined;
   const visible = feedback && feedback.action.scope === scopeKey && feedback.action.valid() ? feedback : undefined;
   const close = () => { latest.current = undefined; setFeedback(undefined); };

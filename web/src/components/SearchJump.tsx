@@ -3,6 +3,8 @@
 // kind; a prefix such as stream: or since:2h narrows them. Cmd+K on a Mac,
 // Ctrl+K elsewhere, focuses it; the arrow keys move across the groups,
 // Enter opens, Escape closes the list and a second Escape clears the text.
+// The last row, or the ask: prefix, copies a prompt with the text as a
+// question for the user's own agent; nats-lens itself sends nothing.
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useNavigate } from "react-router";
 import { MIN_REMOTE_TEXT, useEventMatches, useFindingMatches } from "../api/commandSearch";
@@ -10,6 +12,7 @@ import type { FeedEvent } from "../api/events";
 import type { Finding } from "../api/model";
 import { SEARCH_KIND_LABEL, useSearchItems } from "../api/search";
 import { useCurrentSystem } from "../api/systems";
+import { ASK_MAX, askText, checkQuestion, withoutAsk } from "../lib/askQuestion";
 import { serverNow } from "../lib/clock";
 import { COMMAND_KINDS, KIND_PREFIX, narrowedTo, parseCommand, withoutPrefix, type CommandKind, type CommandQuery } from "../lib/commandQuery";
 import {
@@ -26,6 +29,7 @@ import { withGlobal } from "../lib/globalQuery";
 import { useDebounced } from "../lib/useDebounced";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
 import { useTimeRange } from "../lib/useTimeRange";
+import { useAskAgent } from "./InvestigationContext";
 
 const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -51,7 +55,17 @@ export function wantsRemote(q: CommandQuery, kind: "finding" | "event"): boolean
   return q.text.length >= MIN_REMOTE_TEXT;
 }
 
-type Option = { id: string; row: ResultRow; group?: undefined } | { id: string; row?: undefined; group: ResultGroup };
+type Option =
+  | { id: string; row: ResultRow; group?: undefined; question?: undefined }
+  | { id: string; row?: undefined; group: ResultGroup; question?: undefined }
+  | { id: string; row?: undefined; group?: undefined; question: string };
+
+const COUNT = new Intl.NumberFormat("en-US");
+
+/** Why the Ask row cannot be picked. */
+function questionProblem(problem: "empty" | "long", length: number): string {
+  return problem === "empty" ? "Type a question after ask:" : `${COUNT.format(length)} characters; a question takes at most ${COUNT.format(ASK_MAX)}`;
+}
 
 interface RemoteQuery<T> {
   isPending: boolean;
@@ -94,22 +108,31 @@ export function SearchJump() {
   const settledText = useDebounced(text, SEARCH_DEBOUNCE_MS);
   const settled = useMemo(() => parseCommand(settledText), [settledText]);
   const settling = settledText !== text;
+  const askAgent = useAskAgent();
+  // ask: makes the whole rest of the text a question: no search, no other prefix.
+  const asked = askText(text);
+  const asking = asked !== undefined;
+  const settledAsking = askText(settledText) !== undefined;
   const ask = {
     text: settled.text,
     sinceMs: settled.sinceMs,
     limit: settled.kind === undefined ? REMOTE_CAP : NARROWED_REMOTE_CAP,
   };
-  const findingsQ = useFindingMatches(spec, ask, used && wantsRemote(settled, "finding"));
-  const eventsQ = useEventMatches(spec, ask, used && wantsRemote(settled, "event"));
+  const findingsQ = useFindingMatches(spec, ask, used && !settledAsking && wantsRemote(settled, "finding"));
+  const eventsQ = useEventMatches(spec, ask, used && !settledAsking && wantsRemote(settled, "event"));
   // The settled answer stands in while the text settles only if it was asked the same way.
   const sameAsk = settled.kind === query.kind && settled.sinceMs === query.sinceMs;
-  const groups = groupResults(
+  const searched = groupResults(
     query,
     names.data ?? [],
     remote<Finding>(known && wantsRemote(query, "finding"), settling, sameAsk, findingsQ),
     remote<FeedEvent>(known && wantsRemote(query, "event"), settling, sameAsk, eventsQ),
     serverNow(),
   );
+  const groups = asking ? [] : searched;
+  // The Ask row closes the list: for any text without a kind prefix, or alone after ask:.
+  const offerAsk = askAgent !== undefined && (asking || (query.kind === undefined && text.trim() !== ""));
+  const question = checkQuestion(asking ? asked : text);
   // Kept rows answer the previous text: they are shown, never chosen.
   const options: Option[] = [];
   for (const g of groups) {
@@ -117,6 +140,8 @@ export function SearchJump() {
     for (const row of g.rows) options.push({ id: `${listId}-${options.length}`, row });
     if (g.more) options.push({ id: `${listId}-${options.length}`, group: g });
   }
+  const askOption = offerAsk && question.question !== undefined ? ({ id: `${listId}-${options.length}`, question: question.question } satisfies Option) : undefined;
+  if (askOption) options.push(askOption);
   const current = Math.min(active, Math.max(0, options.length - 1));
 
   useEffect(() => {
@@ -141,6 +166,11 @@ export function SearchJump() {
     if (o.row) {
       navigate(withGlobal(o.row.path, global));
       close();
+    } else if (o.question !== undefined) {
+      // The cursor stays in the box, so the copy dialog, if it opens, returns focus here.
+      askAgent?.(o.question);
+      setText("");
+      setOpen(false);
     } else if (o.group.more?.kind === "narrow") {
       setText(narrowedTo(text, o.group.more.to));
       setOpen(true);
@@ -171,9 +201,10 @@ export function SearchJump() {
     }
   };
 
-  const chips: { label: string; remove: "kind" | "since" }[] = [];
-  if (query.kind) chips.push({ label: GROUP_LABEL[query.kind], remove: "kind" });
-  if (query.sinceLabel) chips.push({ label: `Since ${query.sinceLabel}`, remove: "since" });
+  const chips: { label: string; remove: "kind" | "since" | "ask" }[] = [];
+  if (asking) chips.push({ label: "Ask your agent", remove: "ask" });
+  else if (query.kind) chips.push({ label: GROUP_LABEL[query.kind], remove: "kind" });
+  if (!asking && query.sinceLabel) chips.push({ label: `Since ${query.sinceLabel}`, remove: "since" });
 
   const optionProps = (o: Option, extra = "") => {
     const on = o === options[current];
@@ -204,7 +235,7 @@ export function SearchJump() {
         role="combobox"
         aria-label="Search this system"
         aria-autocomplete="list"
-        aria-expanded={showList && groups.some((g) => g.rows.length > 0 || g.more)}
+        aria-expanded={showList && (offerAsk || groups.some((g) => g.rows.length > 0 || g.more))}
         aria-controls={showList ? listId : undefined}
         aria-activedescendant={showList && options[current] ? options[current].id : undefined}
         placeholder="Search this system"
@@ -230,7 +261,7 @@ export function SearchJump() {
                 <code>{KIND_PREFIX[k]}:</code>{" "}
               </Fragment>
             ))}
-            <code>since:2h</code>
+            <code>since:2h</code>. Ask your agent with <code>ask:</code>
           </p>
         </div>
       )}
@@ -246,7 +277,7 @@ export function SearchJump() {
                     aria-label={`Remove ${c.label.toLowerCase()}`}
                     tabIndex={-1}
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setText(withoutPrefix(text, c.remove))}
+                    onClick={() => setText(c.remove === "ask" ? withoutAsk(text) : withoutPrefix(text, c.remove))}
                   >
                     ×
                   </button>
@@ -283,8 +314,38 @@ export function SearchJump() {
                 </ul>
               </li>
             ))}
+            {offerAsk && (
+              <li role="presentation" key="ask">
+                <div className="search-group" id={`${listId}-g-ask`}>
+                  <span>Ask your agent</span>
+                </div>
+                <ul role="group" aria-labelledby={`${listId}-g-ask`}>
+                  <li
+                    {...(askOption
+                      ? optionProps(askOption, "search-ask")
+                      : { role: "option", "aria-disabled": true, "aria-selected": false, className: "search-ask", onMouseDown: (e: MouseEvent) => e.preventDefault() })}
+                  >
+                    <span className="sn">
+                      <span>Copy prompt with question</span>
+                      {askOption && <span className="sd">{askOption.question}</span>}
+                    </span>
+                    {question.problem && <span className="ss">{questionProblem(question.problem, question.length)}</span>}
+                  </li>
+                </ul>
+              </li>
+            )}
           </ul>
-          {groups.length === 0 && (
+          {offerAsk && (
+            <p className="search-note search-ask-note">
+              Copies this page's agent prompt with your question, up to {COUNT.format(ASK_MAX)} characters, for your own agent. nats-lens sends it nowhere.
+            </p>
+          )}
+          {asking && !askAgent && (
+            <p className="search-note" role="status">
+              Ask your agent is available once this system has loaded.
+            </p>
+          )}
+          {groups.length === 0 && !asking && (
             <p className="search-note" role="status">
               {names.isPending ? "Loading names…" : names.error ? "Could not load names." : "No match."}
             </p>
