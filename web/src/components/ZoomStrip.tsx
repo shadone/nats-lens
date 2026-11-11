@@ -12,6 +12,9 @@ import { useWidth } from "../lib/useWidth";
 import { zoomItems } from "../lib/timelineModel";
 import { TIER, V_FONT, V_OFFSET, layoutHorizontal, layoutVertical, zoomDomain, type HLayout, type ZoomItem } from "../lib/zoomLayout";
 
+/** A restart comes from the collections, not from a NATS event. */
+const natsText = (it: ZoomItem) => (it.events?.length === 1 && it.events[0].kind === "server.restarted" ? "Server restart, from the collections" : "NATS event");
+
 function Marker({ it, x, y, r = 3.2 }: { it: ZoomItem; x: number; y: number; r?: number }) {
   if (it.kind === "k8s") return <circle cx={x} cy={y} r={r} style={{ fill: it.col }} />;
   if (it.kind === "nats") return <rect x={x - 3} y={y - 3} width="6" height="6" style={{ fill: it.col }} />;
@@ -49,7 +52,7 @@ function Horizontal({ L, W, domain, win,details,limits }: { L: HLayout; W: numbe
           const my = y - 4;
           const x = +p.x.toFixed(1);
           return (
-            <TimelineMark svg key={p.item.id} captureLimits={limits(p.item)} label={p.item.title} details={details(p.item)} preview={<><strong>{p.item.title}</strong><div>{timelineTime(p.item.t)}</div><div>{p.item.kind === "lens" ? "Finding transition" : p.item.kind === "k8s" ? "Kubernetes event" : "NATS event"}</div></>}>
+            <TimelineMark svg key={p.item.id} captureLimits={limits(p.item)} label={p.item.title} details={details(p.item)} preview={<><strong>{p.item.title}</strong><div>{timelineTime(p.item.t)}</div><div>{p.item.kind === "lens" ? "Finding transition" : p.item.kind === "k8s" ? "Kubernetes event" : natsText(p.item)}</div></>}>
               <line x1={x} x2={x} y1={side < 0 ? my : axisY + 4} y2={side < 0 ? axisY - 4 : my} style={{ stroke: p.item.col, strokeOpacity: 0.5 }} />
               <Marker it={p.item} x={x} y={my} />
               <Label it={p.item} x={p.tx} y={y} anchor={p.anchor} text={p.text} size={11} />
@@ -96,7 +99,7 @@ function Vertical({ items, W, domain, win,details,limits }: { items: ZoomItem[];
         const xa = cx + side * 5;
         const xb = cx + side * (V_OFFSET - 4);
         return (
-          <TimelineMark svg key={it.id} captureLimits={limits(it)} label={it.title} details={details(it)} preview={<><strong>{it.title}</strong><div>{timelineTime(it.t)}</div><div>{it.kind === "lens" ? "Finding transition" : it.kind === "k8s" ? "Kubernetes event" : "NATS event"}</div></>}>
+          <TimelineMark svg key={it.id} captureLimits={limits(it)} label={it.title} details={details(it)} preview={<><strong>{it.title}</strong><div>{timelineTime(it.t)}</div><div>{it.kind === "lens" ? "Finding transition" : it.kind === "k8s" ? "Kubernetes event" : natsText(it)}</div></>}>
             <polyline points={`${cx},${y0} ${xa},${y0} ${xb},${y - 3.5}`} style={{ fill: "none", stroke: it.col, strokeOpacity: 0.6 }} />
             <Marker it={it} x={cx} y={y0} r={2.6} />
             <Label it={it} x={cx + side * V_OFFSET} y={y} anchor={side < 0 ? "end" : "start"} text={text} size={V_FONT} />
@@ -120,7 +123,7 @@ export function ZoomStrip({ tl, win }: { tl: Timeline; win: Window }) {
   const source = zoomItems(tl, domain),items:ZoomItem[]=[];
   for(const it of source){const prior=items.find(x=>x.t===it.t&&x.side===it.side);if(prior){prior.events=[...(prior.events??[]),...(it.events??[])];prior.title=`${prior.events.length} overlapping observations`;prior.labels=[prior.title]}else items.push({...it})}
   const fixed=tl.evidenceRange??evidenceRange(tl.start,tl.start+tl.bucketCount*tl.bucketMs);
-  const limits=(it:ZoomItem)=>timelineCaptureLimits(tl,it.side<0?"kubernetes":"events");
+  const limits=(it:ZoomItem)=>it.side<0?timelineCaptureLimits(tl,"kubernetes"):[...timelineCaptureLimits(tl,"events"),...timelineCaptureLimits(tl,"servers"),...timelineCaptureLimits(tl,"leaders")];
   const details=(it:ZoomItem)=>it.events?.length===1?<EventDetails event={it.events[0]} range={fixed} readId={tl.eventReadId} captureLimits={limits(it)}/>:<CapturedEventList ids={[...new Set((it.events??[]).flatMap(e=>e.eventId?[e.eventId]:[]))]} captured={it.events} range={fixed} readId={tl.eventReadId} captureLimits={limits(it)}/>;
   // The wide layout is used only when it places every label by the rules.
   const L = W >= 600 ? layoutHorizontal(items, W, domain) : undefined;

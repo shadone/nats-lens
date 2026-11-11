@@ -73,6 +73,8 @@ function Story({ end }: { end: number }) {
             {tl?.natsTruncated && <span className="trunc">The range holds more NATS events than the lanes show; the newest 1000 are drawn. </span>}
             {tl?.findingTruncated && <span className="trunc">The range holds more finding transitions than the lanes show; the newest 1000 are drawn. </span>}
             {tl?.kubernetesTruncated && <span className="trunc">The range holds more Kubernetes events than the lane shows; the newest 1000 are drawn.</span>}
+            {tl?.serversTruncated && <span className="trunc"> The range holds more server restarts and events than the lane shows; the newest 1000 are drawn.</span>}
+            {tl?.leadersTruncated && <span className="trunc"> The range holds more leader elections than the lane shows; the newest 1000 are drawn.</span>}
           </span>
         </div>
         <QueryView q={q} what="the timeline">

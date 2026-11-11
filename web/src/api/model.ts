@@ -328,6 +328,29 @@ export interface Timeline {
   findingTruncated: boolean;
   /** The range held more Kubernetes lane events than the API returns. */
   kubernetesTruncated: boolean;
+  /** Server lane: restarts from the collections (no event ID) and server
+   * events. Absent when the source does not report the lane. */
+  servers?: LaneEvent[];
+  serversTruncated?: boolean;
+  /** Leader lane: meta, stream and consumer leader elections. */
+  leaders?: LaneEvent[];
+  leadersTruncated?: boolean;
+  /** Client lane: counts of client events per bucket, only buckets with any. */
+  clients?: ClientLaneBucket[];
+  /** Whether NATS system events were captured before the range's end. */
+  systemEventsCaptured?: boolean;
+  /** Whether JetStream advisories were captured before the range's end. */
+  jetstreamEventsCaptured?: boolean;
+}
+
+/** Client events of one timeline bucket: counts, not single events. */
+export interface ClientLaneBucket {
+  index: number;
+  connects: number;
+  closes: number;
+  drops: number;
+  shutdowns: number;
+  authErrors: number;
 }
 
 export interface LensEvent {

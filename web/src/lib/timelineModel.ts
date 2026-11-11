@@ -150,7 +150,7 @@ function zoomItem(e: LaneEvent): ZoomItem {
 
 /** Items inside the domain, oldest first. */
 export function zoomItems(tl: Timeline, domain: [number, number]): ZoomItem[] {
-  return [...tl.kubernetes, ...tl.nats]
+  return [...tl.kubernetes, ...tl.nats, ...(tl.servers ?? []), ...(tl.leaders ?? [])]
     .filter((e) => e.time >= domain[0] && e.time <= domain[1])
     .map(zoomItem)
     .sort((a, b) => a.t - b.t);

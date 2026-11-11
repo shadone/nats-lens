@@ -163,5 +163,13 @@ export function timeline(r: GetStatusTimelineResponse): Timeline {
     findingReadEpoch:r.findingReadEpoch.toString(),
     eventReadId:r.eventReadId?.toString(),evidenceRange:frozenRange(r.range),
     kubernetesTruncated: r.kubernetesTruncated,
+    servers: r.servers.map(laneEvent),
+    serversTruncated: r.serversTruncated,
+    leaders: r.leaders.map(laneEvent),
+    leadersTruncated: r.leadersTruncated,
+    clients: r.clients.map((b) => ({ index: b.index, connects: Number(b.connects), closes: Number(b.closes), drops: Number(b.drops),
+      shutdowns: Number(b.shutdowns), authErrors: Number(b.authErrors) })),
+    systemEventsCaptured: r.systemEventsCaptured,
+    jetstreamEventsCaptured: r.jetstreamEventsCaptured,
   };
 }
