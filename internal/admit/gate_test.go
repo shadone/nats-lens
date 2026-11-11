@@ -296,3 +296,43 @@ func TestNilGateAdmitsEverything(t *testing.T) {
 	}
 	rel()
 }
+
+func TestYieldAdmitsOneQueryUntilItEnds(t *testing.T) {
+	g := New(3, func() string { return "test-yield" })
+	ctx := context.Background()
+	running, _ := g.Enter(ctx, api())
+	other, _ := g.Enter(ctx, api())
+	end := g.Yield()
+	if got := timing.AdmissionLimit.With("test-yield").Load(); got != YieldLimit {
+		t.Fatalf("limit gauge %d while yielding", got)
+	}
+	// Queries that run keep their slots; a new one waits while two run.
+	waiting := enterAsync(ctx, g, api())
+	waitFor(t, "queued", func() bool { return queued(g) == 1 })
+	running()
+	select {
+	case <-waiting:
+		t.Fatal("admitted while yielding with one query still running")
+	default:
+	}
+	other()
+	first := <-waiting
+	second := enterAsync(ctx, g, api())
+	waitFor(t, "second queued", func() bool { return queued(g) == 1 })
+	nested := g.Yield()
+	end()
+	select {
+	case <-second:
+		t.Fatal("admitted while a nested yield holds")
+	default:
+	}
+	nested()
+	(<-second)()
+	first()
+	if a, q := g.Load(); a != 0 || q != 0 || !g.Idle() {
+		t.Fatalf("active %d, queued %d after the yields", a, q)
+	}
+	if got := timing.AdmissionLimit.With("test-yield").Load(); got != 3 {
+		t.Fatalf("limit gauge %d after the yields", got)
+	}
+}

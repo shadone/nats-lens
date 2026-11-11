@@ -101,6 +101,7 @@ func OpenPath(ctx context.Context, path string, opts ...Option) (*Store, error) 
 	}
 	s := &Store{db: db, guard: guard}
 	s.mu.system = &guard.system
+	s.mu.gate = &guard.gate
 	return s, nil
 }
 

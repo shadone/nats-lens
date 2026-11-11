@@ -313,3 +313,28 @@ func TestManyClientsAndCancellationsLeaveTheBudgetEmpty(t *testing.T) {
 		t.Fatal("gauges not back to 0")
 	}
 }
+
+// While the epoch write holds the store's lock, the budget admits one
+// API query; other writes leave it alone.
+func TestEpochWriteYieldsTheBudget(t *testing.T) {
+	s := budgetStore(t, "test-budget-yield", 4)
+	g := s.QueryBudget()
+	s.mu.Lock(opMutes)
+	if g.Limit() != 4 || !g.Idle() {
+		t.Fatal("a mute write narrowed the budget")
+	}
+	s.mu.Unlock()
+	s.mu.Lock(opEpoch)
+	one, err := g.Enter(apiCtx(context.Background()), admit.Request{Source: timing.SourceAPI})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.Idle() {
+		t.Fatal("the budget admits a second query during the epoch write")
+	}
+	s.mu.Unlock()
+	if !g.Idle() {
+		t.Fatal("the budget stayed narrow after the epoch write")
+	}
+	one()
+}

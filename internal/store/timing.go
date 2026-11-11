@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/admit"
 	"github.com/shadone/nats-lens/internal/timing"
 )
 
@@ -69,9 +70,14 @@ type writeLock struct {
 	ch chan struct{}
 	// system is the engine guard's label; nil for a read view.
 	system *atomic.Pointer[string]
-	// op and since describe the current holder; written while held.
-	op    string
-	since time.Time
+	// gate is the engine guard's query budget, which yields to the epoch
+	// write while it holds the lock; nil for a read view.
+	gate *atomic.Pointer[admit.Gate]
+	// op and since describe the current holder, and unyield ends its
+	// yield; written while held.
+	op      string
+	since   time.Time
+	unyield func()
 }
 
 func (l *writeLock) token() chan struct{} {
@@ -109,6 +115,9 @@ func (l *writeLock) LockContext(ctx context.Context, op string) error {
 	}
 	waiting.Add(-1)
 	l.op, l.since = op, time.Now()
+	if op == opEpoch && l.gate != nil {
+		l.unyield = l.gate.Load().Yield()
+	}
 	timing.LockWait.With(sys, op).Observe(l.since.Sub(start).Seconds())
 	return nil
 }
@@ -116,6 +125,10 @@ func (l *writeLock) LockContext(ctx context.Context, op string) error {
 // Unlock releases the lock and records how long it was held.
 func (l *writeLock) Unlock() {
 	op, since := l.op, l.since
+	if l.unyield != nil {
+		l.unyield()
+		l.unyield = nil
+	}
 	<-l.token()
 	timing.LockHeld.With(l.label(), op).Observe(time.Since(since).Seconds())
 }

@@ -78,6 +78,9 @@ type Gate struct {
 	// high are the waiters of /metrics, served before low, the API's.
 	high, low list.List
 	closed    bool
+	// yielding counts the writes the gate yields to; while it is above
+	// zero the gate admits up to YieldLimit queries.
+	yielding int
 	// done is closed by Close.
 	done chan struct{}
 }
@@ -100,8 +103,66 @@ func New(limit int, label func() string) *Gate {
 	return g
 }
 
+// YieldLimit is the most queries the gate admits while it yields to a
+// write. Proposed, not yet confirmed.
+const YieldLimit = 1
+
 // Limit returns the number of slots.
 func (g *Gate) Limit() int { return g.limit }
+
+// effective is the number of queries the gate admits now; held with mu
+// locked.
+func (g *Gate) effective() int {
+	if g.yielding > 0 {
+		return min(g.limit, YieldLimit)
+	}
+	return g.limit
+}
+
+// Yield makes the gate admit at most YieldLimit queries until the returned
+// func is called, for a write that must not compete with the readers:
+// queries that already run keep their slots, and new ones wait. Yields
+// nest; the gate admits its full limit again once the last one ends.
+func (g *Gate) Yield() func() {
+	if g == nil {
+		return func() {}
+	}
+	g.mu.Lock()
+	g.yielding++
+	g.publish()
+	g.mu.Unlock()
+	return onceFunc(func() {
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		g.yielding--
+		g.grant()
+		g.publish()
+	})
+}
+
+// grant hands free slots to the first waiters; held with mu locked.
+func (g *Gate) grant() {
+	for g.active < g.effective() {
+		w := g.pop()
+		if w == nil {
+			return
+		}
+		g.active++
+		w.granted = true
+		close(w.ready)
+	}
+}
+
+// pop removes and returns the first waiter, nil for none; held with mu
+// locked.
+func (g *Gate) pop() *waiter {
+	for _, q := range []*list.List{&g.high, &g.low} {
+		if e := q.Front(); e != nil {
+			return q.Remove(e).(*waiter)
+		}
+	}
+	return nil
+}
 
 // Load returns the slots taken and the queries waiting now.
 func (g *Gate) Load() (active, queued int) {
@@ -112,8 +173,9 @@ func (g *Gate) Load() (active, queued int) {
 
 // Idle reports whether a query asking now would take a slot at once.
 func (g *Gate) Idle() bool {
-	a, q := g.Load()
-	return a < g.limit && q == 0
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.active < g.effective() && g.high.Len()+g.low.Len() == 0
 }
 
 // publish writes the gauges; held with mu locked.
@@ -121,7 +183,7 @@ func (g *Gate) publish() {
 	sys := g.label()
 	timing.AdmissionActive.With(sys).Store(int64(g.active))
 	timing.AdmissionQueued.With(sys).Store(int64(g.high.Len() + g.low.Len()))
-	timing.AdmissionLimit.With(sys).Store(int64(g.limit))
+	timing.AdmissionLimit.With(sys).Store(int64(g.effective()))
 }
 
 // acquire takes a slot for one query. priority queues it ahead of the
@@ -141,7 +203,7 @@ func (g *Gate) acquire(ctx context.Context, source string, priority bool, abort 
 	if !priority {
 		ahead += g.low.Len()
 	}
-	if g.active < g.limit && ahead == 0 {
+	if g.active < g.effective() && ahead == 0 {
 		g.active++
 		g.publish()
 		g.mu.Unlock()
@@ -200,20 +262,13 @@ func (g *Gate) observe(source, outcome string, start time.Time) {
 	timing.Since(timing.AdmissionWait.With(g.label(), source, outcome), start)
 }
 
-// release gives a slot back, handing it to the first waiter.
+// release gives a slot back, handing it to the first waiter while the
+// gate admits more queries than run.
 func (g *Gate) release() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	for _, q := range []*list.List{&g.high, &g.low} {
-		if e := q.Front(); e != nil {
-			w := q.Remove(e).(*waiter)
-			w.granted = true
-			close(w.ready)
-			g.publish()
-			return
-		}
-	}
 	g.active--
+	g.grant()
 	g.publish()
 }
 
