@@ -46,7 +46,9 @@ func TestCompatEveryTableArchivedOrListed(t *testing.T) {
 // files written before such a column existed the column is NULL whenever
 // another file has it: a default does not apply, and the load fails the
 // constraint. Files written while the column was nullable can hold NULL
-// in it too.
+// in it too. A table dropped by one migration and created again under the
+// same name by a later one counts as new there, so its columns are not
+// checked, although older archive files hold its earlier rows.
 func laterNotNull(t *testing.T, ms []migration) []string {
 	t.Helper()
 	ctx := context.Background()

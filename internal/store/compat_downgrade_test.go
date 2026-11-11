@@ -162,6 +162,39 @@ func openReadOnly(path string) (*sql.DB, error) {
 	return db, nil
 }
 
+// A later binary that crashed right after its migration committed leaves
+// the newer migration only in the write-ahead log: the file itself records
+// this binary's schema. The read-only check replays the log, sees the
+// newer migration and refuses, and the file and the log stay as they were.
+func TestNewerMigrationOnlyInTheLogIsRefused(t *testing.T) {
+	ctx := context.Background()
+	all, err := loadMigrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "db.duckdb")
+	s, err := OpenPath(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DB().Exec(`CHECKPOINT`); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	leaveWAL(t, path, fmt.Sprintf(`INSERT INTO migrations (version, name, sha256) VALUES (%d, 'from_a_later_binary', repeat('0', 64))`,
+		all[len(all)-1].version+1))
+	before, beforeWAL := fileSum(t, path), fileSum(t, path+".wal")
+	if _, err := OpenPath(ctx, path); err == nil || !strings.Contains(err.Error(), "newer than this binary") {
+		t.Fatalf("open with a newer migration in the log: %v, want a refusal naming a newer schema", err)
+	}
+	if after := fileSum(t, path); after != before {
+		t.Errorf("database file changed by the refusal")
+	}
+	if after := fileSum(t, path+".wal"); after != beforeWAL {
+		t.Errorf("write-ahead log after the refusal: %s, was %s", after, beforeWAL)
+	}
+}
+
 // A database with an edited migration is refused before startup fills in
 // any missing checksum: the refusal leaves the database file, its
 // write-ahead log when there is one, and the migrations table as they were.
