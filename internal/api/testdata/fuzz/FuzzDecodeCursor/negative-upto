@@ -1,0 +1,4 @@
+go test fuzz v1
+string("eyJ1IjotMX0")
+byte('Y')
+rune('\x03')

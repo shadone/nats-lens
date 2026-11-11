@@ -1,0 +1,4 @@
+go test fuzz v1
+string("eyJ0IjoiMzA0NC0xMC0xN1QxMzo0Mzo0MC0yNDo0OCJ9")
+byte('\x02')
+rune(']')
