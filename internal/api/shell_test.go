@@ -18,12 +18,12 @@ import (
 )
 
 // shellCounted counts the ShellStatus and SystemSummary calls that reach
-// a provider and keeps the last ShellStatus range; fail makes its
-// SystemSummary fail.
+// a provider, and the SystemSummary calls that returned, and keeps the
+// last ShellStatus range; fail makes its SystemSummary fail.
 type shellCounted struct {
 	renamed
-	shell, summaries *atomic.Int32
-	fail             bool
+	shell, summaries, summarized *atomic.Int32
+	fail                         bool
 	// shellErr fails ShellStatus; shellHang blocks it until its context ends.
 	shellErr  error
 	shellHang bool
@@ -35,7 +35,7 @@ type shellCounted struct {
 
 func newShellCounted(cluster string) shellCounted {
 	var r *v1.TimeRange
-	return shellCounted{renamed: newRenamed(cluster), shell: &atomic.Int32{}, summaries: &atomic.Int32{}, mu: &sync.Mutex{}, lastRange: &r, delay: &atomic.Int64{}}
+	return shellCounted{renamed: newRenamed(cluster), shell: &atomic.Int32{}, summaries: &atomic.Int32{}, summarized: &atomic.Int32{}, mu: &sync.Mutex{}, lastRange: &r, delay: &atomic.Int64{}}
 }
 
 func (s shellCounted) ShellStatus(ctx context.Context, req *v1.GetShellStatusRequest) (*v1.GetShellStatusResponse, error) {
@@ -55,6 +55,7 @@ func (s shellCounted) ShellStatus(ctx context.Context, req *v1.GetShellStatusReq
 
 func (s shellCounted) SystemSummary(ctx context.Context, req *v1.ListSystemsRequest) (*v1.SystemSummary, error) {
 	s.summaries.Add(1)
+	defer s.summarized.Add(1)
 	if d := time.Duration(s.delay.Load()); d > 0 {
 		select {
 		case <-time.After(d):
@@ -232,10 +233,10 @@ func TestShellStatusPartFailureKeepsTheSystems(t *testing.T) {
 	}
 }
 
-// eventually waits up to two seconds for cond.
+// eventually waits up to ten seconds for cond.
 func eventually(t *testing.T, what string, cond func() bool) {
 	t.Helper()
-	for deadline := time.Now().Add(2 * time.Second); !cond(); {
+	for deadline := time.Now().Add(10 * time.Second); !cond(); {
 		if time.Now().After(deadline) {
 			t.Fatalf("never: %s", what)
 		}
@@ -265,11 +266,12 @@ func TestShellStatusServesAnExpiredBadgeWhileItIsRead(t *testing.T) {
 			t.Errorf("the expired badge was not served: %v", s)
 		}
 	}
+	// Once the background read has ended, its badge is fresh. Waiting for
+	// the read rather than a fixed time: a loaded machine can start it late.
+	eventually(t, "the background read ends", func() bool { return a.summarized.Load() == 2 })
 	if n := a.summaries.Load(); n != 2 {
 		t.Errorf("system a's summary was read %d times, want once more in the background", n)
 	}
-	// Once the background read has ended, its badge is fresh.
-	time.Sleep(1200 * time.Millisecond)
 	shellStatus(t, c, &v1.GetShellStatusRequest{System: "b"})
 	if n := a.summaries.Load(); n != 2 {
 		t.Errorf("a fresh badge was read again: %d reads", n)
