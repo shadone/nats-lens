@@ -61,7 +61,13 @@ nats: { url: "nats://127.0.0.1:%d", user: %s, password: %s }
 		t.Fatalf("run ended without NATS: %v", err)
 	default:
 	}
-	if got := ready(); got != http.StatusOK {
+	// A loaded runner can take longer than the sleep to open the store and
+	// listen, so poll: what matters is that readiness comes without NATS.
+	got := ready()
+	for wait := time.Now().Add(30 * time.Second); got != http.StatusOK && time.Now().Before(wait); got = ready() {
+		time.Sleep(200 * time.Millisecond)
+	}
+	if got != http.StatusOK {
 		t.Fatalf("readyz without NATS = %d, want 200: readiness must not follow collection", got)
 	}
 	if epochAge(t, apiPort) {
