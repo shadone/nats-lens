@@ -120,7 +120,7 @@ On an idle store the parallelism makes a batch 2.5 to 3.3 times faster. Under co
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `entities` | `writes-only` | 6 of 6 | 1.28 s / 1.52 s | 5.1 s / 5.3 s | 6.7 s | under 1 ms, except `archive_record` up to 500 ms | 24 hours, 1.1 s mean per hour |
 | `entities` | `mixed` | 1 of 7 | 8.5 s / 14.1 s | 5.4 s / 6.6 s | 17.0 s | under 1 ms | none exported in 60 s |
-| `history` | `writes-only` | 7 of 7 | 0.40 s / 0.47 s | 3.1 s / 3.3 s | 3.7 s | under 1 ms | 126 hours, 0.47 s mean per hour |
+| `history` | `writes-only` | 7 of 7 | 0.40 s / 0.47 s | 3.1 s / 3.3 s | 3.7 s | under 1 ms at p95; `archive_record` 9 ms mean | 126 hours, 0.47 s mean per hour |
 | `history` | `mixed` | 1 of 6 | 10.05 s / 10.6 s | 5.1 s / 11.0 s | 22.7 s | `epoch` 7 ms mean, p95 in the 50 ms bucket; `archive_record` 1.08 s mean, p95 in the 10 s bucket | 8 hours, one tick 43 s |
 
 Under API load three of seven `entities` epochs and three of six `history` epochs were not stored: their writes ran out of the 10 s limit (`context deadline exceeded` in `INSERT INTO consumer_replicas`, `UPDATE consumer_config`, the stream configuration staging). The write lock is not where the epochs wait: `nats_lens_store_lock_wait_seconds{op="epoch"}` stayed under 50 ms while the hold grew from 1.3 s to 8.5 s. The epoch write competes with the API's queries for DuckDB's twelve threads. The lock does delay the archive: in the `history` `mixed` run, recording an exported hour (`op="archive_record"`) waited 1.08 s on average, with its p95 in the 10 s bucket, behind the slowed epoch writes. At production's 30 s interval the limit is three times longer, but the `entities` write's maximum of 14 s already exceeds a third of it.
@@ -187,7 +187,7 @@ Proposed from these numbers, to be tracked with the new histograms, not with wal
 | Epoch write under API load: the hold's p95 (`op="epoch"`) | a quarter of the interval (7.5 s at 30 s) | 30 s bucket; slowest write 14.1 s | 30 s bucket; slowest write 10.6 s |
 | Epochs lost to the write limit | none | 3 of 7 under load | 3 of 6 under load |
 | Write lock wait, p95, any op | 100 ms | 500 ms bucket (`archive_record`, no API load) | 10 s bucket (`archive_record` under API load); `epoch` 50 ms bucket |
-| Check evaluation, `job="check_evaluation"` | half the interval (15 s at 30 s) | 5.2 s, 10 s bucket under load | 3.0 s, 30 s bucket under load |
+| Check evaluation, `job="check_evaluation"`: mean, and p95 bucket, without and with API load | half the interval (15 s at 30 s) | 5.1 s and 5.2 s mean; 10 s bucket both | 3.0 s and 6.3 s mean; 5 s and 30 s buckets |
 
 ## For the follow-up: bound aggregate API work and verify cancellation
 
