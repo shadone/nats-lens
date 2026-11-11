@@ -16,8 +16,8 @@ func reviewLeafEngine(t *testing.T) *Engine {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := len(s.Checks()); got != 91 {
-		t.Fatalf("registered checks=%d want 91", got)
+	if got := len(s.Checks()); got != 92 {
+		t.Fatalf("registered checks=%d want 92", got)
 	}
 	return &Engine{Set: s, Interval: 30 * time.Second, only: map[string]bool{LeafHealthCode: true}}
 }

@@ -40,8 +40,8 @@ func TestCheckCatalogHTTP(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.Definitions) != 91 {
-		t.Fatalf("catalog count = %d, want 91", len(body.Definitions))
+	if len(body.Definitions) != 92 {
+		t.Fatalf("catalog count = %d, want 92", len(body.Definitions))
 	}
 	if body.ConfigurationState != "demo" {
 		t.Errorf("state = %q", body.ConfigurationState)
@@ -138,7 +138,7 @@ func TestCheckCatalogSystemIsolation(t *testing.T) {
 			if err := protojson.Unmarshal(r.Body.Bytes(), &body); err != nil {
 				t.Fatal(err)
 			}
-			if len(body.Definitions) != 91 {
+			if len(body.Definitions) != 92 {
 				t.Fatalf("count %d", len(body.Definitions))
 			}
 			var consumer, slow *v1.CheckDefinition

@@ -6,7 +6,7 @@
 
 ## What it does
 
-The client checks judge the applications connected to NATS: whether their round trip time is high, whether the server queues bytes they cannot read fast enough, whether they were disconnected as slow consumers, whether they keep reconnecting, whether they open connections that last only seconds, whether a client keeps failing to log in, whether connections go without a name, and whether an application uses an old client library. A client finding is keyed by connection name rather than by connection, so it survives reconnects and covers every instance that uses the name; `client-006` is keyed by the user a client logs in as. Clients without a name are grouped as `(unnamed)`. There are 8 client checks, `client-001` to `client-008`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The client checks judge the applications connected to NATS: whether their round trip time is high, whether the server queues bytes they cannot read fast enough, whether they were disconnected as slow consumers, whether they keep reconnecting, whether they open connections that last only seconds, whether a client keeps failing to log in, whether connections go without a name, whether an application uses an old client library, and whether a connection holds the same subscription more than once. A client finding is keyed by connection name rather than by connection, so it survives reconnects and covers every instance that uses the name; `client-006` is keyed by the user a client logs in as. Clients without a name are grouped as `(unnamed)`. There are 9 client checks, `client-001` to `client-009`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -102,9 +102,20 @@ The client checks judge the applications connected to NATS: whether their round 
 - **Unknown versions.** A version that does not start with a number (`dev`, `unknown`, or one with a leading space) is unknown and not judged, and does not stop the check for other applications. So is nats.py's `0.0.0`, which a build without package metadata reports. Proposed, not yet confirmed.
 - **Left out:** languages without a minimum (`nats.deno`, `nats.ws`, the older NATS.Client for .NET, which sends `C#`, and others), connections without a version or whose version does not start with a number, and tooling connections unless `checks.include_tooling` is set: nats-lens's own connections and a port-forwarded CLI are not applications to upgrade.
 
+### `client-009` Duplicate subscription
+
+- **Problem:** a connection holds the same subscription, one subject and one queue group, more than once. Without a queue group the client receives every message on the subject once per subscription. In a queue group the server counts each subscription as a member, so the connection takes a larger share of the group's messages than its peers. It is usually a handler registered twice, for example in a reconnect handler or a loop.
+- **Fires when:** in the newest subscription collection within the lookback, a connection of the application has a subscription row whose folded count (`subscriptions.subs`) is above 1. The detail names the collection's time, then each subject with its queue group, how often it is held and on how many connections (five, then how many more), and the servers, for example "2 connections hold a subscription more than once in the subscription lists of 14:25:00 UTC: search.query in queue group search-api 2 times on 2 connections (nats-0, nats-1)."
+- **Severity:** warning. Proposed, not yet confirmed.
+- **Thresholds:** lookback 30m. The subscription lists come every `subscriptions_interval` (5 minutes by default), so the check reads the newest one within the lookback in each collection between them. Proposed, not yet confirmed.
+- **Resolves:** at the first subscription collection without such a subscription, or when no subscription collection lies within the lookback (`subscriptions_interval` longer than 30 minutes, or set to 0).
+- **Keyed by:** the application, the connection name before the first "@", as the Applications page groups it; a client without a name is `(unnamed)`.
+- **Left out:** subscriptions on `_INBOX.` subjects, as a request library may hold several reply subscriptions on one inbox pattern; the servers' own subscriptions, as on the Subjects page: a subscription counts only when its connection is in its server's connection list of the same collection; and tooling connections, unless `checks.include_tooling` is set.
+- **Cut lists.** A server lists at most `subsz_limit` subscriptions; a duplicate beyond the cut is not seen.
+
 ## Behavior and rules
 
-- **By name, not by connection.** A connection ID changes with every reconnect, so client findings are keyed by connection name. `client-001` and `client-008` use the part before "@" (the application); `client-002` to `client-005` use the whole name; `client-007` is one finding, `(unnamed)`. `client-006` is keyed by the user a client logs in as and its account, since a client that fails to log in is known by its credentials.
+- **By name, not by connection.** A connection ID changes with every reconnect, so client findings are keyed by connection name. `client-001`, `client-008` and `client-009` use the part before "@" (the application); `client-002` to `client-005` use the whole name; `client-007` is one finding, `(unnamed)`. `client-006` is keyed by the user a client logs in as and its account, since a client that fails to log in is known by its credentials.
 - **Tooling connections are left out.** nats-lens's own connections and, by default, clients from 127.0.0.1 or ::1 do not count, with the loopback guard described in [checks.md](checks.md). The Connections page marks them "tooling".
 - **Events feed four of the checks.** `client-003`, `client-004` and `client-005` read the connect, disconnect and `client.churn` events, and `client-006` the `client.auth_error` events, so they need event capture (on by default in `natslens run`); without it they stay quiet. `client-005` also needs `events.churn.collapse`, on by default.
 - **One problem, one finding.** A refused login also ends with a `client.disconnect` whose reason is "Authentication Failure", but no `client.connect`, so it does not count as a reconnect for `client-004` unless other clients of the same name connect in the same 10 minutes. `account-004` warns before the user JWTs of connected clients expire; once a JWT has expired, its client is refused and counts for `client-006`. `client-007` and `client-008` are info: the Applications page shows the `(unnamed)` row and each application's library too, and the findings make them part of the review of findings.
@@ -200,17 +211,24 @@ The client checks judge the applications connected to NATS: whether their round 
 - **When** I set `checks.loopback_is_tooling: false`
 - **Then** loopback clients count in the client checks like any other client
 
+### A service subscribes twice
+
+- **Given** `search-api`, whose pods subscribe to `search.query` in the queue group `search-api` twice each, after a release that registers the handler again on reconnect
+- **When** nats-lens collects the subscription lists
+- **Then** `client-009` fires at warning for `search-api`, naming `search.query in queue group search-api 2 times` with the number of connections and the servers
+- **And** the Subjects page's row `search.query` shows twice the delivered rate per connection that a single subscription would take
+
 ## Planned
 
 These client checks are not built. Each line says what it would detect and what data it needs.
 
 - **Permission violations (deny-listed subjects).** A client publishes or subscribes to a subject it may not use. nats-server publishes no event for a permission violation; it only logs it and sends the error to the client. Needs: the server log, which nats-lens does not read, or an advisory from a later nats-server.
 
-Built since this list was written: "Account connection limit near its maximum" is `account-001` ([account-checks.md](account-checks.md)); "Repeated authentication errors" is `client-006`; "Unnamed connections" is `client-007`; "Outdated client library" is `client-008`.
+Built since this list was written: "Account connection limit near its maximum" is `account-001` ([account-checks.md](account-checks.md)); "Repeated authentication errors" is `client-006`; "Unnamed connections" is `client-007`; "Outdated client library" is `client-008`; "Duplicate subscription" is `client-009`.
 
 ## Not supported / out of scope
 
-- **No per-subject traffic.** NATS servers do not report a client's messages per subject.
+- **No per-subject traffic.** NATS servers do not report a client's messages per subject published. The Subjects page shows the messages delivered to each connection's subscriptions ([subjects.md](subjects.md)).
 - **No log reading.** nats-lens does not read server or client logs, so errors that appear only there are invisible to it.
 - **No disconnecting of clients.** nats-lens never kicks a client.
 - **Only stored connections count.** A server with more connections than `connz_limit` (4096) is judged on the connections nats-lens stored.

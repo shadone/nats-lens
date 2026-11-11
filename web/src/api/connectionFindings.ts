@@ -32,7 +32,8 @@ export function connectionFindings(findings: Finding[], name: string): Finding[]
     if (f.entity?.kind !== "client") return false;
     switch (f.checkCode) {
       case "client-001":
-      case "client-008": return f.entity.key === service;
+      case "client-008":
+      case "client-009": return f.entity.key === service;
       case "client-002":
       case "client-003":
       case "client-004":

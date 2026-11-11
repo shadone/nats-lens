@@ -7,8 +7,8 @@ import (
 
 func TestReferenceSelfContainedPlainText(t *testing.T) {
 	refs := CheckReferences()
-	if len(refs) != 91 {
-		t.Fatalf("references=%d, want 91", len(refs))
+	if len(refs) != 92 {
+		t.Fatalf("references=%d, want 92", len(refs))
 	}
 	for code, sections := range refs {
 		for _, section := range sections {
@@ -81,7 +81,7 @@ func TestReferenceRetainsEveryAuthoredParagraph(t *testing.T) {
 			lines++
 		}
 	}
-	if len(codes) != 91 || lines < 400 {
+	if len(codes) != 92 || lines < 400 {
 		t.Fatalf("audit covered %d checks / %d lines", len(codes), lines)
 	}
 	t.Logf("audited %d checks / %d substantive source lines", len(codes), lines)

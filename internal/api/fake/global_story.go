@@ -128,13 +128,18 @@ func globalFindings(s scen) []*v1.Finding {
 	posJWT.Value = &v1.FindingValue{Name: "days until a user JWT expires", Display: "5", Number: ptr(5.0),
 		Basis: "from the collection's start to the soonest user JWT expiry among the account's connections, negative once expired"}
 
-	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent, archive, flags, rtt, supJWT, posJWT,
+	// search-api subscribes to search.query twice since its release; the
+	// check fires at the first subscription collection after it.
+	dupSince, _ := s.subsCollection(globalSearchRelease.Add(s.shift).Add(subsInterval))
+	dups := s.duplicateSubscriptions(dupSince)
+
+	return append([]*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent, archive, flags, rtt, supJWT, posJWT,
 		vanished("restock-alerts"), vanished("stock-audit-export"),
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
 		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("inventory-changes"), s.at(8, 58, 40), s.at(9, 1, 0),
 			"Leader nats-us-0 sees 1 of 3 replicas online; quorum needs 2, for 4 collections."),
-	}
+	}, dups...)
 }
 
 // globalVanishedFiring and globalVanishedResolved bound consumer-013 on

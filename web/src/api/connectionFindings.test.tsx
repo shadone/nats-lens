@@ -11,12 +11,12 @@ const f = (code: string, key: string) => ({ id: `${code}:${key}`, checkCode: cod
 
 describe("connection check identity", () => {
   it("matches service checks, full-name checks and unnamed checks using their own identities", () => {
-    const rows = [f("client-001", "orders-service"), f("client-008", "orders-service"), f("client-002", "orders-service@orders-service-a"), f("client-003", "orders-service@orders-service-a"), f("client-004", "orders-service@orders-service-a"), f("client-005", "orders-service@orders-service-a"), f("client-006", "orders-service"), f("client-007", "(unnamed)")];
-    expect(connectionFindings(rows, "orders-service@orders-service-a")).toEqual(rows.slice(0, 6));
-    expect(connectionFindings(rows, "orders-service@orders-service-b")).toEqual(rows.slice(0, 2));
+    const rows = [f("client-001", "orders-service"), f("client-008", "orders-service"), f("client-009", "orders-service"), f("client-002", "orders-service@orders-service-a"), f("client-003", "orders-service@orders-service-a"), f("client-004", "orders-service@orders-service-a"), f("client-005", "orders-service@orders-service-a"), f("client-006", "orders-service"), f("client-007", "(unnamed)")];
+    expect(connectionFindings(rows, "orders-service@orders-service-a")).toEqual(rows.slice(0, 7));
+    expect(connectionFindings(rows, "orders-service@orders-service-b")).toEqual(rows.slice(0, 3));
     expect(connectionFindings(rows, "orders-service-extra@orders-service-extra-a")).toEqual([]);
-    expect(connectionFindings(rows, "")).toEqual([rows[7]]);
-    expect(connectionFindings(rows, "@orders-service-a")).toEqual([rows[7]]);
+    expect(connectionFindings(rows, "")).toEqual([rows[8]]);
+    expect(connectionFindings(rows, "@orders-service-a")).toEqual([rows[8]]);
     expect(connectionFindings([{ ...rows[0], entity: { ...rows[0].entity!, kind: "server" } }], "orders-service")).toEqual([]);
   });
 });
