@@ -1,8 +1,8 @@
 # Fuzzes every Go fuzz target once a week and on demand, with
 # scripts/fuzz.sh: 5 minutes per target by default. A failing input fails
-# the run and is kept as an artifact; add it under the package's
-# testdata/fuzz/<name>/ with a regression test and a fix. The corpus the
-# fuzzer builds is cached between runs. docs/operations/go-test-tiers.md
+# the run and the inputs it wrote are kept as an artifact; add each under
+# the package's testdata/fuzz/<name>/ with a regression test and a fix.
+# The corpus the fuzzer builds is cached between runs, failed ones too. docs/operations/go-test-tiers.md
 # describes it.
 name: Fuzz
 
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       fuzztime:
-        description: Time per target, in go test -fuzztime syntax
+        description: Time per target, in go test -fuzztime syntax; 8m at most, as 13 targets at 9m exceed the 120-minute job timeout
         default: 5m
 
 permissions:
@@ -30,13 +30,15 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          # The fuzz corpus below is the only cache this job keeps.
+          cache: false
       # The fuzzer keeps the inputs that reached new code under
       # GOCACHE/fuzz; restoring them lets each run start where the last
-      # one stopped.
+      # one stopped. The save runs also after a failed run.
       - name: Find the fuzz cache
         id: cache
         run: echo "dir=$(go env GOCACHE)/fuzz" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.cache.outputs.dir }}
           key: fuzz-${{ github.run_id }}
@@ -46,10 +48,23 @@ jobs:
           FUZZTIME: ${{ inputs.fuzztime || '5m' }}
           FUZZ_PARALLEL: 4
         run: scripts/fuzz.sh "$FUZZTIME"
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: always()
+        with:
+          path: ${{ steps.cache.outputs.dir }}
+          key: fuzz-${{ github.run_id }}
+      # Only the inputs this run wrote: files under testdata/fuzz that git
+      # does not track.
+      - name: Collect failing inputs
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/fuzz-failures"
+          git ls-files -z --others --exclude-standard -- 'internal/*/testdata/fuzz/*' | xargs -0 -r cp --parents -t "$RUNNER_TEMP/fuzz-failures"
       - name: Upload failing inputs
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fuzz-failures
-          path: internal/**/testdata/fuzz/
+          path: ${{ runner.temp }}/fuzz-failures
+          if-no-files-found: ignore
           retention-days: 30
