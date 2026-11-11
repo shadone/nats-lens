@@ -91,7 +91,7 @@ func SeverityReason(code string, sev v1.Severity, resolved bool, usual, rule str
 		how = "though the check states no rule for it."
 	}
 	if resolved {
-		return fmt.Sprintf("It was %s when it resolved: %s from %s, the usual severity of %s, %s", at, strings.ToLower(moved), usual, code, how)
+		return fmt.Sprintf("It was %s when it resolved: %s from %s, the usual severity of %s, %s", asNoun(at), strings.ToLower(moved), usual, code, how)
 	}
 	return fmt.Sprintf("%s to %s from %s, the usual severity of %s, %s", moved, at, usual, code, how)
 }
