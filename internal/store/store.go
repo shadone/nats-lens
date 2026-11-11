@@ -70,6 +70,9 @@ func openError(path string, err error) error {
 
 // OpenPath opens the database at path; an empty path is an in-memory database.
 func OpenPath(ctx context.Context, path string) (*Store, error) {
+	if err := refuseBeforeOpen(ctx, path); err != nil {
+		return nil, err
+	}
 	connector, err := duckdb.NewConnector(path, nil)
 	if err != nil {
 		return nil, openError(path, err)
@@ -93,6 +96,39 @@ func OpenPath(ctx context.Context, path string) (*Store, error) {
 		return nil, fmt.Errorf("checkpoint %s: %w", path, err)
 	}
 	return &Store{db: db, guard: guard}, nil
+}
+
+// refuseBeforeOpen returns the error migrate would refuse an existing
+// database file with, a newer schema or an edited migration, read from a
+// read-only open. A database refused after a read-write open could still
+// change: closing that handle checkpoints, which merges a write-ahead log
+// a later release left into the file and removes it. A missing file and
+// the in-memory database have nothing to refuse.
+func refuseBeforeOpen(ctx context.Context, path string) error {
+	if path == "" {
+		return nil
+	}
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	connector, err := duckdb.NewConnector(path+"?access_mode=read_only", nil)
+	if err != nil {
+		return openError(path, err)
+	}
+	db := sql.OpenDB(&guardedConnector{Connector: connector, g: newEngineGuard()})
+	defer db.Close()
+	if err := db.PingContext(ctx); err != nil {
+		return openError(path, err)
+	}
+	all, err := loadMigrations()
+	if err != nil {
+		return err
+	}
+	if err := refuseNewer(ctx, db, all); err != nil {
+		return err
+	}
+	_, err = checksumFixes(ctx, db, all)
+	return err
 }
 
 // DB exposes the handle for queries.

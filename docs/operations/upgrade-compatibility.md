@@ -47,7 +47,7 @@ Proposed, not yet confirmed:
 - **Archive.** A rebuild loads archived hours written by any schema version, alone or together with hours written by the current one. A column added after an hour was written is NULL or its default in that hour's rows.
 - **Interruption.** A crash during an upgrade, an export or a rebuild leaves files that the next start either finishes (upgrade), ignores (an export without a manifest) or retries (a rebuild that never replaced the database).
 - **Engine.** DuckDB 2.0 opens files written by DuckDB 1.5.6. It writes new files in the 2.0 format, which 1.5.6 cannot read.
-- **Downgrade.** None. An older binary refuses a database that a later release upgraded and leaves it unchanged (see [Downgrade behaviour](#downgrade-behaviour)). Going back to an older release means restoring the backup taken before the upgrade.
+- **Downgrade.** None. An older binary refuses a database that a later release upgraded and leaves it and its write-ahead log unchanged, unless it cannot replay that log (see [Downgrade behaviour](#downgrade-behaviour)). Going back to an older release means restoring the backup taken before the upgrade.
 
 ## Matrix
 
@@ -104,8 +104,9 @@ The engine fixture `internal/testfatal/testdata/index-divergence-1.5.6.duckdb.gz
 
 Proposed, not yet confirmed: nats-lens never converts a database back to an older schema.
 
-- An older binary that opens a database with a migration newer than its own fails at start with `database schema version N is newer than this binary (M): it was written by a later natslens; run that release or a later one, or restore a backup taken before the upgrade`. The check reads the `migrations` table before any statement writes, so the database file is byte for byte unchanged and no write-ahead log is left (`TestNewerDatabaseIsRefusedBeforeAnyWrite`). Binaries built before this check also refuse, but only after rewriting the migrations table's comments.
+- An older binary that opens a database with a migration newer than its own fails at start with `database schema version N is newer than this binary (M): it was written by a later natslens; run that release or a later one, or restore a backup taken before the upgrade`. The check reads the `migrations` table on a read-only open, before the binary opens the file for writing, so the database file and any write-ahead log the later release left are byte for byte unchanged (`TestNewerDatabaseIsRefusedBeforeAnyWrite`, with and without a log). A check on the read-write handle would not be enough: closing that handle checkpoints, which merges the log into the file and removes it. Binaries built before this check also refuse, but only after rewriting the migrations table's comments.
 - An edited migration is refused the same way, before missing checksums are filled in (`TestEditedMigrationRefusedBeforeBackfill`).
+- A write-ahead log that the older engine cannot replay is not refused this way. The read-only open fails with a replay error, and the collector takes its recovery path for an unreplayable log: it renames the file and the log to `<name>.corrupt-<UTC time>` and rebuilds from the archive. The renamed files are kept unchanged, but the older release then runs on a rebuilt database; restore the pre-upgrade backup instead of continuing on it.
 - `natslens checks run` and the offline readers open the file read-only and refuse a newer schema without writing.
 - A newer engine format is not detected by nats-lens: DuckDB 1.5.6 cannot open a 2.0 file and reports its own error. nats-lens adds no engine-format check, because the driver offers no safe way to read the format without opening the file.
 
@@ -127,7 +128,7 @@ Before upgrading a deployed nats-lens across a release with a new migration:
 3. Keep the archive directory: a rebuild from it is the other way back.
 4. Start the new release and check startup, a collection and an export.
 
-To roll back, stop the new release and restore the copied directory whole; never combine a restored file with a newer write-ahead log. Writes the new release made since the upgrade are lost, except what its exports wrote to the archive. Starting the old release on the upgraded database is refused and changes nothing, so a mistaken start needs no repair.
+To roll back, stop the new release and restore the copied directory whole; never combine a restored file with a newer write-ahead log. Writes the new release made since the upgrade are lost, except what its exports wrote to the archive. Starting the old release on the upgraded database is refused and changes neither the file nor its write-ahead log, so a mistaken start needs no repair. The exception is a log the old engine cannot replay: the old release moves the file and log aside and rebuilds from the archive (see [Downgrade behaviour](#downgrade-behaviour)).
 
 ## Results
 
