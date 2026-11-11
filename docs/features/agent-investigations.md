@@ -1,12 +1,12 @@
 # Agent investigations
 
 - **Surfaces:** `ui`, `api`, `cli`
-- **Status:** partial — portable page and shared-chart handoff with live and closed-dataset reads; live cross-query collection pinning, table-local filters and complete Timeline contributor handoff remain open
+- **Status:** partial — portable page, shared-chart and command bar question handoff with live and closed-dataset reads; live cross-query collection pinning, table-local filters and complete Timeline contributor handoff remain open
 - **Related:** [navigation.md](navigation.md), [running-nats-lens.md](running-nats-lens.md), [data-history.md](data-history.md), [sql-access.md](sql-access.md), [offline-datasets.md](offline-datasets.md), [Investigation workflows](../plans/investigation-workflows.md)
 
 ## What it does
 
-A user can activate **Copy as prompt** on a page or chart and paste the complete investigation prompt into a terminal-capable agent. The agent selects a live API endpoint or a trusted closed offline dataset and uses the same commands, filters and typed results. Live queries return scoped evidence links. Offline queries return reusable local context and machine evidence IDs, with remote UI access explicitly unavailable. Neither source needs NATS credentials or browser automation.
+A user can activate **Copy as prompt** on a page or chart, or ask a question with **Ask your agent** in the command bar, and paste the complete investigation prompt into a terminal-capable agent. The agent selects a live API endpoint or a trusted closed offline dataset and uses the same commands, filters and typed results. Live queries return scoped evidence links. Offline queries return reusable local context and machine evidence IDs, with remote UI access explicitly unavailable. Neither source needs NATS credentials or browser automation.
 
 ## Behavior and rules
 
@@ -15,6 +15,7 @@ A user can activate **Copy as prompt** on a page or chart and paste the complete
 
 - **Portable context.** The page action records a version, deployment origin, system, account, explicit UTC interval, known resource identity, URL-backed filters including Findings and Events defaults, and source path. A chart action records its label and every available API series identity, including both traffic directions and both asset metrics. Unknown metric identities have explicit reasons. Stream mini-charts retain the API-provided history end and observed collection reference. The chart's selected point survives moving focus to its action. A focused shared chart copies the prompt with C. Floating chart actions appear on hover or keyboard focus, and stay visible on touch devices. They sit outside plot pixels, reserve no plot width, and remain independently clickable above stretched navigation links. The Busiest consumers action floats in the Consumer cell, retaining the Range chart’s point and series context.
 - **Finding prompts.** Desktop finding details and the phone on-call card expose a labeled **Copy as prompt** action. It includes the loaded finding ID, check, typed resource, selected UTC window, and a bounded summary labeled as untrusted UI evidence. The loaded ID takes precedence over a route alias, and evidence references are not duplicated. Resolved and muted findings retain the action. Copying does not acknowledge or mute a finding.
+- **Command bar questions.** In the command bar, "Ask your agent" (the last row, or text that starts with `ask:`) copies the prompt the header's **Copy as prompt** builds for the current page, with the user's question of at most 2,000 characters before it, between `BEGIN USER QUESTION` and `END USER QUESTION` lines, as one JSON string. The question is the user's own text and does not widen the prompt's rules; the context JSON stays untrusted evidence and does not include the question. When the page adds no selection, resource or filter, the prompt says that the context holds the system and range only. Copy, fallback dialog and retry are the page action's ([command-bar.md](command-bar.md)). nats-lens calls no model.
 - **Readout placement.** Shared chart readings use a viewport-bounded overlay independent of plot width and table or card clipping. Readings follow scroll and resize, wrap long text, and dismiss on mouse leave, Escape, blur, or unmount. Displayed values retain their existing bucket and missing-sample meaning.
 - **Metric routes.** All shipped server, resource and aggregate metric routes accept copied JSON and trusted-origin URL imports. Unknown families and malformed typed resource selectors fail rather than falling back to a different page or scope. Imports identify the known series; unselected resource comparisons can use `ListMetricContributors` with their account/stream scope. Series requests do not claim equivalence to the full page, its ranking panel or local pagination.
 - **Scope precedence.** A selected chart or route resource owns its compound account/stream identity ahead of retained page filters. URL imports infer only selectors used by that page: Consumers uses the selected stream account; Events uses consumer, then stream, then server. Explicit account flags override imported request scope where the RPC has an account field; explicit request-file fields win last. Repeated preparation does not depend on filter-map order.
@@ -46,6 +47,14 @@ A user can activate **Copy as prompt** on a page or chart and paste the complete
 - **Then** the copied prompt includes the interval, selected point and known metric and resource identity
 - **And** an agent with a configured profile can request that series and a narrower interval
 - **And** its result links back to the scoped page and Data history.
+
+### Ask an agent a question about the current page
+
+- **Surfaces:** `ui`, `cli`
+- **Given** a stream's page is open in a known system
+- **When** I type `ask: why is this stream growing?` in the command bar and press Enter
+- **Then** the copied prompt holds the question as the user's, then the page's portable context and the read-only workflow
+- **And** an agent can save the JSON between the context markers and pass it to `natslens investigate query` unchanged.
 
 ### Investigate a CPU interval
 

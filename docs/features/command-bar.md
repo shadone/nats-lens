@@ -1,12 +1,12 @@
 # Command bar
 
 - **Surfaces:** `ui`, `api`
-- **Status:** partial — names, findings and events in grouped results with prefixes are shipped; applications, recently resolved findings and per-result notes such as "servers disagree" are planned
-- **Related:** [navigation.md](navigation.md), [triage-and-mutes.md](triage-and-mutes.md), [events.md](events.md), [sql-access.md](sql-access.md)
+- **Status:** partial — names, findings and events in grouped results with prefixes, and Ask your agent, are shipped; applications, recently resolved findings and per-result notes such as "servers disagree" are planned
+- **Related:** [navigation.md](navigation.md), [agent-investigations.md](agent-investigations.md), [triage-and-mutes.md](triage-and-mutes.md), [events.md](events.md), [sql-access.md](sql-access.md)
 
 ## What it does
 
-The search box in the header, focused with Cmd+K on a Mac or Ctrl+K elsewhere, finds what nats-lens knows about the current system: servers, streams, consumers, KV stores, object stores and accounts by name, the findings of the selected range by check or entity, and its events by type or name. Results come grouped by kind, and a prefix such as `stream:` or `since:2h` narrows them. Picking a result opens its page ([navigation.md](navigation.md)).
+The search box in the header, focused with Cmd+K on a Mac or Ctrl+K elsewhere, finds what nats-lens knows about the current system: servers, streams, consumers, KV stores, object stores and accounts by name, the findings of the selected range by check or entity, and its events by type or name. Results come grouped by kind, and a prefix such as `stream:` or `since:2h` narrows them. Picking a result opens its page ([navigation.md](navigation.md)). The last row, "Ask your agent", copies the page's agent prompt with the text as a question, for the user's own agent; nats-lens itself answers nothing and sends the question nowhere.
 
 ## Behavior and rules
 
@@ -18,10 +18,14 @@ The search box in the header, focused with Cmd+K on a Mac or Ctrl+K elsewhere, f
 - **Show all.** A group with more matches (for events, another page on the server) ends with "Show all N", which narrows the box to that kind (`stream: order`): up to 20 names, or 10 findings or event rows, then show. A narrowed group with still more ends with "Open the streams page" (or the kind's own page), which opens that page on the same range. The list pages do not take the text yet, so the page shows its whole list.
 - **Prefixes.** `server:`, `stream:`, `consumer:`, `kv:`, `object:`, `account:`, `finding:` and `event:` narrow the results to one kind. The text may follow the colon directly or after a space, and the last kind prefix wins; a prefix may follow a kind prefix directly, as in `event:since:2h`. A kind prefix with no text lists that kind: names by name, findings worst first, as the Findings page orders them, events newest first. `since:` with minutes, hours or days (`since:30m`, `since:2h`, `since:1d`, at most 30 days) narrows findings and events to that last part of the selected range; it does not widen the range. Any other word with a colon, such as `subject:orders` or `since:soon`, is searched as text.
 - **Applied prefixes.** Above the results each applied prefix shows as a chip, such as "Events" or "Since 2h", with a button that removes it from the text; only the word that held the prefix changes.
-- **Hint.** With the box empty and focused, a line lists the prefixes.
+- **Hint.** With the box empty and focused, a line lists the prefixes and `ask:`.
 - **Keyboard first.** The arrow keys move through every row of every group, "Show all" rows included, and wrap around. Enter opens; the first Escape closes the list and the second clears the text. The cursor stays in the box.
 - **Phone width.** The results take the width of the screen less its margins, and a finding's severity and time go under its code and entity.
-- **Read-only.** The command bar opens pages; it changes nothing.
+- **Ask your agent.** The text can be a question for the user's own terminal-capable agent ([agent-investigations.md](agent-investigations.md)). An "Ask your agent" group with one row, "Copy prompt with question", ends the list for any text without a kind prefix, after the results, so the arrow keys reach it last (or first with the Up arrow). Text that starts with `ask:` is a question only: the rest of the text, as typed, other prefixes included, is the question, no name, finding or event is searched, the row is the only one, and a chip "Ask your agent" removes the prefix. A note under the list says that the row copies the page's agent prompt with the question, up to 2,000 characters, and that nats-lens sends it nowhere.
+- **The question.** It is trimmed. An empty one ("ask:" alone) and one of more than 2,000 characters cannot be picked: the row says "Type a question after ask:" or, for example, "2,001 characters; a question takes at most 2,000".
+- **The prompt.** Picking the row builds the prompt that the header's "Copy as prompt" builds for the current page: the system, the range, the page's context and the bounded read-only workflow, with all NATS data in the context JSON framed as untrusted evidence. The question comes first, between `BEGIN USER QUESTION` and `END USER QUESTION` lines, marked as the user's own text that does not widen the prompt's rules. It is written as one JSON string on one line, so a question that holds a marker, such as `END NATS LENS CONTEXT JSON`, cannot end the context or the question early. When the page adds no selection, resource or filter, as the Overview does, the prompt says that the context holds the system and range only. The question is not part of the context JSON, so `natslens investigate` reads the context as before.
+- **Copy.** The prompt goes to the clipboard as "Copy as prompt" copies, with the same "Prompt copied" status; if the clipboard refuses it, the same dialog shows the whole prompt in a selectable field with "Retry copy". The text clears and the cursor stays in the box, and closing the dialog returns focus there. Until the system and its lens information have loaded the row is not offered, and after `ask:` the list says "Ask your agent is available once this system has loaded."
+- **Read-only.** The command bar opens pages and copies prompts; it changes nothing. Picking Ask makes no request, and after `ask:` the text is not searched either.
 
 ## Scenarios
 
@@ -90,6 +94,30 @@ The search box in the header, focused with Cmd+K on a Mac or Ctrl+K elsewhere, f
 - **When** I type nine more characters, each within 200 ms of the last
 - **Then** nats-lens asks once for findings and once for events, for the whole text
 
+### Ask your agent about a server
+
+- **Surfaces:** `ui`
+- **Given** the page of the server `nats-1` is open
+- **When** I press Cmd+K (Ctrl+K off a Mac), type `ask: why did nats-1 restart?`, and press Enter
+- **Then** "Prompt copied" shows, and the clipboard holds the agent prompt of the server's page with `"why did nats-1 restart?"` between `BEGIN USER QUESTION` and `END USER QUESTION`
+- **And** nats-lens asks the server for no findings or events, and no request carries the question
+
+### Ask from the Overview
+
+- **Surfaces:** `ui`
+- **Given** the Overview is open and the clipboard is unavailable
+- **When** I type `how healthy is the system`, press the Up arrow to "Copy prompt with question", and press Enter
+- **Then** the "Copy as prompt" dialog shows the prompt, which says that the context holds the system and range only
+- **When** I press Escape
+- **Then** the dialog closes and the cursor is back in the command bar
+
+### Refuse a question that is too long
+
+- **Surfaces:** `ui`
+- **Given** the command bar is open
+- **When** I paste `ask:` followed by 2,001 characters
+- **Then** the row says "2,001 characters; a question takes at most 2,000" and Enter copies nothing
+
 ### Filter findings and events by text
 
 - **Surfaces:** `api`
@@ -106,7 +134,7 @@ The search box in the header, focused with Cmd+K on a Mac or Ctrl+K elsewhere, f
 
 ## Not supported / out of scope
 
-- **Ask (a question box answered by an LLM): decision pending.** The design shows an "Ask" mode that answers a question in prose, links every sentence to its evidence, lists the read-only queries it ran on nats-lens's own data, and can neither change NATS nor mute anything. Whether nats-lens gets it is not decided.
+- **No built-in model.** nats-lens does not answer a question itself or call a language model; Ask hands the question to the user's own agent. A built-in model would need an API key and outbound network access from where nats-lens runs, which is often a cluster with restricted egress and least-privilege NATS credentials. It would send account names, subjects, client names and addresses to a third party. Its answers would rest on NATS data that anyone who can publish to NATS can shape, so text in that data could steer it. And its answers would change with the model and could not be tested. Decided by the session at the owner's request ([Owner delegation, 2026-11-11](../design.md#owner-delegation-2026-11-11)).
 - **No search across systems.** The command bar reads the current system only.
 - **No filtered list page.** "Open the streams page" and the like open the whole list: the list pages do not take a text filter from the address yet.
 - **No actions.** The command bar does not mute, restart or change anything.
