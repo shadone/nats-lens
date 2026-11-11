@@ -11,6 +11,7 @@ Use these tiers to choose the dependencies and coverage needed for a change. Run
 | Local HTTP and concurrency integration | `internal/api`, `internal/notify`, `internal/iap`, `internal/k8s`, plus command metrics and delivery tests | Fake providers, HTTP test servers, cancellation, deadlines, and concurrency. Retained in short mode unless the case also starts NATS or requests scale coverage. |
 | Real local NATS and cluster integration | `internal/testcluster` callers in commands, collector, capture, runner, checks, store, and store provider; standalone `server.NewServer` fixtures | One or more real in-process NATS servers with local ports and disposable storage. The shared cluster fixture and standalone server-owning fixtures skip in short mode. Run without `-short`. |
 | Scale and extended histories | `*_scale_test.go`; large/long cases in store `*_time_test.go`, `*_random_test.go`, matching tests, collector micro/subscription tests, and runner acceptance tests | Cases guarded by `testing.Short()` skip or reduce their bulk workload. `TestOldestUnreadScale` limits its check to 10 times one pass over the same history, timed in the same process, rather than to a fixed time, so a loaded runner does not fail it. `TestSubjectsAPIRateScale` additionally requires explicit size environment variables and skips in short mode even when they are set. |
+| Fuzz seeds | `Fuzz*` functions, listed in `scripts/fuzz.sh` | No NATS, HTTP or DuckDB. Ordinary runs replay the seeds under `testdata/fuzz` only; fuzzing needs `-fuzz` ([fuzz parsers and boundaries](#fuzz-parsers-and-boundaries)). |
 | Live deployment/manual | `scripts/dev-cluster.sh`, load and churn scripts; external Kubernetes checks | Outside the automated fast tier. The dev scripts create a local cluster; Kubernetes observations require a separately authorized environment. Automated test tiers require no private deployment. |
 
 `make test-short` excludes real NATS fixtures and guarded scale work, but still runs database-heavy integration tests and local HTTP clients/listeners. It has no fast-runtime guarantee. Some tests exercise failed NATS dials without starting a server; those also belong to integration, not the curated pure tier. New pure tests belong in the fast selectors only after checking their transitive fixture dependencies. New server fixtures must honor `testing.Short()` at the helper that owns the server, before creating it.
@@ -57,6 +58,46 @@ SUBJECTS_SCALE_DAYS=1 SUBJECTS_SCALE_SERVERS=2 SUBJECTS_SCALE_ACCOUNTS=3 go test
 ```
 
 These commands document coverage boundaries; their presence does not record a passing run. Use the task's validation record for executed selectors and results.
+
+## Fuzz parsers and boundaries
+
+Go fuzz targets check the parsers and boundary rules that take untrusted or hand-written input. Each target runs in memory, without NATS, HTTP or DuckDB, and bounds its input size.
+
+| Target | Package | What it checks |
+| --- | --- | --- |
+| `FuzzParseDuration` | `internal/config` | A duration in days is a whole, non-negative number of days; the written form reads back the same |
+| `FuzzParseConfigFile` | `internal/config` | A YAML file is accepted or refused the same way each time; a refused file returns the base, and no file changes the base |
+| `FuzzSnapshotApply` | `internal/collect` | A monitoring reply without server info is an error and leaves no server; unknown enum values are reported only for a reply that does not decode plainly |
+| `FuzzDecodeEvent` | `internal/events` | A decoded event has a kind, its source and the receive time in UTC; its raw payload is a JSON object without a `jwt` key at any depth |
+| `FuzzFromURL`, `FuzzPageFor` | `internal/eventselection` | An accepted selection link names a page of its own membership and reads the same when written again; paging by `Next` visits every ID once |
+| `FuzzParseContext`, `FuzzContextFromURL` | `internal/investigation` | Accepted context validates, holds no C0 control character or DEL in its short texts, encodes and reads back to the same encoding, links to the trusted deployment, and prepares the same request each time |
+| `FuzzDecodeCursor`, `FuzzEntityToken`, `FuzzEpisodeCursor` | `internal/api` | A page token is refused as invalid or expired, or holds bounded values and encodes again to a token that reads the same |
+| `FuzzTimelineBuckets` | `internal/api` | An accepted timeline range is ordered, at most 400 days, and holds 1 to 2000 buckets that cover every instant |
+| `FuzzEntityKey` | `internal/api` | An accepted compound entity key splits into non-empty parts that join to the key |
+
+The targets for the configuration, monitoring replies, events, selection links, investigation context and timeline buckets also check that the same input gives the same result twice, as their code ranges over maps or decodes in several passes.
+
+The seeds come from the recorded fixtures, the investigation tests' page URLs, protocol edge cases (timestamp and duration extremes, zone offsets, identifier separators, invalid UTF-8, control characters) and the inputs that found earlier bugs, kept under each package's `testdata/fuzz/<target>/`. An ordinary `go test` run replays every seed as a subtest, deterministically and in about a second per package; it never fuzzes.
+
+Fuzz one target for a bounded time:
+
+```sh
+go test -run='^$' -fuzz='^FuzzParseContext$' -fuzztime=60s -fuzzminimizetime=5s -parallel=4 ./internal/investigation
+```
+
+Fuzz every target, one after another:
+
+```sh
+scripts/fuzz.sh 3m
+```
+
+`scripts/fuzz.sh` takes the time per target (default `3m`) and `FUZZ_PARALLEL` for the workers per target (default 4). `scripts/fuzz.sh check` fails when a `Fuzz` function is missing from its list, and every run starts with that check. The short `-fuzzminimizetime` keeps the run fuzzing: minimizing a new input holds up the other workers, and with the default 60 seconds per input a run sat idle for most of a minute at a time.
+
+A failure writes the input to the package's `testdata/fuzz/<target>/`. Keep that file, give it a name that says what it holds, add a regression test, and fix the cause. The inputs the fuzzer finds interesting go to the Go build cache (`$(go env GOCACHE)/fuzz`), not the repository.
+
+The [Fuzz workflow](../../.github/workflows/fuzz.yml) runs `scripts/fuzz.sh 5m` every Tuesday and on demand, with the build cache's fuzz corpus restored from the previous run; a failure fails the run and keeps the testdata directories as an artifact for 30 days. A scheduled workflow, rather than a `verify.py` profile, keeps about 70 minutes of fuzzing off the machines that run the verification profiles, and a fuzz run is not a pass or fail gate that a change can wait for. The workflow is **proposed, not yet confirmed**.
+
+Known limits: `FuzzEpisodeCursor` reaches its accepted path only through seeds made at the start of a run, as a token expires five minutes after it was issued; `FuzzContextFromURL` rarely produces a percent-encoded control character, so its seeds carry them; `FuzzParseConfigFile` does not call `Validate`, which looks at the data directories on disk.
 
 ## Run combined validation
 
