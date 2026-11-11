@@ -3,6 +3,8 @@
 import { create } from "@bufbuild/protobuf";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { Link } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
 import * as events from "../api/events";
@@ -45,7 +47,7 @@ beforeEach(() => {
   write.mockReset().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: write } });
   vi.mocked(lens.getShellStatus).mockImplementation((async () =>
-    create(GetShellStatusResponseSchema, { systems: [{ system: { id: "sys-a", name: "A" } }], defaultSystem: "sys-a", systemKnown: true })) as never);
+    create(GetShellStatusResponseSchema, { systems: [{ system: { id: "sys-a", name: "A" } }, { system: { id: "sys-b", name: "B" } }], defaultSystem: "sys-a", systemKnown: true })) as never);
   m.listServers.mockResolvedValue({ servers: [{ name: "nats-1", cluster: "c" }], expected: [], missing: [] } as never);
   m.listStreams.mockResolvedValue({ streams: [{ entity: { account: "APP", stream: "order-jobs" } }] } as never);
   m.listConsumers.mockResolvedValue(Object.assign([], { totalCount: 0, nextPageToken: "" }));
@@ -53,6 +55,8 @@ beforeEach(() => {
   ev.searchEvents.mockResolvedValue(empty as never);
 });
 
+// Through a function: vite rewrites a literal new URL(..., import.meta.url) into a served URL.
+const read = (f: string) => readFileSync(new URL(f, import.meta.url), "utf8");
 const box = () => screen.getByRole("combobox", { name: "Search this system" });
 const askRow = () => screen.getByRole("option", { name: /Copy prompt with question/ });
 const lines = (p: string) => p.split("\n");
@@ -208,6 +212,120 @@ describe("the active row", () => {
       expect(askRow()).toHaveAttribute("aria-selected", "true");
       expect(scroll.mock.contexts).toContain(askRow());
       expect(scroll).toHaveBeenLastCalledWith({ block: "nearest" });
+    } finally {
+      delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+  });
+});
+
+describe("Enter before the results settle", () => {
+  it("does not copy when Enter comes before the names have loaded", async () => {
+    m.listServers.mockReturnValue(new Promise(() => {}) as never);
+    m.listStreams.mockReturnValue(new Promise(() => {}) as never);
+    setup("/?system=sys-a");
+    await enter("nats-1");
+    await screen.findByRole("option", { name: /Copy prompt with question/ });
+    await userEvent.keyboard("{Enter}");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(write).not.toHaveBeenCalled();
+    expect(box()).toHaveValue("nats-1");
+  });
+
+  it("does not copy when Enter comes before a finding search settles", async () => {
+    m.listFindings.mockResolvedValue({ items: [{ id: "f1", checkCode: "stream-002", checkName: "lag", entity: { type: 2, key: "APP/order-jobs" }, severity: 2, detail: "zzlag" }], nextPageToken: "", totalCount: 1 } as never);
+    setup("/?system=sys-a");
+    await enter("zzlag");
+    await userEvent.keyboard("{Enter}");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it("copies from the last row once the pointer has moved to it", async () => {
+    m.listServers.mockReturnValue(new Promise(() => {}) as never);
+    setup("/?system=sys-a");
+    await enter("nats-1");
+    fireEvent.mouseEnter(await screen.findByRole("option", { name: /Copy prompt with question/ }));
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(write).toHaveBeenCalledOnce());
+    expect(questionOf(write.mock.calls[0][0])).toBe("nats-1");
+  });
+});
+
+describe("Ask and the page", () => {
+  it("leaves tokens and unknown query parameters out of the prompt", async () => {
+    setup("/servers/nats-1?system=sys-a&token=SEKRIT123&api_key=SEKRIT456#tok=SEKRIT789");
+    await enter("ask: why");
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(write).toHaveBeenCalledOnce());
+    expect(write.mock.calls[0][0]).not.toMatch(/SEKRIT/);
+  });
+
+  it("takes the context of the page after a route change and a system change", async () => {
+    renderApp(<InvestigationProvider><Link to="/servers/nats-1?system=sys-b">go</Link><SearchJump /></InvestigationProvider>, "/?system=sys-a");
+    await enter("ask: first");
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(contextOf(write.mock.calls[0][0])).toMatchObject({ system: "sys-a", sourcePath: "/" });
+    await userEvent.click(screen.getByText("go"));
+    await enter("ask: second");
+    await waitFor(() => expect(askRow()).toBeInTheDocument());
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+    expect(contextOf(write.mock.calls[1][0])).toMatchObject({ system: "sys-b", sourcePath: "/servers/nats-1" });
+    expect(questionOf(write.mock.calls[1][0])).toBe("second");
+  });
+});
+
+describe("Ask and the other prefixes", () => {
+  it("is not offered after event:ask:", async () => {
+    setup("/?system=sys-a");
+    await enter("event:ask:why");
+    await new Promise((r) => setTimeout(r, 400));
+    expect(screen.queryByRole("option", { name: /Copy prompt with question/ })).toBeNull();
+  });
+
+  it("makes since:2h the question after ask:", async () => {
+    setup("/?system=sys-a");
+    await enter("ask:since:2h");
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(write).toHaveBeenCalledOnce());
+    expect(questionOf(write.mock.calls[0][0])).toBe("since:2h");
+  });
+
+  it("keeps since: as typed in a question from the last row", async () => {
+    setup("/?system=sys-a");
+    await enter("since:2h order lag");
+    await userEvent.keyboard("{ArrowUp}{Enter}");
+    await waitFor(() => expect(write).toHaveBeenCalledOnce());
+    expect(questionOf(write.mock.calls[0][0])).toBe("since:2h order lag");
+  });
+});
+
+describe("the dimmed Ask row", () => {
+  it("is dimmed while its question cannot be asked", async () => {
+    setup("/?system=sys-a");
+    await enter("ask:");
+    expect(await screen.findByRole("option", { name: /Copy prompt with question/ })).toHaveAttribute("aria-disabled", "true");
+    const css = read("../styles/header.css");
+    expect(css).toMatch(/\.search-pop li\.search-ask\[aria-disabled="true"\] \.sn\{color:var\(--text-muted\)\}/);
+    fireEvent.change(box(), { target: { value: "ask: why" } });
+    await waitFor(() => expect(askRow()).not.toHaveAttribute("aria-disabled"));
+  });
+
+});
+
+describe("scrolling the list", () => {
+  it("does not scroll when the pointer moves onto a row", async () => {
+    const scroll = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scroll });
+    try {
+      setup("/?system=sys-a");
+      await enter("order");
+      await waitFor(() => expect(askRow()).toBeInTheDocument());
+      scroll.mockClear();
+      fireEvent.mouseEnter(askRow());
+      expect(askRow()).toHaveAttribute("aria-selected", "true");
+      expect(scroll).not.toHaveBeenCalled();
     } finally {
       delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
     }

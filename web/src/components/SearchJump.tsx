@@ -100,6 +100,8 @@ export function SearchJump() {
   const [open, setOpen] = useState(false);
   const [used, setUsed] = useState(false);
   const [active, setActive] = useState(0);
+  // Whether the arrow keys or the pointer moved the active row since the text changed.
+  const [moved, setMoved] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const listId = useId();
   const names = useSearchItems(spec, used);
@@ -155,13 +157,21 @@ export function SearchJump() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  useEffect(() => setActive(0), [text]);
-
-  // The list scrolls inside its box: keep the active row, such as Ask at the end, in view.
-  const activeId = open ? options[current]?.id : undefined;
   useEffect(() => {
-    if (activeId) document.getElementById(activeId)?.scrollIntoView?.({ block: "nearest" });
-  }, [activeId]);
+    setActive(0);
+    setMoved(false);
+  }, [text]);
+
+  /**
+   * Makes a row active from the keyboard. The list scrolls inside its box, so
+   * the row, such as Ask at the end, is scrolled into view; a pointer move
+   * does not scroll, which would slide the list under the pointer.
+   */
+  const moveTo = (i: number) => {
+    setActive(i);
+    setMoved(true);
+    document.getElementById(options[i].id)?.scrollIntoView?.({ block: "nearest" });
+  };
 
   const close = () => {
     setText("");
@@ -193,12 +203,16 @@ export function SearchJump() {
     if (e.key === "ArrowDown" && options.length) {
       e.preventDefault();
       setOpen(true);
-      setActive((current + 1) % options.length);
+      moveTo((current + 1) % options.length);
     } else if (e.key === "ArrowUp" && options.length) {
       e.preventDefault();
-      setActive((current - 1 + options.length) % options.length);
+      moveTo((current - 1 + options.length) % options.length);
     } else if (e.key === "Enter" && showList && options[current]) {
       e.preventDefault();
+      // Without ask:, Enter asks only from a row the user moved to: while the
+      // results load, the Ask row can be the only one, and Enter there would
+      // overwrite the clipboard.
+      if (options[current].question !== undefined && !asking && !moved) return;
       choose(options[current]);
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -223,7 +237,10 @@ export function SearchJump() {
         e.preventDefault();
         choose(o);
       },
-      onMouseEnter: () => setActive(options.indexOf(o)),
+      onMouseEnter: () => {
+        setActive(options.indexOf(o));
+        setMoved(true);
+      },
     };
   };
   const rowOption = (row: ResultRow) => options.find((o) => o.row === row)!;
