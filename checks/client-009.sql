@@ -31,12 +31,14 @@ value_basis: >-
   connections of the application, in each server's newest subscription list within the lookback, that hold a
   plain subscription on one subject more than once
 */
--- Each server's newest list within the lookback, so a server that missed
--- the newest collection keeps its duplicates.
+-- Each server's newest list within the lookback, by name, as its ID
+-- changes with every restart: a server that missed the newest collection
+-- keeps its duplicates, and a restarted one's new list replaces the old
+-- process's.
 WITH coll AS (
-    SELECT server_id, epoch FROM subscription_lists
-    WHERE epoch >= getvariable('window_epoch') AND epoch <= getvariable('epoch')
-    QUALIFY row_number() OVER (PARTITION BY server_id ORDER BY epoch DESC) = 1
+    SELECT l.server_id, l.epoch FROM subscription_lists l JOIN servers sv USING (server_id)
+    WHERE l.epoch >= getvariable('window_epoch') AND l.epoch <= getvariable('epoch')
+    QUALIFY row_number() OVER (PARTITION BY sv.server_name ORDER BY l.epoch DESC) = 1
 ),
 d AS (
     SELECT coalesce(nullif(split_part(c.name, '@', 1), ''), '(unnamed)') AS app, s.server_id, sv.server_name, s.cid,

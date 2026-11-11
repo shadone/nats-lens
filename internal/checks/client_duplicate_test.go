@@ -109,3 +109,21 @@ func TestDuplicateSubscriptionTooling(t *testing.T) {
 		t.Errorf("with tooling: %v", rowsText(got))
 	}
 }
+
+// A restarted server, a new server ID with the same name, whose list has
+// no duplicate resolves the finding at once: the newest list is taken per
+// server name, not per process.
+func TestDuplicateSubscriptionServerRestart(t *testing.T) {
+	f := newFx(t)
+	f.cluster(50)
+	f.dupList(40, "S0")
+	f.dupConn(40, "S0", 1, "search-api@pod-1", "10.0.0.1")
+	f.dupSub(40, "S0", 1, "APP", "catalog.cache.invalidate", nil, 2)
+	f.fires("client-009", 41, "search-api")
+	// nats-0 restarts as S0b; the client reconnects with one subscription.
+	f.server("S0b", "nats-0", 45, 50, at(44), "2.15.0")
+	f.dupList(45, "S0b")
+	f.dupConn(45, "S0b", 1, "search-api@pod-1", "10.0.0.1")
+	f.dupSub(45, "S0b", 1, "APP", "catalog.cache.invalidate", nil, 1)
+	f.fires("client-009", 46)
+}
