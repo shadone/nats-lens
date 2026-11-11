@@ -1,5 +1,5 @@
 import { Code, ConnectError } from "@connectrpc/connect";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useNavigate } from "react-router";
@@ -7,9 +7,11 @@ import type { Replay as ReplayData } from "../api/adapt-replay";
 import type { Timeline } from "../api/model";
 import * as requests from "../api/requests";
 import { rgone, rreplay, rstep } from "../test/fixtures/replay";
+import { holdDebounce } from "../test/heldDebounce";
 import { renderApp } from "../test/render";
 import { Replay } from "./Replay";
 
+vi.mock("../lib/useDebounced", () => import("../test/heldDebounce"));
 vi.mock("../api/requests", () => ({
   getReplay: vi.fn(),
   getTimeline: vi.fn(),
@@ -63,6 +65,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => holdDebounce(false));
   vi.mocked(requests.getReplay).mockReset();
   vi.mocked(requests.getTimeline).mockReset();
 });
@@ -156,9 +159,11 @@ describe("Replay", () => {
       `/replay?system=example-prod&${FIXED}&a=2026-10-17T07:00:00Z&b=2026-10-17T07:30:00Z`,
     );
     await screen.findByText("nats-1 restarts at 07:00");
+    // Held, the debounce never ends: only the change of system, which skips
+    // it, can ask for the second replay.
+    act(() => holdDebounce(true));
     await userEvent.click(screen.getByRole("button", { name: "go" }));
-    // Without the 300 ms wait for a change of system or for the first moments.
-    await waitFor(() => expect(requests.getReplay).toHaveBeenCalledTimes(2), { timeout: 200 });
+    await waitFor(() => expect(requests.getReplay).toHaveBeenCalledTimes(2));
     await screen.findByText("nats-us-1 restarts at 09:09");
     const calls = vi.mocked(requests.getReplay).mock.calls.map((c) => `${c[0]} ${new Date(c[1]).toISOString()}`);
     expect(calls).toEqual(["example-prod 2026-10-17T07:00:00.000Z", "example-global 2026-10-17T09:09:00.000Z"]);
