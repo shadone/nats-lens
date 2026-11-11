@@ -350,10 +350,10 @@ func (e *Engine) runOne(ctx context.Context, conn *sql.Conn, c *Check, epoch int
 	qctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	if c.Code == LeafHealthCode {
-		return declared(c)(e.leafHealth(qctx, conn, epoch, at))
+		return declared(c, e.logger())(e.leafHealth(qctx, conn, epoch, at))
 	}
 	if c.Code == SlowRouteCode {
-		return declared(c)(e.slowRoutes(qctx, conn, epoch, at))
+		return declared(c, e.logger())(e.slowRoutes(qctx, conn, epoch, at))
 	}
 	if c.Code == "system-002" || c.Code == "system-003" {
 		lo := epoch
@@ -606,16 +606,18 @@ func escalationText(streak []string) string {
 	return fmt.Sprintf(" Failing in each of the last %d collections: %s.", EscalateAfter, strings.Join(streak, ", "))
 }
 
-// declared passes a built-in check's rows on when each has a severity the
-// check declares, so that its severity rule covers every row.
-func declared(c *Check) func([]store.FindingRow, error) ([]store.FindingRow, error) {
+// declared passes a built-in check's rows on, and logs a warning for a
+// row whose severity the check does not declare, which its severity rule
+// then does not cover. The row is kept: a labelling slip must not cost the
+// epoch its findings; TestBuiltinSeverityRules catches it in tests.
+func declared(c *Check, log *slog.Logger) func([]store.FindingRow, error) ([]store.FindingRow, error) {
 	return func(rows []store.FindingRow, err error) ([]store.FindingRow, error) {
 		if err != nil {
 			return nil, err
 		}
 		for _, r := range rows {
 			if !slices.Contains(c.severities, r.Severity) {
-				return nil, fmt.Errorf("entity %q: severity %q is not one %s declares", r.EntityKey, r.Severity, c.Code)
+				log.Warn("built-in check gave a severity it does not declare", "check", c.Code, "entity", r.EntityKey, "severity", r.Severity)
 			}
 		}
 		return rows, nil
