@@ -17,11 +17,18 @@ Besides sending findings to configured [notification channels](notifications.md)
 - **nats-lens's own health.** `nats_lens_last_epoch_age_seconds` (the age of the newest collection; absent before the first), `nats_lens_last_epoch_partial`, the collections and partial collections of the last hour, the collections of the last hour for which no check ran, the event messages dropped in the last hour, the check runs that failed in the last hour, and `nats_lens_check_failing` per check. The checks `system-007` to `system-009` turn incomplete collections, a stalled archive and dropped event messages into findings ([system-checks.md](system-checks.md)).
 - **Who may scrape.** On a loopback listener, `/metrics` follows the same Host allowlist as the API. On any other listener it is exempt from the allowlist, because Prometheus scrapes by the pod's address. The endpoint names streams, consumers, servers and clients, so such a listener must not be reachable from outside the cluster.
 - **Notification delivery.** Per system and channel, four gauges report delivered messages and terminal failures in the last hour, pending messages, and the oldest pending age (absent with nothing pending). Refused or given-up messages count from the outcome time, including after a retention sweep. `system-010` reports notification delivery failures ([system-checks.md](system-checks.md)).
+- **nats-lens's own timings.** Histograms time every API call by system, procedure and Connect code, with the queries it ran and their summed seconds; every database query by the work that ran it; each write's wait for the database's write lock apart from its hold, by operation (the epoch write is `op="epoch"`); and the background jobs (collection, check evaluation, storing the checks' outcome, archive export of one hour, retention sweep). Gauges count the API calls in flight and the writes waiting for the lock. The series are process counters since the start, written after the systems' series whenever one system is read. A call that names no one system carries `system="all"`, one naming an unknown system `system="unknown"`. Labels take values from closed sets only, at most 256 label sets per family; [docs/metrics.md](../metrics.md) lists them.
 - **Example rules.** [docs/metrics.md](../metrics.md) gives seven Prometheus rules (a critical finding, a warning finding, a collector that stopped collecting, checks that stopped running, a failing check, a system whose metrics cannot be read, and stuck notification delivery) and one Cloud Monitoring alert policy, for the critical finding; it says the other rules translate the same way.
 
 - **Acknowledgement quiet.** `nats_lens_finding_acknowledged` is 1 with the finding identity labels only while quiet holds, and absent otherwise. It follows the same selected entity set as the three finding series. `nats_lens_findings_acknowledged` counts every firing finding whose quiet holds, including muted findings, without that cap. These metrics measure quiet, while the UI acknowledgement tally also counts acknowledgements whose quiet expired.
 - **Quiet-aware finding rules.** Both example finding rules and the Cloud Monitoring query in [docs/metrics.md](../metrics.md) add `unless on(system, code, entity_type, entity_key) nats_lens_finding_acknowledged` after excluding mutes. Prometheus annotations URL-encode the labels and link to the finding through the label route. Cloud Monitoring documentation explains constructing the same route.
 ## Scenarios
+
+### Tell a slow call from a waiting write
+
+- **Given** Prometheus scrapes `/metrics` while users load pages and the collector writes epochs
+- **When** an operator compares `nats_lens_api_request_duration_seconds` by procedure with `nats_lens_store_lock_wait_seconds` and `nats_lens_store_lock_held_seconds{op="epoch"}`
+- **Then** they see which procedures are slow, how many queries each ran, and how long epoch writes held and waited for the lock, without any entity or query text in a label
 
 ### Page on a critical finding
 
@@ -64,5 +71,6 @@ Besides sending findings to configured [notification channels](notifications.md)
 ## Not supported / out of scope
 
 - **No automatic quieting of aggregate alerts.** Per-finding exclusions need the identity labels. A deployment alerting on aggregate counts must choose its own quiet policy.
+- **No profiling endpoint.** nats-lens serves no `pprof` or query-plan endpoint; the timings are histograms only. The [performance baseline](../operations/performance-baseline.md) profiles with a separate command, `natslens-perf`.
 - **No raw NATS metrics.** `/metrics` exports findings and nats-lens's health, not every server, stream or consumer number. A NATS Prometheus exporter is the tool for those.
 - **No alert rules shipped as resources.** The rules are examples in [docs/metrics.md](../metrics.md); a deployment writes its own.
