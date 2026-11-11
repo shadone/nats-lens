@@ -19,6 +19,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/shadone/nats-lens/internal/admit"
 	"github.com/shadone/nats-lens/internal/gen/natslens/v1/natslensv1connect"
 	"github.com/shadone/nats-lens/internal/investigation"
 	"github.com/shadone/nats-lens/internal/timing"
@@ -148,7 +149,7 @@ func metricsHandler(h *Handler) http.HandlerFunc {
 		for i, s := range writers {
 			wg.Go(func() {
 				id := s.Ref.GetId()
-				ctx, cancel := context.WithTimeout(timing.WithSource(r.Context(), timing.SourceMetrics), timeout)
+				ctx, cancel := context.WithTimeout(admit.WithFlow(timing.WithSource(r.Context(), timing.SourceMetrics)), timeout)
 				defer cancel()
 				exp, err := NewExposition(id)
 				if err == nil {

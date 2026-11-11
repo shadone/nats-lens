@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/timing"
 )
 
 // Ranges of GetShellStatus.
@@ -155,7 +156,7 @@ func (h *Handler) refreshBadge(sys System, req *v1.ListSystemsRequest, key strin
 		}
 		h.badgeCache.finish(sys.Ref.GetId(), sum)
 	}()
-	sum = h.summary(context.Background(), sys, req, key, timeout)
+	sum = h.summary(timing.WithSource(context.Background(), timing.SourceAPI), sys, req, key, timeout)
 }
 
 // badgeOf is the badge status of a system's summary. The system does not

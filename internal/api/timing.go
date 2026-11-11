@@ -2,11 +2,13 @@ package api
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	"connectrpc.com/connect"
 
+	"github.com/shadone/nats-lens/internal/admit"
 	"github.com/shadone/nats-lens/internal/timing"
 )
 
@@ -23,9 +25,10 @@ func timingInterceptor(systems Systems) connect.UnaryInterceptorFunc {
 			inFlight.Add(1)
 			defer inFlight.Add(-1)
 			call := &timing.Call{Procedure: proc}
-			ctx = timing.WithCall(timing.WithSource(ctx, timing.SourceAPI), call)
+			ctx = admit.WithFlow(timing.WithCall(timing.WithSource(ctx, timing.SourceAPI), call))
 			start := time.Now()
 			res, err := next(ctx, req)
+			err = overloadCode(admit.FlowOf(ctx), err)
 			code := "ok"
 			if err != nil {
 				code = connect.CodeOf(err).String()
@@ -37,6 +40,25 @@ func timingInterceptor(systems Systems) connect.UnaryInterceptorFunc {
 		}
 	}
 }
+
+// overloadCode answers resource_exhausted for a call that failed after one
+// of its queries was refused for the store's query budget, when the
+// failure reached the client as a deadline or an internal error: the
+// provider can return the context's error, or lose the refusal while
+// wrapping it, rather than the refusal itself.
+func overloadCode(f *admit.Flow, err error) error {
+	if err == nil || !f.Overloaded() {
+		return err
+	}
+	switch connect.CodeOf(err) {
+	case connect.CodeDeadlineExceeded, connect.CodeInternal, connect.CodeUnknown:
+		return connect.NewError(connect.CodeResourceExhausted, errBusy)
+	}
+	return err
+}
+
+// errBusy is the message of a call refused for the query budget.
+var errBusy = errors.New("the system is busy: its query budget stayed in use until the call's deadline; try again shortly")
 
 // callSystem is the system label of a request: the configured system it
 // names, the default for an empty name, timing.UnknownSystem for a name no

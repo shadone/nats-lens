@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/shadone/nats-lens/internal/admit"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/gen/natslens/v1/natslensv1connect"
 	"github.com/shadone/nats-lens/internal/iap"
@@ -115,6 +116,10 @@ func on[Req, Res any](f func(Provider, context.Context, Req) (*Res, error)) func
 
 func (h *Handler) codeOf(procedure string, err error) error {
 	switch {
+	case errors.Is(err, admit.ErrOverloaded):
+		return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("the system is busy: %w; try again shortly", err))
+	case errors.Is(err, admit.ErrClosed):
+		return connect.NewError(connect.CodeUnavailable, errors.New("the system's store is closing"))
 	case errors.Is(err, ErrResourceExhausted):
 		return connect.NewError(connect.CodeResourceExhausted, err)
 	case errors.Is(err, ErrInvalid):

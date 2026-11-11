@@ -10,6 +10,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/shadone/nats-lens/internal/admit"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -17,8 +18,17 @@ import (
 // ask for.
 const MaxBatchQueries = 32
 
-// batchParallelism is the number of series of one batch read at a time.
+// batchParallelism is the number of series of one batch read at a time
+// while the system's query budget has a free slot; on a busy system a
+// batch reads one series at a time. Each series' queries take a slot of
+// the budget like any other call's.
 const batchParallelism = 4
+
+// QueryBudgeter is a provider whose store bounds its API queries; a batch
+// reads several series at a time only while the gate is idle.
+type QueryBudgeter interface {
+	QueryBudget() *admit.Gate
+}
 
 // BatchTimeout bounds the time one GetTimeSeriesBatch call may spend in
 // the provider; each of its queries has QueryTimeout of its own within it.
@@ -64,10 +74,16 @@ func normalizeTimeSeriesBatch(req *v1.GetTimeSeriesBatchRequest, p Provider) err
 	return err
 }
 
-// readBatch reads each query of a normalized request, a few at a time.
+// readBatch reads each query of a normalized request, a few at a time:
+// up to batchParallelism while the provider's query budget is idle, one at
+// a time while other queries use or wait for it.
 func readBatch(ctx context.Context, p Provider, req *v1.GetTimeSeriesBatchRequest) (*v1.GetTimeSeriesBatchResponse, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	var gate *admit.Gate
+	if b, ok := p.(QueryBudgeter); ok {
+		gate = b.QueryBudget()
+	}
 	results := make([]*v1.SeriesResult, len(req.GetQueries()))
 	var (
 		wg       sync.WaitGroup
@@ -75,19 +91,38 @@ func readBatch(ctx context.Context, p Provider, req *v1.GetTimeSeriesBatchReques
 		firstErr error
 	)
 	sem := make(chan struct{}, batchParallelism)
-	for i, q := range req.GetQueries() {
-		select {
-		case sem <- struct{}{}:
-		case <-ctx.Done():
+	// take takes n of sem's tokens, or gives up when ctx ends; the tokens
+	// already taken stay in sem for the workers' releases to drain.
+	take := func(n int) bool {
+		for range n {
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				return false
+			}
 		}
-		if ctx.Err() != nil {
+		return true
+	}
+	for i, q := range req.GetQueries() {
+		n := 1
+		if gate != nil && !gate.Idle() {
+			// Busy: wait for this batch's running series, then read alone.
+			n = batchParallelism
+		}
+		if !take(n) || ctx.Err() != nil {
 			break
 		}
+		for range n - 1 {
+			<-sem
+		}
 		wg.Add(1)
+		// Each series is a flow of its own, so that its queries take a
+		// slot of the budget rather than share the call's.
+		wctx := admit.Fork(ctx)
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			res, err := readQueryRecovered(ctx, p, req, q)
+			res, err := readQueryRecovered(wctx, p, req, q)
 			if err != nil {
 				once.Do(func() { firstErr = err; cancel() })
 				return

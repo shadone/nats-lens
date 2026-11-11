@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/shadone/nats-lens/internal/admit"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -156,7 +157,9 @@ func (h *Handler) summary(ctx context.Context, sys System, req *v1.ListSystemsRe
 	tooLong := &v1.SystemSummary{Error: fmt.Sprintf("the summary took longer than %s", timeout)}
 	f := h.summaryFlights.join(sys.Ref.GetId(), key, timeout, func(f *summaryFlight) {
 		var runCtx context.Context
-		runCtx, f.cancel = context.WithTimeout(context.WithoutCancel(ctx), timeout)
+		// The run is shared by every caller that joins it and may outlive
+		// the one that started it, so its queries are a flow of their own.
+		runCtx, f.cancel = context.WithTimeout(admit.WithFlow(context.WithoutCancel(ctx)), timeout)
 		h.runSummary(runCtx, sys, req, f)
 	})
 	if f == nil {
