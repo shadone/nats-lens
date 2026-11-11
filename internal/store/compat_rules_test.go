@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -130,5 +131,38 @@ func TestCompatArchivedColumnsAddedLaterAreNullable(t *testing.T) {
 		sql: `ALTER TABLE mutes ALTER COLUMN entity_type SET NOT NULL;`}
 	if found := laterNotNull(t, append(append([]migration{}, all...), bad)); len(found) != 1 || !strings.HasPrefix(found[0], "mutes.entity_type") {
 		t.Errorf("mutes.entity_type made NOT NULL: found %v, want mutes.entity_type", found)
+	}
+}
+
+// The engine behaviour laterNotNull relies on: a NOT NULL column with a
+// default loads from files that all lack it, but not from a mix of files
+// with and without it, read by name as Rebuild reads them.
+func TestCompatNotNullDefaultFailsMixedRebuild(t *testing.T) {
+	dir := t.TempDir()
+	db, err := sql.Open("duckdb", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	oldFile, newFile := sqlString(filepath.Join(dir, "old.parquet")), sqlString(filepath.Join(dir, "new.parquet"))
+	for _, q := range []string{
+		`COPY (SELECT 1 AS a) TO ` + oldFile + ` (FORMAT parquet)`,
+		`COPY (SELECT 2 AS a, 7 AS b) TO ` + newFile + ` (FORMAT parquet)`,
+		`CREATE TABLE dst (a INTEGER, b INTEGER NOT NULL DEFAULT 0)`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	load := func(files string) error {
+		_, err := db.Exec(`INSERT INTO dst BY NAME SELECT * FROM read_parquet([` + files + `], union_by_name = true, hive_partitioning = false)`)
+		return err
+	}
+	if err := load(oldFile); err != nil {
+		t.Errorf("old file alone: %v, want the default to apply", err)
+	}
+	if err := load(oldFile + ", " + newFile); err == nil {
+		t.Error("old and new files together loaded; laterNotNull's reason no longer holds")
 	}
 }
