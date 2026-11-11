@@ -861,5 +861,6 @@ On 2026-11-11 the owner left the decisions below to the session ("you decide"). 
 - **The shared cursor** ([Overview](features/overview-page.md)):
   - a chart follows only when each end of its range is within a twentieth of the page range's length;
   - on a phone a touch-and-hold inspection draws the follower lines;
-  - the lanes reuse the charts' drag gesture for an interval;
+  - a tap on the lanes is a tap on a mark, not a hover;
+  - the lanes reuse the charts' drag gesture for an interval, with no keyboard selection beyond Select interval;
   - a live refresh keeps the cursor.
