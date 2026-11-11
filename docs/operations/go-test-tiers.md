@@ -79,7 +79,7 @@ A CI runner or a busy workstation can pause any goroutine for hundreds of millis
 - A test that tells a fast path from a timeout keeps them seconds apart: a timeout of 1 s or more and a bound well below it, not 20 ms against 30 ms. Prefer a slow path that never ends (a held fake, a long caller deadline), so the bound only has to be generous.
 - `Runner.Interval` also limits each epoch's write. A fixture that calls `Once` gives it 10 s; only a test of `Run` uses a short interval, as `Run` takes the next epoch after a write that runs out.
 - A handler can keep reading in the background after the test returns. Log through `apitest.Log(t)`, which drops lines after the test ends: the test output panics on a late write and fails the whole package.
-- Web tests: reach into a dialog opened by asynchronous work only after `findByRole("dialog", ...)`, as `Dialog` opens in an effect after the commit. Type into a debounced field with the debounce held (`web/src/test/heldDebounce.ts`), so that a pause between keys cannot settle a prefix.
+- Web tests: reach into a dialog opened by asynchronous work only after `findByRole("dialog", ...)`, as `Dialog` opens in an effect after the commit. Type into a debounced field with the debounce held (`web/src/test/heldDebounce.ts`), so that a pause between keys cannot settle a prefix. Vitest gives a test 15 s and `findBy`/`waitFor` 5 s; a test never relies on a find running out, but waits with `waitFor` for whichever of two outcomes appears.
 
 Check a timing-sensitive test under load before trusting it, for example with `GOMAXPROCS=1 go test -race -count=20 -cpu 1 -run <name>` beside a few `yes > /dev/null` processes, or with `npx vitest run --maxWorkers=36` on a busy 12-core machine.
 
