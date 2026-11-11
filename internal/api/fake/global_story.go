@@ -128,8 +128,9 @@ func globalFindings(s scen) []*v1.Finding {
 	posJWT.Value = &v1.FindingValue{Name: "days until a user JWT expires", Display: "5", Number: ptr(5.0),
 		Basis: "from the collection's start to the soonest user JWT expiry among the account's connections, negative once expired"}
 
-	// search-api subscribes to search.query twice since its release; the
-	// check fires at the first subscription collection after it.
+	// search-api subscribes to catalog.cache.invalidate twice since its
+	// release; the check fires at the first subscription collection after
+	// it.
 	dupSince, _ := s.subsCollection(globalSearchRelease.Add(s.shift).Add(subsInterval))
 	dups := s.duplicateSubscriptions(dupSince)
 
