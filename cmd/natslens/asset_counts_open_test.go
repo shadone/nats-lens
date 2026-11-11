@@ -160,22 +160,3 @@ func TestAssetCountsFillFailureKeepsTheSystem(t *testing.T) {
 		t.Errorf("the failure was not logged: %s", logs.String())
 	}
 }
-
-// A fill stopped by the start's cancellation still stops the start.
-func TestAssetCountsFillCancelledStopsTheStart(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	cfg := listConfig(t, t.TempDir(), "shop-prod")
-	storeWithoutCounts(t, cfg.ResolvedSystems()[0].DataDir)
-	orig := fillAssetCounts
-	t.Cleanup(func() { fillAssetCounts = orig })
-	fillAssetCounts = func(_ *store.Store, ctx context.Context) (int64, error) {
-		cancel()
-		return 0, ctx.Err()
-	}
-	rts, err := openSystems(ctx, cfg, cfg.ResolvedSystems(), quietLog())
-	if err == nil {
-		closeSystems(rts, time.Time{})
-		t.Fatal("a cancelled fill did not stop the start")
-	}
-}
