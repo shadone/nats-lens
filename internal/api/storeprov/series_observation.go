@@ -24,7 +24,7 @@ func (p *Provider) seriesLookback(metric string, start time.Time) time.Time {
 // materializes one aggregate row, not an unbounded history in application maps.
 // Existing request/batch deadlines include this optional second metric read.
 func (p *Provider) observationSummary(ctx context.Context, metric string, e *v1.EntityRef, r *v1.TimeRange) (*v1.ObservationSummary, error) {
-	q, args, counter, err := p.observationQuery(metric, e, r)
+	q, args, counter, err := p.observationQuery(ctx, metric, e, r)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func (p *Provider) observationSummary(ctx context.Context, metric string, e *v1.
 	return out, nil
 }
 
-func (p *Provider) observationQuery(metric string, e *v1.EntityRef, r *v1.TimeRange) (string, []any, bool, error) {
+func (p *Provider) observationQuery(ctx context.Context, metric string, e *v1.EntityRef, r *v1.TimeRange) (string, []any, bool, error) {
 	start, end := span(r)
 	if end.Sub(start) > api.MaxObservationRange {
 		return "", nil, false, fmt.Errorf("%w: observation range exceeds 30 days", api.ErrInvalid)
@@ -55,7 +55,12 @@ func (p *Provider) observationQuery(metric string, e *v1.EntityRef, r *v1.TimeRa
 	if m.sum {
 		total = "sum(v)::VARCHAR"
 	}
-	args := append([]any{p.seriesLookback(metric, start), end}, entityArgs(e)...)
+	lookback := p.seriesLookback(metric, start)
+	m, err := p.resolveMetric(ctx, m, lookback, end)
+	if err != nil {
+		return "", nil, false, err
+	}
+	args := append([]any{lookback, end}, entityArgs(e)...)
 	prefix := `WITH per_epoch AS (` + p.metricQuery(m) + `), selected AS (SELECT * FROM per_epoch WHERE t >= ? AND t < ?)`
 	counterColumns := `NULL::VARCHAR,0::BIGINT,0::BIGINT,NULL::TIMESTAMP,NULL::TIMESTAMP,0::BIGINT,0::BIGINT`
 	if m.counter != nil {

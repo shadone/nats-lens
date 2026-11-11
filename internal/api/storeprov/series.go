@@ -23,6 +23,10 @@ type metricSQL struct {
 	sum      bool
 	complete bool
 	counter  *serverCounterMetric
+	// scan counts from the reports what query reads from
+	// epoch_asset_counts; it is read instead when an epoch of the range has
+	// no counts.
+	scan string
 }
 
 // maxGapToken in a metric query is replaced by the longest gap between
@@ -123,16 +127,14 @@ GROUP BY e.epoch, e.started_at`},
 	"cluster.slow_consumers": {sum: true, query: `WITH ` + slowCounterCTEs("") + `
 SELECT started_at AS t, sum(delta) AS v FROM slow_evidence
 WHERE delta >= 0 GROUP BY epoch, started_at`},
-	"cluster.durable_consumers": {query: `
-SELECT e.started_at AS t, count(DISTINCT (cs.account, cs.stream, cs.consumer)) AS v
-FROM consumer_stats cs JOIN epochs e USING (epoch)
-JOIN consumer_config cc ON cc.server_id = cs.server_id AND cc.account = cs.account AND cc.stream = cs.stream
-  AND cc.consumer = cs.consumer AND cs.epoch BETWEEN cc.first_epoch AND cc.last_epoch
-WHERE e.started_at >= ? AND e.started_at < ? AND coalesce(cc.durable_name, '') <> ''
-GROUP BY e.epoch, e.started_at`},
-	"cluster.streams":       {query: streamCount(`NOT starts_with(ss.stream, 'KV_') AND NOT starts_with(ss.stream, 'OBJ_')`)},
-	"cluster.kv_buckets":    {query: streamCount(`starts_with(ss.stream, 'KV_')`)},
-	"cluster.object_stores": {query: streamCount(`starts_with(ss.stream, 'OBJ_')`)},
+	// The asset counts read epoch_asset_counts. An epoch without a durable
+	// consumer has no point, as in its scan; the stream and asset counts
+	// leave out the epochs with incomplete JSZ replies.
+	"cluster.durable_consumers": {query: assetCountRead("durable_consumers", "AND c.durable_consumers > 0"), scan: durableScan},
+	"cluster.streams": {query: assetCountRead("streams", "AND "+jszObserved),
+		scan: streamScan(`NOT starts_with(ss.stream, 'KV_') AND NOT starts_with(ss.stream, 'OBJ_')`)},
+	"cluster.kv_buckets":    {query: assetCountRead("kv_buckets", "AND "+jszObserved), scan: streamScan(`starts_with(ss.stream, 'KV_')`)},
+	"cluster.object_stores": {query: assetCountRead("object_stores", "AND "+jszObserved), scan: streamScan(`starts_with(ss.stream, 'OBJ_')`)},
 	// Accounts with a connection or a stream on any server, the system
 	// account left out. The connections come from ACCSTATZ, which every
 	// server must have answered; the streams come from JSZ and count only
@@ -163,8 +165,8 @@ votes AS (
 lead AS (SELECT epoch, l FROM votes JOIN ep USING (epoch) WHERE 2 * n > quorum)
 SELECT t, CASE WHEN l <> lag(l IGNORE NULLS) OVER (ORDER BY epoch) THEN 1 ELSE 0 END AS v
 FROM ep LEFT JOIN lead USING (epoch)`},
-	"cluster.assets_replicated": {query: assetCount("r > 1")},
-	"cluster.assets_single":     {query: assetCount("r = 1")},
+	"cluster.assets_replicated": {query: assetCountRead("assets_replicated", "AND "+jszObserved), scan: assetScan("r > 1")},
+	"cluster.assets_single":     {query: assetCountRead("assets_single", "AND "+jszObserved), scan: assetScan("r = 1")},
 	// The slow consumer counter's increase per epoch and process. As in
 	// cluster.slow_consumers, a restarted process's first epoch has no
 	// increase, so slow consumers before its first report are not
@@ -206,9 +208,50 @@ func answeredAll(endpoint string) string {
 // jszObserved keeps the epochs whose JSZ replies are complete.
 var jszObserved = answeredAll("JSZ")
 
-// streamCount counts the streams any server reported per epoch whose row
+// assetCountRead reads a column of epoch_asset_counts per epoch, for the
+// epochs the condition keeps (epochs e, counts c).
+func assetCountRead(col, cond string) string {
+	return fmt.Sprintf(`
+SELECT e.started_at AS t, c.%s AS v
+FROM epochs e JOIN epoch_asset_counts c USING (epoch)
+WHERE e.started_at >= ? AND e.started_at < ? %s`, col, cond)
+}
+
+// countsMissing reports whether an epoch starting from start to before end
+// has no row in epoch_asset_counts.
+const countsMissing = `SELECT EXISTS (SELECT 1 FROM epochs e ANTI JOIN epoch_asset_counts c USING (epoch)
+WHERE e.started_at >= ? AND e.started_at < ?)`
+
+// resolveMetric returns m with its scan as the query when an epoch the
+// series reads, from the lookback start to end, has no asset counts:
+// a store opened before its fill finished, or rows written outside the
+// store's epoch write.
+func (p *Provider) resolveMetric(ctx context.Context, m metricSQL, start, end time.Time) (metricSQL, error) {
+	if m.scan == "" {
+		return m, nil
+	}
+	var missing bool
+	if err := p.db().QueryRowContext(ctx, countsMissing, start, end).Scan(&missing); err != nil {
+		return m, fmt.Errorf("asset counts: %w", err)
+	}
+	if missing {
+		m.query = m.scan
+	}
+	return m, nil
+}
+
+// durableScan counts the durable consumers any server reported per epoch.
+const durableScan = `
+SELECT e.started_at AS t, count(DISTINCT (cs.account, cs.stream, cs.consumer)) AS v
+FROM consumer_stats cs JOIN epochs e USING (epoch)
+JOIN consumer_config cc ON cc.server_id = cs.server_id AND cc.account = cs.account AND cc.stream = cs.stream
+  AND cc.consumer = cs.consumer AND cs.epoch BETWEEN cc.first_epoch AND cc.last_epoch
+WHERE e.started_at >= ? AND e.started_at < ? AND coalesce(cc.durable_name, '') <> ''
+GROUP BY e.epoch, e.started_at`
+
+// streamScan counts the streams any server reported per epoch whose row
 // ss matches the filter.
-func streamCount(filter string) string {
+func streamScan(filter string) string {
 	return fmt.Sprintf(`
 SELECT e.started_at AS t, count(DISTINCT (ss.account, ss.stream)) FILTER (WHERE %s) AS v
 FROM epochs e LEFT JOIN stream_stats ss ON ss.epoch = e.epoch
@@ -216,11 +259,11 @@ WHERE e.started_at >= ? AND e.started_at < ? AND %s
 GROUP BY e.epoch, e.started_at`, filter, jszObserved)
 }
 
-// assetCount counts the streams and durable consumers per epoch whose
+// assetScan counts the streams and durable consumers per epoch whose
 // configured replica count r matches the condition. A consumer's
 // replicas 0 means its stream's count. Servers that disagree on a count
 // give the largest.
-func assetCount(cond string) string {
+func assetScan(cond string) string {
 	return fmt.Sprintf(`
 WITH win AS (SELECT epoch, started_at FROM epochs e WHERE started_at >= ? AND started_at < ? AND %[2]s),
 st AS (
@@ -318,6 +361,11 @@ func (p *Provider) series(ctx context.Context, metric string, e *v1.EntityRef, r
 	if !ok {
 		return nil, fmt.Errorf("%w: metric %q has no query", api.ErrInvalid, metric)
 	}
+	return p.seriesOf(ctx, metric, m, e, r, maxPoints)
+}
+
+// seriesOf is series with the metric's query given.
+func (p *Provider) seriesOf(ctx context.Context, metric string, m metricSQL, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) (*v1.Series, error) {
 	step := api.Step(r, maxPoints, max(p.Interval, time.Second))
 	start, end := span(r)
 	agg := "avg(v)"
@@ -335,6 +383,10 @@ func (p *Provider) series(ctx context.Context, metric string, e *v1.EntityRef, r
 	}
 	// Rates and deltas need the epoch before the range's first one.
 	lookback := p.seriesLookback(metric, start)
+	m, err := p.resolveMetric(ctx, m, lookback, end)
+	if err != nil {
+		return nil, err
+	}
 	args := append([]any{lookback, end}, entityArgs(e)...)
 	args = append(args, step.Microseconds(), start, end)
 	having := " HAVING count(v) > 0"

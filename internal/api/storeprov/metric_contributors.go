@@ -120,7 +120,7 @@ func (p *Provider) metricContributorObservations(ctx context.Context, r *v1.List
 		starts = append(starts, int64(c.ProcessStarts))
 	}
 	dummy := contributors[0].Entity
-	q, args, counter, err := p.observationQuery(r.Metric, dummy, r.Range)
+	q, args, counter, err := p.observationQuery(ctx, r.Metric, dummy, r.Range)
 	if err != nil {
 		return err
 	}
