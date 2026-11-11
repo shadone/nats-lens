@@ -11,12 +11,14 @@ export interface ClientCell {
   drops: number;
   shutdowns: number;
   authErrors: number;
+  unknownDisconnects: number;
 }
 
 /** The kinds the client lane counts; the Events page filters by them. */
 export const CLIENT_LANE_KINDS = ['client.connect', 'client.disconnect', 'client.churn', 'client.auth_error'];
 
-export const cellTotal = (c: ClientCell) => c.connects + c.closes + c.drops + c.shutdowns + c.authErrors;
+type Counts = Pick<ClientCell, 'connects' | 'closes' | 'drops' | 'shutdowns' | 'authErrors' | 'unknownDisconnects'>;
+export const cellTotal = (c: Counts) => c.connects + c.closes + c.drops + c.shutdowns + c.authErrors + c.unknownDisconnects;
 /** Drops and failed authentications: the disconnects a client did not ask for. */
 export const cellProblems = (c: ClientCell) => c.drops + c.authErrors;
 
@@ -37,10 +39,10 @@ export function clientCells(buckets: ClientLaneBucket[], start: number, bucketMs
     if (!c) {
       const first = i * per, last = Math.min(bucketCount, first + per);
       c = {key: `${first}`, from: start + first * bucketMs, to: Math.min(end, start + last * bucketMs), buckets: last - first,
-        connects: 0, closes: 0, drops: 0, shutdowns: 0, authErrors: 0};
+        connects: 0, closes: 0, drops: 0, shutdowns: 0, authErrors: 0, unknownDisconnects: 0};
       cells.set(i, c);
     }
-    c.connects += b.connects; c.closes += b.closes; c.drops += b.drops; c.shutdowns += b.shutdowns; c.authErrors += b.authErrors;
+    c.connects += b.connects; c.closes += b.closes; c.drops += b.drops; c.shutdowns += b.shutdowns; c.authErrors += b.authErrors; c.unknownDisconnects += b.unknownDisconnects;
   }
   return [...cells.entries()].sort((a, b) => a[0] - b[0]).map(([, c]) => c).filter((c) => cellTotal(c) > 0);
 }

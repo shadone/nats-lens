@@ -9,7 +9,7 @@ const measure=vi.hoisted(()=>({width:800}));
 vi.mock('../lib/useWidth',()=>({useWidth:()=>measure.width}));
 vi.mock('../lib/useSystem',()=>({useSystem:()=>'example-prod'}));
 vi.mock('../api/timelineEvidence',()=>({useCapturedEvent:vi.fn(),useSelectedTimelineEvents:vi.fn()}));
-vi.mock('./InvestigationContext',()=>({InvestigationButton:()=>null}));
+vi.mock('./InvestigationContext',()=>({InvestigationButton:({selection}:{selection:unknown})=><span data-testid="prompt-selection">{JSON.stringify(selection)}</span>}));
 const result=<T,>(data:T)=>({data,isPending:false,error:null} as UseQueryResult<T,Error>);
 const start=Date.parse('2026-10-17T09:00:00Z'),end=start+60*60_000;
 const restart:LaneEvent={id:'restart:N1',time:start+18*60_000,source:'nats',kind:'server.restarted',shortLabel:'nats-0 restart',label:'nats-0 restarted, version 2.12.2 unchanged',entity:{kind:'server',key:'nats-0',name:'nats-0',account:'',stream:'',consumer:'',server:'nats-0'}};
@@ -17,7 +17,7 @@ const lameduck:LaneEvent={id:'7',eventId:'7',time:start+40*60_000,source:'nats',
 const elect=(id:string,kind:string,t:number):LaneEvent=>({id,eventId:id,time:start+t,source:'nats',kind,shortLabel:kind,label:`${kind} ${id}`});
 const tl:Timeline={start,bucketMs:5*60_000,bucketCount:12,rows:[],kubernetes:[],nats:[],windows:[],natsTruncated:false,findingTruncated:false,kubernetesTruncated:false,eventReadId:'99',
  servers:[restart,lameduck],serversTruncated:false,leaders:[elect('11','stream.leader_elected',16*60_000),elect('12','consumer.leader_elected',16*60_000+1000),elect('13','meta.leader_elected',30*60_000)],leadersTruncated:false,
- clients:[{index:0,connects:4,closes:4,drops:0,shutdowns:0,authErrors:0},{index:3,connects:6,closes:1,drops:2,shutdowns:3,authErrors:1}],systemEventsCaptured:true,jetstreamEventsCaptured:true};
+ clients:[{index:0,connects:4,closes:4,drops:0,shutdowns:0,authErrors:0,unknownDisconnects:0},{index:3,connects:6,closes:1,drops:2,shutdowns:3,authErrors:1,unknownDisconnects:0}],systemEventsCaptured:true,jetstreamEventsCaptured:true};
 const draw=(t:Timeline=tl)=>render(<MemoryRouter><StoryLanes tl={t} end={end} live={false}/></MemoryRouter>);
 beforeEach(()=>{measure.width=800;vi.mocked(useCapturedEvent).mockReturnValue(result(undefined));vi.mocked(useSelectedTimelineEvents).mockReturnValue(result({items:[],totalCount:0,nextPageToken:''}))});
 
@@ -29,7 +29,7 @@ it('labels each new lane with its count and links it to the captured Events view
  }
  expect(screen.getByRole('group',{name:'Servers: 1 restart, 1 server event'})).toBeInTheDocument();
  expect(screen.getByRole('group',{name:'Leader elections: 3, 1 meta'})).toBeInTheDocument();
- expect(screen.getByRole('group',{name:'Client connections: 10 connects, 2 drops, 1 failed authentication'})).toBeInTheDocument();
+ expect(screen.getByRole('group',{name:'Client connections: 10 connects, 5 client closes, 2 drops, 3 server-shutdown disconnects, 1 failed authentication'})).toBeInTheDocument();
  expect(screen.getByText('1 restart, 1 event')).toBeInTheDocument();
 });
 
@@ -54,8 +54,8 @@ it('groups overlapping leader elections with bounded membership and keeps the le
 
 it('draws client counts as bucket marks, drops highlighted, never as one event',()=>{
  draw();
- const quiet=screen.getByRole('button',{name:'Client connections 09:00–09:05: 4 connects'});
- const busy=screen.getByRole('button',{name:'Client connections 09:15–09:20: 6 connects, 2 drops, 1 failed authentication'});
+ const quiet=screen.getByRole('button',{name:'Client connections 09:00–09:05: 4 connects, 4 client closes'});
+ const busy=screen.getByRole('button',{name:'Client connections 09:15–09:20: 6 connects, 1 client close, 2 drops, 3 server-shutdown disconnects, 1 failed authentication'});
  expect(quiet).not.toHaveClass('drops');expect(busy).toHaveClass('drops');
  fireEvent.pointerEnter(busy);const tip=screen.getByRole('tooltip');
  expect(tip).toHaveTextContent('2026-10-17 09:15:00 UTC – 2026-10-17 09:20:00 UTC');expect(tip).toHaveTextContent('not one event');
@@ -70,14 +70,13 @@ it('draws client counts as bucket marks, drops highlighted, never as one event',
 
 it('merges client buckets into wider marks on a narrow track',()=>{
  measure.width=30;draw();
- expect(screen.getByRole('button',{name:'Client connections 09:00–09:25: 10 connects, 2 drops, 1 failed authentication'})).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Client connections 09:00–09:25: 10 connects, 5 client closes, 2 drops, 3 server-shutdown disconnects, 1 failed authentication'})).toBeInTheDocument();
 });
 
 it('says when the sources were not captured instead of drawing a quiet lane',()=>{
  draw({...tl,leaders:[],clients:[],servers:[restart],systemEventsCaptured:false,jetstreamEventsCaptured:false});
  expect(screen.getByText('JetStream advisories not captured')).toBeInTheDocument();
- expect(screen.getByText('System events not captured')).toBeInTheDocument();
- expect(screen.getByText('System events not captured; restarts only')).toBeInTheDocument();
+ expect(screen.getAllByText('System events not captured')).toHaveLength(2);
  expect(screen.getByRole('group',{name:'Client connections: system events not captured'})).toBeInTheDocument();
  // Restarts come from the collections and stay.
  expect(screen.getByRole('button',{name:/Server restart/})).toBeInTheDocument();
@@ -103,4 +102,49 @@ it('explains restarts inside an overlap group as derived from the collections',(
  const dialog=screen.getByRole('dialog');
  expect(within(dialog).getAllByText(/Derived from the collections/)).toHaveLength(2);
  expect(within(dialog).getByRole('link',{name:'Server nats-1'})).toBeInTheDocument();
+});
+
+it('counts closes and shutdown disconnects: a lane with only those is not "none in range"',()=>{
+ draw({...tl,clients:[{index:2,connects:0,closes:40,drops:0,shutdowns:25,authErrors:0,unknownDisconnects:0}]});
+ expect(screen.getAllByRole('button',{name:/^Client connections 09:10/})).toHaveLength(1);
+ const note=screen.getByRole('link',{name:'Clients'}).parentElement!.querySelector('small')!.textContent;
+ expect(note).toBe('40 client closes, 25 server-shutdown disconnects');
+ expect(screen.getByRole('group',{name:'Client connections: 40 client closes, 25 server-shutdown disconnects'})).toBeInTheDocument();
+});
+
+it('counts every member of a group of restarts, not only recorded identities',()=>{
+ const second={...restart,id:'restart:N2',time:restart.time+1000,label:'nats-1 restarted, version 2.12.2 unchanged',entity:{...restart.entity!,key:'nats-1',name:'nats-1',server:'nats-1'}};
+ draw({...tl,servers:[restart,second,{...lameduck,time:restart.time+2000}]});
+ fireEvent.click(screen.getByRole('button',{name:'3 overlapping Servers marks'}));
+ const dialog=screen.getByRole('dialog');
+ expect(dialog).toHaveTextContent('3 observations: 1 recorded event, 2 restarts derived from the collections.');
+ expect(dialog).not.toHaveTextContent('0 captured event identities');
+});
+
+it('hatches the spans where event capture stopped and says so',()=>{
+ draw({...tl,eventCaptureGaps:[{start:start+30*60_000,end:start+45*60_000}]});
+ const marks=screen.getAllByRole('button',{name:'Event capture stopped 09:30–09:45'});
+ expect(marks).toHaveLength(3);
+ fireEvent.focus(marks[0]);
+ expect(screen.getByRole('tooltip')).toHaveTextContent('2026-10-17 09:30:00 UTC – 2026-10-17 09:45:00 UTC');
+ expect(screen.getByRole('tooltip')).toHaveTextContent('not because it was quiet');
+ expect(screen.getByRole('group',{name:/^Client connections: .*; capture stopped 09:30–09:45$/})).toBeInTheDocument();
+});
+
+it('says capture stopped for the whole range instead of none in range',()=>{
+ draw({...tl,servers:[],leaders:[],clients:[],systemEventsCaptured:false,jetstreamEventsCaptured:false,eventCaptureGaps:[{start,end}]});
+ expect(screen.getAllByText('Event capture stopped for the whole range')).toHaveLength(3);
+ expect(screen.queryByText('none in range')).not.toBeInTheDocument();
+ expect(screen.getByRole('group',{name:'Client connections: event capture stopped for the whole range'})).toBeInTheDocument();
+});
+
+it('gives client cells a bound events query and restarts a server selection for the agent prompt',()=>{
+ draw();
+ fireEvent.click(screen.getByRole('button',{name:/^Client connections 09:15–09:20/}));
+ const cell=JSON.parse(within(screen.getByRole('dialog')).getByTestId('prompt-selection').textContent!);
+ expect(cell.query).toEqual({method:'ListEvents',request:{range:{start:'2026-10-17T09:15:00.000Z',end:'2026-10-17T09:20:00.000Z'},kinds:['client.connect','client.disconnect','client.churn','client.auth_error'],pageSize:50,eventReadId:'99'}});
+ fireEvent.keyDown(document,{key:'Escape'});
+ fireEvent.click(screen.getByRole('button',{name:/^Server restart/}));
+ const sel=JSON.parse(within(screen.getByRole('dialog')).getByTestId('prompt-selection').textContent!);
+ expect(sel.entity).toMatchObject({kind:'server',key:'nats-0'});expect(sel.annotation).toContain('derived from the collections');
 });

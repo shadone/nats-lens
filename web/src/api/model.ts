@@ -341,6 +341,8 @@ export interface Timeline {
   systemEventsCaptured?: boolean;
   /** Whether JetStream advisories were captured before the range's end. */
   jetstreamEventsCaptured?: boolean;
+  /** Spans of the range in which events were not captured, clipped to it. */
+  eventCaptureGaps?: Range[];
 }
 
 /** Client events of one timeline bucket: counts, not single events. */
@@ -351,6 +353,8 @@ export interface ClientLaneBucket {
   drops: number;
   shutdowns: number;
   authErrors: number;
+  /** Disconnects without a recorded reason. */
+  unknownDisconnects: number;
 }
 
 export interface LensEvent {

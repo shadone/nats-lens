@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {clientCells, cellProblems, cellTotal} from './clientLane';
 
-const b = (index: number, connects: number, drops = 0) => ({index, connects, closes: connects, drops, shutdowns: 0, authErrors: 0});
+const b = (index: number, connects: number, drops = 0) => ({index, connects, closes: connects, drops, shutdowns: 0, authErrors: 0, unknownDisconnects: 0});
 const MIN = 60_000;
 
 describe('clientCells', () => {

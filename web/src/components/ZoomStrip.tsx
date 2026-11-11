@@ -136,7 +136,7 @@ export function ZoomStrip({ tl, win }: { tl: Timeline; win: Window }) {
         </span>
         <span className="aside">
           {wide
-            ? "Minute resolution: Kubernetes events above the axis, NATS advisories and finding transitions below."
+            ? "Minute resolution: Kubernetes events above the axis; NATS advisories, server restarts and finding transitions below."
             : "Minute resolution, time runs down. Labels shift down when events are close; the stem marks the exact minute."}
         </span>
         <span className="zkey" aria-hidden="true">

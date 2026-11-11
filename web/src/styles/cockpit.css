@@ -99,6 +99,7 @@
 /* Client counts: a bar per cell rising from the track's floor; --h is its height as a fraction of the track, by the share of the lane's busiest cell. */
 .sl-density{position:absolute;bottom:var(--sp-1);height:calc((100% - var(--sp-2)) * var(--h,1));min-width:2px;border-radius:var(--r-xs) var(--r-xs) 0 0;background:var(--track-fill)}
 .sl-density-drop{position:absolute;left:0;right:0;bottom:0;background:var(--cell-warning)}
+.sl-gap{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(135deg,transparent 0 4px,var(--text-faint) 4px 5px);opacity:.6;border-inline:1px dashed var(--text-muted)}
 .sl-none{position:absolute;inset:0;display:flex;align-items:center;padding-left:var(--sp-2);font-size:var(--fs-xs);color:var(--text-muted);background:repeating-linear-gradient(135deg,transparent 0 6px,var(--surface-sunk) 6px 12px)}
 .sl-win{position:absolute;top:4px;bottom:4px;background:var(--upgrade-fill);border-left:1px dashed var(--upgrade-line);border-right:1px dashed var(--upgrade-line)}
 .sl-run{position:absolute;top:11px;height:20px;min-width:2px;border-radius:var(--r-xs)}
@@ -122,6 +123,7 @@
 .sl-key.sl-tick.srv.restart,.sl-key.sl-tick.lead.meta{height:14px}
 .sl-key.sl-density{width:10px;height:12px;bottom:auto}
 .sl-key.sl-density.drops{background:var(--cell-warning)}
+.sl-key.sl-gap{width:14px;height:12px;top:auto;bottom:auto}
 .sl-checks{margin-top:var(--sp-4)}
 
 /* busiest consumers and streams */

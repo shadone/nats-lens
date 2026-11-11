@@ -6,15 +6,24 @@ import {hm} from '../lib/format';
 import {evidenceQuery, evidenceRange} from '../lib/timelineEvidence';
 import {useSystem} from '../lib/useSystem';
 import {TimelineMark, timelineTime} from './TimelineMark';
+import {InvestigationButton} from './InvestigationContext';
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 
-/** "120 connects, 3 drops": what a cell's aria label and the lane note say. */
-export function clientCountsText(c: Pick<ClientCell, 'connects' | 'drops' | 'authErrors'>): string {
-  const parts = [plural(c.connects, 'connect')];
-  if (c.drops) parts.push(plural(c.drops, 'drop'));
-  if (c.authErrors) parts.push(plural(c.authErrors, 'failed authentication'));
-  return parts.join(', ');
+type Counts = Pick<ClientCell, 'connects' | 'closes' | 'drops' | 'shutdowns' | 'authErrors' | 'unknownDisconnects'>;
+
+/** "120 connects, 118 client closes, 3 drops": the non-zero counts, as a
+ * cell's aria label and the lane note say them. */
+export function clientCountsText(c: Counts): string {
+  const parts = [
+    c.connects && plural(c.connects, 'connect'),
+    c.closes && plural(c.closes, 'client close'),
+    c.drops && plural(c.drops, 'drop'),
+    c.shutdowns && plural(c.shutdowns, 'server-shutdown disconnect'),
+    c.unknownDisconnects && plural(c.unknownDisconnects, 'disconnect without a reason', 'disconnects without a reason'),
+    c.authErrors && plural(c.authErrors, 'failed authentication'),
+  ].filter(Boolean);
+  return parts.length ? parts.join(', ') : 'no client events';
 }
 
 function CellPreview({c}: {c: ClientCell}) {
@@ -25,24 +34,29 @@ function CellPreview({c}: {c: ClientCell}) {
     <div>Closed by the client: {c.closes}</div>
     <div>Drops: {c.drops}</div>
     <div>Disconnected by a server shutdown: {c.shutdowns}</div>
+    <div>Disconnects without a recorded reason: {c.unknownDisconnects}</div>
     <div>Failed authentications: {c.authErrors}</div>
-    <div>Counts of captured client events in {plural(c.buckets, 'bucket')}, not one event. A churn summary counts each short connection it folded.</div>
+    <div>Counts of captured client events in {plural(c.buckets, 'bucket')}, not one event. A churn summary counts each short connection it folded, in the bucket of its first connect.</div>
   </>;
 }
 
 function CellDetails({c, readId}: {c: ClientCell; readId?: string}) {
   const system = useSystem();
+  const range = evidenceRange(c.from, c.to);
   const path = (kinds: string[]) => {
-    const p = evidenceQuery(system, evidenceRange(c.from, c.to));
+    const p = evidenceQuery(system, range);
     p.set('kind', kinds.join(','));
     p.set('show', 'all');
     if (readId !== undefined) p.set('eventReadId', readId);
     return `/events?${p}`;
   };
+  const query = {method: 'ListEvents', request: {range, kinds: CLIENT_LANE_KINDS, pageSize: 50, ...(readId !== undefined ? {eventReadId: readId} : {})}};
   return <section aria-label="Client event evidence">
     <p><Link className="x" to={path(CLIENT_LANE_KINDS)}>Open these client events</Link></p>
-    {c.drops + c.shutdowns > 0 && <p><Link className="x" to={path(['client.disconnect'])}>Open the disconnects</Link> The Events page lists every disconnect with its reason; drops are those closed neither by the client nor by a server shutdown.</p>}
+    {c.drops + c.shutdowns + c.unknownDisconnects > 0 && <p><Link className="x" to={path(['client.disconnect'])}>Open the disconnects</Link> The Events page lists every disconnect with its reason; drops are those closed neither by the client nor by a server shutdown, with a recorded reason.</p>}
     {c.authErrors > 0 && <p><Link className="x" to={path(['client.auth_error'])}>Open the failed authentications</Link></p>}
+    <div className="btns"><InvestigationButton label selection={{range, start: c.from, end: c.to, query,
+      annotation: `Client event counts of a Timeline interval (${clientCountsText(c)}); counts, not one event.`}}/></div>
   </section>;
 }
 

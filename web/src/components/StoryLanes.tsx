@@ -23,7 +23,8 @@ import {findingHistoryPath} from "../lib/findingHistory";
 import {evidenceRange,evidenceQuery} from "../lib/timelineEvidence";
 import { ZoomStrip } from "./ZoomStrip";
 import {TimelineClientLane,clientCountsText} from "./TimelineClientLane";
-import {CLIENT_LANE_KINDS} from "../lib/clientLane";
+import {CLIENT_LANE_KINDS,cellTotal} from "../lib/clientLane";
+import {TimelineCaptureGap} from "./TimelineCaptureGap";
 
 interface Props {
   tl: Timeline;
@@ -47,7 +48,7 @@ function natsClass(e: LaneEvent): string {
 }
 
 /** The marks the lanes draw, each drawn as in the lanes. */
-function LaneLegend({ windows, subjects }: { windows: boolean; subjects: boolean }) {
+function LaneLegend({ windows, subjects, gaps }: { windows: boolean; subjects: boolean; gaps: boolean }) {
   const item = (cls: string, label: string) => (
     <li key={cls}>
       <span className={`sl-key ${cls}`} aria-hidden="true" />
@@ -68,6 +69,7 @@ function LaneLegend({ windows, subjects }: { windows: boolean; subjects: boolean
       {subjects && item("sl-tick lead", "leader election")}
       {subjects && item("sl-density", "client events")}
       {subjects && item("sl-density drops", "client drops")}
+      {gaps && item("sl-gap", "event capture stopped")}
       {item("sl-tick nats", "NATS event")}
       {item("sl-tick warn", "NATS warning")}
     </ul>
@@ -96,7 +98,15 @@ function StoryLaneContents({ tl, end, live }: Props) {
   const servers = tl.servers ?? [], leaders = tl.leaders ?? [];
   const restarts = servers.filter((e) => e.kind === "server.restarted").length;
   const metaElections = leaders.filter((e) => e.kind === "meta.leader_elected").length;
-  const clientSum = (tl.clients ?? []).reduce((a, b) => ({connects: a.connects + b.connects, drops: a.drops + b.drops, authErrors: a.authErrors + b.authErrors}), {connects: 0, drops: 0, authErrors: 0});
+  const clientSum = (tl.clients ?? []).reduce((a, b) => ({connects: a.connects + b.connects, closes: a.closes + b.closes, drops: a.drops + b.drops,
+    shutdowns: a.shutdowns + b.shutdowns, authErrors: a.authErrors + b.authErrors, unknownDisconnects: a.unknownDisconnects + b.unknownDisconnects}),
+    {connects: 0, closes: 0, drops: 0, shutdowns: 0, authErrors: 0, unknownDisconnects: 0});
+  // Spans without event capture: an empty stretch there is not a quiet one.
+  const gaps = (tl.eventCaptureGaps ?? []).filter((g) => g.end > g.start);
+  const stoppedAll = gaps.some((g) => g.start <= tl.start && g.end >= tl.start + span);
+  const notCaptured = (what: string) => (stoppedAll ? "Event capture stopped for the whole range" : `${what} not captured`);
+  const gapNote = gaps.length && !stoppedAll ? `; capture stopped ${gaps.map((g) => `${hm(g.start)}–${hm(g.end)}`).join(", ")}` : "";
+  const gapMarks = (lane: string) => gaps.map((g) => <TimelineCaptureGap key={`${lane}${g.start}`} gap={g} frac={frac}/>);
   const windows = tl.windows.map((w) => (
     <TimelineMark key={w.start} className="sl-win" style={{left:pct(frac(w.start)),width:pct(frac(w.end)-frac(w.start))}} label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>} details={<TimelineWindowEvidence window={w} range={fixed} readId={tl.eventReadId}/>}/>
   ));
@@ -119,10 +129,11 @@ function StoryLaneContents({ tl, end, live }: Props) {
     {
       id: "servers",
       name: "Servers",
-      note: servers.length ? [restarts && plural(restarts, "restart"), servers.length - restarts && plural(servers.length - restarts, "event")].filter(Boolean).join(", ") : tl.systemEventsCaptured ? "none in range" : "no restarts seen",
-      label: `Servers: ${servers.length ? `${plural(restarts, "restart")}, ${plural(servers.length - restarts, "server event")}` : "none in range"}${tl.systemEventsCaptured ? "" : "; system events not captured, restarts come from the collections"}`,
+      note: (servers.length ? [restarts && plural(restarts, "restart"), servers.length - restarts && plural(servers.length - restarts, "event")].filter(Boolean).join(", ") : tl.systemEventsCaptured ? "none in range" : "no restarts seen") + (gaps.length ? ", capture gaps" : ""),
+      label: `Servers: ${servers.length ? `${plural(restarts, "restart")}, ${plural(servers.length - restarts, "server event")}` : "none in range"}${tl.systemEventsCaptured ? "" : `; ${notCaptured("system events").toLowerCase()}, restarts come from the collections`}${gapNote}`,
       marks: <>
-        {!tl.systemEventsCaptured && <span className="sl-none">System events not captured; restarts only</span>}
+        {!tl.systemEventsCaptured && <span className="sl-none">{notCaptured("System events")}</span>}
+        {gapMarks("servers")}
         <TimelineEventTicks name="Servers" markLabel={e=>e.kind==="server.restarted"?`Server restart: ${e.label}`:`Server event: ${e.label}`} captureLimits={timelineCaptureLimits(tl,"servers")} events={servers} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={e=>`sl-tick srv${e.kind==="server.restarted"?" restart":` ${natsClass(e)}`}`} />
       </>,
       more: "/events?kind=server.lameduck,server.shutdown,server.out_of_storage,server.removed&show=all",
@@ -130,10 +141,11 @@ function StoryLaneContents({ tl, end, live }: Props) {
     {
       id: "leaders",
       name: "Leaders",
-      note: !tl.jetstreamEventsCaptured ? "not captured" : leaders.length ? plural(leaders.length, "election") : "none in range",
-      label: `Leader elections: ${!tl.jetstreamEventsCaptured ? "JetStream advisories not captured" : leaders.length ? `${leaders.length}${metaElections ? `, ${metaElections} meta` : ""}` : "none in range"}`,
+      note: (!tl.jetstreamEventsCaptured ? stoppedAll ? "capture stopped" : "not captured" : leaders.length ? plural(leaders.length, "election") : "none in range") + (gaps.length && !stoppedAll ? ", capture gaps" : ""),
+      label: `Leader elections: ${!tl.jetstreamEventsCaptured ? notCaptured("JetStream advisories").toLowerCase() : leaders.length ? `${leaders.length}${metaElections ? `, ${metaElections} meta` : ""}` : "none in range"}${gapNote}`,
       marks: <>
-        {!tl.jetstreamEventsCaptured && <span className="sl-none">JetStream advisories not captured</span>}
+        {!tl.jetstreamEventsCaptured && <span className="sl-none">{notCaptured("JetStream advisories")}</span>}
+        {gapMarks("leaders")}
         <TimelineEventTicks name="Leaders" markLabel={e=>`Leader election: ${e.label}`} captureLimits={timelineCaptureLimits(tl,"leaders")} events={leaders} from={tl.start} end={tl.start+span} width={axisW} range={fixed} readId={tl.eventReadId} className={e=>`sl-tick lead${e.kind==="meta.leader_elected"?" meta":""}`} />
       </>,
       more: "/events?kind=meta.leader_elected,stream.leader_elected,consumer.leader_elected&show=all",
@@ -155,10 +167,11 @@ function StoryLaneContents({ tl, end, live }: Props) {
     ...(subjectLanes ? [{
       id: "clients",
       name: "Clients",
-      note: !tl.systemEventsCaptured ? "not captured" : clientSum.connects + clientSum.drops + clientSum.authErrors ? clientCountsText(clientSum) : "none in range",
-      label: `Client connections: ${!tl.systemEventsCaptured ? "system events not captured" : clientCountsText(clientSum)}`,
+      note: (!tl.systemEventsCaptured ? stoppedAll ? "capture stopped" : "not captured" : cellTotal(clientSum) ? clientCountsText(clientSum) : "none in range") + (gaps.length && !stoppedAll ? ", capture gaps" : ""),
+      label: `Client connections: ${!tl.systemEventsCaptured ? notCaptured("system events").toLowerCase() : clientCountsText(clientSum)}${gapNote}`,
       marks: <>
-        {!tl.systemEventsCaptured && <span className="sl-none">System events not captured</span>}
+        {!tl.systemEventsCaptured && <span className="sl-none">{notCaptured("System events")}</span>}
+        {gapMarks("clients")}
         <TimelineClientLane tl={tl} end={tl.start+span} width={axisW}/>
       </>,
       more: `/events?kind=${CLIENT_LANE_KINDS.join(",")}&show=all`,
@@ -202,7 +215,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
         </div>
       </div>
       <div className="sl-foot">
-        <LaneLegend windows={tl.windows.length > 0} subjects={subjectLanes} />
+        <LaneLegend windows={tl.windows.length > 0} subjects={subjectLanes} gaps={subjectLanes && gaps.length > 0} />
         <InfoTip label="Timeline lanes" text="Events are observed timestamps; coloured finding boxes show the worst check state in each time bucket. Dashed boxes show buckets with no observed check state. A box is not one incident or an exact onset. Shaded windows are inferred context, not proven causes. Hover or focus a mark to inspect it; activate it to open its evidence. Missing or truncated captures limit what the Timeline can show."/>
         <span className="right">
           {checks && (
