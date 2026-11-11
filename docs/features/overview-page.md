@@ -26,6 +26,8 @@ The worst-streams table requests one bounded page; its count and totals cover al
 - **Summary and detail.** "System summary" labels the compact cards, and its note says once for all of them that the figures are the latest available counts and reports. Counts come from the latest available bucket, Storage uses newest server reports, and Meta leader names the newest collection's leader; while its chart shows, a caption reads "Leader changes per bucket", since the chart counts changes rather than naming leaders. "Detailed trends" adds traffic rates, event totals, server spread, and replica counts over the selected range. Both sections retain useful history; the summary is not a claim that every figure comes from one snapshot.
 
 - **Inspect chart values.** Compact and expanded charts show UTC bucket times and formatted values on hover or touch. Touch keeps the selected bucket when the chart receives focus. Focus a chart and use arrow keys, Home, or End for the same readout; Escape or blur dismisses it. Missing buckets say "No sample" without interpolation. Bucket descriptions distinguish last counts, mean rates, event totals, and server-band aggregation. The busiest-consumer mini charts use the same inspector. Readouts escape narrow chart, table, and card clipping in a viewport-bounded overlay, with room for normal multiline text. Their position follows scrolling and resizing, including clipped table regions. Long content scrolls inside the overlay and Page Up/Page Down work from the focused trigger. Hovering the overlay keeps it readable. Multiple lines have separate labels, bands show lower and upper bounds, and stacked areas show each component's count. The Meta leader chart reports leader changes per bucket; it does not infer the leader's historical name. Without a majority naming the newest leader, its headline reads "Unknown"; the range total stays in the subtitle.
+- **One hover across charts.** Hovering, touching or focusing a moment in one Overview chart draws a line at that moment in every other Overview chart (tiles, detailed trends and the busiest-consumer mini charts) and down the timeline lanes; hovering the lanes with a mouse or pen does the same in the charts. Only the chart that set the moment shows its readout, and another chart or the lanes taking the moment close it; the others show the line with no value, also where they have no sample. Leaving the chart, blur, or Escape anywhere on the page clears the line everywhere. The line takes no focus and is hidden from screen readers; the focused chart's readout stays the accessible output. Proposed, not yet confirmed: a chart follows only when each end of its range is within a twentieth of the page range's length of the page range's end, so a seven-day chart on a one-hour page draws none; a tap on the lanes is a tap on a mark, not a hover; on a phone a touch-and-hold inspection draws the lines too, though most charts are then off screen.
+- **Zoom from the lanes.** Dragging across the timeline lanes selects an interval as on the charts ([chart interval selection](chart-interval-selection.md)); its Set time range zooms the page in. "Select interval" under the lanes opens the same dialog without a drag. A click on a lane mark still opens its story; a drag that starts on a mark does not. Proposed, not yet confirmed: the lanes take the charts' gesture rather than a zoom of their own, and they have no keyboard selection beyond Select interval.
 
 - **Consumer prompt actions.** In Busiest consumers, the copy action floats in the Consumer cell on row hover or keyboard focus; it stays visible on touch devices. It reserves no Range width and retains the chart’s selected point. Other shared charts place floating actions outside plot pixels without a separate action column. Context and clipboard behavior follow [agent investigations](agent-investigations.md).
 
@@ -95,6 +97,22 @@ The worst-streams table requests one bounded page; its count and totals cover al
 - **When** I hover, touch, or focus the chart and move with arrow keys
 - **Then** the readout names the bucket's UTC time and each series with its unit
 - **And** a missing bucket says "No sample" rather than carrying the previous value forward
+
+### Follow one moment across the Overview
+
+- **Surfaces:** `ui`
+- **Given** the Overview over the last hour
+- **When** I hover the Clients tile at 09:10, or focus it and move with arrow keys
+- **Then** every other Overview chart and the timeline lanes draw a line at 09:10, and only Clients shows a readout
+- **And** a chart with no sample at 09:10 draws the line without a value
+- **And** leaving the chart, blur or Escape removes every line
+
+### Zoom in from the lanes
+
+- **Surfaces:** `ui`
+- **Given** the Overview's timeline lanes
+- **When** I drag across 09:30 to 09:45 and choose Set time range
+- **Then** the page range becomes 09:30 to 09:45 UTC, and Back restores the previous range
 
 ### Open a chart's area
 
@@ -261,8 +279,6 @@ The worst-streams table requests one bounded page; its count and totals cover al
 - **Then** the first result holds the connections series, the second an `error` naming the unknown metric, and `range` the one range both were read for
 
 ## Planned
-
-- **One hover across charts.** Hovering a point marks the same moment in every chart and in the lanes. Dragging over the lanes zooms in, and a click on a mark tells its story.
 
 ### Read an Overview with short history
 

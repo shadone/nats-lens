@@ -16,7 +16,7 @@ Select time on a storage chart, then choose whether to change the page range or 
 - Drag horizontally in either direction to highlight time. A shared dialog shows editable UTC endpoints and the captured system/account scope. The selection uses the chart frame at gesture start; refreshing the chart does not move the endpoints or close the dialog.
 - **Set time range** freezes the global range at the chosen endpoints. Shared URLs preserve milliseconds. Back restores the previous range. Existing endpoint pins are cleared when the range changes.
 - **Investigate change** opens the storage comparison's contributors view with explicit system, account and fixed endpoints. Endpoint availability and retained evidence rules still apply; selecting time does not establish a cause or guarantee matching collections.
-- The initial automatic scope is storage-byte charts: Overview storage, Capacity total/server/resource histories, and shared stream storage charts. Unrelated metrics do not imply storage attribution. Callers can explicitly enable generic time selection without the storage action.
+- The initial automatic scope is storage-byte charts: Overview storage, Capacity total/server/resource histories, and shared stream storage charts. Unrelated metrics do not imply storage attribution. Callers can explicitly enable generic time selection without the storage action. The Overview's timeline lanes take generic time selection: a drag across any lane, or Select interval under them, opens the same dialog, whose Set time range zooms the page in.
 - Focus the plot and use Shift with arrow keys, then Enter. The floating Select interval control opens a UTC time picker without dragging and remains available on touch screens. Ordinary point inspection, copy actions and detail links remain available.
 - Proposed, not yet confirmed: a four-pixel horizontal threshold distinguishes a drag from a click. Tiny clicks retain existing navigation. Vertical touch gestures retain scrolling; cancelled gestures and Escape do not change the range.
 - Valid endpoints must be different, ordered, inside the captured frame and within the shared maximum range. The dialog uses the shared focus and scroll lock. Navigation or scope changes dismiss stale selections.
@@ -50,5 +50,5 @@ Select time on a storage chart, then choose whether to change the page range or 
 ## Not supported / out of scope
 
 - Selection does not interpolate missing measurements, identify causes or create universal collection pins.
-- Arbitrary metric drill-down, categorical plots, Timeline marks and cross-chart brushing are separate capabilities.
+- Arbitrary metric drill-down, categorical plots and Timeline marks are separate capabilities. A selection on one chart is not highlighted on the others; the Overview shares only the hovered moment ([overview-page.md](overview-page.md)).
 - Selecting one resource does not filter the system-wide storage comparison to that resource; the comparison exposes its own contributors and filters.
