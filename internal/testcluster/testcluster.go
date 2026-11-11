@@ -188,8 +188,10 @@ func (c *Cluster) boot(path, name string) *server.Server {
 		c.t.Fatalf("server %s: %v", name, err)
 	}
 	go s.Start()
-	if !s.ReadyForConnections(10 * time.Second) {
-		c.t.Fatalf("server %s not ready", name)
+	// As generous as MetaLeaderTimeout: a full parallel test run can starve
+	// a server's start for more than 10 s.
+	if !s.ReadyForConnections(MetaLeaderTimeout) {
+		c.t.Fatalf("server %s not ready after %s", name, MetaLeaderTimeout)
 	}
 	return s
 }
