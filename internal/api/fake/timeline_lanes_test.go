@@ -92,3 +92,34 @@ func TestTimelineCaptureSinceLongRange(t *testing.T) {
 			len(tl.GetLeaders()), tl.GetJetstreamEventsCaptured())
 	}
 }
+
+// sysGaps are the Leaders lane's spans of the system account connection.
+func sysGaps(tl *v1.GetStatusTimelineResponse) []string {
+	var out []string
+	for _, g := range tl.GetAdvisoryCaptureGaps() {
+		if g.GetConnection() == api.SystemConnection {
+			out = append(out, g.GetRange().GetStart().AsTime().Format("15:04:05")+"-"+g.GetRange().GetEnd().AsTime().Format("15:04:05"))
+		}
+	}
+	return out
+}
+
+// The Leaders lane hatches a lost system account connection, which carries
+// the meta leader elections: example-staging's sys connection lost its
+// server for 50 seconds. example-global's sys connection fails over at
+// 08:44:06 within a second, shorter than api.EventsFailover: no span.
+func TestTimelineSystemConnectionGap(t *testing.T) {
+	_, c := apitest.ServeHandler(t, &api.Handler{Systems: fake.Demo(false)})
+	lost := fake.FixedNow.Add(-7 * time.Hour)
+	staging := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{System: fake.StagingSystem,
+		Range: &v1.TimeRange{Start: timestamppb.New(lost.Add(-30 * time.Minute)), End: timestamppb.New(lost.Add(30 * time.Minute))}})))
+	if got, want := sysGaps(staging), []string{"07:30:00-07:30:50"}; !slices.Equal(got, want) {
+		t.Errorf("staging Leaders gaps of %q = %v, want %v (all: %v)", api.SystemConnection, got, want, staging.GetAdvisoryCaptureGaps())
+	}
+	global := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{System: fake.GlobalSystem,
+		Range: &v1.TimeRange{Start: timestamppb.New(at(8, 30, 0)), End: timestamppb.New(at(9, 0, 0))}})))
+	if got := sysGaps(global); len(got) != 0 || len(global.GetSystemCaptureGaps()) != 0 || !global.GetJetstreamEventsCaptured() {
+		t.Errorf("global's 1 s failover at 08:44:06: Leaders gaps %v, Servers gaps %v, advisories captured %v",
+			got, global.GetSystemCaptureGaps(), global.GetJetstreamEventsCaptured())
+	}
+}
