@@ -28,8 +28,11 @@ var ErrOverloaded = errors.New("query budget in use")
 var ErrClosed = errors.New("store closed")
 
 // QueuePerSlot is how many queries may wait for each slot of the budget;
-// past it a query is refused at once. Proposed, not yet confirmed.
-const QueuePerSlot = 32
+// past it a query is refused at once. Each waiter holds a pooled DuckDB
+// connection while it waits, so the queue bounds those too: 32 at a
+// budget of 4, above the 16 to 18 waiters the mixed load reached.
+// Proposed, not yet confirmed.
+const QueuePerSlot = 8
 
 // OverloadError is a query refused for ErrOverloaded. It wraps the
 // context's error when the deadline passed while it waited, so code that

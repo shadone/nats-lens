@@ -100,10 +100,10 @@ func TestCancelReachesDuckDB(t *testing.T) {
 		executing = append(executing, runQuery(apiCtx(ctx), s, endless))
 	}
 	waitUntilTrue(t, "both slots taken", func() bool { a, _ := load(s); return a == 2 })
-	for range 20 {
+	for range 16 {
 		queued = append(queued, runQuery(apiCtx(ctx), s, `SELECT 1`))
 	}
-	waitUntilTrue(t, "20 queued", func() bool { _, q := load(s); return q == 20 })
+	waitUntilTrue(t, "16 queued, the queue's bound", func() bool { _, q := load(s); return q == 16 })
 	s.mu.Lock("test")
 	var writes []chan error
 	for range 20 {
@@ -135,7 +135,7 @@ func TestCancelReachesDuckDB(t *testing.T) {
 	if took > 5*time.Second {
 		t.Fatalf("the canceled calls took %s to end", took)
 	}
-	t.Logf("all 62 canceled calls ended %s after the cancel", took.Round(time.Millisecond))
+	t.Logf("all 38 canceled calls ended %s after the cancel", took.Round(time.Millisecond))
 	// Had the engine kept running the interrupted queries, they would use
 	// most of its threads: seconds of CPU per second.
 	if cpu := cpuOver(time.Second); cpu > 900*time.Millisecond {
@@ -293,7 +293,8 @@ func TestManyClientsAndCancellationsLeaveTheBudgetEmpty(t *testing.T) {
 				ctx = admit.WithFlow(timing.WithSource(ctx, timing.SourceMetrics))
 			}
 			err := <-runQuery(ctx, s, q)
-			if i%3 != 0 && err != nil {
+			// The queue holds 24; a query past it is refused as overload.
+			if i%3 != 0 && err != nil && !errors.Is(err, admit.ErrOverloaded) {
 				t.Errorf("query %d: %v", i, err)
 			}
 		})

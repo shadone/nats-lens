@@ -81,7 +81,7 @@ func TestCanceledWaitersLeaveTheQueue(t *testing.T) {
 	g := New(1, func() string { return "test-cancel" })
 	hold, _ := g.Enter(context.Background(), api())
 	ctx, cancel := context.WithCancel(context.Background())
-	const n = 20
+	const n = QueuePerSlot
 	var wg sync.WaitGroup
 	errs := make(chan error, n)
 	for range n {
