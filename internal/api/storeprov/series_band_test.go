@@ -65,6 +65,11 @@ func (r rows) server(id, name string) {
 // serveSeries serves a provider over st whose clock stands at clock.
 func serveSeries(t *testing.T, st *store.Store, clock time.Time) natslensv1connect.LensServiceClient {
 	t.Helper()
+	// Fixtures written in SQL get their asset counts, so that the count
+	// series and tiles read the table rather than the report scan.
+	if _, err := st.FillAssetCounts(ctx); err != nil {
+		t.Fatal(err)
+	}
 	_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Clock: func() time.Time { return clock }})
 	return c
 }

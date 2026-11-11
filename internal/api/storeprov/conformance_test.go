@@ -230,6 +230,11 @@ func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 			t.Fatal(err)
 		}
 	}
+	// The rows above are written in SQL, outside the epoch write: the fill
+	// gives them asset counts, so the count series read the table.
+	if _, err := st.FillAssetCounts(ctx); err != nil {
+		t.Fatal(err)
+	}
 	return st, set
 }
 
