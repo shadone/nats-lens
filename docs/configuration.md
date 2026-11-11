@@ -16,7 +16,7 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `subsz_limit`         | `-subsz-limit`   | `10000`                 | Most subscriptions stored per server per subscription collection; at most 100,000. |
 | `shutdown_grace`      | `-shutdown-grace` | `5s`                   | How long a collection's write may continue after a stop signal; positive and at most `interval`, since a write never runs longer than one interval. |
 | `log_level`           | `-log-level`     | `info`                  | `debug`, `info`, `warn` or `error`.                      |
-| `system_id`           |                  | `default`               | Id of the one system a file without `systems` describes: lowercase letters, digits and `-`, at most 63, starting with a letter or digit. Used in URLs, the API and metric labels. |
+| `system_id`           |                  | `default`               | Id of the one system a file without `systems` describes: lowercase letters, digits and `-`, at most 63, starting with a letter or digit, and not `all`, `unknown` or `other`, which `/metrics` gives timings that belong to no one system. Used in URLs, the API and metric labels. |
 | `systems`             |                  |                         | Several NATS systems in one natslens; see [Several systems](#several-systems). |
 | `nats.url`            | `-nats-url`      | `nats://127.0.0.1:4222` | System account URL; a comma-separated list is allowed.  |
 | `nats.name`           |                  | `natslens`              | Connection name the servers show; the event connection adds `-events`, an account connection `-<account>`. |
@@ -95,7 +95,7 @@ The same connection, one per account, asks the account's micro services: `$SRV.S
 
 ## Several systems
 
-`systems` lists the NATS systems one natslens watches. Each entry takes `id` (as `system_id`; ids must differ), `name` (display name, default the id), `environment` (free text shown with the system) and its own `nats`, `accounts`, `inventory_file`, `kubernetes`, `retention`, `archive_retention`, `data_dir`, `archive_dir` and `duckdb_memory_limit`, with the same meaning and defaults as the top-level keys, except:
+`systems` lists the NATS systems one natslens watches. Each entry takes `id` (as `system_id`, with the same reserved values; ids must differ), `name` (display name, default the id), `environment` (free text shown with the system) and its own `nats`, `accounts`, `inventory_file`, `kubernetes`, `retention`, `archive_retention`, `data_dir`, `archive_dir` and `duckdb_memory_limit`, with the same meaning and defaults as the top-level keys, except:
 
 | System key | Default |
 | --- | --- |

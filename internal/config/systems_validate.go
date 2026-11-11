@@ -47,8 +47,10 @@ func refusePerSystemFlags(cfg Config, set map[string]bool) error {
 func (c Config) validateSystems() []error {
 	if len(c.Systems) == 0 {
 		var errs []error
-		if c.SystemID != "" && !systemID.MatchString(c.SystemID) {
-			errs = append(errs, fmt.Errorf("system_id %q must match %s", c.SystemID, systemID))
+		if c.SystemID != "" {
+			if err := checkSystemID(c.SystemID); err != nil {
+				errs = append(errs, fmt.Errorf("system_id %w", err))
+			}
 		}
 		return errs
 	}
@@ -59,9 +61,9 @@ func (c Config) validateSystems() []error {
 	seen := map[string]bool{}
 	for i, s := range c.Systems {
 		p := fmt.Sprintf("systems[%d]", i)
-		switch {
-		case !systemID.MatchString(s.ID):
-			errs = append(errs, fmt.Errorf("%s: id %q must match %s", p, s.ID, systemID))
+		switch err := checkSystemID(s.ID); {
+		case err != nil:
+			errs = append(errs, fmt.Errorf("%s: id %w", p, err))
 		case seen[s.ID]:
 			errs = append(errs, fmt.Errorf("%s: duplicate id %q", p, s.ID))
 		}
@@ -102,7 +104,7 @@ func validIDs(systems []SystemConfig) []bool {
 	out := make([]bool, len(systems))
 	seen := map[string]bool{}
 	for i, s := range systems {
-		out[i] = systemID.MatchString(s.ID) && !seen[s.ID]
+		out[i] = checkSystemID(s.ID) == nil && !seen[s.ID]
 		seen[s.ID] = true
 	}
 	return out

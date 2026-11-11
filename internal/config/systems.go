@@ -28,6 +28,22 @@ const MinSystemMemoryLimit = 256 << 20
 // labels and directory names.
 var systemID = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 
+// reservedSystemIDs are the system label values /metrics gives timings
+// that belong to no one system: all, a call without a system; unknown, a
+// call naming no configured one; other, what the series bounds leave out.
+var reservedSystemIDs = map[string]bool{"all": true, "unknown": true, "other": true}
+
+// checkSystemID returns why id cannot name a system, or nil.
+func checkSystemID(id string) error {
+	if !systemID.MatchString(id) {
+		return fmt.Errorf("%q must match %s", id, systemID)
+	}
+	if reservedSystemIDs[id] {
+		return fmt.Errorf("%q is reserved: /metrics labels timings that belong to no one system all, unknown and other", id)
+	}
+	return nil
+}
+
 // SystemConfig is one entry of systems in the file. Fields left out take
 // their defaults when the configuration is resolved.
 type SystemConfig struct {

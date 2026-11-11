@@ -12,7 +12,7 @@ One nats-lens watches several NATS systems at once, for example production, stag
 
 - **Chart descriptions.** The shared Fleet strip legend has [chart help](chart-help.md) explaining observed state buckets and missing evaluation evidence.
 
-- **A system is one NATS deployment with its own system account:** a single server, a cluster, or a supercluster joined by gateways. The configuration lists systems under `systems`; a configuration without the list is one system, with the id `system_id` (`default` unless set).
+- **A system is one NATS deployment with its own system account:** a single server, a cluster, or a supercluster joined by gateways. The configuration lists systems under `systems`; a configuration without the list is one system, with the id `system_id` (`default` unless set). An id is lowercase letters, digits and `-`; `all`, `unknown` and `other` are refused, as `/metrics` uses them for timings that belong to no one system.
 - **One database per system.** Each system's collections, events, findings and mutes go to a database and an archive of their own, in the system's data directory. Losing or rebuilding one system's database touches no other.
 - **A data directory belongs to one system.** On first start nats-lens writes the system's id into its data directory (`system.json`). A directory marked for another system refuses the start, so a mistyped id or directory never mixes two systems' data. A directory from a single-system nats-lens, without the file, is taken over.
 - **Own credentials, own collector.** Each system has its own NATS URL, system account user, account connections, inventory file and Kubernetes watcher. The collect interval and the checks are shared.
