@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 // After the fill at open failed, an epoch has no stream samples or asset
@@ -40,7 +41,7 @@ func TestMaintenanceRetriesAFailedFill(t *testing.T) {
 	if n := count(unsampled); n != 2 {
 		t.Fatalf("%d epochs without samples before the retry, want 2", n)
 	}
-	if _, err := r.maintain(ctx); err != nil {
+	if _, err := r.maintain(ctx, time.Now(), 0); err != nil {
 		t.Fatal(err)
 	}
 	if n := count(unsampled); n != 0 {
