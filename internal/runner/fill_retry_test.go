@@ -40,7 +40,7 @@ func TestMaintenanceRetriesAFailedFill(t *testing.T) {
 	if n := count(unsampled); n != 2 {
 		t.Fatalf("%d epochs without samples before the retry, want 2", n)
 	}
-	if err := r.maintain(ctx); err != nil {
+	if _, err := r.maintain(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if n := count(unsampled); n != 0 {

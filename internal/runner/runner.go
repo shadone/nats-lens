@@ -53,6 +53,16 @@ type Runner struct {
 	// NotifySweep, when set, runs with each retention sweep; it removes
 	// old sent notifications.
 	NotifySweep func(ctx context.Context, now time.Time) error
+	// fills are the fills maintenance runs; nil runs the store's asset
+	// count and stream sample fills. Set by tests.
+	fills []maintenanceFill
+}
+
+// maintenanceFill fills what it can of one derived table, starting no
+// batch at or after until, and reports whether epochs remain unfilled.
+type maintenanceFill struct {
+	what string
+	fill func(ctx context.Context, until time.Time) (filled int64, more bool, err error)
 }
 
 func (r *Runner) logger() *slog.Logger {
@@ -83,7 +93,8 @@ func writeContext(ctx context.Context, grace time.Duration) (context.Context, co
 // nonfatal write is logged and the next epoch still runs. A typed fatal
 // stops the runner; the store refuses every later database operation.
 func (r *Runner) Run(ctx context.Context) error {
-	if err := r.maintain(ctx); store.IsFatal(err) {
+	pending, err := r.maintain(ctx)
+	if store.IsFatal(err) {
 		return err
 	}
 	lastSweep := time.Now()
@@ -91,6 +102,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	defer ticker.Stop()
 	skipping := false
 	for {
+		began := time.Now()
 		if r.Connected != nil && !r.Connected() {
 			if !skipping {
 				r.logger().Warn("nats not connected; epochs skipped until it is")
@@ -105,11 +117,24 @@ func (r *Runner) Run(ctx context.Context) error {
 				return err
 			}
 		}
-		if time.Since(lastSweep) >= SweepEvery {
-			if err := r.maintain(ctx); store.IsFatal(err) {
-				return err
-			}
+		maintained := true
+		switch {
+		case time.Since(lastSweep) >= SweepEvery:
+			pending, err = r.maintain(ctx)
 			lastSweep = time.Now()
+		case pending:
+			pending, err = r.fill(ctx)
+		default:
+			maintained = false
+		}
+		if store.IsFatal(err) {
+			return err
+		}
+		// The ticker keeps one tick: an iteration longer than two
+		// intervals drops the epochs of the ticks in between.
+		if took := time.Since(began); maintained && took >= 2*r.Interval {
+			r.logger().Warn("epochs skipped: the epoch and the maintenance after it took longer than two intervals",
+				"took", took.Round(time.Millisecond), "skipped", int(took/r.Interval)-1)
 		}
 		select {
 		case <-ctx.Done():
@@ -235,33 +260,52 @@ func (r *Runner) review(ctx context.Context, epoch int64) {
 	}
 }
 
-// maintain runs the retention sweep, then fills the asset counts and
-// stream samples of epochs that have none. Those fills run when the
-// system's store opens; one that failed there would leave every later
-// epoch without stream samples, as an epoch gets them only when every
-// earlier one has them, so it is retried here, hourly. Each fill takes
-// the write lock per batch, so an epoch write waits for one batch at
-// most. A failed fill is logged; only a typed fatal error is returned.
-func (r *Runner) maintain(ctx context.Context) error {
-	err := r.sweep(ctx)
+// maintain runs the retention sweep, then fill. A failed fill is logged;
+// only a typed fatal error is returned.
+func (r *Runner) maintain(ctx context.Context) (pending bool, err error) {
+	err = r.sweep(ctx)
 	if store.IsFatal(err) || ctx.Err() != nil {
-		return err
+		return false, err
 	}
-	for _, f := range []struct {
-		what string
-		fill func(context.Context) (int64, error)
-	}{{"asset counts", r.Store.FillAssetCounts}, {"stream samples", r.Store.FillStreamSamples}} {
-		if _, ferr := f.fill(ctx); ferr != nil {
-			ferr = store.SafeError(f.what+" fill", ferr)
-			if store.IsFatal(ferr) {
-				return ferr
-			}
-			if ctx.Err() == nil {
-				r.logger().Warn(f.what+" not filled; retried at the next sweep", "err", ferr)
-			}
+	pending, ferr := r.fill(ctx)
+	if store.IsFatal(ferr) {
+		return pending, ferr
+	}
+	return pending, err
+}
+
+// fill fills the asset counts and stream samples of epochs that have none,
+// for about one interval, and reports whether any remain. The fills run
+// when the system's store opens; one that failed there would leave every
+// later epoch without stream samples, as an epoch gets them only when
+// every earlier one has them, so they are retried after each sweep and,
+// while epochs remain unfilled, after each epoch, so that the runner's own
+// epochs are not held up by a long fill. Each fill takes the write lock
+// per batch and starts no batch after its time is up. A failed fill is
+// logged and retried after the next retention sweep, so that a lasting
+// failure is not logged every epoch; a typed fatal error is returned.
+func (r *Runner) fill(ctx context.Context) (pending bool, err error) {
+	ctx = timing.WithSource(ctx, timing.SourceRetention)
+	fills := r.fills
+	if fills == nil {
+		fills = []maintenanceFill{{"asset counts", r.Store.FillAssetCountsUntil}, {"stream samples", r.Store.FillStreamSamplesUntil}}
+	}
+	until := time.Now().Add(r.Interval)
+	for _, f := range fills {
+		_, more, ferr := f.fill(ctx, until)
+		if ferr == nil {
+			pending = pending || more
+			continue
+		}
+		ferr = store.SafeError(f.what+" fill", ferr)
+		if store.IsFatal(ferr) {
+			return pending, ferr
+		}
+		if ctx.Err() == nil {
+			r.logger().Warn(f.what+" not filled; retried after the next retention sweep", "err", ferr)
 		}
 	}
-	return err
+	return pending, nil
 }
 
 func (r *Runner) sweep(ctx context.Context) error {
