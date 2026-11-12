@@ -291,3 +291,16 @@ func TestSystemsLogValueHidesPasswords(t *testing.T) {
 		t.Fatalf("log value %s", s)
 	}
 }
+
+// A system whose spill bound is derived logs it as derived, not as 0.
+func TestSystemLogValueSpillBound(t *testing.T) {
+	cfg := parseFile(t, twoSystems)
+	s := cfg.ResolvedSystems()[0]
+	if got := s.LogValue().String(); !strings.Contains(got, "duckdb_max_temp_size=derived") {
+		t.Errorf("derived: %s", got)
+	}
+	s.DuckDBMaxTempSize = 1 << 30
+	if got := s.LogValue().String(); !strings.Contains(got, "duckdb_max_temp_size=1073741824") {
+		t.Errorf("configured: %s", got)
+	}
+}
