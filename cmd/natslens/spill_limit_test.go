@@ -150,3 +150,14 @@ func TestBoundReadAgainAfterRebuild(t *testing.T) {
 		t.Errorf("final store's bound %d, want %d, 90%% of the free disk after the rebuild", st.MaxTempSize(), want)
 	}
 }
+
+// statFree reads a free size on the platforms it supports.
+func TestStatFree(t *testing.T) {
+	free, err := statFree(t.TempDir())
+	if err != nil {
+		t.Skip(err)
+	}
+	if free <= 0 {
+		t.Fatalf("free %d", free)
+	}
+}
