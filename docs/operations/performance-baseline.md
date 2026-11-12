@@ -440,6 +440,10 @@ The acceptance runs' DuckDB logs (20 logged runs, 57 epoch writes that failed) s
 
 In isolation the interrupt works: the same kind of `UPDATE ... FROM (window)` on 30,000 rows inside a transaction, with eight concurrent window queries over 20 million rows on the same database, returned within 30 ms of a 300 ms limit every time, and a large `UPDATE` alone within 70 ms. The overrun needs the long reads of a real load, which this change shortens. No fix is made in the epoch write: it cannot return before DuckDB does, as the transaction holds the connection and the store's lock until the statement ends, and releasing the lock earlier would let the next write conflict with it.
 
+### Not measured yet
+
+The acceptance load (`mixed` at `entities` size, at least eight runs) was not run on this branch: the disk had 6.6 GB free, and an `entities` store with its spill needs at least 9 GB. Until it runs, the effect on lost epochs, write times and page latencies, the time of the fill per epoch and the size the samples add per epoch are unknown. Run it as [Acceptance after asset counts, query budget and the servers change](#acceptance-after-asset-counts-query-budget-and-the-servers-change) did and add its tables here.
+
 ## Instrumentation
 
 The `/metrics` families these numbers come from are listed in [Metrics](../metrics.md). Recording costs about 40 ns and one allocation per observation, and about 111 ns and one allocation per query on the query path (`go test -bench . ./internal/timing`), against queries of a millisecond and more. `natslens` serves no profiling endpoint; `natslens-perf explain` sets a query hook, off by default, that the `natslens` command never sets.
