@@ -136,6 +136,15 @@ func interrupted(err error) bool {
 	return strings.Contains(err.Error(), "INTERRUPT Error")
 }
 
+// BusyHeader is the error metadata that tells a resource_exhausted answer
+// for running out of database memory (BusyOutOfMemory) apart from the
+// query budget's: the UI does not retry it at once, as the same read
+// needs the same memory.
+const (
+	BusyHeader      = "Natslens-Busy"
+	BusyOutOfMemory = "out-of-memory"
+)
+
 // outOfMemory reports whether err is DuckDB running out of memory or of
 // spill space (duckdb_max_temp_size); read from the message as interrupted
 // is. The query failed, the engine is usable, and the same call can
@@ -149,11 +158,6 @@ func (h *Handler) codeOf(procedure string, err error) error {
 	switch {
 	case errors.Is(err, admit.ErrOverloaded):
 		return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("the system is busy: %w; try again shortly", err))
-	case outOfMemory(err):
-		if h.Log != nil {
-			h.Log.Warn("api call ran out of database memory and spill space", "procedure", procedure, "err", err)
-		}
-		return connect.NewError(connect.CodeResourceExhausted, errors.New("the system is busy: its database ran out of memory and spill space; try again shortly"))
 	case errors.Is(err, admit.ErrClosed):
 		return connect.NewError(connect.CodeUnavailable, errors.New("the system's store is closing"))
 	case errors.Is(err, ErrResourceExhausted):
@@ -172,6 +176,13 @@ func (h *Handler) codeOf(procedure string, err error) error {
 		return connect.NewError(connect.CodeCanceled, err)
 	case errors.Is(err, context.DeadlineExceeded):
 		return connect.NewError(connect.CodeDeadlineExceeded, err)
+	case outOfMemory(err):
+		if h.Log != nil {
+			h.Log.Warn("api call ran out of database memory and spill space", "procedure", procedure, "err", err)
+		}
+		ce := connect.NewError(connect.CodeResourceExhausted, errors.New("the system is busy: its database ran out of memory and spill space; try a shorter range or try again shortly"))
+		ce.Meta().Set(BusyHeader, BusyOutOfMemory)
+		return ce
 	}
 	if h.Log != nil {
 		h.Log.Error("api call failed", "procedure", procedure, "err", err)
