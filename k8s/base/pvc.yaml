@@ -1,7 +1,8 @@
-# The DuckDB file and the hourly Parquet archive. One volume holds both,
-# so losing it loses the history. It uses the cluster's default storage
-# class. 5Gi suits a small cluster; for a production cluster with 90 days of
-# archive, 20Gi or more (see docs/deploy.md, Volume size).
+# The DuckDB file, the hourly Parquet archive and DuckDB's spill (up to
+# duckdb_max_temp_size, by default twice DuckDB's memory limit). One volume
+# holds them, so losing it loses the history. It uses the cluster's default
+# storage class. 5Gi suits a small cluster; for a production cluster with
+# 90 days of archive, 20Gi or more (see docs/deploy.md, Volume size).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

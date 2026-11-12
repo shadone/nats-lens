@@ -23,6 +23,7 @@ Besides sending findings to configured [notification channels](notifications.md)
 - **Acknowledgement quiet.** `nats_lens_finding_acknowledged` is 1 with the finding identity labels only while quiet holds, and absent otherwise. It follows the same selected entity set as the three finding series. `nats_lens_findings_acknowledged` counts every firing finding whose quiet holds, including muted findings, without that cap. These metrics measure quiet, while the UI acknowledgement tally also counts acknowledgements whose quiet expired.
 - **Quiet-aware finding rules.** Both example finding rules and the Cloud Monitoring query in [docs/metrics.md](../metrics.md) add `unless on(system, code, entity_type, entity_key) nats_lens_finding_acknowledged` after excluding mutes. Prometheus annotations URL-encode the labels and link to the finding through the label route. Cloud Monitoring documentation explains constructing the same route.
 - **Query budget diagnostics.** Per system, `nats_lens_db_admission_active` and `nats_lens_db_admission_queued` give the API and `/metrics` queries holding and waiting for a slot of the query budget, `nats_lens_db_admission_limit` the slots it admits now, and `nats_lens_db_admission_wait_seconds` each query's wait by source (`api`, `metrics`) and outcome (`admitted`, `deadline`, `canceled`, `queue_full`, `closed`). A call refused for the budget is counted under `code="resource_exhausted"`. `/metrics` queues ahead of the API, so a scrape is served before waiting calls.
+- **Spill.** Per system, `nats_lens_db_spill_bytes` is what its DuckDB holds in temporary files at the scrape, beside the database on the data volume, and `nats_lens_db_spill_limit_bytes` its bound, `duckdb_max_temp_size`. A read that would pass the bound answers `resource_exhausted`, counted under `code="resource_exhausted"` like an overloaded budget.
 
 ## Scenarios
 
@@ -31,6 +32,12 @@ Besides sending findings to configured [notification channels](notifications.md)
 - **Given** Prometheus scrapes `/metrics` while many tabs and agents read one system
 - **When** that system's queries wait for its query budget past their calls' deadlines
 - **Then** `nats_lens_db_admission_queued` for it stays above zero, `nats_lens_db_admission_wait_seconds_count{outcome="deadline"}` and `nats_lens_api_request_duration_seconds_count{code="resource_exhausted"}` grow, and the other systems' series show no waiting
+
+### See how close the spill came to its bound
+
+- **Given** Prometheus scrapes `/metrics` while many tabs and agents read one large system
+- **When** their reads together need more than the system's DuckDB memory limit
+- **Then** `nats_lens_db_spill_bytes` for that system rises toward `nats_lens_db_spill_limit_bytes` and falls to zero once the reads end; when it reaches the bound, `nats_lens_api_request_duration_seconds_count{code="resource_exhausted"}` grows, and the database is not marked failed
 
 ### Tell a slow call from a waiting write
 

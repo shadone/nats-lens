@@ -16,7 +16,7 @@ The steps on their own:
 go build -o natslens-perf ./cmd/natslens-perf
 ./natslens-perf generate -profile entities -out /path/entities.duckdb
 ./natslens-perf explain  -profile entities -db /path/entities.duckdb -out /path/explain
-./natslens-perf load     -profile entities -db /path/entities.duckdb -duration 60s -json /path/load.json [-cpuprofile /path/cpu.out] [-query-budget N] [-threads N] [-memory-limit 4GiB] [-interval 30s]
+./natslens-perf load     -profile entities -db /path/entities.duckdb -duration 60s -json /path/load.json [-cpuprofile /path/cpu.out] [-query-budget N] [-threads N] [-memory-limit 4GiB] [-max-temp-size 2GiB] [-interval 30s]
 ```
 
 `load` changes the store: the scenarios that write add epochs, findings and archive records. Generate a new store to repeat a run exactly. `-interval` sets how often `writes-only` and `mixed` write an epoch, and each write's limit, as the collector's interval sets both for `natslens run`. Its default is 10 s, a third of the collector's default of 30 s; every result on this page used it unless it says otherwise. Nothing here runs in the test tiers except `TestSmokeProfileRuns`, which checks that the smoke profile generates, explains and loads without an error, and `TestIntervalFlagReachesTheWriter`, which checks that `-interval` sets the writer's interval. Both skip in `-short` mode.
@@ -384,6 +384,32 @@ Proposed, not yet confirmed:
 1. Move the per-asset rates over a range to rollups or edge reads (recommendation 3), then run this acceptance again.
 2. Measure how long the epoch write takes to return after its limit, and what it spends that time on. Until it returns promptly, a lost write also delays the next epoch.
 3. Keep the default budget. It does not save epochs, but it brings the median write to about 2 s in about half the runs, lets the archive keep up, and keeps page p95s below the API's limits more often.
+
+## Spill
+
+Measured on 2026-11-12 on the same machine with the branch `perf/spill-cap`. On the `entities` profile DuckDB's spill folder (`<store>.tmp`) had grown to 3.3 to 4 GB within the first 30 to 35 s of `mixed`, with DuckDB's default memory limit and with 4 GiB. To leave room on the disk for the spill, these runs use `entities-6h`, the `entities` assets over six hours (1.13 GB, 720 epochs), each on an APFS clone deleted after it:
+
+```sh
+natslens-perf load -profile entities-6h -db <clone> -scenarios mixed -duration 60s -memory-limit 1GiB -max-temp-size 4GiB [-threads 2]
+```
+
+`load` samples `duckdb_temporary_files()` every 250 ms and reports the peak as "peak spill"; it logs each 256 MB of growth with its time.
+
+| Scenario | Threads | `memory_limit` | Bound | Peak spill | Failed calls | Epochs lost |
+| --- | --- | --- | --- | --- | --- | --- |
+| `mixed` | 12 | 25.5 GiB (default) | 2 GiB | 0 MB | 0 | 0 of 7 |
+| `mixed` | 12 | 1 GiB | 2 GiB | 2,047 MB (the bound) | 35, answered `internal` | 0 of 7 |
+| `mixed` | 12 | 1 GiB | 4 GiB | 2,994 MB | 0 | 0 of 6 (1 late) |
+| `mixed` | 2 | 1 GiB | 4 GiB | 1,094 MB | 0 | 0 of 7 |
+| `writes-only`, 40 s | 12 | 1 GiB | 2 GiB | 223 MB | 0 | 0 of 4 |
+| `tabs-4`, 40 s | 12 | 1 GiB | 2 GiB | 2,043 MB (the bound) | 15 | none written |
+| `agents-4`, 40 s | 12 | 1 GiB | 2 GiB | 1,412 MB | 0 | none written |
+
+- **The API's reads spill, the writer hardly.** With no API load the writer, its checks and the archive spilled 223 MB. The pages alone reached the bound, the agents alone 1.4 GB. Each call of the pages and agents run alone spilled nothing; the heaviest held 850 to 920 MB of DuckDB working memory (`ListMetricContributors`, 6 hours), `ListConsumers` and `GetCapacity` 150 to 280 MB. The spill is their sum over the memory limit, so it grows with the reads run at once: with 2 threads the query budget admits 1 read and the spill peaked at 1.07 times the memory limit, with 12 threads it admits 4 and the spill reached about 3 times. It falls to zero between waves of reads.
+- **At the bound, whatever needs memory next fails.** In the second run 35 API calls failed, and the same load under a 4 GiB bound failed none. Two checks (`consumer-009`, `consumer-013`) failed with DuckDB's Out of Memory error, the commit of the epoch's loopback decision failed, and one archive export failed and was exported at a later tick. No epoch write failed, and the store was never marked failed. Calls like these now answer `resource_exhausted`.
+- **`preserve_insertion_order`.** Off, the spill peaked at 1,069 MB with 2 threads and 3,571 MB with 12, against 1,094 MB and 2,994 MB on: no gain, so it stays on.
+
+The default bound, twice the memory limit, is above the 1.07 times measured with the 2 threads of a 500m CPU pod, and below the whole volume. Proposed, not yet confirmed.
 
 ## Instrumentation
 
