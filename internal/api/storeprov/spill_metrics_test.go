@@ -2,6 +2,7 @@ package storeprov_test
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strconv"
 	"testing"
@@ -60,5 +61,36 @@ func TestMetricsSpill(t *testing.T) {
 	}
 	if !regexp.MustCompile(`(?m)^nats_lens_db_spill_limit_bytes\{system="default"\} 1\.073741824e\+09$`).MatchString(body) {
 		t.Errorf("no bound of 1 GiB:\n%s", body)
+	}
+}
+
+// A failed read of the spill leaves out only the spill: the bound and the
+// system's other series stay, and the scrape succeeds.
+func TestMetricsSpillReadFails(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.SetMaxTempSize(ctx, 1<<30); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(storeprov.SetSpillBytes(func(*store.Store, context.Context) (int64, error) {
+		return 0, errors.New("temporary files not read")
+	}))
+	srv, _ := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Clock: func() time.Time { return now }})
+	body := scrape(t, srv.URL+"/metrics")
+	if regexp.MustCompile(`(?m)^nats_lens_db_spill_bytes\{`).MatchString(body) {
+		t.Error("a spill sample after its read failed")
+	}
+	for _, want := range []string{
+		`nats_lens_db_spill_limit_bytes{system="default"} 1.073741824e+09`,
+		`nats_lens_system_scrape_success{system="default"} 1`,
+		`nats_lens_findings_muted{system="default"} 0`,
+	} {
+		if !regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(want) + `$`).MatchString(body) {
+			t.Errorf("missing %q:\n%s", want, body)
+		}
 	}
 }

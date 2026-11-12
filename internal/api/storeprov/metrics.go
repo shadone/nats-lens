@@ -160,20 +160,29 @@ func (p *Provider) WriteMetrics(ctx context.Context, m *api.Exposition) error {
 	return p.writeSpill(ctx, m)
 }
 
+// spillBytes reads what a store's DuckDB holds in temporary files; a
+// variable so that tests can make it fail.
+var spillBytes = (*store.Store).TempBytes
+
 // writeSpill writes what the system's DuckDB holds in temporary files now,
 // read from duckdb_temporary_files() at the scrape, and the bound that
-// fails a query beyond it.
+// fails a query beyond it. The read is best effort: when it fails, and the
+// scrape has not ended, the spill is left out and the system's other
+// series stay.
 func (p *Provider) writeSpill(ctx context.Context, m *api.Exposition) error {
-	n, err := p.St.TempBytes(ctx)
-	if err != nil {
-		return err
-	}
-	m.Family("nats_lens_db_spill_bytes", "gauge", "Bytes the system's DuckDB holds now in temporary files: query data beyond its memory limit, spilled to disk beside the database.")
-	m.Sample("nats_lens_db_spill_bytes", float64(n))
 	m.Family("nats_lens_db_spill_limit_bytes", "gauge", "The spill bound, duckdb_max_temp_size: a query that needs more fails. Absent when DuckDB's default applies.")
 	if limit := p.St.MaxTempSize(); limit > 0 {
 		m.Sample("nats_lens_db_spill_limit_bytes", float64(limit))
 	}
+	m.Family("nats_lens_db_spill_bytes", "gauge", "Bytes the system's DuckDB holds now in temporary files: query data beyond its memory limit, spilled to disk beside the database. Absent when they could not be read.")
+	n, err := spillBytes(p.St, ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return err
+		}
+		return nil
+	}
+	m.Sample("nats_lens_db_spill_bytes", float64(n))
 	return nil
 }
 
