@@ -95,8 +95,9 @@ func (s *Store) FillAssetCounts(ctx context.Context) (int64, error) {
 	return n, err
 }
 
-// FillAssetCountsUntil is FillAssetCounts that starts no batch at or after
-// until (none when zero); more reports that epochs without counts remain.
+// FillAssetCountsUntil is FillAssetCounts that starts no batch after the
+// first at or after until (none when zero), so that each call makes
+// progress; more reports that epochs without counts remain.
 func (s *Store) FillAssetCountsUntil(ctx context.Context, until time.Time) (n int64, more bool, err error) {
 	begin := time.Now()
 	n, more, err = fillAssetCounts(ctx, s.db, func() func() {
@@ -111,8 +112,8 @@ func (s *Store) FillAssetCountsUntil(ctx context.Context, until time.Time) (n in
 
 // fillAssetCounts fills the missing asset counts through db, which may be
 // a transaction. lock, when not nil, is held around each batch. No batch
-// starts at or after until, unless it is zero; more reports the epochs
-// left without counts then.
+// but the first starts at or after until, unless it is zero; more reports
+// the epochs left without counts then.
 func fillAssetCounts(ctx context.Context, db execQuerier, lock func() func(), until time.Time) (int64, bool, error) {
 	rows, err := db.QueryContext(ctx, `SELECT epoch FROM epochs
 WHERE epoch NOT IN (SELECT epoch FROM epoch_asset_counts) ORDER BY epoch`)
@@ -134,7 +135,7 @@ WHERE epoch NOT IN (SELECT epoch FROM epoch_asset_counts) ORDER BY epoch`)
 	}
 	var n int64
 	for i := 0; i < len(missing); i += assetCountBatch {
-		if !until.IsZero() && !time.Now().Before(until) {
+		if i > 0 && !until.IsZero() && !time.Now().Before(until) {
 			return n, true, nil
 		}
 		batch := missing[i:min(i+assetCountBatch, len(missing))]

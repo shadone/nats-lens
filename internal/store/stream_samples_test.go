@@ -236,8 +236,9 @@ func TestStreamSamplesFillInBatches(t *testing.T) {
 	if filled != int64(n-1) {
 		t.Errorf("filled %d epochs, want %d", filled, n-1)
 	}
-	if batches != 4 {
-		t.Errorf("%d batches, want 3 and one that finds nothing", batches)
+	// The third batch is short of a full one, so the fill stops there.
+	if batches != 3 {
+		t.Errorf("%d batches, want 3", batches)
 	}
 	checkStreamSamples(t, s, "filled in batches")
 	if filled, err = s.FillStreamSamples(ctx); err != nil || filled != 0 {
@@ -272,30 +273,33 @@ func TestStreamSamplesSwept(t *testing.T) {
 	}
 }
 
-// A fill whose time is up starts no batch and reports that epochs remain;
-// one with time left fills them and reports none.
+// A fill whose time is up still fills one batch, so each call makes
+// progress, and reports that epochs remain only when they do; one with
+// time left fills them all.
 func TestFillsStopWhenTheirTimeIsUp(t *testing.T) {
 	ctx := context.Background()
 	s := openMem(t)
 	if _, err := s.WriteSnapshot(ctx, fixtureSnapshot(t, t0)); err != nil {
 		t.Fatal(err)
 	}
-	addVariedEpochs(t, s, 2, 10)
-	if _, err := s.DB().Exec(`DELETE FROM epoch_asset_counts WHERE epoch > 1`); err != nil {
-		t.Fatal(err)
-	}
+	n := streamSampleBatch + 10
+	addVariedEpochs(t, s, 2, n)
 	past := time.Now().Add(-time.Second)
-	if n, more, err := s.FillStreamSamplesUntil(ctx, past); n != 0 || !more || err != nil {
-		t.Errorf("stream samples past their time: %d filled, more %v, %v; want none filled and more", n, more, err)
+	for _, f := range []struct {
+		what string
+		fill func(context.Context, time.Time) (int64, bool, error)
+	}{{"stream samples", s.FillStreamSamplesUntil}, {"asset counts", s.FillAssetCountsUntil}} {
+		if got, more, err := f.fill(ctx, past); got != streamSampleBatch || !more || err != nil {
+			t.Errorf("%s past their time: %d filled, more %v, %v; want one batch (%d) and more", f.what, got, more, err, streamSampleBatch)
+		}
+		if got, more, err := f.fill(ctx, past); got != int64(n-1-streamSampleBatch) || more || err != nil {
+			t.Errorf("%s past their time again: %d filled, more %v, %v; want the last %d and none left", f.what, got, more, err, n-1-streamSampleBatch)
+		}
+		if got, more, err := f.fill(ctx, past); got != 0 || more || err != nil {
+			t.Errorf("%s with none missing: %d filled, more %v, %v; want none and none left", f.what, got, more, err)
+		}
 	}
-	if n, more, err := s.FillAssetCountsUntil(ctx, past); n != 0 || !more || err != nil {
-		t.Errorf("asset counts past their time: %d filled, more %v, %v; want none filled and more", n, more, err)
-	}
-	later := time.Now().Add(time.Minute)
-	if n, more, err := s.FillStreamSamplesUntil(ctx, later); n != 9 || more || err != nil {
-		t.Errorf("stream samples: %d filled, more %v, %v; want 9 and none left", n, more, err)
-	}
-	if n, more, err := s.FillAssetCountsUntil(ctx, later); n != 9 || more || err != nil {
-		t.Errorf("asset counts: %d filled, more %v, %v; want 9 and none left", n, more, err)
+	if assetCountBatch != streamSampleBatch {
+		t.Fatalf("the batches differ: %d asset counts, %d stream samples", assetCountBatch, streamSampleBatch)
 	}
 }

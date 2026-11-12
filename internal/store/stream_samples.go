@@ -121,9 +121,9 @@ func (s *Store) FillStreamSamples(ctx context.Context) (int64, error) {
 	return n, err
 }
 
-// FillStreamSamplesUntil is FillStreamSamples that starts no batch at or
-// after until (none when zero); more reports that epochs without samples
-// remain.
+// FillStreamSamplesUntil is FillStreamSamples that starts no batch after
+// the first at or after until (none when zero), so that each call makes
+// progress; more reports that epochs without samples may remain.
 func (s *Store) FillStreamSamplesUntil(ctx context.Context, until time.Time) (n int64, more bool, err error) {
 	begin := time.Now()
 	n, more, err = fillStreamSamples(ctx, s.db, func() func() {
@@ -139,16 +139,18 @@ func (s *Store) FillStreamSamplesUntil(ctx context.Context, until time.Time) (n 
 // fillStreamSamples fills the missing stream samples through db, which is
 // a *sql.DB (each batch then is a transaction of its own) or a
 // transaction. lock, when not nil, is held around each batch. No batch
-// starts at or after until, unless it is zero; more reports that epochs
-// without samples may remain then.
+// but the first starts at or after until, unless it is zero; more reports
+// that epochs without samples may remain then.
 func fillStreamSamples(ctx context.Context, db execQueryRower, lock func() func(), until time.Time) (int64, bool, error) {
 	var n int64
-	for {
-		if !until.IsZero() && !time.Now().Before(until) {
+	for first := true; ; first = false {
+		if !first && !until.IsZero() && !time.Now().Before(until) {
 			return n, true, nil
 		}
 		added, done, err := fillStreamSampleBatch(ctx, db, lock)
 		n += added
+		// A batch short of streamSampleBatch took every epoch left.
+		done = done || (err == nil && added < streamSampleBatch)
 		if err != nil || done {
 			return n, !done, err
 		}
