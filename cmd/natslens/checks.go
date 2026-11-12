@@ -91,7 +91,8 @@ func runChecksCmd(ctx context.Context, args []string, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		return runChecksOnce(ctx, set, sys.ToolingNames(), filepath.Join(dir, store.FileName), *epoch, out, cfg.Interval.D())
+		lim := storeLimits(cfg.ForSystem(sys), runtimeProcs(), dir)
+		return runChecksOnce(ctx, set, sys.ToolingNames(), filepath.Join(dir, store.FileName), *epoch, out, cfg.Interval.D(), lim)
 	}
 	return errors.New(usage)
 }
@@ -134,10 +135,15 @@ func orDash(s string) string {
 	return s
 }
 
+// checksDBReady is called once runChecksOnce's database has its limits;
+// a variable so that tests can read them.
+var checksDBReady = func(context.Context, *sql.DB) {}
+
 // runChecksOnce evaluates every check for one epoch of a database no
 // collector holds, read-only, and prints what fails. It stores nothing.
 // tooling are the nats-lens connection names of the database's system.
-func runChecksOnce(ctx context.Context, set *checks.Set, tooling []string, path string, epoch int64, out io.Writer, interval time.Duration) error {
+// The database gets the system's memory limit and spill bound, lim.
+func runChecksOnce(ctx context.Context, set *checks.Set, tooling []string, path string, epoch int64, out io.Writer, interval time.Duration, lim limits) error {
 	if _, err := os.Stat(path); err != nil {
 		return err
 	}
@@ -152,6 +158,15 @@ func runChecksOnce(ctx context.Context, set *checks.Set, tooling []string, path 
 	if err := store.CheckSchema(ctx, db); err != nil {
 		return err
 	}
+	// Both settings are the database's, so one statement covers every
+	// connection of the pool.
+	if _, err := db.ExecContext(ctx, fmt.Sprintf("SET memory_limit = '%dB'", lim.memory)); err != nil {
+		return fmt.Errorf("set memory_limit: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, fmt.Sprintf("SET max_temp_directory_size = '%dB'", lim.spill)); err != nil {
+		return fmt.Errorf("set max_temp_directory_size: %w", err)
+	}
+	checksDBReady(ctx, db)
 	if epoch == 0 {
 		if err := db.QueryRowContext(ctx, `SELECT coalesce(max(epoch), 0) FROM epochs`).Scan(&epoch); err != nil {
 			return err

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,6 +83,40 @@ func TestChecksRun(t *testing.T) {
 	// A directory without a database is an error, not a new database.
 	if err := runChecksCmd(ctx, []string{"run", "-data-dir", t.TempDir()}, &out); err == nil {
 		t.Fatal("run without a database succeeded")
+	}
+}
+
+// checks run reads the database within the system's memory limit and
+// spill bound, as the collector does.
+func TestChecksRunIsBounded(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	st, err := store.Open(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.DB().Exec(`INSERT INTO epochs VALUES (1, now(), now(), 0, 1, 1, ['nats-0'], ['nats-0'], [], 0, false, [], NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	cfgPath := filepath.Join(dir, "natslens.yaml")
+	if err := os.WriteFile(cfgPath, []byte("data_dir: "+dir+"\nduckdb_memory_limit: 300MiB\nduckdb_max_temp_size: 700MiB\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	orig := checksDBReady
+	t.Cleanup(func() { checksDBReady = orig })
+	var mem, spill string
+	checksDBReady = func(ctx context.Context, db *sql.DB) {
+		if err := db.QueryRowContext(ctx, `SELECT current_setting('memory_limit'), current_setting('max_temp_directory_size')`).Scan(&mem, &spill); err != nil {
+			t.Error(err)
+		}
+	}
+	var out bytes.Buffer
+	if err := runChecksCmd(ctx, []string{"run", "-config", cfgPath}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if mem != "300.0 MiB" || spill != "700.0 MiB" {
+		t.Errorf("memory_limit %q, max_temp_directory_size %q; want 300.0 MiB and 700.0 MiB", mem, spill)
 	}
 }
 
