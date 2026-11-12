@@ -3,7 +3,7 @@
 // its results and how to run it.
 //
 //	natslens-perf generate -profile NAME -out FILE
-//	natslens-perf load -profile NAME -db FILE [-scenarios LIST] [-json FILE]
+//	natslens-perf load -profile NAME -db FILE [-scenarios LIST] [-json FILE] [-max-temp-size SIZE]
 //	natslens-perf explain -db FILE [-out DIR]
 package main
 
@@ -53,6 +53,10 @@ func run(args []string) error {
 	fs.Func("memory-limit", "load: DuckDB memory_limit, such as 4GiB; unset keeps DuckDB's default", func(v string) error {
 		return memLimit.UnmarshalText([]byte(v))
 	})
+	var maxTemp config.ByteSize
+	fs.Func("max-temp-size", "load: DuckDB max_temp_directory_size, the disk queries may spill to, such as 2GiB; unset keeps DuckDB's default", func(v string) error {
+		return maxTemp.UnmarshalText([]byte(v))
+	})
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -92,7 +96,7 @@ func run(args []string) error {
 			names = strings.Split(*scenarios, ",")
 		}
 		rep, err := perf.Load(ctx, perf.LoadOptions{Profile: p, Path: *db, Scenarios: names, Duration: *duration, Log: log,
-			QueryBudget: *budget, Threads: *threads, MemoryLimit: int64(memLimit), Interval: *interval})
+			QueryBudget: *budget, Threads: *threads, MemoryLimit: int64(memLimit), MaxTempSize: int64(maxTemp), Interval: *interval})
 		if err != nil {
 			return err
 		}

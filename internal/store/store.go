@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	duckdb "github.com/duckdb/duckdb-go/v2"
@@ -33,6 +34,8 @@ type Store struct {
 	// warned holds the asset warnings already logged; written under mu by
 	// WriteSnapshot.
 	warned map[warning]bool
+	// maxTemp is the bound SetMaxTempSize set; 0 before.
+	maxTemp atomic.Int64
 }
 
 // SetLogger sets where the store reports data it skipped; the default is

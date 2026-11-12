@@ -49,6 +49,9 @@ type LoadOptions struct {
 	// zero keeps DuckDB's default.
 	Threads     int
 	MemoryLimit int64
+	// MaxTempSize sets DuckDB's max_temp_directory_size, the disk its
+	// queries may spill to; zero keeps DuckDB's default.
+	MaxTempSize int64
 	// Interval is how often the writing scenarios write an epoch, and the
 	// limit of each write, as the collector's interval is for its writes;
 	// zero means DefaultInterval.
@@ -195,6 +198,11 @@ func applySettings(ctx context.Context, st *store.Store, o LoadOptions) error {
 			return err
 		}
 	}
+	if o.MaxTempSize > 0 {
+		if err := st.SetMaxTempSize(ctx, o.MaxTempSize); err != nil {
+			return err
+		}
+	}
 	var threads int
 	if err := st.DB().QueryRowContext(ctx, `SELECT current_setting('threads')::INTEGER`).Scan(&threads); err != nil {
 		return fmt.Errorf("read threads: %w", err)
@@ -270,29 +278,44 @@ func (h *harness) loadPage(ctx context.Context, rec *recorder, p page) {
 	}
 }
 
-// memSampler records the largest Go heap in use while it runs, and the
-// most queries holding or waiting for the store's query budget and the
-// most database connections open.
+// memSampler records the largest Go heap in use while it runs, the most
+// queries holding or waiting for the store's query budget, the most
+// database connections open and the most bytes DuckDB spilled to its
+// temporary files.
 type memSampler struct {
 	stop    chan struct{}
 	done    chan struct{}
 	maxHeap atomic.Uint64
 	// Written by the sampler, read after done.
 	maxActive, maxQueued, maxOpen, maxInUse int
+	maxTemp                                 int64
 }
 
-func startMemSampler(st *store.Store) *memSampler {
+// tempLogStep is the growth of the spill the sampler logs, with the time,
+// so that a spill can be matched with the work running then.
+const tempLogStep = 256 << 20
+
+func startMemSampler(st *store.Store, log *slog.Logger) *memSampler {
 	m := &memSampler{stop: make(chan struct{}), done: make(chan struct{})}
 	go func() {
 		defer close(m.done)
 		t := time.NewTicker(50 * time.Millisecond)
 		defer t.Stop()
+		started := time.Now()
+		var logged int64
 		for i := 0; ; i++ {
 			if i%5 == 0 {
 				var ms runtime.MemStats
 				runtime.ReadMemStats(&ms)
 				if ms.HeapInuse > m.maxHeap.Load() {
 					m.maxHeap.Store(ms.HeapInuse)
+				}
+				if n, err := st.TempBytes(context.Background()); err == nil {
+					m.maxTemp = max(m.maxTemp, n)
+					if n >= logged+tempLogStep || (logged > 0 && n == 0) {
+						log.Info("spill", "bytes", n, "at", time.Since(started).Round(100*time.Millisecond))
+						logged = n
+					}
 				}
 			}
 			if g := st.QueryBudget(); g != nil {
@@ -344,7 +367,7 @@ type writer struct {
 }
 
 func (w *writer) run(ctx context.Context) {
-	eng := &checks.Engine{Set: w.h.set, Log: slog.New(slog.DiscardHandler), Interval: w.interval, Budget: w.interval / 2}
+	eng := &checks.Engine{Set: w.h.set, Log: w.h.log, Interval: w.interval, Budget: w.interval / 2}
 	tick := time.NewTicker(w.interval)
 	defer tick.Stop()
 	due := time.Now()

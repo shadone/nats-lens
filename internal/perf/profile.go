@@ -36,11 +36,15 @@ type Profile struct {
 // range; "history" a tenth of the assets over a full week. A store of
 // "entities" grows by about 1.6 MB an epoch, 31 GB a week, so the two
 // stand in for a week of the large system on one workstation's disk.
+// "entities-6h" is "entities" over six hours, 1.1 GB, for runs that need
+// room on the disk beside the store, such as measuring DuckDB's spill.
 var Profiles = map[string]Profile{
 	"smoke": {Name: "smoke", Servers: 3, Accounts: 3, Streams: 20, Consumers: 60, Connections: 300, ConnzLimit: 4096,
 		Replicas: 3, History: 2 * time.Hour, Interval: 30 * time.Second, EventsPerHour: 200},
 	"entities": {Name: "entities", Servers: 5, Accounts: 20, Streams: 2000, Consumers: 10000, Connections: 50000, ConnzLimit: 4096,
 		Replicas: 3, History: 24 * time.Hour, Interval: 30 * time.Second, EventsPerHour: 2000},
+	"entities-6h": {Name: "entities-6h", Servers: 5, Accounts: 20, Streams: 2000, Consumers: 10000, Connections: 50000, ConnzLimit: 4096,
+		Replicas: 3, History: 6 * time.Hour, Interval: 30 * time.Second, EventsPerHour: 2000},
 	"history": {Name: "history", Servers: 5, Accounts: 10, Streams: 200, Consumers: 1000, Connections: 5000, ConnzLimit: 4096,
 		Replicas: 3, History: 7 * 24 * time.Hour, Interval: 30 * time.Second, EventsPerHour: 600},
 }

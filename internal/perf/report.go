@@ -27,11 +27,13 @@ type Env struct {
 	StoreBytes int64
 	OpenTook   time.Duration
 	// FillTook is the asset count fill after the open, apart from OpenTook.
-	FillTook     time.Duration
-	GoVersion    string
-	DuckDB       string
-	Threads      string
-	MemoryLimit  string
+	FillTook    time.Duration
+	GoVersion   string
+	DuckDB      string
+	Threads     string
+	MemoryLimit string
+	// MaxTempSize is DuckDB's max_temp_directory_size.
+	MaxTempSize  string
 	CPUs         int
 	Host         string
 	LoadAtStart  string
@@ -56,6 +58,9 @@ type ScenarioResult struct {
 	Background   *Background `json:",omitempty"`
 	MaxHeapBytes uint64
 	MaxRSSBytes  int64
+	// MaxTempBytes is the most DuckDB's temporary files held, sampled
+	// every 250 ms: what its queries spilled to disk.
+	MaxTempBytes int64
 	// The most queries that held, and that waited for, a slot of the
 	// query budget at once, and the most database connections open and in
 	// use, sampled every 50 ms; ConnWaits counts the waits for a pooled
@@ -141,6 +146,7 @@ func environment(ctx context.Context, st *store.Store, o LoadOptions, openTook, 
 	_ = db.QueryRowContext(ctx, `SELECT version()`).Scan(&e.DuckDB)
 	_ = db.QueryRowContext(ctx, `SELECT current_setting('threads')::VARCHAR`).Scan(&e.Threads)
 	_ = db.QueryRowContext(ctx, `SELECT current_setting('memory_limit')::VARCHAR`).Scan(&e.MemoryLimit)
+	_ = db.QueryRowContext(ctx, `SELECT current_setting('max_temp_directory_size')::VARCHAR`).Scan(&e.MaxTempSize)
 	_ = db.QueryRowContext(ctx, `SELECT count(*) FROM epochs`).Scan(&e.EpochsStored)
 	if g := st.QueryBudget(); g != nil {
 		e.QueryBudget = g.Limit()
@@ -302,11 +308,11 @@ func (r *Report) Markdown() string {
 	var b strings.Builder
 	e := r.Env
 	fmt.Fprintf(&b, "## Run %s\n\n", e.GeneratedAt.Format(time.RFC3339))
-	fmt.Fprintf(&b, "- Profile: %s\n- Store: %.2f GB, %d epochs, opened in %s, asset counts filled in %s\n- %s, %s, %d CPUs; DuckDB %s, threads %s, memory_limit %s\n- Query budget: %d (0: none)\n- Load average at start: %s\n\n",
-		e.Profile, float64(e.StoreBytes)/1e9, e.EpochsStored, e.OpenTook.Round(time.Millisecond), e.FillTook.Round(time.Millisecond), e.GoVersion, e.Host, e.CPUs, e.DuckDB, e.Threads, e.MemoryLimit, e.QueryBudget, e.LoadAtStart)
+	fmt.Fprintf(&b, "- Profile: %s\n- Store: %.2f GB, %d epochs, opened in %s, asset counts filled in %s\n- %s, %s, %d CPUs; DuckDB %s, threads %s, memory_limit %s, max_temp_directory_size %s\n- Query budget: %d (0: none)\n- Load average at start: %s\n\n",
+		e.Profile, float64(e.StoreBytes)/1e9, e.EpochsStored, e.OpenTook.Round(time.Millisecond), e.FillTook.Round(time.Millisecond), e.GoVersion, e.Host, e.CPUs, e.DuckDB, e.Threads, e.MemoryLimit, e.MaxTempSize, e.QueryBudget, e.LoadAtStart)
 	for _, res := range r.Results {
-		fmt.Fprintf(&b, "### %s\n\n%s Ran %s; load %s before, %s after; peak Go heap %d MB, peak RSS %d MB. Query budget: at most %d slots held and %d queries waiting; connections: at most %d open and %d in use, %d waits for one.\n\n",
-			res.Name, res.Description, res.Elapsed.Round(time.Millisecond), res.LoadBefore, res.LoadAfter, res.MaxHeapBytes>>20, res.MaxRSSBytes>>20,
+		fmt.Fprintf(&b, "### %s\n\n%s Ran %s; load %s before, %s after; peak Go heap %d MB, peak RSS %d MB, peak spill %d MB. Query budget: at most %d slots held and %d queries waiting; connections: at most %d open and %d in use, %d waits for one.\n\n",
+			res.Name, res.Description, res.Elapsed.Round(time.Millisecond), res.LoadBefore, res.LoadAfter, res.MaxHeapBytes>>20, res.MaxRSSBytes>>20, res.MaxTempBytes>>20,
 			res.MaxBudgetActive, res.MaxBudgetQueued, res.MaxConnsOpen, res.MaxConnsInUse, res.ConnWaits)
 		b.WriteString("| Procedure | Calls | Errors | error p50 ms | p50 ms | p95 ms | max ms | calls/s | queries/call | query s/call |\n|---|---|---|---|---|---|---|---|---|---|\n")
 		for _, p := range res.Procedures {

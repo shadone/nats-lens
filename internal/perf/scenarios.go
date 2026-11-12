@@ -172,7 +172,7 @@ func (h *harness) run(ctx context.Context, name string) (ScenarioResult, error) 
 	if g := h.st.QueryBudget(); g != nil {
 		g.TakePeak()
 	}
-	mem := startMemSampler(h.st)
+	mem := startMemSampler(h.st, h.log)
 	waitsBefore := h.st.DB().Stats().WaitCount
 	rec := &recorder{}
 	start := time.Now()
@@ -184,6 +184,7 @@ func (h *harness) run(ctx context.Context, name string) (ScenarioResult, error) 
 		// The gate counts every waiter; the sampler can miss a short peak.
 		res.MaxBudgetQueued = g.TakePeak()
 	}
+	res.MaxTempBytes = mem.maxTemp
 	res.ConnWaits = h.st.DB().Stats().WaitCount - waitsBefore
 	res.MaxRSSBytes = maxRSS()
 	res.LoadAfter = loadAverage()
