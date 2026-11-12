@@ -56,11 +56,11 @@ var scenarios = map[string]scenario{
 			}
 			return nil
 		}},
-	"writes-only": {"Epochs written every 10 s with their checks, and the archive exporting, with no API calls.", 10,
+	"writes-only": {"Epochs written every interval (10 s by default) with their checks, and the archive exporting, with no API calls.", 10,
 		func(ctx context.Context, h *harness, rec *recorder, res *ScenarioResult) error {
 			return h.background(ctx, res, nil)
 		}},
-	"mixed": {"4 tab clients and 2 agents while epochs are written every 10 s with their checks and the archive exports.", 11,
+	"mixed": {"4 tab clients and 2 agents while epochs are written every interval (10 s by default) with their checks and the archive exports.", 11,
 		func(ctx context.Context, h *harness, rec *recorder, res *ScenarioResult) error {
 			return h.background(ctx, res, func(ctx context.Context) {
 				var wg sync.WaitGroup
@@ -133,7 +133,7 @@ func (h *harness) background(ctx context.Context, res *ScenarioResult, front fun
 		return err
 	}
 	defer cleanup()
-	w := &writer{h: h, interval: 10 * time.Second}
+	w := &writer{h: h, interval: h.opts.interval()}
 	var wg sync.WaitGroup
 	wg.Go(func() { w.run(ctx) })
 	var archived int

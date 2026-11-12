@@ -49,6 +49,21 @@ type LoadOptions struct {
 	// zero keeps DuckDB's default.
 	Threads     int
 	MemoryLimit int64
+	// Interval is how often the writing scenarios write an epoch, and the
+	// limit of each write, as the collector's interval is for its writes;
+	// zero means DefaultInterval.
+	Interval time.Duration
+}
+
+// DefaultInterval is the writer's interval when LoadOptions.Interval is
+// zero: a third of the collector's default of 30 s.
+const DefaultInterval = 10 * time.Second
+
+func (o LoadOptions) interval() time.Duration {
+	if o.Interval > 0 {
+		return o.Interval
+	}
+	return DefaultInterval
 }
 
 // harness is one opened store served over loopback HTTP.

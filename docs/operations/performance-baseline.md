@@ -16,10 +16,10 @@ The steps on their own:
 go build -o natslens-perf ./cmd/natslens-perf
 ./natslens-perf generate -profile entities -out /path/entities.duckdb
 ./natslens-perf explain  -profile entities -db /path/entities.duckdb -out /path/explain
-./natslens-perf load     -profile entities -db /path/entities.duckdb -duration 60s -json /path/load.json [-cpuprofile /path/cpu.out] [-query-budget N] [-threads N] [-memory-limit 4GiB]
+./natslens-perf load     -profile entities -db /path/entities.duckdb -duration 60s -json /path/load.json [-cpuprofile /path/cpu.out] [-query-budget N] [-threads N] [-memory-limit 4GiB] [-interval 30s]
 ```
 
-`load` changes the store: the scenarios that write add epochs, findings and archive records. Generate a new store to repeat a run exactly. Nothing here runs in the test tiers except `TestSmokeProfileRuns`, which checks that the smoke profile generates, explains and loads without an error, and skips in `-short` mode.
+`load` changes the store: the scenarios that write add epochs, findings and archive records. Generate a new store to repeat a run exactly. `-interval` sets how often `writes-only` and `mixed` write an epoch, and each write's limit, as the collector's interval sets both for `natslens run`. Its default is 10 s, a third of the collector's default of 30 s; every result on this page used it unless it says otherwise. Nothing here runs in the test tiers except `TestSmokeProfileRuns`, which checks that the smoke profile generates, explains and loads without an error, and `TestIntervalFlagReachesTheWriter`, which checks that `-interval` sets the writer's interval. Both skip in `-short` mode.
 
 ## Environment
 

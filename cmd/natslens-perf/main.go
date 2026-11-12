@@ -48,6 +48,7 @@ func run(args []string) error {
 	cpuProfile := fs.String("cpuprofile", "", "load: write a Go CPU profile of the run to this file; it does not show DuckDB's native work")
 	budget := fs.Int("query-budget", 0, "load: the store's query budget, as query_budget takes it: -1 off, 0 derived from the threads as natslens does, or a number of queries")
 	threads := fs.Int("threads", 0, "load: DuckDB threads; 0 keeps DuckDB's default")
+	interval := fs.Duration("interval", perf.DefaultInterval, "load: how often writes-only and mixed write an epoch, and each write's limit, as the collector's interval")
 	var memLimit config.ByteSize
 	fs.Func("memory-limit", "load: DuckDB memory_limit, such as 4GiB; unset keeps DuckDB's default", func(v string) error {
 		return memLimit.UnmarshalText([]byte(v))
@@ -91,7 +92,7 @@ func run(args []string) error {
 			names = strings.Split(*scenarios, ",")
 		}
 		rep, err := perf.Load(ctx, perf.LoadOptions{Profile: p, Path: *db, Scenarios: names, Duration: *duration, Log: log,
-			QueryBudget: *budget, Threads: *threads, MemoryLimit: int64(memLimit)})
+			QueryBudget: *budget, Threads: *threads, MemoryLimit: int64(memLimit), Interval: *interval})
 		if err != nil {
 			return err
 		}
