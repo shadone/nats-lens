@@ -79,6 +79,10 @@ export function errorInfo(e: unknown, hosted = HOSTED_DEMO): ErrorInfo {
     const message = e instanceof ConnectError ? e.rawMessage : (e as Error).message;
     return { code: "network", message, hint: hosted ? DEMO_NETWORK_HINT : "The browser could not reach the nats-lens server." };
   }
+  if (isOutOfMemory(e)) {
+    const ce = e as ConnectError;
+    return { code: codeName(ce.code), message: ce.rawMessage, hint: "The server ran out of memory for this request; try a shorter range, or try again later." };
+  }
   if (e instanceof ConnectError) {
     return { code: codeName(e.code), message: e.rawMessage, hint: (hosted ? DEMO_HINTS[e.code] : undefined) ?? HINTS[e.code] ?? "" };
   }
@@ -101,9 +105,18 @@ export function reportedError(code: string, message: string): ConnectError {
 // call timeout, and a slow server should be shown, not called again.
 const RETRYABLE = new Set([Code.Unavailable, Code.ResourceExhausted]);
 
+/**
+ * A resource_exhausted answer because the database ran out of memory and
+ * spill space, which the server marks in the error's metadata. The same
+ * read needs the same memory, so it is not retried at once.
+ */
+function isOutOfMemory(e: unknown): boolean {
+  return e instanceof ConnectError && e.code === Code.ResourceExhausted && e.metadata.get("natslens-busy") === "out-of-memory";
+}
+
 /** Only errors that may pass on their own are worth another try. */
 export function isRetryable(e: unknown): boolean {
-  return isNetwork(e) || (e instanceof ConnectError && RETRYABLE.has(e.code));
+  return isNetwork(e) || (e instanceof ConnectError && RETRYABLE.has(e.code) && !isOutOfMemory(e));
 }
 
 /** TanStack Query's retry option: at most two retries of a retryable error. */

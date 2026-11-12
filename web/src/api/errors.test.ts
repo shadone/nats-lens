@@ -34,6 +34,9 @@ describe("retry", () => {
     expect(isRetryable(new ConnectError("x", Code.Unavailable))).toBe(true);
     expect(isRetryable(new ConnectError("x", Code.DeadlineExceeded))).toBe(false);
     expect(isRetryable(new ConnectError("x", Code.ResourceExhausted))).toBe(true);
+    const oom = new ConnectError("x", Code.ResourceExhausted, new Headers({ "Natslens-Busy": "out-of-memory" }));
+    expect(isRetryable(oom)).toBe(false);
+    expect(errorInfo(oom).hint).toContain("shorter range");
     expect(isRetryable(new TypeError("Failed to fetch"))).toBe(true);
     expect(isRetryable(new ConnectError("x", Code.InvalidArgument))).toBe(false);
     expect(isRetryable(new ConnectError("x", Code.NotFound))).toBe(false);
