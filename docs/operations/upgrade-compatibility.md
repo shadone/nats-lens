@@ -35,7 +35,7 @@ TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -timeout 40m ./int
 | Driver bindings | `github.com/duckdb/duckdb-go-bindings v0.20000.0`, `go.duckdb.org/libduckdb/<os>-<arch> v0.20000.0` | `go.mod` |
 | DuckDB engine | `v2.0.0`, source `d54cbbe3df` | `SELECT library_version, source_id FROM pragma_version()` |
 | Storage format | the engine's default for new files (2.0) | [design.md](../design.md) |
-| Schema | migrations `0001` to `0041` | `internal/store/migrations/` |
+| Schema | migrations `0001` to `0042` | `internal/store/migrations/` |
 
 Record these again when `go.mod` changes; the matrix result applies to these versions only.
 
@@ -53,10 +53,10 @@ Proposed, not yet confirmed:
 
 | Combination | Test | Normal tier | Release matrix |
 | --- | --- | --- | --- |
-| Database at schema v, opened by the current binary | `TestCompatUpgradeFromOlderSchemas` | v = 1, 35, 37, 41 | v = 1 to 41 |
-| Upgrade from v interrupted after about half the pending migrations, then restarted | `TestCompatUpgradeInterruptedThenRestarted` | v = 1 | v = 1 to 40 |
-| Archive hour written at schema v, rebuilt alone | `TestCompatRebuildFromOlderArchives/from_v/alone` | v = 1, 35, 37, 41 | v = 1 to 41 |
-| Archive hour at schema v and one at the newest, rebuilt together | `TestCompatRebuildFromOlderArchives/from_v/mixed` | v = 1, 35, 37, 41 | v = 1 to 41 |
+| Database at schema v, opened by the current binary | `TestCompatUpgradeFromOlderSchemas` | v = 1, 35, 37, 42 | v = 1 to 42 |
+| Upgrade from v interrupted after about half the pending migrations, then restarted | `TestCompatUpgradeInterruptedThenRestarted` | v = 1 | v = 1 to 41 |
+| Archive hour written at schema v, rebuilt alone | `TestCompatRebuildFromOlderArchives/from_v/alone` | v = 1, 35, 37, 42 | v = 1 to 42 |
+| Archive hour at schema v and one at the newest, rebuilt together | `TestCompatRebuildFromOlderArchives/from_v/mixed` | v = 1, 35, 37, 42 | v = 1 to 42 |
 | Database written by a later binary (unknown migration) | `TestNewerDatabaseIsRefusedBeforeAnyWrite` (with and without a write-ahead log), `TestNewerMigrationOnlyInTheLogIsRefused`, `TestCheckSchemaNamesANewerDatabase` | yes | yes |
 | Database with an edited migration | `TestEditedMigrationRefusedBeforeBackfill`, `TestEditedMigrationFailsStart`, `TestEditedMigrationStopsPendingOnes` | yes | yes |
 | Migration files changed, removed or added without a pinned checksum | `TestMigrationsMatchGolden` | yes | yes |
@@ -130,6 +130,8 @@ Before upgrading a deployed nats-lens across a release with a new migration:
 
 The first start of a release with migration 0041 or later, on a database written before it, fills the asset counts of every stored epoch (`epoch_asset_counts`) before the API listens: about 1 ms per epoch at 2,000 streams and 10,000 consumers, so about a minute for 14 days. The log says `asset counts filled` with the number of epochs and the time. A fill that fails is logged as a warning, and the Overview's counts are then read from the reports, slower but the same, until a later start fills them. Proposed, not yet confirmed.
 
+The first start of a release with migration 0042 or later, on a database written before it, then fills the stream samples of every stored epoch (`stream_samples`) in epoch order, also before the API listens. The log says `stream samples filled` with the number of epochs and the time; the [performance baseline](performance-baseline.md#after-stream-samples) has the time it took at 2,000 streams. A fill that fails is logged as a warning, and the per-stream series, rankings and growth of a range that includes an epoch without samples are read from the reports, slower but the same, until a later start fills them. Epochs written after a failed fill get no samples either, as each epoch's samples need the earlier epochs' samples; the next start fills them all. Proposed, not yet confirmed.
+
 To roll back, stop the new release and restore the copied directory whole; never combine a restored file with a newer write-ahead log. Writes the new release made since the upgrade are lost, except what its exports wrote to the archive. Starting the old release on the upgraded database is refused and changes neither the file nor its write-ahead log, so a mistaken start needs no repair. The exception is a log the old engine cannot replay: the old release moves the file and log aside and rebuilds from the archive (see [Downgrade behaviour](#downgrade-behaviour)).
 
 ## Results
@@ -139,6 +141,7 @@ To roll back, stop the new release and restore the copied directory whole; never
 | 2026-11-11 | `69867e4a` (before the fix round; documentation uncommitted) | `python3 -B scripts/verify.py compat` | Pass: `compat-store` 589 s, `compat-cmd` 25 s, on a laptop under a load average of about 35 from other work |
 | 2026-11-11 | `f57203fe` | `TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -run '^TestCompat' -v ./internal/store` | Pass in 506 s: upgrade from all 40 versions, interrupted upgrade from 39, archive rebuild alone and mixed from 40 (80 cases), the three rules tests |
 | 2026-11-12 | branch `perf/asset-counts` (migration 0041), rebased onto develop `c5cb0879` | `TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -timeout 40m ./internal/store -run '^TestCompat'` | Pass in 240 s at a load average of 5 to 6: upgrade from all 41 versions, interrupted upgrade from 40, archive rebuild alone and mixed from 41 (82 cases), the three rules tests |
+| 2026-11-12 | branch `perf/rate-rollups` (migration 0042), on develop `95ee0ff9` | `TZ=Pacific/Honolulu NATSLENS_COMPAT_MATRIX=1 go test -count=1 -timeout 40m ./internal/store -run '^TestCompat'` | Pass in 237 s at a load average of 4 to 9: upgrade from all 42 versions, interrupted upgrade from 41, archive rebuild alone and mixed from 42 (84 cases), the three rules tests |
 
 Times depend on host load; the matrix grows by about 12 s per new migration.
 
