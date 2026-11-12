@@ -2,8 +2,13 @@ package store
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
+
+	duckdb "github.com/duckdb/duckdb-go/v2"
 )
 
 // fillSpill holds data in a temporary table on its own connection until
@@ -62,8 +67,10 @@ func TestSpillPastTheBoundFailsCleanly(t *testing.T) {
 
 	var n int64
 	err = s.DB().QueryRowContext(ctx, `SELECT count(*) FROM (SELECT i, md5(i::VARCHAR) m FROM range(5000000) t(i) ORDER BY m)`).Scan(&n)
-	if !IsOutOfMemory(err) || IsFatal(err) {
-		t.Fatalf("spilling query: %v, want an Out of Memory error that is not fatal", err)
+	// The bound, not the memory limit, refused it: DuckDB could not
+	// write a block to its temporary files.
+	if !IsOutOfMemory(err) || IsFatal(err) || err == nil || !strings.Contains(err.Error(), "failed to offload data block") {
+		t.Fatalf("spilling query: %v, want an Out of Memory error of the spill bound that is not fatal", err)
 	}
 	if s.Failure() != nil {
 		t.Fatalf("store failed: %v", s.Failure())
@@ -91,5 +98,25 @@ func TestSpillPastTheBoundFailsCleanly(t *testing.T) {
 	}
 	if err := s.DB().QueryRowContext(ctx, `SELECT count(*) FROM epochs`).Scan(&n); err != nil || n != 2 {
 		t.Fatalf("epochs = %d, %v; want 2", n, err)
+	}
+}
+
+// IsOutOfMemory takes DuckDB's out of memory errors and a commit that
+// could not spill, never a fatal error that mentions a block it could not
+// write: that one stops the engine and must be reported as fatal.
+func TestIsOutOfMemory(t *testing.T) {
+	for _, c := range []struct {
+		err  error
+		want bool
+	}{
+		{&duckdb.Error{Type: duckdb.ErrorTypeOutOfMemory, Msg: "Out of Memory Error: failed to pin block"}, true},
+		{fmt.Errorf("commit: %w", &duckdb.Error{Type: duckdb.ErrorTypeTransaction, Msg: "TransactionContext Error: Failed to commit: failed to offload data block of size 256.0 KiB"}), true},
+		{&duckdb.Error{Type: duckdb.ErrorTypeFatal, Msg: "FATAL Error: failed to offload data block of size 256.0 KiB"}, false},
+		{&duckdb.Error{Type: duckdb.ErrorTypeConstraint, Msg: "Constraint Error: duplicate key"}, false},
+		{errors.New("Out of Memory Error: not a driver error"), false},
+	} {
+		if got := IsOutOfMemory(c.err); got != c.want {
+			t.Errorf("IsOutOfMemory(%v) = %v, want %v", c.err, got, c.want)
+		}
 	}
 }

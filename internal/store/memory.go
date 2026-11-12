@@ -67,11 +67,12 @@ func (s *Store) TempBytes(ctx context.Context) (int64, error) {
 // failed and its transaction rolled back; the engine stays usable, and the
 // same statement can succeed once other queries release their memory and
 // temporary files. A commit that cannot spill fails with a transaction
-// error that names the block it could not write.
+// error that names the block it could not write. A fatal error is never
+// one, whatever its message says.
 func IsOutOfMemory(err error) bool {
 	var de *duckdb.Error
 	if !errors.As(err, &de) {
 		return false
 	}
-	return de.Type == duckdb.ErrorTypeOutOfMemory || strings.Contains(de.Msg, "failed to offload data block")
+	return de.Type != duckdb.ErrorTypeFatal && (de.Type == duckdb.ErrorTypeOutOfMemory || strings.Contains(de.Msg, "failed to offload data block"))
 }
