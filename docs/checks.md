@@ -35,7 +35,7 @@ An entry can keep the plain-string form or pair non-empty `text` with `playbook`
 
 ## Try a check on a copy of a database
 
-To try a change to a check on a copy of a database: `natslens checks run -data-dir DIR [-epoch N]`. To read the findings: `natslens sql -data-dir DIR "SELECT id, severity, state, since, detail FROM findings WHERE state = 'firing'"`.
+To try a change to a check on a copy of a database: `natslens checks run -data-dir DIR [-epoch N]`. It reads within the system's `duckdb_memory_limit` and spill bound; for a large copy pass `-config` with a larger `duckdb_memory_limit`. To read the findings: `natslens sql -data-dir DIR "SELECT id, severity, state, since, detail FROM findings WHERE state = 'firing'"`.
 
 ## Inventory
 

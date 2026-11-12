@@ -120,6 +120,47 @@ func TestChecksRunIsBounded(t *testing.T) {
 	}
 }
 
+// checks run derives the spill bound from the system's share of the CPUs,
+// as run does: with 2 systems on 24 CPUs, 12 threads, a budget of 4, so
+// five times the system's memory limit.
+func TestChecksRunSharesThreads(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	dir := filepath.Join(root, "shop-prod")
+	st, err := store.Open(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.DB().Exec(`INSERT INTO epochs VALUES (1, now(), now(), 0, 1, 1, ['nats-0'], ['nats-0'], [], 0, false, [], NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	cfgPath := filepath.Join(root, "natslens.yaml")
+	body := "data_dir: " + root + "\nsystems:\n  - id: shop-prod\n    nats: { url: \"nats://a:4222\" }\n    duckdb_memory_limit: 100MiB\n  - id: shop-staging\n    nats: { url: \"nats://b:4222\" }\n"
+	if err := os.WriteFile(cfgPath, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	procs, free := runtimeProcs, freeDisk
+	t.Cleanup(func() { runtimeProcs, freeDisk = procs, free })
+	runtimeProcs = func() int { return 24 }
+	freeDisk = func(string) (int64, error) { return 1 << 40, nil }
+	orig := checksDBReady
+	t.Cleanup(func() { checksDBReady = orig })
+	var spill string
+	checksDBReady = func(ctx context.Context, db *sql.DB) {
+		if err := db.QueryRowContext(ctx, `SELECT current_setting('max_temp_directory_size')`).Scan(&spill); err != nil {
+			t.Error(err)
+		}
+	}
+	var out bytes.Buffer
+	if err := runChecksCmd(ctx, []string{"run", "-config", cfgPath, "-system", "shop-prod"}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if spill != "500.0 MiB" {
+		t.Errorf("max_temp_directory_size %q, want 500.0 MiB", spill)
+	}
+}
+
 // checks list fails when the remediation file names an unknown check.
 func TestChecksListRejectsUnknownRemediationCode(t *testing.T) {
 	dir := t.TempDir()

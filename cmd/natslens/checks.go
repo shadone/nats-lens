@@ -91,7 +91,7 @@ func runChecksCmd(ctx context.Context, args []string, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		lim := storeLimits(cfg.ForSystem(sys), runtimeProcs(), dir, slog.New(slog.DiscardHandler))
+		lim := storeLimits(cfg.ForSystem(sys), threadsPerStore(runtimeProcs(), len(cfg.ResolvedSystems())), dir, slog.New(slog.DiscardHandler))
 		return runChecksOnce(ctx, set, sys.ToolingNames(), filepath.Join(dir, store.FileName), *epoch, out, cfg.Interval.D(), lim)
 	}
 	return errors.New(usage)
