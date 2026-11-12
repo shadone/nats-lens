@@ -24,7 +24,7 @@ func TestOpenStoreLabelsItsQueries(t *testing.T) {
 
 	unlabelled := timing.QueryDuration.Count("", timing.SourceOther)
 	// The file is empty, so this open rebuilds it from the archive.
-	st, _, err := openStore(ctx, cfg, quietLog())
+	st, _, err := openStore(ctx, cfg, 2, quietLog())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestOpenStoreLabelsItsQueries(t *testing.T) {
 	}
 	st.Close()
 	// Now the file holds data: the open checks it and keeps it.
-	st, _, err = openStore(ctx, cfg, quietLog())
+	st, _, err = openStore(ctx, cfg, 2, quietLog())
 	if err != nil {
 		t.Fatal(err)
 	}

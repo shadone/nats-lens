@@ -55,7 +55,7 @@ func TestForSystemOfLegacyConfig(t *testing.T) {
 	cfg := parseFile(t, "data_dir: /var/lib/natslens\nsystem_id: shop-prod\n")
 	view := cfg.ForSystem(cfg.ResolvedSystems()[0])
 	if view.DataDir != cfg.DataDir || view.ResolvedArchiveDir() != cfg.ResolvedArchiveDir() ||
-		view.DuckDBMemoryLimit() != cfg.DuckDBMemoryLimit() || view.DuckDBMaxTempSize() != cfg.DuckDBMaxTempSize() ||
+		view.DuckDBMemoryLimit() != cfg.DuckDBMemoryLimit() || view.DuckDBMaxTempSizeFor(12) != cfg.DuckDBMaxTempSizeFor(12) ||
 		!reflect.DeepEqual(view.NATS, cfg.NATS) ||
 		view.SystemID != "shop-prod" {
 		t.Errorf("view %+v differs from the configuration %+v", view, cfg)

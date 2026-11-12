@@ -46,14 +46,27 @@ func TestDuckDBMemoryLimit(t *testing.T) {
 	}
 }
 
-// The spill bound is duckdb_max_temp_size, else twice the memory limit;
-// a listed system takes its own, else the top-level value, else twice its
-// own memory limit.
+// The spill bound is duckdb_max_temp_size, else the memory limit times
+// the reads the query budget admits plus one; a listed system takes its
+// own, else the top-level value, else derives it when its store opens.
 func TestDuckDBMaxTempSize(t *testing.T) {
-	if got := (Config{DuckDBMemory: 300 << 20}).DuckDBMaxTempSize(); got != 600<<20 {
-		t.Fatalf("default: %d", got)
+	mem := int64(300 << 20)
+	for _, c := range []struct {
+		budget, threads int
+		want            int64
+	}{
+		{0, 2, 2 * mem},   // the shipped pods: 2 threads, budget 1
+		{0, 12, 5 * mem},  // budget 4
+		{2, 12, 3 * mem},  // query_budget 2
+		{-1, 12, 6 * mem}, // budget off: 12/3 + 1 reads
+		{-1, 2, 2 * mem},  // budget off: 2/3 + 1 reads
+	} {
+		cfg := Config{DuckDBMemory: ByteSize(mem), QueryBudget: c.budget}
+		if got := cfg.DuckDBMaxTempSizeFor(c.threads); got != c.want {
+			t.Errorf("budget %d, %d threads: %d, want %d", c.budget, c.threads, got, c.want)
+		}
 	}
-	if got := (Config{DuckDBMemory: 300 << 20, DuckDBMaxTemp: 1 << 30}).DuckDBMaxTempSize(); got != 1<<30 {
+	if got := (Config{DuckDBMemory: 300 << 20, DuckDBMaxTemp: 1 << 30}).DuckDBMaxTempSizeFor(12); got != 1<<30 {
 		t.Fatalf("configured: %d", got)
 	}
 	cfg := parseFile(t, `duckdb_memory_limit: 1GiB
@@ -64,17 +77,18 @@ systems:
   - id: b
     nats: { url: "nats://b:4222" }
     duckdb_memory_limit: 256MiB
-  - id: c
-    nats: { url: "nats://c:4222" }
 `)
-	want := map[string]int64{"a": 3 << 30, "b": 512 << 20, "c": 2 * ((1<<30 - 256<<20) / 2)}
+	want := map[string]int64{"a": 3 << 30, "b": 0}
 	for _, s := range cfg.ResolvedSystems() {
 		if s.DuckDBMaxTempSize != want[s.ID] {
 			t.Errorf("%s: %d, want %d", s.ID, s.DuckDBMaxTempSize, want[s.ID])
 		}
 	}
+	if got := cfg.ForSystem(cfg.ResolvedSystems()[1]).DuckDBMaxTempSizeFor(2); got != 512<<20 {
+		t.Errorf("b derived: %d, want twice its 256 MiB", got)
+	}
 	cfg.DuckDBMaxTemp = 5 << 30
-	want = map[string]int64{"a": 3 << 30, "b": 5 << 30, "c": 5 << 30}
+	want = map[string]int64{"a": 3 << 30, "b": 5 << 30}
 	for _, s := range cfg.ResolvedSystems() {
 		if s.DuckDBMaxTempSize != want[s.ID] {
 			t.Errorf("top-level set, %s: %d, want %d", s.ID, s.DuckDBMaxTempSize, want[s.ID])

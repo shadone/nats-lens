@@ -21,13 +21,47 @@ import (
 // database, so that a failed rebuild never leaves a database behind.
 const rebuildSuffix = ".rebuild"
 
+// freeDisk reads the free bytes of the disk holding a directory; a
+// variable so that tests can set it.
+var freeDisk = statFree
+
+// limits are the memory and spill bounds a store of the system opens with.
+type limits struct{ memory, spill int64 }
+
+// storeLimits returns the system's DuckDB memory limit and spill bound
+// for a database with threads. A derived spill bound is lowered to 90% of
+// the free space of dir's disk, DuckDB's own bound, when that is less; a
+// configured duckdb_max_temp_size is kept as it is.
+func storeLimits(cfg config.Config, threads int, dir string) limits {
+	l := limits{memory: cfg.DuckDBMemoryLimit(), spill: cfg.DuckDBMaxTempSizeFor(threads)}
+	if cfg.DuckDBMaxTemp > 0 {
+		return l
+	}
+	if free, err := freeDisk(dir); err == nil && free*9/10 >= 1<<20 {
+		l.spill = min(l.spill, free*9/10)
+	}
+	return l
+}
+
+// apply sets the bounds on a store.
+func (l limits) apply(ctx context.Context, st *store.Store) error {
+	if err := st.SetMemoryLimit(ctx, l.memory); err != nil {
+		return err
+	}
+	return st.SetMaxTempSize(ctx, l.spill)
+}
+
 // openStore opens the database. When the file is missing, or holds no
 // epoch and no event, and the archive has data inside the retention
 // window, the database is first rebuilt from the archive into a separate
 // file that replaces it only once the rebuild succeeded.
-func openStore(ctx context.Context, cfg config.Config, log *slog.Logger) (*store.Store, *archive.Archiver, error) {
+//
+// The database, and a rebuild's, gets the system's memory limit and the
+// spill bound of a database with threads.
+func openStore(ctx context.Context, cfg config.Config, threads int, log *slog.Logger) (*store.Store, *archive.Archiver, error) {
 	dest := archive.LocalDir{Dir: cfg.ResolvedArchiveDir()}
 	dbPath := filepath.Join(cfg.DataDir, store.FileName)
+	lim := storeLimits(cfg, threads, cfg.DataDir)
 	empty, err := isEmpty(ctx, dbPath, cfg.SystemID)
 	var recovery *events.Event
 	if errors.Is(err, store.ErrWALReplay) {
@@ -50,7 +84,7 @@ func openStore(ctx context.Context, cfg config.Config, log *slog.Logger) (*store
 		return nil, nil, err
 	}
 	if empty {
-		switch err := rebuild(ctx, cfg, dest, dbPath, log); {
+		switch err := rebuild(ctx, cfg, dest, dbPath, lim, log); {
 		case errors.Is(err, archive.ErrEmptyArchive):
 			log.Info("new database", "archive_dir", cfg.ResolvedArchiveDir())
 		case err != nil:
@@ -61,16 +95,12 @@ func openStore(ctx context.Context, cfg config.Config, log *slog.Logger) (*store
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := st.SetMemoryLimit(ctx, cfg.DuckDBMemoryLimit()); err != nil {
+	if err := lim.apply(ctx, st); err != nil {
 		_ = st.Close()
 		return nil, nil, err
 	}
-	log.Info("duckdb memory limit", "bytes", cfg.DuckDBMemoryLimit())
-	if err := st.SetMaxTempSize(ctx, cfg.DuckDBMaxTempSize()); err != nil {
-		_ = st.Close()
-		return nil, nil, err
-	}
-	log.Info("duckdb spill limit", "bytes", cfg.DuckDBMaxTempSize())
+	log.Info("duckdb memory limit", "bytes", lim.memory)
+	log.Info("duckdb spill limit", "bytes", lim.spill)
 	st.SetLogger(log)
 	if recovery != nil {
 		if err := st.WriteEvents(ctx, []events.Event{*recovery}); err != nil {
@@ -138,7 +168,7 @@ func isEmpty(ctx context.Context, path, system string) (bool, error) {
 // rebuild loads the archive into path+rebuildSuffix and renames it over
 // path when the load succeeded. On failure the side file is removed and
 // path is left as it was, so the next start tries again.
-func rebuild(ctx context.Context, cfg config.Config, dest archive.Destination, path string, log *slog.Logger) error {
+func rebuild(ctx context.Context, cfg config.Config, dest archive.Destination, path string, lim limits, log *slog.Logger) error {
 	tmp := path + rebuildSuffix
 	removeDB(tmp)
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
@@ -148,7 +178,12 @@ func rebuild(ctx context.Context, cfg config.Config, dest archive.Destination, p
 	if err != nil {
 		return err
 	}
-	err = newArchiver(cfg, st, dest, log).Rebuild(ctx, time.Now())
+	if err := lim.apply(ctx, st); err != nil {
+		_ = st.Close()
+		removeDB(tmp)
+		return err
+	}
+	err = rebuildFrom(ctx, newArchiver(cfg, st, dest, log))
 	if cerr := st.Close(); err == nil {
 		err = cerr
 	}
@@ -162,6 +197,10 @@ func rebuild(ctx context.Context, cfg config.Config, dest archive.Destination, p
 	}
 	return nil
 }
+
+// rebuildFrom loads the archive into the archiver's store; a variable so
+// that tests can see the store it loads into.
+var rebuildFrom = func(ctx context.Context, a *archive.Archiver) error { return a.Rebuild(ctx, time.Now()) }
 
 // removeDB removes a database file and its write-ahead log.
 func removeDB(path string) {

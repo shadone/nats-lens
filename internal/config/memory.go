@@ -39,23 +39,28 @@ var cgroupMemoryFiles = []string{"/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/me
 // defaultMemoryLimit is DuckDB's limit when no cgroup limit is known.
 const defaultMemoryLimit = 1 << 30
 
-// TempPerMemory is the default bound of a database's spill, the
-// temporary files DuckDB writes beside it when its queries need more than
-// its memory limit, as a multiple of that limit. Proposed, not yet
-// confirmed: under natslens-perf mixed with 2 threads and a 1 GiB limit
-// the spill peaked at 1.07 times the limit
-// (docs/operations/performance-baseline.md).
-const TempPerMemory = 2
+// SpillReads is how many reads the default spill bound allows for: the
+// query budget of a database with threads, or threads/3 + 1 with the
+// budget off. Under natslens-perf mixed the spill grew with the reads the
+// budget admits: 1.07 times the memory limit at a budget of 1, about 3
+// times at 4 (docs/operations/performance-baseline.md).
+func (c Config) SpillReads(threads int) int64 {
+	if b := c.QueryBudgetFor(threads); b > 0 {
+		return int64(b)
+	}
+	return int64(threads/ThreadsPerQuery + 1)
+}
 
-// DuckDBMaxTempSize returns the disk DuckDB may spill to:
-// duckdb_max_temp_size when set, otherwise TempPerMemory times
-// DuckDBMemoryLimit. DuckDB's own default is 90% of the free space of the
-// disk, which beside the database is the data volume.
-func (c Config) DuckDBMaxTempSize() int64 {
+// DuckDBMaxTempSizeFor returns the disk the DuckDB of a database with
+// threads may spill to: duckdb_max_temp_size when set, otherwise
+// (SpillReads + 1) times DuckDBMemoryLimit, twice the limit at the budget
+// of 1 that 2 threads get. The caller lowers the default to 90% of the
+// free disk, DuckDB's own bound. Proposed, not yet confirmed.
+func (c Config) DuckDBMaxTempSizeFor(threads int) int64 {
 	if c.DuckDBMaxTemp > 0 {
 		return int64(c.DuckDBMaxTemp)
 	}
-	return TempPerMemory * c.DuckDBMemoryLimit()
+	return (c.SpillReads(threads) + 1) * c.DuckDBMemoryLimit()
 }
 
 // DuckDBMemoryLimit returns the memory DuckDB may use: duckdb_memory_limit

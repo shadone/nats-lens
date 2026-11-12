@@ -56,7 +56,7 @@ func TestUnreplayableWALIsMovedAsideAndRebuilt(t *testing.T) {
 	dbPath := filepath.Join(cfg.DataDir, store.FileName)
 	writeUnreplayableDatabase(t, dbPath)
 
-	st, _, err := openStore(ctx, cfg, quietLog())
+	st, _, err := openStore(ctx, cfg, 2, quietLog())
 	if err != nil {
 		t.Fatalf("open after crash: %v", err)
 	}

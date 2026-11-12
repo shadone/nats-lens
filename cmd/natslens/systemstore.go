@@ -144,7 +144,7 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 	if err := writeMarker(rt.sys); err != nil {
 		return err
 	}
-	st, arch, err := openStore(ctx, rt.cfg, rt.log)
+	st, arch, err := openStore(ctx, rt.cfg, threads, rt.log)
 	if err != nil {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
 	}

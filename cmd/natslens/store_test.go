@@ -77,7 +77,7 @@ func TestFailedRebuildIsRetried(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := range 2 {
-		st, _, err := openStore(context.Background(), cfg, quietLog())
+		st, _, err := openStore(context.Background(), cfg, 2, quietLog())
 		if err == nil {
 			st.Close()
 			t.Fatalf("start %d succeeded although the archive could not be loaded", i+1)
@@ -101,7 +101,7 @@ func TestEmptyDatabaseIsRebuilt(t *testing.T) {
 		t.Fatal(err)
 	}
 	empty.Close()
-	st, _, err := openStore(ctx, cfg, quietLog())
+	st, _, err := openStore(ctx, cfg, 2, quietLog())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestDatabaseWithDataIsKept(t *testing.T) {
 	ctx := context.Background()
 	cfg := testConfig(t.TempDir())
 	writeArchive(t, cfg)
-	st, _, err := openStore(ctx, cfg, quietLog())
+	st, _, err := openStore(ctx, cfg, 2, quietLog())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestDatabaseWithDataIsKept(t *testing.T) {
 		t.Fatal(err)
 	}
 	st.Close()
-	st, _, err = openStore(ctx, cfg, quietLog())
+	st, _, err = openStore(ctx, cfg, 2, quietLog())
 	if err != nil {
 		t.Fatal(err)
 	}
