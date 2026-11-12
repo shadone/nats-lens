@@ -104,6 +104,42 @@ type fillHarness struct {
 	done     chan error
 	cancel   context.CancelFunc
 	interval time.Duration
+	clock    *fakeClock
+}
+
+// fakeClock is the runner's clock in the harness: the first read after
+// set gives the time set, as the iteration's start, and every later read
+// that time plus epoch, as if the epoch's collect and write had taken it.
+type fakeClock struct {
+	mu    sync.Mutex
+	at    time.Time
+	read  bool
+	epoch time.Duration
+}
+
+func (c *fakeClock) set(at time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.at, c.read = at, false
+}
+
+func (c *fakeClock) now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.read {
+		c.read = true
+		return c.at
+	}
+	return c.at.Add(c.epoch)
+}
+
+// fakeStart is the fake clock's time when the runner starts.
+var fakeStart = time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+
+// tickAt sets the clock to at and sends the tick.
+func (h *fillHarness) tickAt(at time.Time) {
+	h.clock.set(at)
+	h.ticks <- at
 }
 
 type fillCall struct {
@@ -115,7 +151,13 @@ type fillCall struct {
 func startFillHarness(t *testing.T, fills ...string) *fillHarness {
 	t.Helper()
 	h := &fillHarness{r: newRunner(t), ticks: make(chan time.Time), calls: make(chan fillCall),
-		release: make(chan bool), done: make(chan error, 1), interval: 10 * time.Second}
+		release: make(chan bool), done: make(chan error, 1), interval: 10 * time.Second,
+		// The epoch's time stays below the reserve's floor of a tenth of
+		// the interval, so the deadline is the same whichever read of
+		// the clock the iteration's start is.
+		clock: &fakeClock{epoch: 500 * time.Millisecond}}
+	h.clock.set(fakeStart)
+	h.r.now = h.clock.now
 	h.r.Interval = h.interval
 	h.r.tick = func(time.Duration) (<-chan time.Time, func()) { return h.ticks, func() {} }
 	for _, name := range fills {
@@ -163,11 +205,11 @@ func (h *fillHarness) call(t *testing.T) fillCall {
 // fill keeps to its time. The fill continues after each epoch until it
 // reports that nothing is left, and then no longer runs.
 func TestFillUsesWhatIsLeftOfTheInterval(t *testing.T) {
-	began := time.Now()
 	h := startFillHarness(t, "backlog")
+	began := fakeStart
 	c := h.call(t)
-	if c.epochs != 0 || !c.until.Before(began.Add(h.interval)) {
-		t.Fatalf("the fill at start saw %d epochs and runs until %v, %v after the start; want none and less than an interval",
+	if c.epochs != 0 || c.until.After(began.Add(h.interval)) {
+		t.Fatalf("the fill at start saw %d epochs and runs until %v, %v after the start; want none and at most an interval",
 			c.epochs, c.until, c.until.Sub(began))
 	}
 	h.release <- true
@@ -176,13 +218,13 @@ func TestFillUsesWhatIsLeftOfTheInterval(t *testing.T) {
 		if c.epochs != k {
 			t.Fatalf("fill call %d after %d epochs, want %d", k, c.epochs, k)
 		}
-		if !c.until.Before(began.Add(h.interval)) {
+		if c.until.After(began.Add(h.interval)) {
 			t.Fatalf("fill call %d runs until %v after its epoch's tick, past the next tick at %v",
 				k, c.until.Sub(began), h.interval)
 		}
 		h.release <- k < 4
-		began = time.Now()
-		h.ticks <- began
+		began = began.Add(h.interval)
+		h.tickAt(began)
 	}
 	// Nothing is left: the next epoch is taken and no fill runs.
 	deadline := time.Now().Add(30 * time.Second)
@@ -216,6 +258,6 @@ func TestFailingFillWaitsForTheSweep(t *testing.T) {
 			t.Fatalf("after epoch %d the %s fill ran, want only the backlog", k, c.what)
 		}
 		h.release <- true
-		h.ticks <- time.Now()
+		h.tickAt(fakeStart.Add(time.Duration(k) * h.interval))
 	}
 }

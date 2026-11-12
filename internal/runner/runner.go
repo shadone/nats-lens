@@ -59,6 +59,17 @@ type Runner struct {
 	// tick, when set, replaces the interval's ticker: it returns the
 	// channel of ticks and a function that stops it. Set by tests.
 	tick func(d time.Duration) (<-chan time.Time, func())
+	// now, when set, replaces time.Now for an iteration's start and the
+	// times measured from it, from which the fills' deadlines count. Set
+	// by tests.
+	now func() time.Time
+}
+
+func (r *Runner) clock() time.Time {
+	if r.now != nil {
+		return r.now()
+	}
+	return time.Now()
 }
 
 // maintenanceFill fills what it can of one derived table, starting no
@@ -96,7 +107,7 @@ func writeContext(ctx context.Context, grace time.Duration) (context.Context, co
 // nonfatal write is logged and the next epoch still runs. A typed fatal
 // stops the runner; the store refuses every later database operation.
 func (r *Runner) Run(ctx context.Context) error {
-	pending, err := r.maintain(ctx, time.Now(), 0)
+	pending, err := r.maintain(ctx, r.clock(), 0)
 	if store.IsFatal(err) {
 		return err
 	}
@@ -112,7 +123,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	defer stop()
 	skipping := false
 	for {
-		began := time.Now()
+		began := r.clock()
 		if r.Connected != nil && !r.Connected() {
 			if !skipping {
 				r.logger().Warn("nats not connected; epochs skipped until it is")
@@ -127,7 +138,7 @@ func (r *Runner) Run(ctx context.Context) error {
 				return err
 			}
 		}
-		took := time.Since(began)
+		took := r.clock().Sub(began)
 		maintained := true
 		switch {
 		case time.Since(lastSweep) >= SweepEvery:
@@ -144,7 +155,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		// The ticker keeps one tick: an iteration longer than two
 		// intervals drops the epochs of the ticks in between, about one
 		// per interval beyond the first.
-		if all := time.Since(began); maintained && all >= 2*r.Interval {
+		if all := r.clock().Sub(began); maintained && all >= 2*r.Interval {
 			r.logger().Warn("epochs skipped: the epoch and the maintenance after it took longer than two intervals",
 				"took", all.Round(time.Millisecond), "skipped_about", int(all/r.Interval)-1)
 		}
