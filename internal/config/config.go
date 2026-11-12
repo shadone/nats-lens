@@ -74,6 +74,9 @@ type Config struct {
 	// DuckDBMemory bounds the memory DuckDB uses; zero means 60% of the
 	// container's memory limit, or 1 GiB without one.
 	DuckDBMemory ByteSize `yaml:"duckdb_memory_limit"`
+	// DuckDBMaxTemp bounds the disk each system's DuckDB may spill to;
+	// zero means TempPerMemory times the system's memory limit.
+	DuckDBMaxTemp ByteSize `yaml:"duckdb_max_temp_size"`
 	// QueryBudget is how many queries of the API and /metrics may run at
 	// once on each system's database; zero derives it from the database's
 	// threads (QueryBudgetFor), -1 turns the budget off.

@@ -99,6 +99,7 @@ func (s System) LogValue() slog.Value {
 		slog.String("data_dir", s.DataDir),
 		slog.String("archive_dir", s.ArchiveDir),
 		slog.Int64("duckdb_memory_limit", s.DuckDBMemoryLimit),
+		slog.Int64("duckdb_max_temp_size", s.DuckDBMaxTempSize),
 	)
 }
 

@@ -23,6 +23,7 @@ systems:
     retention: 21d
     archive_retention: 60d
     duckdb_memory_limit: 512MiB
+    duckdb_max_temp_size: 3GiB
   - id: shop-staging
     nats: { url: "nats://staging:4222" }
 `)
@@ -54,7 +55,8 @@ func TestForSystemOfLegacyConfig(t *testing.T) {
 	cfg := parseFile(t, "data_dir: /var/lib/natslens\nsystem_id: shop-prod\n")
 	view := cfg.ForSystem(cfg.ResolvedSystems()[0])
 	if view.DataDir != cfg.DataDir || view.ResolvedArchiveDir() != cfg.ResolvedArchiveDir() ||
-		view.DuckDBMemoryLimit() != cfg.DuckDBMemoryLimit() || !reflect.DeepEqual(view.NATS, cfg.NATS) ||
+		view.DuckDBMemoryLimit() != cfg.DuckDBMemoryLimit() || view.DuckDBMaxTempSize() != cfg.DuckDBMaxTempSize() ||
+		!reflect.DeepEqual(view.NATS, cfg.NATS) ||
 		view.SystemID != "shop-prod" {
 		t.Errorf("view %+v differs from the configuration %+v", view, cfg)
 	}

@@ -20,5 +20,6 @@ func (c Config) ForSystem(s System) Config {
 	v.DataDir = s.DataDir
 	v.ArchiveDir = s.ArchiveDir
 	v.DuckDBMemory = ByteSize(s.DuckDBMemoryLimit)
+	v.DuckDBMaxTemp = ByteSize(s.DuckDBMaxTempSize)
 	return v
 }

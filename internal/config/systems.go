@@ -80,6 +80,10 @@ type SystemConfig struct {
 	// the budget when their own limits do, or when the floor applies;
 	// natslens warns then.
 	DuckDBMemory ByteSize `yaml:"duckdb_memory_limit"`
+	// DuckDBMaxTemp bounds the disk the system's DuckDB may spill to;
+	// zero means the top-level duckdb_max_temp_size, else TempPerMemory
+	// times the system's memory limit.
+	DuckDBMaxTemp ByteSize `yaml:"duckdb_max_temp_size"`
 }
 
 // UnmarshalYAML starts each system from its defaults, so that a key left
@@ -109,6 +113,7 @@ type System struct {
 	DataDir           string
 	ArchiveDir        string
 	DuckDBMemoryLimit int64
+	DuckDBMaxTempSize int64
 }
 
 // ToolingNames are the connection names the system's nats-lens
@@ -225,6 +230,7 @@ func (c Config) legacySystem() System {
 		DataDir:           c.DataDir,
 		ArchiveDir:        c.ResolvedArchiveDir(),
 		DuckDBMemoryLimit: c.DuckDBMemoryLimit(),
+		DuckDBMaxTempSize: c.DuckDBMaxTempSize(),
 	}
 }
 
@@ -267,6 +273,14 @@ func (c Config) resolve(s SystemConfig, memoryShare int64) System {
 	}
 	if s.DuckDBMemory > 0 {
 		out.DuckDBMemoryLimit = int64(s.DuckDBMemory)
+	}
+	switch {
+	case s.DuckDBMaxTemp > 0:
+		out.DuckDBMaxTempSize = int64(s.DuckDBMaxTemp)
+	case c.DuckDBMaxTemp > 0:
+		out.DuckDBMaxTempSize = int64(c.DuckDBMaxTemp)
+	default:
+		out.DuckDBMaxTempSize = TempPerMemory * out.DuckDBMemoryLimit
 	}
 	return out
 }

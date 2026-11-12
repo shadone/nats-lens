@@ -66,6 +66,11 @@ func openStore(ctx context.Context, cfg config.Config, log *slog.Logger) (*store
 		return nil, nil, err
 	}
 	log.Info("duckdb memory limit", "bytes", cfg.DuckDBMemoryLimit())
+	if err := st.SetMaxTempSize(ctx, cfg.DuckDBMaxTempSize()); err != nil {
+		_ = st.Close()
+		return nil, nil, err
+	}
+	log.Info("duckdb spill limit", "bytes", cfg.DuckDBMaxTempSize())
 	st.SetLogger(log)
 	if recovery != nil {
 		if err := st.WriteEvents(ctx, []events.Event{*recovery}); err != nil {

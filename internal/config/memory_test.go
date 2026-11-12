@@ -45,3 +45,39 @@ func TestDuckDBMemoryLimit(t *testing.T) {
 		}
 	}
 }
+
+// The spill bound is duckdb_max_temp_size, else twice the memory limit;
+// a listed system takes its own, else the top-level value, else twice its
+// own memory limit.
+func TestDuckDBMaxTempSize(t *testing.T) {
+	if got := (Config{DuckDBMemory: 300 << 20}).DuckDBMaxTempSize(); got != 600<<20 {
+		t.Fatalf("default: %d", got)
+	}
+	if got := (Config{DuckDBMemory: 300 << 20, DuckDBMaxTemp: 1 << 30}).DuckDBMaxTempSize(); got != 1<<30 {
+		t.Fatalf("configured: %d", got)
+	}
+	cfg := parseFile(t, `duckdb_memory_limit: 1GiB
+systems:
+  - id: a
+    nats: { url: "nats://a:4222" }
+    duckdb_max_temp_size: 3GiB
+  - id: b
+    nats: { url: "nats://b:4222" }
+    duckdb_memory_limit: 256MiB
+  - id: c
+    nats: { url: "nats://c:4222" }
+`)
+	want := map[string]int64{"a": 3 << 30, "b": 512 << 20, "c": 2 * ((1<<30 - 256<<20) / 2)}
+	for _, s := range cfg.ResolvedSystems() {
+		if s.DuckDBMaxTempSize != want[s.ID] {
+			t.Errorf("%s: %d, want %d", s.ID, s.DuckDBMaxTempSize, want[s.ID])
+		}
+	}
+	cfg.DuckDBMaxTemp = 5 << 30
+	want = map[string]int64{"a": 3 << 30, "b": 5 << 30, "c": 5 << 30}
+	for _, s := range cfg.ResolvedSystems() {
+		if s.DuckDBMaxTempSize != want[s.ID] {
+			t.Errorf("top-level set, %s: %d, want %d", s.ID, s.DuckDBMaxTempSize, want[s.ID])
+		}
+	}
+}
