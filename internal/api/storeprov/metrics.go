@@ -154,7 +154,27 @@ func (p *Provider) WriteMetrics(ctx context.Context, m *api.Exposition) error {
 	if err := p.writeNotifications(ctx, m, now); err != nil {
 		return err
 	}
-	return p.writeHealth(ctx, m, now)
+	if err := p.writeHealth(ctx, m, now); err != nil {
+		return err
+	}
+	return p.writeSpill(ctx, m)
+}
+
+// writeSpill writes what the system's DuckDB holds in temporary files now,
+// read from duckdb_temporary_files() at the scrape, and the bound that
+// fails a query beyond it.
+func (p *Provider) writeSpill(ctx context.Context, m *api.Exposition) error {
+	n, err := p.St.TempBytes(ctx)
+	if err != nil {
+		return err
+	}
+	m.Family("nats_lens_db_spill_bytes", "gauge", "Bytes the system's DuckDB holds now in temporary files: query data beyond its memory limit, spilled to disk beside the database.")
+	m.Sample("nats_lens_db_spill_bytes", float64(n))
+	m.Family("nats_lens_db_spill_limit_bytes", "gauge", "The spill bound, duckdb_max_temp_size: a query that needs more fails. Absent when DuckDB's default applies.")
+	if limit := p.St.MaxTempSize(); limit > 0 {
+		m.Sample("nats_lens_db_spill_limit_bytes", float64(limit))
+	}
+	return nil
 }
 
 // writeHealth writes the collector's and the checks' health.
