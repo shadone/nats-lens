@@ -2,7 +2,11 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
+
+	duckdb "github.com/duckdb/duckdb-go/v2"
 )
 
 // SetMemoryLimit bounds the memory the database may use, in bytes. The
@@ -56,4 +60,18 @@ func (s *Store) TempBytes(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("read temporary files: %w", err)
 	}
 	return n, nil
+}
+
+// IsOutOfMemory reports whether err is DuckDB running out of memory or of
+// spill space (max_temp_directory_size, see SetMaxTempSize). The statement
+// failed and its transaction rolled back; the engine stays usable, and the
+// same statement can succeed once other queries release their memory and
+// temporary files. A commit that cannot spill fails with a transaction
+// error that names the block it could not write.
+func IsOutOfMemory(err error) bool {
+	var de *duckdb.Error
+	if !errors.As(err, &de) {
+		return false
+	}
+	return de.Type == duckdb.ErrorTypeOutOfMemory || strings.Contains(de.Msg, "failed to offload data block")
 }
