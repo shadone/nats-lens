@@ -103,7 +103,7 @@ func TestCancelReachesDuckDB(t *testing.T) {
 	for range 16 {
 		queued = append(queued, runQuery(apiCtx(ctx), s, `SELECT 1`))
 	}
-	waitUntilTrue(t, "16 queued, the queue's bound", func() bool { _, q := load(s); return q == 16 })
+	waitUntilTrue(t, "16 queued", func() bool { _, q := load(s); return q == 16 })
 	s.mu.Lock("test")
 	var writes []chan error
 	for range 20 {
@@ -300,7 +300,7 @@ func TestManyClientsAndCancellationsLeaveTheBudgetEmpty(t *testing.T) {
 				ctx = admit.WithFlow(timing.WithSource(ctx, timing.SourceMetrics))
 			}
 			err := <-runQuery(ctx, s, q)
-			// The queue holds 24; a query past it is refused as overload.
+			// The queue holds 64; a query past it is refused as overload.
 			if i%3 != 0 && err != nil && !errors.Is(err, admit.ErrOverloaded) {
 				t.Errorf("query %d: %v", i, err)
 			}

@@ -81,7 +81,7 @@ func TestCanceledWaitersLeaveTheQueue(t *testing.T) {
 	g := New(1, func() string { return "test-cancel" })
 	hold, _ := g.Enter(context.Background(), api())
 	ctx, cancel := context.WithCancel(context.Background())
-	const n = QueuePerSlot
+	const n = 20
 	var wg sync.WaitGroup
 	errs := make(chan error, n)
 	for range n {
@@ -132,10 +132,10 @@ func TestFullQueueRefusesAtOnce(t *testing.T) {
 	hold, _ := g.Enter(context.Background(), api())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	for range QueuePerSlot {
+	for range g.QueueLimit() {
 		enterAsync(ctx, g, api())
 	}
-	waitFor(t, "queue full", func() bool { return queued(g) == QueuePerSlot })
+	waitFor(t, "queue full", func() bool { return queued(g) == g.QueueLimit() })
 	_, err := g.Enter(context.Background(), api())
 	var oe *OverloadError
 	if !errors.As(err, &oe) || !oe.QueueFull || errors.Is(err, context.DeadlineExceeded) {
@@ -335,4 +335,26 @@ func TestYieldAdmitsOneQueryUntilItEnds(t *testing.T) {
 	if got := timing.AdmissionLimit.With("test-yield").Load(); got != 3 {
 		t.Fatalf("limit gauge %d after the yields", got)
 	}
+}
+
+// One budget slot still queues four page loads of 16 queries each: a
+// page's fan-out alone is never refused as overload.
+func TestOneSlotQueuesFourPageLoads(t *testing.T) {
+	g := New(1, nil)
+	hold, _ := g.Enter(context.Background(), api())
+	defer hold()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	for range 64 {
+		enterAsync(ctx, g, api())
+	}
+	waitFor(t, "64 queued", func() bool { return queued(g) == 64 })
+	if g.QueueLimit() != MinQueue || New(16, nil).QueueLimit() != 16*QueuePerSlot {
+		t.Fatalf("queue limits %d at one slot, %d at 16", g.QueueLimit(), New(16, nil).QueueLimit())
+	}
+	if _, err := g.Enter(context.Background(), api()); !errors.Is(err, ErrOverloaded) {
+		t.Fatalf("the 65th waiter got %v, want a full queue", err)
+	}
+	cancel()
+	waitFor(t, "queue empty", func() bool { return queued(g) == 0 })
 }

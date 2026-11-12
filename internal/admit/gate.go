@@ -27,12 +27,18 @@ var ErrOverloaded = errors.New("query budget in use")
 // gate whose store has closed.
 var ErrClosed = errors.New("store closed")
 
-// QueuePerSlot is how many queries may wait for each slot of the budget;
-// past it a query is refused at once. Each waiter holds a pooled DuckDB
-// connection while it waits, so the queue bounds those too: 32 at a
-// budget of 4, above the 16 to 18 waiters the mixed load reached.
-// Proposed, not yet confirmed.
-const QueuePerSlot = 8
+// The queue holds QueuePerSlot waiters for each slot of the budget, and
+// at least MinQueue; past it a query is refused at once. The floor keeps
+// a small budget from refusing one page: a page load of the UI starts
+// about ten calls at once and a series batch adds up to three, so at one
+// slot one Overview queued 8 to 11 queries (natslens-perf, smoke store),
+// and MinQueue holds four such loads of 16. Each waiter holds a pooled
+// DuckDB connection while it waits, so the queue also bounds those: 64
+// up to a budget of 8, 8 a slot above it. Proposed, not yet confirmed.
+const (
+	QueuePerSlot = 8
+	MinQueue     = 64
+)
 
 // OverloadError is a query refused for ErrOverloaded. It wraps the
 // context's error when the deadline passed while it waited, so code that
@@ -81,6 +87,9 @@ type Gate struct {
 	// high are the waiters of /metrics, served before low, the API's.
 	high, low list.List
 	closed    bool
+	// peak is the most queries that waited at once since the last
+	// TakePeak.
+	peak int
 	// yielding counts the writes the gate yields to; while it is above
 	// zero the gate admits up to YieldLimit queries.
 	yielding int
@@ -94,14 +103,14 @@ type waiter struct {
 }
 
 // New returns a gate of limit slots, at least one, whose waiters are
-// bounded by limit*QueuePerSlot. label names the store's system for the
+// bounded by QueueLimit. label names the store's system for the
 // gate's series in /metrics; it is read on every change.
 func New(limit int, label func() string) *Gate {
 	limit = max(limit, 1)
 	if label == nil {
 		label = func() string { return "" }
 	}
-	g := &Gate{limit: limit, maxQueue: limit * QueuePerSlot, label: label, done: make(chan struct{})}
+	g := &Gate{limit: limit, maxQueue: max(limit*QueuePerSlot, MinQueue), label: label, done: make(chan struct{})}
 	timing.AdmissionLimit.With(label()).Store(int64(limit))
 	return g
 }
@@ -109,6 +118,10 @@ func New(limit int, label func() string) *Gate {
 // YieldLimit is the most queries the gate admits while it yields to a
 // write. Proposed, not yet confirmed.
 const YieldLimit = 1
+
+// QueueLimit returns the most queries that may wait: QueuePerSlot for each
+// slot, at least MinQueue.
+func (g *Gate) QueueLimit() int { return g.maxQueue }
 
 // Limit returns the number of slots.
 func (g *Gate) Limit() int { return g.limit }
@@ -174,6 +187,16 @@ func (g *Gate) Load() (active, queued int) {
 	return g.active, g.high.Len() + g.low.Len()
 }
 
+// TakePeak returns the most queries that waited at once since the last
+// call, and starts counting again.
+func (g *Gate) TakePeak() int {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	p := g.peak
+	g.peak = 0
+	return p
+}
+
 // Idle reports whether a query asking now would take a slot at once.
 func (g *Gate) Idle() bool {
 	g.mu.Lock()
@@ -224,6 +247,7 @@ func (g *Gate) acquire(ctx context.Context, source string, priority bool, abort 
 		q = &g.high
 	}
 	e := q.PushBack(w)
+	g.peak = max(g.peak, g.high.Len()+g.low.Len())
 	g.publish()
 	g.mu.Unlock()
 
