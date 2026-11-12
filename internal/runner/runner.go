@@ -143,7 +143,7 @@ func (r *Runner) Once(ctx context.Context) (int64, error) {
 	defer cancel()
 	epoch, err := r.Store.WriteSnapshotWithin(wctx, snap, r.Interval)
 	if err != nil {
-		r.logger().Error("epoch not stored", "err", err)
+		r.logger().Error("epoch not stored", withSpillCause(err, "err", err)...)
 		return 0, err
 	}
 	level := slog.LevelInfo
@@ -166,6 +166,20 @@ func (r *Runner) Once(ctx context.Context) (int64, error) {
 	return epoch, r.Store.Failure()
 }
 
+// spillCause names, in the log, why a write failed when the database ran
+// out of memory and spill space: other work, often API reads, held both,
+// and the next write runs once they are released.
+const spillCause = "the database's memory limit and spill bound (duckdb_max_temp_size) were used up"
+
+// withSpillCause adds the cause to a failed write's log attributes when
+// err is DuckDB running out of memory or spill space.
+func withSpillCause(err error, args ...any) []any {
+	if store.IsOutOfMemory(err) {
+		return append(args, "cause", spillCause)
+	}
+	return args
+}
+
 // check runs the checks for a stored epoch. A failure is logged and the
 // collector goes on; a check that fails on its own is the engine's
 // system-001 finding, not an error here.
@@ -186,7 +200,7 @@ func (r *Runner) check(ctx context.Context, epoch int64) {
 			r.logger().Info("checks abandoned: shutting down", "epoch", epoch)
 			return
 		}
-		r.logger().Error("checks not applied", "epoch", epoch, "err", err)
+		r.logger().Error("checks not applied", withSpillCause(err, "epoch", epoch, "err", err)...)
 		return
 	}
 	if res.Firing+res.Changed+res.Resolved > 0 {
