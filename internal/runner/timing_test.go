@@ -20,6 +20,9 @@ func TestOnceRecordsJobTimings(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.Checks = &checks.Engine{Set: set}
+	// The counters are process-wide: compare with their values before, so
+	// that the test can run more than once in a process (-count).
+	held := timing.LockHeld.Count("runner-timing", "epoch")
 	if _, err := r.Once(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +39,7 @@ func TestOnceRecordsJobTimings(t *testing.T) {
 			t.Errorf("no query of source %s", src)
 		}
 	}
-	if timing.LockHeld.Count("runner-timing", "epoch") != 1 {
-		t.Errorf("epoch write held the lock %d times, want 1", timing.LockHeld.Count("runner-timing", "epoch"))
+	if n := timing.LockHeld.Count("runner-timing", "epoch") - held; n != 1 {
+		t.Errorf("epoch write held the lock %d times, want 1", n)
 	}
 }
