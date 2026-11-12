@@ -2,8 +2,10 @@ package perf
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,7 +53,11 @@ func TestOneOverviewLoadFitsTheQueueOfOneSlot(t *testing.T) {
 			_, q := g.Load()
 			hold()
 			<-done
-			t.Fatalf("%d of the page's %d calls queued; answered early: %+v", q, len(page.calls), rec.samples)
+			var early []string
+			for _, s := range rec.samples {
+				early = append(early, fmt.Sprintf("%s after %s: %v", s.proc, s.took, s.err))
+			}
+			t.Fatalf("%d of the page's %d calls queued; answered early: %s", q, len(page.calls), strings.Join(early, "; "))
 		}
 	}
 	t.Logf("%d queries of one Overview load waited for the one slot", g.TakePeak())
