@@ -23,10 +23,13 @@ type metricSQL struct {
 	sum      bool
 	complete bool
 	counter  *serverCounterMetric
-	// scan counts from the reports what query reads from
-	// epoch_asset_counts; it is read instead when an epoch of the range has
-	// no counts.
+	// scan reads from the reports what query reads from a table derived
+	// from them; it is read instead when missing finds an epoch the series
+	// reads without its derived rows.
 	scan string
+	// missing reports, given the lookback start and the range's end,
+	// whether query lacks rows scan would read; countsMissing when empty.
+	missing string
 }
 
 // maxGapToken in a metric query is replaced by the longest gap between
@@ -108,7 +111,9 @@ const (
 var metricQueries = map[string]metricSQL{
 	"cluster.capacity_file_store_bytes": {complete: true, query: capacityStoreSQL(false)},
 	"server.capacity_file_store_bytes":  {complete: true, query: capacityStoreSQL(true)},
-	"stream.observed_replica_bytes": {query: `
+	// The stream metrics read stream_samples, one row per stream and
+	// epoch, and the reports where an epoch has no samples.
+	"stream.observed_replica_bytes": {query: sampleValue("replica_bytes", byStream), missing: samplesMissing, scan: `
 SELECT e.started_at AS t, sum(x.bytes) AS v
 FROM stream_stats x JOIN epochs e USING (epoch)
 WHERE e.started_at >= ? AND e.started_at < ? ` + byStream + `
@@ -185,9 +190,9 @@ WHERE delta >= 0 GROUP BY epoch, started_at`},
 	"server.out_bytes_rate":   trafficRate("out_bytes", byServer),
 	// Reported sequence advance, not a count of stored messages. Known
 	// coherent creation and adjacent valid timing are required.
-	"stream.msgs_rate":         {query: resourceSequenceRate(false, byStream)},
-	"stream.messages":          {query: leaderView("stream_stats", "messages", byStream)},
-	"stream.bytes":             {query: leaderView("stream_stats", "bytes", byStream)},
+	"stream.msgs_rate":         {query: sampleRate(byStream), missing: samplesMissing, scan: resourceSequenceRate(false, byStream)},
+	"stream.messages":          {query: sampleValue("messages", byStream), missing: samplesMissing, scan: leaderView("stream_stats", "messages", byStream)},
+	"stream.bytes":             {query: sampleValue("bytes", byStream), missing: samplesMissing, scan: leaderView("stream_stats", "bytes", byStream)},
 	"consumer.num_pending":     {query: leaderView("consumer_stats", "num_pending", byConsumer)},
 	"consumer.num_ack_pending": {query: leaderView("consumer_stats", "num_ack_pending", byConsumer)},
 	"consumer.num_redelivered": {query: leaderView("consumer_stats", "num_redelivered", byConsumer)},
@@ -223,16 +228,20 @@ const countsMissing = `SELECT EXISTS (SELECT 1 FROM epochs e ANTI JOIN epoch_ass
 WHERE e.started_at >= ? AND e.started_at < ?)`
 
 // resolveMetric returns m with its scan as the query when an epoch the
-// series reads, from the lookback start to end, has no asset counts:
-// a store opened before its fill finished, or rows written outside the
-// store's epoch write.
+// series reads, from the lookback start to end, has no asset counts or
+// stream samples: a store opened before its fill finished, or rows
+// written outside the store's epoch write.
 func (p *Provider) resolveMetric(ctx context.Context, m metricSQL, start, end time.Time) (metricSQL, error) {
 	if m.scan == "" {
 		return m, nil
 	}
+	check := m.missing
+	if check == "" {
+		check = countsMissing
+	}
 	var missing bool
-	if err := p.db().QueryRowContext(ctx, countsMissing, start, end).Scan(&missing); err != nil {
-		return m, fmt.Errorf("asset counts: %w", err)
+	if err := p.db().QueryRowContext(ctx, check, start, end).Scan(&missing); err != nil {
+		return m, fmt.Errorf("derived rows: %w", err)
 	}
 	if missing {
 		m.query = m.scan

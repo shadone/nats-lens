@@ -60,7 +60,8 @@ func TestGrowthQueriesStayBatchedAndBounded(t *testing.T) {
 			if a := api.RobustPerDay(servers["nats-0/file"]); a == nil || *a != 288000 || storage == nil || *storage != *a {
 				t.Fatalf("%s: server %v / storage %v", zone, a, storage)
 			}
-			if spy.queries != 4 || len(bytes) != n || len(both) != n {
+			// The two stream reads each check their epochs' stream samples first.
+			if spy.queries != 6 || len(bytes) != n || len(both) != n {
 				t.Fatalf("%s / %d: queries=%d bytes=%d points=%d", zone, n, spy.queries, len(bytes), len(both))
 			}
 			for key, pts := range bytes {

@@ -59,6 +59,16 @@ func (p *Provider) metricContributorCandidates(ctx context.Context, r *v1.ListMe
 		args = []any{start, end, start, end, r.Server, r.Server, r.Query, api.MaxListRankingRows + 1}
 	case v1.EntityType_ENTITY_TYPE_STREAM, v1.EntityType_ENTITY_TYPE_CONSUMER:
 		table, key, name, consumer := "stream_stats", "x.account||'/'||x.stream", "x.stream", "''"
+		if kind == v1.EntityType_ENTITY_TYPE_STREAM {
+			// A stream has a sample in each epoch it has a report in.
+			sampled, err := p.streamSamplesCover(ctx, start, end)
+			if err != nil {
+				return nil, err
+			}
+			if sampled {
+				table = "stream_samples"
+			}
+		}
 		if kind == v1.EntityType_ENTITY_TYPE_CONSUMER {
 			table = "consumer_stats"
 			key += "||'/'||x.consumer"

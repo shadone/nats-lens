@@ -126,16 +126,10 @@ ORDER BY n.account, n.stream`, []any{e.epoch, account, account, stream, stream, 
 	return out, totals, nil
 }
 
-// The pieces of SQL streamGrowth and streamPoints share, so that the
-// Streams and Capacity pages read one bytes growth: a stream's value in an
-// epoch (the leader's report, else the largest), the epochs of the range,
-// and the growth buckets.
-const (
-	streamPerEpoch = `FROM stream_stats x JOIN epochs e USING (epoch)
-  WHERE e.started_at >= ? AND e.started_at < ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?)
-  GROUP BY x.account, x.stream, e.epoch, e.started_at`
-	growthBucket = `time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00')`
-)
+// growthBucket is the growth bucket streamGrowth and streamPoints share,
+// so that the Streams and Capacity pages read one bytes growth; both take
+// a stream's value in an epoch from streamPerEpochSQL.
+const growthBucket = `time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00')`
 
 // leaderValue is a stream's value of col in one epoch: the leader's
 // report, else the largest any server reports.
@@ -158,10 +152,13 @@ func (p *Provider) streamGrowth(ctx context.Context, start, end time.Time, accou
 func (p *Provider) streamGrowthKeys(ctx context.Context, start, end time.Time, account, stream string, keys []string) (map[string][]api.Sample, error) {
 	// ASVS 1.2.4: timestamps and selected entity keys remain query parameters.
 	start = api.GrowthStart(start, end, p.Interval)
+	sampled, err := p.streamSamplesCover(ctx, start, end)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := p.db().QueryContext(ctx, `
 WITH per AS (
-  SELECT x.account, x.stream, e.started_at AS t, `+leaderValue("bytes")+` AS v
-  `+strings.Replace(streamPerEpoch, "  GROUP BY", "  AND (? OR x.account || '/' || x.stream IN (SELECT unnest(?::VARCHAR[])))\n  GROUP BY", 1)+`)
+  `+streamPerEpochSQL(sampled, ` AND (? OR x.account || '/' || x.stream IN (SELECT unnest(?::VARCHAR[])))`, [2]string{"bytes", "v"})+`)
 SELECT account, stream, min(t) + (max(t) - min(t)) / 2, median(v)::DOUBLE, min(t), max(t)
 FROM per WHERE v IS NOT NULL
 GROUP BY account, stream, `+growthBucket+`
@@ -192,10 +189,13 @@ type streamPts struct{ bytes, msgs []api.Sample }
 func (p *Provider) streamPoints(ctx context.Context, start, end time.Time, account, stream string) (map[string]streamPts, error) {
 	// ASVS 1.2.4: timestamps and selected entity keys remain query parameters.
 	start = api.GrowthStart(start, end, p.Interval)
+	sampled, err := p.streamSamplesCover(ctx, start, end)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := p.db().QueryContext(ctx, `
 WITH per AS (
-  SELECT x.account, x.stream, e.started_at AS t, `+leaderValue("bytes")+` AS v, `+leaderValue("messages")+` AS m
-  `+streamPerEpoch+`)
+  `+streamPerEpochSQL(sampled, "", [2]string{"bytes", "v"}, [2]string{"messages", "m"})+`)
 SELECT account, stream, `+growthBucket+` AS b,
   min(t) FILTER (WHERE v IS NOT NULL) + (max(t) FILTER (WHERE v IS NOT NULL) - min(t) FILTER (WHERE v IS NOT NULL)) / 2,
   median(v)::DOUBLE,
@@ -242,14 +242,14 @@ func (p *Provider) sparklines(ctx context.Context, r *v1.TimeRange, account, str
 func (p *Provider) sparklinesKeys(ctx context.Context, r *v1.TimeRange, account, stream string, keys []string) (map[string]*v1.Series, error) {
 	step := api.Step(r, sparklineBuckets, max(p.Interval, time.Second))
 	start, end := span(r)
+	sampled, err := p.streamSamplesCover(ctx, start, end)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := p.db().QueryContext(ctx, `
 WITH per AS (
-  SELECT x.account, x.stream, e.started_at AS t,
-    coalesce(max(x.bytes) FILTER (WHERE x.is_leader), max(x.bytes)) AS v
-  FROM stream_stats x JOIN epochs e USING (epoch)
-  WHERE e.started_at >= ? AND e.started_at < ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?)
-  AND (? OR x.account || '/' || x.stream IN (SELECT unnest(?::VARCHAR[])))
-  GROUP BY x.account, x.stream, e.epoch, e.started_at)
+  `+streamPerEpochSQL(sampled, `
+  AND (? OR x.account || '/' || x.stream IN (SELECT unnest(?::VARCHAR[])))`, [2]string{"bytes", "v"})+`)
 SELECT account, stream, time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00') AS b, avg(v)::DOUBLE
 FROM per WHERE v IS NOT NULL GROUP BY ALL ORDER BY account, stream, b`,
 		start, end, account, account, stream, stream, keys == nil, keys, step.Microseconds())

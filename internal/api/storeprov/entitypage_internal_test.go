@@ -166,8 +166,8 @@ func TestEntityListScaleAndEnrichmentScope(t *testing.T) {
 	if next.Epoch != first.Epoch || next.Totals.Bytes != first.Totals.Bytes || next.Streams[0].Entity.Key != "APP/orders-00010" {
 		t.Fatal("live update shifted traversal")
 	}
-	if spy.queries-before != 3 {
-		t.Fatalf("continuation queries %d, want epoch check + two history batches", spy.queries-before)
+	if spy.queries-before != 5 {
+		t.Fatalf("continuation queries %d, want epoch check + two history batches, each with its samples check", spy.queries-before)
 	}
 	fresh, err := p.ListStreams(context.Background(), &v1.ListStreamsRequest{Range: r, SummaryOnly: true})
 	if err != nil {

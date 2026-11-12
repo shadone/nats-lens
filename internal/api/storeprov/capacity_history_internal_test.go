@@ -70,8 +70,9 @@ func TestCapacityHistoryBoundedReads(t *testing.T) {
 				t.Fatalf("%s %s: end leaked: %v", zone, tc.metric, s.GetMax())
 			}
 		}
-		if spy.queries != 3 {
-			t.Fatalf("%s: %d reads, want exactly one per series", zone, spy.queries)
+		// The stream series also checks that its epochs have stream samples.
+		if spy.queries != 4 {
+			t.Fatalf("%s: %d reads, want exactly one per series and the samples check", zone, spy.queries)
 		}
 	}
 	canceled, cancel := context.WithCancel(ctx)
