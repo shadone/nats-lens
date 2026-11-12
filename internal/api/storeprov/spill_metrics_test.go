@@ -1,10 +1,13 @@
 package storeprov_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,10 +82,15 @@ func TestMetricsSpillReadFails(t *testing.T) {
 	t.Cleanup(storeprov.SetSpillBytes(func(*store.Store, context.Context) (int64, error) {
 		return 0, errors.New("temporary files not read")
 	}))
-	srv, _ := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Clock: func() time.Time { return now }})
+	var logs bytes.Buffer
+	srv, _ := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Clock: func() time.Time { return now },
+		Log: slog.New(slog.NewTextHandler(&logs, nil))})
 	body := scrape(t, srv.URL+"/metrics")
 	if regexp.MustCompile(`(?m)^nats_lens_db_spill_bytes\{`).MatchString(body) {
 		t.Error("a spill sample after its read failed")
+	}
+	if n := strings.Count(logs.String(), "spill not read"); n != 1 || !strings.Contains(logs.String(), "level=WARN") {
+		t.Errorf("want one warning for the failed read, got %d:\n%s", n, logs.String())
 	}
 	for _, want := range []string{
 		`nats_lens_db_spill_limit_bytes{system="default"} 1.073741824e+09`,

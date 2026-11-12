@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"time"
 
@@ -70,6 +71,9 @@ type Provider struct {
 	// ArchiveStatus reports the archiver's state for Data history; nil
 	// when no archiver runs, as in natslens once and natslens sql.
 	ArchiveStatus func() api.ArchiveState
+	// Log receives what a read leaves out on its own, such as a /metrics
+	// spill read that failed; nil logs nothing.
+	Log *slog.Logger
 
 	podCache podNameCache
 	readDB   queryReader

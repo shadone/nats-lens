@@ -180,6 +180,9 @@ func (p *Provider) writeSpill(ctx context.Context, m *api.Exposition) error {
 		if ctx.Err() != nil {
 			return err
 		}
+		if p.Log != nil {
+			p.Log.Warn("metrics: DuckDB's spill not read; nats_lens_db_spill_bytes left out of this scrape", "err", err)
+		}
 		return nil
 	}
 	m.Sample("nats_lens_db_spill_bytes", float64(n))

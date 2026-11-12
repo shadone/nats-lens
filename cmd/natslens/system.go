@@ -76,7 +76,7 @@ func (rt *systemRuntime) provider(set *checks.Set) *storeprov.Provider {
 		Retention: rt.sys.Retention.D(), Live: true, Checks: set,
 		ToolingNames: rt.sys.ToolingNames(), LoopbackNotTooling: !rt.cfg.Checks.LoopbackTooling(),
 		ClientPods: rt.sys.Kubernetes.ClientPodsPattern(), Kubernetes: rt.sys.Kubernetes.Enabled,
-		ClientPodWatch: rt.sys.Kubernetes.Enabled && rt.sys.Kubernetes.ClientPodWatch.On()}
+		ClientPodWatch: rt.sys.Kubernetes.Enabled && rt.sys.Kubernetes.ClientPodWatch.On(), Log: rt.log}
 	if rt.arch != nil {
 		p.ArchiveStatus = rt.archiveState
 	}
