@@ -117,27 +117,40 @@ func (w *writer) writeStreamSamples() {
 // the collector calls it once the store's thread count and memory limit
 // are set.
 func (s *Store) FillStreamSamples(ctx context.Context) (int64, error) {
+	n, _, err := s.FillStreamSamplesUntil(ctx, time.Time{})
+	return n, err
+}
+
+// FillStreamSamplesUntil is FillStreamSamples that starts no batch at or
+// after until (none when zero); more reports that epochs without samples
+// remain.
+func (s *Store) FillStreamSamplesUntil(ctx context.Context, until time.Time) (n int64, more bool, err error) {
 	begin := time.Now()
-	n, err := fillStreamSamples(ctx, s.db, func() func() {
+	n, more, err = fillStreamSamples(ctx, s.db, func() func() {
 		s.mu.Lock(opStreamSamples)
 		return s.mu.Unlock
-	})
+	}, until)
 	if n > 0 {
-		s.logger().Info("stream samples filled", "epochs", n, "took", time.Since(begin).Round(time.Millisecond))
+		s.logger().Info("stream samples filled", "epochs", n, "took", time.Since(begin).Round(time.Millisecond), "more", more)
 	}
-	return n, err
+	return n, more, err
 }
 
 // fillStreamSamples fills the missing stream samples through db, which is
 // a *sql.DB (each batch then is a transaction of its own) or a
-// transaction. lock, when not nil, is held around each batch.
-func fillStreamSamples(ctx context.Context, db execQueryRower, lock func() func()) (int64, error) {
+// transaction. lock, when not nil, is held around each batch. No batch
+// starts at or after until, unless it is zero; more reports that epochs
+// without samples may remain then.
+func fillStreamSamples(ctx context.Context, db execQueryRower, lock func() func(), until time.Time) (int64, bool, error) {
 	var n int64
 	for {
+		if !until.IsZero() && !time.Now().Before(until) {
+			return n, true, nil
+		}
 		added, done, err := fillStreamSampleBatch(ctx, db, lock)
 		n += added
 		if err != nil || done {
-			return n, err
+			return n, !done, err
 		}
 	}
 }

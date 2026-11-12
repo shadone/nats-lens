@@ -271,3 +271,31 @@ func TestStreamSamplesSwept(t *testing.T) {
 		t.Errorf("%d sampled epochs after the sweep, want 2", n)
 	}
 }
+
+// A fill whose time is up starts no batch and reports that epochs remain;
+// one with time left fills them and reports none.
+func TestFillsStopWhenTheirTimeIsUp(t *testing.T) {
+	ctx := context.Background()
+	s := openMem(t)
+	if _, err := s.WriteSnapshot(ctx, fixtureSnapshot(t, t0)); err != nil {
+		t.Fatal(err)
+	}
+	addVariedEpochs(t, s, 2, 10)
+	if _, err := s.DB().Exec(`DELETE FROM epoch_asset_counts WHERE epoch > 1`); err != nil {
+		t.Fatal(err)
+	}
+	past := time.Now().Add(-time.Second)
+	if n, more, err := s.FillStreamSamplesUntil(ctx, past); n != 0 || !more || err != nil {
+		t.Errorf("stream samples past their time: %d filled, more %v, %v; want none filled and more", n, more, err)
+	}
+	if n, more, err := s.FillAssetCountsUntil(ctx, past); n != 0 || !more || err != nil {
+		t.Errorf("asset counts past their time: %d filled, more %v, %v; want none filled and more", n, more, err)
+	}
+	later := time.Now().Add(time.Minute)
+	if n, more, err := s.FillStreamSamplesUntil(ctx, later); n != 9 || more || err != nil {
+		t.Errorf("stream samples: %d filled, more %v, %v; want 9 and none left", n, more, err)
+	}
+	if n, more, err := s.FillAssetCountsUntil(ctx, later); n != 9 || more || err != nil {
+		t.Errorf("asset counts: %d filled, more %v, %v; want 9 and none left", n, more, err)
+	}
+}

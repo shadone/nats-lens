@@ -91,51 +91,63 @@ func (w *writer) writeAssetCounts() {
 // have none; the collector calls it once the store's thread count and
 // memory limit are set.
 func (s *Store) FillAssetCounts(ctx context.Context) (int64, error) {
-	begin := time.Now()
-	n, err := fillAssetCounts(ctx, s.db, func() func() {
-		s.mu.Lock(opAssetCounts)
-		return s.mu.Unlock
-	})
-	if n > 0 {
-		s.logger().Info("asset counts filled", "epochs", n, "took", time.Since(begin).Round(time.Millisecond))
-	}
+	n, _, err := s.FillAssetCountsUntil(ctx, time.Time{})
 	return n, err
 }
 
+// FillAssetCountsUntil is FillAssetCounts that starts no batch at or after
+// until (none when zero); more reports that epochs without counts remain.
+func (s *Store) FillAssetCountsUntil(ctx context.Context, until time.Time) (n int64, more bool, err error) {
+	begin := time.Now()
+	n, more, err = fillAssetCounts(ctx, s.db, func() func() {
+		s.mu.Lock(opAssetCounts)
+		return s.mu.Unlock
+	}, until)
+	if n > 0 {
+		s.logger().Info("asset counts filled", "epochs", n, "took", time.Since(begin).Round(time.Millisecond), "more", more)
+	}
+	return n, more, err
+}
+
 // fillAssetCounts fills the missing asset counts through db, which may be
-// a transaction. lock, when not nil, is held around each batch.
-func fillAssetCounts(ctx context.Context, db execQuerier, lock func() func()) (int64, error) {
+// a transaction. lock, when not nil, is held around each batch. No batch
+// starts at or after until, unless it is zero; more reports the epochs
+// left without counts then.
+func fillAssetCounts(ctx context.Context, db execQuerier, lock func() func(), until time.Time) (int64, bool, error) {
 	rows, err := db.QueryContext(ctx, `SELECT epoch FROM epochs
 WHERE epoch NOT IN (SELECT epoch FROM epoch_asset_counts) ORDER BY epoch`)
 	if err != nil {
-		return 0, fmt.Errorf("epochs without asset counts: %w", err)
+		return 0, false, fmt.Errorf("epochs without asset counts: %w", err)
 	}
 	var missing []int64
 	for rows.Next() {
 		var e int64
 		if err := rows.Scan(&e); err != nil {
 			rows.Close()
-			return 0, err
+			return 0, false, err
 		}
 		missing = append(missing, e)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	var n int64
 	for i := 0; i < len(missing); i += assetCountBatch {
+		if !until.IsZero() && !time.Now().Before(until) {
+			return n, true, nil
+		}
 		batch := missing[i:min(i+assetCountBatch, len(missing))]
 		added, err := fillAssetCountBatch(ctx, db, lock, batch[0], batch[len(batch)-1])
 		n += added
 		if err != nil {
-			return n, err
+			return n, true, err
 		}
 		if afterAssetCountBatch != nil {
 			afterAssetCountBatch()
 		}
 	}
-	return n, nil
+	return n, false, nil
 }
 
 // fillAssetCountBatch fills the epochs from lo to hi that have no counts.
