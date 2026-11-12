@@ -136,10 +136,24 @@ func interrupted(err error) bool {
 	return strings.Contains(err.Error(), "INTERRUPT Error")
 }
 
+// outOfMemory reports whether err is DuckDB running out of memory or of
+// spill space (duckdb_max_temp_size); read from the message as interrupted
+// is. The query failed, the engine is usable, and the same call can
+// succeed once other queries finish.
+func outOfMemory(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "Out of Memory Error") || strings.Contains(msg, "failed to offload data block")
+}
+
 func (h *Handler) codeOf(procedure string, err error) error {
 	switch {
 	case errors.Is(err, admit.ErrOverloaded):
 		return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("the system is busy: %w; try again shortly", err))
+	case outOfMemory(err):
+		if h.Log != nil {
+			h.Log.Warn("api call ran out of database memory and spill space", "procedure", procedure, "err", err)
+		}
+		return connect.NewError(connect.CodeResourceExhausted, errors.New("the system is busy: its database ran out of memory and spill space; try again shortly"))
 	case errors.Is(err, admit.ErrClosed):
 		return connect.NewError(connect.CodeUnavailable, errors.New("the system's store is closing"))
 	case errors.Is(err, ErrResourceExhausted):
