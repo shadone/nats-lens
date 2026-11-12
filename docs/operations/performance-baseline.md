@@ -393,7 +393,7 @@ Measured on 2026-11-12 on the same machine with the branch `perf/spill-cap`. On 
 natslens-perf load -profile entities-6h -db <clone> -scenarios mixed -duration 60s -memory-limit 1GiB -max-temp-size 4GiB [-threads 2]
 ```
 
-`load` samples `duckdb_temporary_files()` every 250 ms and reports the peak as "peak spill"; it logs each 256 MB of growth with its time.
+`load` samples `duckdb_temporary_files()` every 250 ms and reports the peak as "peak spill"; it logs each 256 MB of growth with its time. The sample is a query on the store's pool, outside the query budget, so it adds one connection at most to the connection counts of the same report.
 
 | Scenario | Threads | `memory_limit` | Bound | Peak spill | Failed calls | Epochs lost |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -409,7 +409,7 @@ natslens-perf load -profile entities-6h -db <clone> -scenarios mixed -duration 6
 - **At the bound, whatever needs memory next fails.** In the second run 35 API calls failed, and the same load under a 4 GiB bound failed none. Two checks (`consumer-009`, `consumer-013`) failed with DuckDB's Out of Memory error, the commit of the epoch's loopback decision failed, and one archive export failed and was exported at a later tick. No epoch write failed, and the store was never marked failed. Calls like these now answer `resource_exhausted`.
 - **`preserve_insertion_order`.** Off, the spill peaked at 1,069 MB with 2 threads and 3,571 MB with 12, against 1,094 MB and 2,994 MB on: no gain, so it stays on.
 
-The default bound, twice the memory limit, is above the 1.07 times measured with the 2 threads of a 500m CPU pod, and below the whole volume. Proposed, not yet confirmed.
+The default bound is the memory limit times the reads the query budget admits plus one: twice the limit at the budget of 1 of 2 threads, above the 1.07 times measured there, and five times at the budget of 4 of 12 threads, above the 2,994 MB measured there; it is lowered to 90% of the free disk. Proposed, not yet confirmed.
 
 ## Instrumentation
 
