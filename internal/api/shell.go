@@ -67,6 +67,7 @@ func (h *Handler) GetShellStatus(ctx context.Context, req *connect.Request[v1.Ge
 		qctx, cancel := context.WithTimeout(ctx, cmp.Or(h.ShellTimeout, DefaultShellTimeout))
 		defer cancel()
 		part, err := sys.Provider.ShellStatus(qctx, m)
+		err = endedBy(qctx, err)
 		switch {
 		case ctx.Err() != nil:
 			// The caller went away or ran out of time; nothing failed here.

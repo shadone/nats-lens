@@ -115,15 +115,25 @@ func on[Req, Res any](f func(Provider, context.Context, Req) (*Res, error)) func
 }
 
 // endedBy returns err marked with the context's error when the context
-// ended: an interrupted DuckDB query returns its own error, which wraps
-// neither context.Canceled nor context.DeadlineExceeded, and would
-// otherwise answer internal. A refusal for the query budget is kept.
+// ended and err is DuckDB's interrupt of the query: duckdb-go returns its
+// own error for an interrupted query, which wraps neither
+// context.Canceled nor context.DeadlineExceeded and would answer
+// internal. Any other error keeps its code, so a real failure after the
+// deadline is still reported and logged as one.
 func endedBy(ctx context.Context, err error) error {
 	cerr := ctx.Err()
-	if cerr == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, admit.ErrOverloaded) {
+	if err == nil || cerr == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || !interrupted(err) {
 		return err
 	}
 	return fmt.Errorf("%w: %w", cerr, err)
+}
+
+// interrupted reports whether err is DuckDB's interrupt of a query. The
+// API does not depend on the DuckDB driver (the demo builds it for the
+// browser), so it reads the type from the message prefix, as duckdb-go
+// itself derives ErrorTypeInterrupt.
+func interrupted(err error) bool {
+	return strings.Contains(err.Error(), "INTERRUPT Error")
 }
 
 func (h *Handler) codeOf(procedure string, err error) error {

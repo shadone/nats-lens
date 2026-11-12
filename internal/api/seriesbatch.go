@@ -171,6 +171,7 @@ func readQuery(ctx context.Context, p Provider, batch *v1.GetTimeSeriesBatchRequ
 	if err == nil {
 		qctx, cancel := context.WithTimeout(ctx, batchQueryTimeout)
 		res, err = p.GetTimeSeries(qctx, sub)
+		err = endedBy(qctx, err)
 		cancel()
 	}
 	switch {
