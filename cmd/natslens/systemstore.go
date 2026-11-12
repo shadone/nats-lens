@@ -168,7 +168,7 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 		if ctx.Err() != nil || st.Failure() != nil {
 			return fmt.Errorf("system %s: %w", rt.sys.ID, err)
 		}
-		rt.log.Warn("asset counts not filled; the count series read the reports until a later start fills them", "err", err)
+		rt.log.Warn("asset counts not filled; the count series read the reports until the hourly retry after the retention sweep or a later start fills them", "err", err)
 	}
 	// The same for the stream samples: without them the per-stream series
 	// and growth of a range read the reports.
@@ -176,7 +176,7 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 		if ctx.Err() != nil || st.Failure() != nil {
 			return fmt.Errorf("system %s: %w", rt.sys.ID, err)
 		}
-		rt.log.Warn("stream samples not filled; the per-stream series read the reports until a later start fills them", "err", err)
+		rt.log.Warn("stream samples not filled; the per-stream series read the reports until the hourly retry after the retention sweep or a later start fills them", "err", err)
 	}
 	if err := loadInventory(ctx, rt.cfg, st, rt.log); err != nil {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)

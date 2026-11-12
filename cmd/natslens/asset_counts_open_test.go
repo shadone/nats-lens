@@ -124,7 +124,7 @@ func TestAssetCountsFilledAfterTheLimits(t *testing.T) {
 }
 
 // A fill that fails leaves the store open: the count series read the
-// reports until a later start fills them, and the other systems open as
+// reports until a retry fills them, and the other systems open as
 // usual.
 func TestAssetCountsFillFailureKeepsTheSystem(t *testing.T) {
 	ctx := context.Background()

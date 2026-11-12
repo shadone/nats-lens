@@ -83,7 +83,7 @@ func writeContext(ctx context.Context, grace time.Duration) (context.Context, co
 // nonfatal write is logged and the next epoch still runs. A typed fatal
 // stops the runner; the store refuses every later database operation.
 func (r *Runner) Run(ctx context.Context) error {
-	if err := r.sweep(ctx); store.IsFatal(err) {
+	if err := r.maintain(ctx); store.IsFatal(err) {
 		return err
 	}
 	lastSweep := time.Now()
@@ -106,7 +106,7 @@ func (r *Runner) Run(ctx context.Context) error {
 			}
 		}
 		if time.Since(lastSweep) >= SweepEvery {
-			if err := r.sweep(ctx); store.IsFatal(err) {
+			if err := r.maintain(ctx); store.IsFatal(err) {
 				return err
 			}
 			lastSweep = time.Now()
@@ -233,6 +233,35 @@ func (r *Runner) review(ctx context.Context, epoch int64) {
 		r.logger().Info("acceptance ended", "epoch", epoch, "mute", m.ID, "check", m.CheckCode,
 			"entity", m.EntityType+" "+m.EntityKey, "reason", m.EndReason)
 	}
+}
+
+// maintain runs the retention sweep, then fills the asset counts and
+// stream samples of epochs that have none. Those fills run when the
+// system's store opens; one that failed there would leave every later
+// epoch without stream samples, as an epoch gets them only when every
+// earlier one has them, so it is retried here, hourly. Each fill takes
+// the write lock per batch, so an epoch write waits for one batch at
+// most. A failed fill is logged; only a typed fatal error is returned.
+func (r *Runner) maintain(ctx context.Context) error {
+	err := r.sweep(ctx)
+	if store.IsFatal(err) || ctx.Err() != nil {
+		return err
+	}
+	for _, f := range []struct {
+		what string
+		fill func(context.Context) (int64, error)
+	}{{"asset counts", r.Store.FillAssetCounts}, {"stream samples", r.Store.FillStreamSamples}} {
+		if _, ferr := f.fill(ctx); ferr != nil {
+			ferr = store.SafeError(f.what+" fill", ferr)
+			if store.IsFatal(ferr) {
+				return ferr
+			}
+			if ctx.Err() == nil {
+				r.logger().Warn(f.what+" not filled; retried at the next sweep", "err", ferr)
+			}
+		}
+	}
+	return err
 }
 
 func (r *Runner) sweep(ctx context.Context) error {
