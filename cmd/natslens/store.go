@@ -28,17 +28,29 @@ var freeDisk = statFree
 // limits are the memory and spill bounds a store of the system opens with.
 type limits struct{ memory, spill int64 }
 
+// minSpill is the least a derived spill bound is lowered to on a nearly
+// full disk.
+const minSpill = 1 << 20
+
 // storeLimits returns the system's DuckDB memory limit and spill bound
 // for a database with threads. A derived spill bound is lowered to 90% of
-// the free space of dir's disk, DuckDB's own bound, when that is less; a
-// configured duckdb_max_temp_size is kept as it is.
-func storeLimits(cfg config.Config, threads int, dir string) limits {
+// the free space of dir's disk, DuckDB's own bound, when that is less, but
+// not below minSpill, and the lowering is logged; a configured
+// duckdb_max_temp_size is kept as it is. The free space is read once:
+// space freed later raises the bound only at the next start.
+func storeLimits(cfg config.Config, threads int, dir string, log *slog.Logger) limits {
 	l := limits{memory: cfg.DuckDBMemoryLimit(), spill: cfg.DuckDBMaxTempSizeFor(threads)}
 	if cfg.DuckDBMaxTemp > 0 {
 		return l
 	}
-	if free, err := freeDisk(dir); err == nil && free*9/10 >= 1<<20 {
-		l.spill = min(l.spill, free*9/10)
+	free, err := freeDisk(dir)
+	if err != nil {
+		return l
+	}
+	if lowered := max(minSpill, free*9/10); lowered < l.spill {
+		log.Warn("duckdb spill limit lowered to 90% of the free disk; it is raised at the next start once there is room",
+			"free_bytes", free, "derived_bytes", l.spill, "bytes", lowered)
+		l.spill = lowered
 	}
 	return l
 }
@@ -61,7 +73,7 @@ func (l limits) apply(ctx context.Context, st *store.Store) error {
 func openStore(ctx context.Context, cfg config.Config, threads int, log *slog.Logger) (*store.Store, *archive.Archiver, error) {
 	dest := archive.LocalDir{Dir: cfg.ResolvedArchiveDir()}
 	dbPath := filepath.Join(cfg.DataDir, store.FileName)
-	lim := storeLimits(cfg, threads, cfg.DataDir)
+	lim := storeLimits(cfg, threads, cfg.DataDir, log)
 	empty, err := isEmpty(ctx, dbPath, cfg.SystemID)
 	var recovery *events.Event
 	if errors.Is(err, store.ErrWALReplay) {
@@ -89,6 +101,10 @@ func openStore(ctx context.Context, cfg config.Config, threads int, log *slog.Lo
 			log.Info("new database", "archive_dir", cfg.ResolvedArchiveDir())
 		case err != nil:
 			return nil, nil, fmt.Errorf("rebuild from archive %s: %w", cfg.ResolvedArchiveDir(), err)
+		default:
+			// The rebuilt database took disk: the final store's bound
+			// reads the free space again.
+			lim = storeLimits(cfg, threads, cfg.DataDir, log)
 		}
 	}
 	st, err := store.Open(ctx, cfg.DataDir, store.WithSystem(cfg.SystemID))
