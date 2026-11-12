@@ -22,10 +22,13 @@ var accountEpochTables = []string{"micro_requests", "micro_instances", "micro_st
 // archived by epoch like epochTables, but describe no server.
 var checkTables = []string{"check_runs", "finding_transitions"}
 
-// derivedEpochTables hold one row per epoch computed from the other tables
-// as the epoch is written: they are swept by epoch but not archived, as a
-// rebuild computes them again.
-var derivedEpochTables = []string{"epoch_asset_counts"}
+// derivedEpochTables hold rows computed from the other tables as an epoch
+// is written, each with the epoch it belongs to: they are swept by epoch
+// but not archived, as a rebuild computes them again. A stream's sample
+// head whose epoch is swept goes too; the stream's next sample then has no
+// previous one, which no reader could reach anyway, as every range starts
+// at a kept epoch.
+var derivedEpochTables = []string{"epoch_asset_counts", "stream_samples", "stream_sample_epochs", "stream_sample_heads"}
 
 // hourTables hold sums per hour, filled as each epoch is written; they are
 // swept with the hours wholly before the retention window and archived by

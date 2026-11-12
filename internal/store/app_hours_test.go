@@ -218,7 +218,7 @@ func TestClientAppHoursMigrationOnAStoreWithData(t *testing.T) {
 	for _, q := range []string{`DROP TABLE client_app_hours`, `DROP TABLE notify_channels`, `DROP TABLE notify_state`,
 		`DROP TABLE notify_outbox`, `DROP TABLE notify_identity`, `DROP TABLE notify_delivery_rate`, `DROP SEQUENCE notify_outbox_seq`,
 		`DROP TABLE acknowledgements`, `DROP SEQUENCE ack_seq`, `ALTER TABLE archive_hours DROP COLUMN ack_changes`,
-		`DROP TABLE stream_source_stats`, `ALTER TABLE stream_stats DROP COLUMN source_config_known`, `DROP TABLE client_pods`, `DROP TABLE epoch_asset_counts`, `DELETE FROM migrations WHERE version >= 34`} {
+		`DROP TABLE stream_source_stats`, `ALTER TABLE stream_stats DROP COLUMN source_config_known`, `DROP TABLE client_pods`, `DROP TABLE epoch_asset_counts`, `DROP TABLE stream_samples`, `DROP TABLE stream_sample_heads`, `DROP TABLE stream_sample_epochs`, `DELETE FROM migrations WHERE version >= 34`} {
 		if _, err := s.DB().Exec(q); err != nil {
 			t.Fatalf("%s: %v", q, err)
 		}

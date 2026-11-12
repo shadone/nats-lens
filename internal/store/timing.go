@@ -158,6 +158,7 @@ const (
 	opAcceptances   = "acceptances"
 	opNotify        = "notify"
 	opAssetCounts   = "asset_counts"
+	opStreamSamples = "stream_samples"
 )
 
 // System returns the name SetSystem gave the store, or "".

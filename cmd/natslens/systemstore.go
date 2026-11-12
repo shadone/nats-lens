@@ -170,6 +170,14 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 		}
 		rt.log.Warn("asset counts not filled; the count series read the reports until a later start fills them", "err", err)
 	}
+	// The same for the stream samples: without them the per-stream series
+	// and growth of a range read the reports.
+	if _, err := fillStreamSamples(st, ctx); err != nil {
+		if ctx.Err() != nil || st.Failure() != nil {
+			return fmt.Errorf("system %s: %w", rt.sys.ID, err)
+		}
+		rt.log.Warn("stream samples not filled; the per-stream series read the reports until a later start fills them", "err", err)
+	}
 	if err := loadInventory(ctx, rt.cfg, st, rt.log); err != nil {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
 	}
@@ -179,6 +187,10 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 // fillAssetCounts fills the asset counts a store lacks; a variable so that
 // tests can see when it runs.
 var fillAssetCounts = (*store.Store).FillAssetCounts
+
+// fillStreamSamples fills the stream samples a store lacks; a variable so
+// that tests can see when it runs.
+var fillStreamSamples = (*store.Store).FillStreamSamples
 
 // openRuntime opens one system; a variable so that tests can slow it.
 var openRuntime = (*systemRuntime).open

@@ -64,6 +64,7 @@ func (s *Store) writeSnapshot(ctx context.Context, snap *collect.Snapshot) (int6
 	}
 	w.writeIdents()
 	w.writeAssetCounts()
+	w.writeStreamSamples()
 	if len(w.notes) > 0 {
 		notes := make([]string, len(w.notes))
 		for i, n := range w.notes {

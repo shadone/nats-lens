@@ -405,6 +405,10 @@ func (s *Store) Rebuild(ctx context.Context, hours map[time.Time]RebuildHour, mi
 	if _, err := fillAssetCounts(ctx, tx, nil); err != nil {
 		return err
 	}
+	// Nor are the stream samples, which are computed again in epoch order.
+	if _, err := fillStreamSamples(ctx, tx, nil); err != nil {
+		return err
+	}
 	if err := restartSequence(ctx, tx, "epoch_seq", fmt.Sprintf("SELECT greatest(coalesce(max(epoch), 0), %d) + 1 FROM epochs", min.Epoch)); err != nil {
 		return err
 	}
