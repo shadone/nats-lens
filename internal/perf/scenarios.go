@@ -83,17 +83,19 @@ func ScenarioNames() []string {
 
 // tabs runs n clients, each loading the Overview and then the other pages
 // in turn, client i starting at page i, until the scenario's duration
-// ends.
+// ends. A page started before the end loads to its last answer, as a
+// tab's would: its calls run under parent, not under the duration, so
+// that the end never shows as failed calls.
 func tabs(n int) func(context.Context, *harness, *recorder, *ScenarioResult) error {
-	return func(ctx context.Context, h *harness, rec *recorder, _ *ScenarioResult) error {
-		ctx, cancel := context.WithTimeout(ctx, h.opts.Duration)
+	return func(parent context.Context, h *harness, rec *recorder, _ *ScenarioResult) error {
+		ctx, cancel := context.WithTimeout(parent, h.opts.Duration)
 		defer cancel()
 		pages := append([]page{overviewPage(h.now, day)}, tabPages(h.now, day)...)
 		var wg sync.WaitGroup
 		for i := range n {
 			wg.Go(func() {
 				for k := i; ctx.Err() == nil; k++ {
-					h.loadPage(ctx, rec, pages[k%len(pages)])
+					h.loadPage(parent, rec, pages[k%len(pages)])
 				}
 			})
 		}
@@ -103,10 +105,11 @@ func tabs(n int) func(context.Context, *harness, *recorder, *ScenarioResult) err
 }
 
 // agents runs n agents, each alternating its batch and its contributors
-// call until the scenario's duration ends.
+// call until the scenario's duration ends; a call started before the end
+// runs to its answer, as in tabs.
 func agents(n int) func(context.Context, *harness, *recorder, *ScenarioResult) error {
-	return func(ctx context.Context, h *harness, rec *recorder, _ *ScenarioResult) error {
-		ctx, cancel := context.WithTimeout(ctx, h.opts.Duration)
+	return func(parent context.Context, h *harness, rec *recorder, _ *ScenarioResult) error {
+		ctx, cancel := context.WithTimeout(parent, h.opts.Duration)
 		defer cancel()
 		var wg sync.WaitGroup
 		for i := range n {
@@ -114,7 +117,7 @@ func agents(n int) func(context.Context, *harness, *recorder, *ScenarioResult) e
 			wg.Go(func() {
 				for k := 0; ctx.Err() == nil; k++ {
 					c := calls[k%len(calls)]
-					h.loadPage(ctx, rec, page{name: "agent " + c.proc, calls: []call{c}})
+					h.loadPage(parent, rec, page{name: "agent " + c.proc, calls: []call{c}})
 				}
 			})
 		}
@@ -125,8 +128,8 @@ func agents(n int) func(context.Context, *harness, *recorder, *ScenarioResult) e
 
 // background writes epochs and exports the archive for the scenario's
 // duration, running front (if any) at the same time.
-func (h *harness) background(ctx context.Context, res *ScenarioResult, front func(context.Context)) error {
-	ctx, cancel := context.WithTimeout(ctx, h.opts.Duration)
+func (h *harness) background(parent context.Context, res *ScenarioResult, front func(context.Context)) error {
+	ctx, cancel := context.WithTimeout(parent, h.opts.Duration)
 	defer cancel()
 	dir, cleanup, err := scratchDir()
 	if err != nil {
@@ -141,7 +144,8 @@ func (h *harness) background(ctx context.Context, res *ScenarioResult, front fun
 	var archiveErr error
 	wg.Go(func() { archived, archiveTook, archiveErr = h.archiveLoop(ctx, dir) })
 	if front != nil {
-		front(ctx)
+		// front applies the duration itself and lets its last calls finish.
+		front(parent)
 	}
 	wg.Wait()
 	res.Background = &Background{
@@ -165,6 +169,9 @@ func (h *harness) run(ctx context.Context, name string) (ScenarioResult, error) 
 	sc := scenarios[name]
 	res := ScenarioResult{Name: name, Description: sc.description, LoadBefore: loadAverage()}
 	before := snapshotTimings()
+	if g := h.st.QueryBudget(); g != nil {
+		g.TakePeak()
+	}
 	mem := startMemSampler(h.st)
 	waitsBefore := h.st.DB().Stats().WaitCount
 	rec := &recorder{}
@@ -173,6 +180,10 @@ func (h *harness) run(ctx context.Context, name string) (ScenarioResult, error) 
 	res.Elapsed = time.Since(start)
 	res.MaxHeapBytes = mem.end()
 	res.MaxBudgetActive, res.MaxBudgetQueued, res.MaxConnsOpen, res.MaxConnsInUse = mem.maxActive, mem.maxQueued, mem.maxOpen, mem.maxInUse
+	if g := h.st.QueryBudget(); g != nil {
+		// The gate counts every waiter; the sampler can miss a short peak.
+		res.MaxBudgetQueued = g.TakePeak()
+	}
 	res.ConnWaits = h.st.DB().Stats().WaitCount - waitsBefore
 	res.MaxRSSBytes = maxRSS()
 	res.LoadAfter = loadAverage()
