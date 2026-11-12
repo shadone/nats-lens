@@ -88,7 +88,7 @@ func callWithin[Req systemRequest, Res any](ctx context.Context, h *Handler, pro
 	defer cancel()
 	res, err := fn(sys, ctx, req)
 	if err != nil {
-		return nil, h.codeOf(procedure, endedBy(ctx, err))
+		return nil, h.answer(ctx, procedure, err)
 	}
 	if err := h.withEntityPageAccountNames(ctx, sys.Provider, res); err != nil {
 		return nil, h.codeOf(procedure, err)
@@ -152,6 +152,14 @@ const (
 func outOfMemory(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "Out of Memory Error") || strings.Contains(msg, "failed to offload data block")
+}
+
+// answer is the Connect error of a provider's failure in a call whose
+// context is ctx: an interrupt after ctx ended takes the context's code
+// (endedBy), then codeOf maps it. The timing interceptor maps it once more
+// for a call refused for the query budget (overloadCode).
+func (h *Handler) answer(ctx context.Context, procedure string, err error) error {
+	return h.codeOf(procedure, endedBy(ctx, err))
 }
 
 func (h *Handler) codeOf(procedure string, err error) error {
