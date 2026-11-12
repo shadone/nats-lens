@@ -52,7 +52,7 @@ FROM linked WHERE NOT head`
 
 // streamSampleHeadsSQL replaces the heads of the streams sampled in the
 // epochs from the first to the second parameter with their newest sample
-// there, and marks those epochs as sampled.
+// there.
 var streamSampleHeadsSQL = []string{
 	`DELETE FROM stream_sample_heads h
 USING (SELECT DISTINCT account, stream FROM stream_samples WHERE epoch BETWEEN $1 AND $2) n
@@ -60,9 +60,12 @@ WHERE h.account = n.account AND h.stream = n.stream`,
 	`INSERT INTO stream_sample_heads (account, stream, epoch, seq, created)
 SELECT account, stream, epoch, seq, created FROM stream_samples WHERE epoch BETWEEN $1 AND $2
 QUALIFY row_number() OVER (PARTITION BY account, stream ORDER BY epoch DESC) = 1`,
-	`INSERT INTO stream_sample_epochs (epoch)
-SELECT epoch FROM epochs WHERE epoch BETWEEN $1 AND $2 AND epoch NOT IN (SELECT epoch FROM stream_sample_epochs)`,
 }
+
+// streamSampleMarkSQL marks the epochs from the first to the second
+// parameter as sampled; its row count is the number of epochs filled.
+const streamSampleMarkSQL = `INSERT INTO stream_sample_epochs (epoch)
+SELECT epoch FROM epochs WHERE epoch BETWEEN $1 AND $2 AND epoch NOT IN (SELECT epoch FROM stream_sample_epochs)`
 
 // streamSamplesUnsampledBelow counts the epochs before the parameter
 // without samples: an epoch gets its samples only when it is 0.
@@ -103,6 +106,7 @@ func (w *writer) writeStreamSamples() {
 	for _, q := range streamSampleHeadsSQL {
 		w.exec(q, w.epoch, w.epoch)
 	}
+	w.exec(streamSampleMarkSQL, w.epoch, w.epoch)
 }
 
 // FillStreamSamples writes the stream samples of every stored epoch that
@@ -172,11 +176,16 @@ func fillStreamSampleBatch(ctx context.Context, db execQueryRower, lock func() f
 		return 0, false, fmt.Errorf("stream samples of epochs %d to %d: %w", lo.Int64, hi.Int64, err)
 	}
 	for _, q := range streamSampleHeadsSQL {
-		res, err := ex.ExecContext(ctx, q, lo.Int64, hi.Int64)
-		if err != nil {
-			return 0, false, fmt.Errorf("stream samples of epochs %d to %d: %w", lo.Int64, hi.Int64, err)
+		if _, err := ex.ExecContext(ctx, q, lo.Int64, hi.Int64); err != nil {
+			return 0, false, fmt.Errorf("stream sample heads of epochs %d to %d: %w", lo.Int64, hi.Int64, err)
 		}
-		added, _ = res.RowsAffected()
+	}
+	res, err := ex.ExecContext(ctx, streamSampleMarkSQL, lo.Int64, hi.Int64)
+	if err != nil {
+		return 0, false, fmt.Errorf("marking epochs %d to %d sampled: %w", lo.Int64, hi.Int64, err)
+	}
+	if added, err = res.RowsAffected(); err != nil {
+		return 0, false, err
 	}
 	if tx != nil {
 		if err := tx.Commit(); err != nil {
