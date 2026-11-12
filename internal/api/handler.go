@@ -88,7 +88,7 @@ func callWithin[Req systemRequest, Res any](ctx context.Context, h *Handler, pro
 	defer cancel()
 	res, err := fn(sys, ctx, req)
 	if err != nil {
-		return nil, h.codeOf(procedure, err)
+		return nil, h.codeOf(procedure, endedBy(ctx, err))
 	}
 	if err := h.withEntityPageAccountNames(ctx, sys.Provider, res); err != nil {
 		return nil, h.codeOf(procedure, err)
@@ -112,6 +112,18 @@ func callWithin[Req systemRequest, Res any](ctx context.Context, h *Handler, pro
 // to call's signature.
 func on[Req, Res any](f func(Provider, context.Context, Req) (*Res, error)) func(System, context.Context, Req) (*Res, error) {
 	return func(s System, ctx context.Context, r Req) (*Res, error) { return f(s.Provider, ctx, r) }
+}
+
+// endedBy returns err marked with the context's error when the context
+// ended: an interrupted DuckDB query returns its own error, which wraps
+// neither context.Canceled nor context.DeadlineExceeded, and would
+// otherwise answer internal. A refusal for the query budget is kept.
+func endedBy(ctx context.Context, err error) error {
+	cerr := ctx.Err()
+	if cerr == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, admit.ErrOverloaded) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", cerr, err)
 }
 
 func (h *Handler) codeOf(procedure string, err error) error {
