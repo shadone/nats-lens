@@ -8,13 +8,13 @@ require (
 	connectrpc.com/connect v1.21.1
 	github.com/duckdb/duckdb-go/v2 v2.20000.0
 	github.com/google/uuid v1.6.0
-	github.com/nats-io/jwt/v2 v2.8.2
+	github.com/nats-io/jwt/v2 v2.8.3
 	github.com/nats-io/nats-server/v2 v2.15.2
 	github.com/nats-io/nats.go v1.55.0
-	github.com/nats-io/nkeys v0.4.16
+	github.com/nats-io/nkeys v0.4.17
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/crypto v0.58.1-0.20261009181718-2f1f834330b2 // fix for GO-2026-5932, untagged; move to the first tagged release that has it
-	golang.org/x/sys v0.49.0
+	golang.org/x/sys v0.50.0
 	google.golang.org/protobuf v1.36.12
 	k8s.io/api v0.37.2
 	k8s.io/apimachinery v0.37.2
