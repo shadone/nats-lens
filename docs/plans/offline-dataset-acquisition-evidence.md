@@ -60,7 +60,7 @@ GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./internal/acquisition -c
 GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./internal/dataset ./internal/store -run '^(TestDataset|TestAcquire|TestOpenDatabase|TestOpenRejects|TestInspect|TestFingerprint|TestInvalidLatest|TestAtomicPublication|TestManifest|TestPrepared|TestZeroDuration)' -count=1 -timeout 120s -race
 TZ=America/Los_Angeles GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./internal/dataset ./internal/store -run '^(TestDataset|TestAcquire|TestOpenDatabase|TestOpenRejects|TestInspect|TestFingerprint|TestInvalidLatest|TestAtomicPublication|TestManifest|TestPrepared|TestZeroDuration)' -count=1 -timeout 120s
 GOCACHE=/private/tmp/natslens-dataset-go-cache go vet ./internal/dataset ./internal/acquisition ./cmd/natslens
-python3 /Users/denis/.codex/plugins/cache/ddenis/ddenis-core/0.4.0/skills/feature-docs/scripts/audit_feature_docs.py docs/features/ --map-refs require
+python3 <skill>/scripts/audit_feature_docs.py docs/features/ --map-refs require
 ```
 
 Dataset/store checks ran in the network-restricted sandbox. The reader disables engine external access and extension installation/loading; tests prove external-file access is refused and read-only writes fail. Unix-socket tests required the sandbox exception to bind only their private temporary sockets. No public TCP listener or NATS connection is used.
@@ -114,7 +114,7 @@ TZ=America/Los_Angeles GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./
 GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./internal/acquisition ./cmd/natslens -run '^TestAcqui' -count=1 -timeout 120s -race
 TZ=America/Los_Angeles GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./internal/dataset -run '^TestReview' -count=1 -timeout 90s -race
 GOCACHE=/private/tmp/natslens-dataset-go-cache go vet ./internal/dataset ./internal/acquisition ./cmd/natslens
-python3 /Users/denis/.codex/plugins/cache/ddenis/ddenis-core/0.4.0/skills/feature-docs/scripts/audit_feature_docs.py docs/features/ --map-refs require
+python3 <skill>/scripts/audit_feature_docs.py docs/features/ --map-refs require
 git diff --check
 ```
 

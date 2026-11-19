@@ -36,7 +36,7 @@ npx vite build --config vite.chart-range.config.ts --configLoader runner
 Feature documentation: capability, both index sections and adjacent Overview/Capacity/navigation/help docs. Audit command:
 
 ```sh
-python3 /Users/denis/.codex/plugins/cache/ddenis/ddenis-core/0.4.1/skills/feature-docs/scripts/audit_feature_docs.py docs/features/ --map-refs require
+python3 <skill>/scripts/audit_feature_docs.py docs/features/ --map-refs require
 ```
 
 No Go/API/proto/dependency or collector changes. No full Go suite is warranted for this UI-only change. Browser acceptance and fresh read-only review are recorded below after execution. The installed server and private sources remain untouched.
