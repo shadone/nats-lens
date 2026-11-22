@@ -21,7 +21,7 @@ RUN mkdir -p ../internal/webui/dist && npm run build
 # go.mod names the same Go release, in its toolchain line or, without one,
 # its go line (scripts/verify.py go-version fails when they differ); bump
 # both, and the cache ids below.
-FROM --platform=$BUILDPLATFORM golang:1.27.3-bookworm@sha256:dc0963f32053e4bc451d24d87e3892d42d01021b61f093e98eb95c0352bb84b0 AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.4-bookworm@sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea AS build
 ARG TARGETARCH
 ARG BUILDARCH
 # Bump when the native compiler/header setup changes without a base-image change.
